@@ -1,5 +1,6 @@
 "use client";
 
+import QRCode from "qrcode";
 import Image from "next/image";
 import Link from "next/link";
 import jsPDF from "jspdf";
@@ -73,52 +74,177 @@ export default function VisualizarOcorrencia() {
   }
 
   async function gerarPDF() {
-    if (!ocorrencia) return;
+  if (!ocorrencia) return;
 
-    const pdf = new jsPDF();
+  const pdf = new jsPDF();
+  const envolvidos = obterEnvolvidos();
 
-    pdf.setFontSize(16);
-    pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 20, 20);
-    pdf.text("GUARDA CIVIL MUNICIPAL", 20, 30);
+  let brasaoBase64 = "";
+  let qrCodeBase64 = "";
 
-    pdf.setFontSize(12);
-    pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 20, 50);
-    pdf.text(`Tipo: ${ocorrencia.tipo}`, 20, 60);
-    pdf.text(`Status: ${ocorrencia.status}`, 20, 70);
-    pdf.text(`Data: ${ocorrencia.data}`, 20, 80);
-    pdf.text(`Hora: ${ocorrencia.hora}`, 20, 90);
-    pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 20, 100);
-    pdf.text(`Local: ${ocorrencia.local}`, 20, 110);
-    pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 20, 120);
-    pdf.text(`Viatura: ${ocorrencia.viatura_empenhada || "-"}`, 20, 130);
+  try {
+    brasaoBase64 = await carregarImagemBase64("/brasao-gcm.png");
+  } catch {
+    console.warn("Não foi possível carregar o brasão.");
+  }
 
-    pdf.text("Equipe empenhada:", 20, 145);
-    pdf.text(
-      pdf.splitTextToSize(ocorrencia.equipe_empenhada || "Não informada.", 170),
-      20,
-      155
-    );
+  try {
+    const textoQr = `
+SIG-GCM BIRITINGA
+Protocolo: ${ocorrencia.protocolo}
+Tipo: ${ocorrencia.tipo}
+Status: ${ocorrencia.status}
+Data: ${ocorrencia.data}
+Hora: ${ocorrencia.hora}
+Local: ${ocorrencia.local}
+`;
 
-    pdf.text("Descrição:", 20, 180);
-    pdf.text(pdf.splitTextToSize(ocorrencia.descricao, 170), 20, 190);
+    qrCodeBase64 = await QRCode.toDataURL(textoQr);
+  } catch {
+    console.warn("Não foi possível gerar QR Code.");
+  }
 
-    pdf.text("__________________________________", 20, 270);
-    pdf.text("Assinatura do Guarda Responsável", 20, 278);
+  if (brasaoBase64) {
+    pdf.addImage(brasaoBase64, "PNG", 15, 10, 25, 25);
+  }
 
-    if (ocorrencia.foto_url) {
-      try {
-        const imagemBase64 = await carregarImagemBase64(ocorrencia.foto_url);
-        pdf.addPage();
-        pdf.setFontSize(16);
-        pdf.text("Foto da Ocorrência", 20, 20);
-        pdf.addImage(imagemBase64, "JPEG", 20, 35, 170, 120);
-      } catch {
-        alert("PDF gerado, mas não foi possível incluir a foto.");
-      }
+  pdf.setFontSize(16);
+  pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 105, 18, {
+    align: "center",
+  });
+
+  pdf.setFontSize(14);
+  pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
+    align: "center",
+  });
+
+  pdf.setFontSize(12);
+  pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
+    align: "center",
+  });
+
+  if (qrCodeBase64) {
+    pdf.addImage(qrCodeBase64, "PNG", 170, 10, 25, 25);
+  }
+
+  pdf.line(15, 42, 195, 42);
+
+  let y = 55;
+
+  pdf.setFontSize(12);
+  pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 15, y);
+  y += 8;
+  pdf.text(`Tipo: ${ocorrencia.tipo}`, 15, y);
+  y += 8;
+  pdf.text(`Status: ${ocorrencia.status}`, 15, y);
+  y += 8;
+  pdf.text(`Data/Hora: ${ocorrencia.data} às ${ocorrencia.hora}`, 15, y);
+  y += 8;
+  pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 15, y);
+  y += 8;
+  pdf.text(`Local: ${ocorrencia.local}`, 15, y);
+  y += 8;
+  pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 15, y);
+  y += 12;
+
+  if (ocorrencia.latitude && ocorrencia.longitude) {
+    pdf.text(`Latitude: ${ocorrencia.latitude}`, 15, y);
+    y += 8;
+    pdf.text(`Longitude: ${ocorrencia.longitude}`, 15, y);
+    y += 12;
+  }
+
+  pdf.setFontSize(14);
+  pdf.text("VIATURA EMPENHADA", 15, y);
+  y += 8;
+
+  pdf.setFontSize(12);
+  pdf.text(ocorrencia.viatura_empenhada || "Não informada", 15, y);
+  y += 14;
+
+  pdf.setFontSize(14);
+  pdf.text("EQUIPE EMPENHADA", 15, y);
+  y += 8;
+
+  pdf.setFontSize(12);
+  const equipe = pdf.splitTextToSize(
+    ocorrencia.equipe_empenhada || "Equipe não informada.",
+    170
+  );
+  pdf.text(equipe, 15, y);
+  y += equipe.length * 7 + 10;
+
+  pdf.setFontSize(14);
+  pdf.text("DESCRIÇÃO DOS FATOS", 15, y);
+  y += 8;
+
+  pdf.setFontSize(12);
+  const descricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
+  pdf.text(descricao, 15, y);
+  y += descricao.length * 7 + 10;
+
+  if (envolvidos.length > 0) {
+    if (y > 220) {
+      pdf.addPage();
+      y = 20;
     }
 
-    pdf.save(`${ocorrencia.protocolo}.pdf`);
+    pdf.setFontSize(14);
+    pdf.text("ENVOLVIDOS", 15, y);
+    y += 10;
+
+    pdf.setFontSize(11);
+
+    envolvidos.forEach((pessoa, index) => {
+      if (y > 250) {
+        pdf.addPage();
+        y = 20;
+      }
+
+      pdf.text(`${index + 1}. ${pessoa.nome || "Sem nome"}`, 15, y);
+      y += 7;
+      pdf.text(`Tipo: ${pessoa.tipo || "-"}`, 20, y);
+      y += 7;
+      pdf.text(`Documento: ${pessoa.documento || "-"}`, 20, y);
+      y += 7;
+      pdf.text(`Telefone: ${pessoa.telefone || "-"}`, 20, y);
+      y += 7;
+      pdf.text(`Endereço: ${pessoa.endereco || "-"}`, 20, y);
+      y += 10;
+    });
   }
+
+  pdf.line(15, 265, 90, 265);
+  pdf.text("Guarda Responsável", 15, 273);
+
+  pdf.line(110, 265, 190, 265);
+  pdf.text("Supervisor", 110, 273);
+
+  if (ocorrencia.foto_url) {
+    try {
+      const imagemBase64 = await carregarImagemBase64(ocorrencia.foto_url);
+
+      pdf.addPage();
+
+      if (brasaoBase64) {
+        pdf.addImage(brasaoBase64, "PNG", 15, 10, 22, 22);
+      }
+
+      pdf.setFontSize(16);
+      pdf.text("ANEXO FOTOGRÁFICO", 105, 22, {
+        align: "center",
+      });
+
+      pdf.line(15, 35, 195, 35);
+
+      pdf.addImage(imagemBase64, "JPEG", 15, 45, 180, 120);
+    } catch {
+      alert("PDF gerado, mas não foi possível incluir a foto.");
+    }
+  }
+
+  pdf.save(`RELATORIO-${ocorrencia.protocolo}.pdf`);
+}
 
   async function carregarImagemBase64(url: string): Promise<string> {
     const resposta = await fetch(url);
