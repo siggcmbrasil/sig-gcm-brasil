@@ -12,6 +12,14 @@ type Guarda = {
   status: string;
 };
 
+type Viatura = {
+  id: number;
+  prefixo: string;
+  modelo: string;
+  placa: string;
+  status: string;
+};
+
 type Envolvido = {
   nome: string;
   documento: string;
@@ -25,6 +33,7 @@ export default function NovaOcorrencia() {
   const router = useRouter();
 
   const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
   const [guardasSelecionados, setGuardasSelecionados] = useState<string[]>([]);
 
   const [tipo, setTipo] = useState("");
@@ -62,6 +71,22 @@ export default function NovaOcorrencia() {
     }
 
     setGuardas(data || []);
+  }
+
+  async function carregarViaturas() {
+    const { data, error } = await supabase
+      .from("viaturas")
+      .select("id, prefixo, modelo, placa, status")
+      .in("status", ["Operacional", "Reserva"])
+      .order("prefixo", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar viaturas.");
+      return;
+    }
+
+    setViaturas(data || []);
   }
 
   function selecionarGuarda(nome: string) {
@@ -187,6 +212,7 @@ export default function NovaOcorrencia() {
 
   useEffect(() => {
     carregarGuardas();
+    carregarViaturas();
   }, []);
 
   return (
@@ -251,21 +277,33 @@ export default function NovaOcorrencia() {
 
           <div>
             <label className="label">Viatura empenhada</label>
-            <input
+
+            <select
               className="input"
               value={viaturaEmpenhada}
               onChange={(e) => setViaturaEmpenhada(e.target.value)}
-              placeholder="Ex: VTR-01"
-            />
+            >
+              <option value="">Selecione uma viatura</option>
+
+              {viaturas.map((viatura) => (
+                <option key={viatura.id} value={viatura.prefixo}>
+                  {viatura.prefixo} • {viatura.modelo} • {viatura.status}
+                </option>
+              ))}
+            </select>
+
+            {viaturas.length === 0 && (
+              <p className="text-sm text-yellow-400 mt-2">
+                Nenhuma viatura operacional ou reserva cadastrada.
+              </p>
+            )}
           </div>
 
           <div>
             <label className="label">Selecionar guardas</label>
 
             {guardas.length === 0 ? (
-              <p className="text-slate-400">
-                Nenhum guarda cadastrado.
-              </p>
+              <p className="text-slate-400">Nenhum guarda cadastrado.</p>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {guardas.map((guarda) => (
@@ -285,9 +323,7 @@ export default function NovaOcorrencia() {
                       <p className="text-sm text-slate-400">
                         {guarda.matricula} • {guarda.cargo}
                       </p>
-                      <p className="text-xs text-blue-400">
-                        {guarda.status}
-                      </p>
+                      <p className="text-xs text-blue-400">{guarda.status}</p>
                     </div>
                   </label>
                 ))}
@@ -342,7 +378,9 @@ export default function NovaOcorrencia() {
                   <Campo
                     label="Nome completo"
                     valor={pessoa.nome}
-                    setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
+                    setValor={(valor) =>
+                      atualizarEnvolvido(index, "nome", valor)
+                    }
                     placeholder="Nome do envolvido"
                   />
 
