@@ -2,111 +2,160 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function Sidebar() {
+  const [aberto, setAberto] = useState(false);
+
   async function sair() {
     await supabase.auth.signOut();
     localStorage.removeItem("usuarioLogado");
     window.location.href = "/login";
   }
 
+  function fecharMenu() {
+    setAberto(false);
+  }
+
   return (
-    <aside className="w-full md:w-72 md:min-h-screen bg-[#020b1c] border-r border-slate-800 text-white flex flex-col">
-      <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
-        <Image
-          src="/brasao-gcm.png"
-          alt="Brasão GCM Biritinga"
-          width={70}
-          height={70}
-          style={{ width: "70px", height: "auto" }}
-          priority
-        />
-
-        <div>
-          <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
-
-          <p className="text-xs text-slate-400">
-            Sistema Integrado da Guarda Civil Municipal
-          </p>
-        </div>
-      </div>
-
-      <nav className="p-4 space-y-2 md:flex-1">
-        <Link href="/sistema" className="menu-item bg-blue-600">
-          Dashboard
-        </Link>
-
-        <Link href="/sistema/ocorrencias" className="menu-item">
-          Ocorrências
-        </Link>
-
-        <Link href="/sistema/chamados" className="menu-item">
-          Chamados
-        </Link>
-
-        <Link href="/sistema/patrulhamento" className="menu-item">
-          Patrulhamento
-        </Link>
-
-        <Link href="/sistema/veiculos" className="menu-item">
-          Veículos
-        </Link>
-
-        <Link href="/sistema/pessoas" className="menu-item">
-          Pessoas
-        </Link>
-
-        <Link href="/sistema/guardas" className="menu-item">
-          Guardas
-        </Link>
-
-        <Link href="/sistema/escalas" className="menu-item">
-          Escalas
-        </Link>
-
-        <Link href="/sistema/viatura" className="menu-item">
-          Viatura
-        </Link>
-
-        <Link href="/sistema/mapa" className="menu-item">
-          Mapa
-        </Link>
-
-        <Link href="/sistema/relatorios" className="menu-item">
-          Relatórios
-        </Link>
-
-        <Link href="/sistema/configuracoes" className="menu-item">
-          Configurações
-        </Link>
-      </nav>
-
-      <div className="p-4 border-t border-slate-800">
-        <div className="flex gap-3 items-center mb-4">
+    <>
+      <div className="md:hidden bg-[#020b1c] border-b border-slate-800 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <Image
             src="/brasao-gcm.png"
-            alt="GCM Biritinga"
-            width={50}
-            height={50}
-            style={{ width: "50px", height: "auto" }}
+            alt="Brasão GCM Biritinga"
+            width={48}
+            height={48}
+            style={{ width: "48px", height: "auto" }}
+            priority
           />
 
           <div>
-            <p className="font-semibold">GCM Biritinga</p>
-            <p className="text-xs text-slate-400">Servir e Proteger</p>
-            <p className="text-xs text-slate-500">Biritinga - Bahia</p>
+            <h1 className="font-bold text-white">SIG-GCM</h1>
+            <p className="text-xs text-slate-400">Biritinga - BA</p>
           </div>
         </div>
 
         <button
           type="button"
-          onClick={sair}
-          className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
+          onClick={() => setAberto(!aberto)}
+          className="bg-blue-700 px-4 py-3 rounded-xl text-white font-bold"
         >
-          Sair do Sistema
+          ☰ Menu
         </button>
       </div>
-    </aside>
+
+      {aberto && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          onClick={fecharMenu}
+        />
+      )}
+
+      <aside
+        className={`
+          bg-[#020b1c] border-r border-slate-800 text-white flex flex-col z-50
+          fixed md:static top-0 left-0 h-full md:h-auto
+          w-80 md:w-72 md:min-h-screen
+          transition-transform duration-300
+          ${aberto ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+        `}
+      >
+        <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
+          <Image
+            src="/brasao-gcm.png"
+            alt="Brasão GCM Biritinga"
+            width={70}
+            height={70}
+            style={{ width: "70px", height: "auto" }}
+            priority
+          />
+
+          <div>
+            <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
+            <p className="text-xs text-slate-400">
+              Sistema Integrado da Guarda Civil Municipal
+            </p>
+          </div>
+        </div>
+
+        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
+          <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
+            Dashboard
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
+            Ocorrências
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
+            Chamados
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
+            Patrulhamento
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
+            Veículos
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
+            Pessoas
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
+            Guardas
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
+            Escalas
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
+            Viatura
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
+            Mapa
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
+            Relatórios
+          </Link>
+
+          <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
+            Configurações
+          </Link>
+        </nav>
+
+        <div className="p-4 border-t border-slate-800">
+          <div className="flex gap-3 items-center mb-4">
+            <Image
+              src="/brasao-gcm.png"
+              alt="GCM Biritinga"
+              width={50}
+              height={50}
+              style={{ width: "50px", height: "auto" }}
+            />
+
+            <div>
+              <p className="font-semibold">GCM Biritinga</p>
+              <p className="text-xs text-slate-400">Servir e Proteger</p>
+              <p className="text-xs text-slate-500">Biritinga - Bahia</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={sair}
+            className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
+          >
+            Sair do Sistema
+          </button>
+        </div>
+      </aside>
+    </>
   );
 }
