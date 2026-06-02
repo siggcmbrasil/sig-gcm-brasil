@@ -117,6 +117,10 @@ export default function Sidebar() {
             </Link>
           )}
 
+          <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
+  Arquivo Histórico
+</Link>
+
           {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
             <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
               Chamados
