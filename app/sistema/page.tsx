@@ -93,63 +93,147 @@ export default function Dashboard() {
   const ultimaOcorrencia = ocorrencias[0];
 
   return (
-    <div className="p-6">
-      <header className="flex justify-between items-center border-b border-slate-800 pb-5 mb-6">
+    <div className="p-3 md:p-6 pb-24">
+      <header className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Dashboard Operacional</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl md:text-3xl font-bold">
+            Dashboard Operacional
+          </h1>
+
+          <p className="text-slate-400 text-sm md:text-base">
             Visão geral da Guarda Civil Municipal de Biritinga.
           </p>
         </div>
 
         <Link
           href="/sistema/ocorrencias/nova"
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-semibold"
+          className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
         >
           + Nova Ocorrência
         </Link>
       </header>
 
       {carregando ? (
-        <p className="text-slate-400">Carregando painel...</p>
+        <p className="text-slate-400 text-lg">Carregando painel...</p>
       ) : (
         <>
-          <section className="grid grid-cols-5 gap-4 mb-6">
-            <Card titulo="Ocorrências Hoje" valor={String(ocorrenciasHoje)} detalhe="Registradas hoje" />
-            <Card titulo="Ocorrências Abertas" valor={String(abertas)} detalhe="Aguardando andamento" />
-            <Card titulo="Em Andamento" valor={String(andamento)} detalhe="Atendimento ativo" />
-            <Card titulo="Guardas em Serviço" valor={String(guardasServico)} detalhe={`Folga: ${guardasFolga}`} />
-            <Card titulo="Viatura" valor={viatura ? "1" : "0"} detalhe={viatura?.status || "Não cadastrada"} />
+          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+            <Card
+              titulo="Ocorrências Hoje"
+              valor={String(ocorrenciasHoje)}
+              detalhe="Registradas hoje"
+            />
+
+            <Card
+              titulo="Ocorrências Abertas"
+              valor={String(abertas)}
+              detalhe="Aguardando andamento"
+            />
+
+            <Card
+              titulo="Em Andamento"
+              valor={String(andamento)}
+              detalhe="Atendimento ativo"
+            />
+
+            <Card
+              titulo="Guardas em Serviço"
+              valor={String(guardasServico)}
+              detalhe={`Folga: ${guardasFolga}`}
+            />
+
+            <Card
+              titulo="Viatura"
+              valor={viatura ? "1" : "0"}
+              detalhe={viatura?.status || "Não cadastrada"}
+            />
           </section>
 
-          <section className="grid grid-cols-3 gap-4">
-            <div className="card col-span-2">
-              <h2 className="text-xl font-bold mb-4">Resumo Operacional</h2>
+          <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="card xl:col-span-2">
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Ações Rápidas
+              </h2>
 
-              <div className="grid grid-cols-3 gap-4">
-                <Resumo titulo="Total de ocorrências" valor={ocorrencias.length} />
-                <Resumo titulo="Finalizadas" valor={finalizadas} />
-                <Resumo titulo="Efetivo cadastrado" valor={guardas.length} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+                <Atalho
+                  href="/sistema/ocorrencias/nova"
+                  titulo="Nova Ocorrência"
+                  descricao="Registrar ocorrência com foto"
+                />
+
+                <Atalho
+                  href="/sistema/chamados"
+                  titulo="Novo Chamado"
+                  descricao="Abrir chamado operacional"
+                />
+
+                <Atalho
+                  href="/sistema/patrulhamento"
+                  titulo="Patrulhamento"
+                  descricao="Registrar ronda da VTR"
+                />
+
+                <Atalho
+                  href="/sistema/mapa"
+                  titulo="Mapa Operacional"
+                  descricao="Visualizar área da cidade"
+                />
               </div>
 
-              <div className="mt-6 h-64 rounded-xl bg-slate-200 text-slate-900 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-2xl font-bold">Biritinga - BA</p>
-                  <p>Mapa resumido da operação</p>
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Resumo Operacional
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Resumo
+                  titulo="Total de ocorrências"
+                  valor={ocorrencias.length}
+                />
+
+                <Resumo
+                  titulo="Finalizadas"
+                  valor={finalizadas}
+                />
+
+                <Resumo
+                  titulo="Efetivo cadastrado"
+                  valor={guardas.length}
+                />
+              </div>
+
+              <div className="mt-6 h-52 md:h-64 rounded-xl bg-slate-200 text-slate-900 flex items-center justify-center">
+                <div className="text-center px-4">
+                  <p className="text-2xl font-bold">
+                    Biritinga - BA
+                  </p>
+
+                  <p>
+                    Mapa resumido da operação
+                  </p>
+
+                  <Link
+                    href="/sistema/mapa"
+                    className="inline-block mt-4 bg-blue-700 text-white px-4 py-3 rounded-xl"
+                  >
+                    Abrir mapa
+                  </Link>
                 </div>
               </div>
             </div>
 
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Última Ocorrência</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Última Ocorrência
+              </h2>
 
               {ultimaOcorrencia ? (
                 <div className="space-y-3">
-                  <p className="text-blue-400 font-semibold">
+                  <p className="text-blue-400 font-semibold text-lg">
                     {ultimaOcorrencia.protocolo}
                   </p>
 
-                  <h3 className="text-lg font-bold">
+                  <h3 className="text-xl font-bold">
                     {ultimaOcorrencia.tipo}
                   </h3>
 
@@ -165,7 +249,7 @@ export default function Dashboard() {
 
                   <Link
                     href={`/sistema/ocorrencias/${ultimaOcorrencia.id}`}
-                    className="block text-center bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-lg mt-4"
+                    className="block text-center bg-blue-700 hover:bg-blue-800 px-4 py-3 rounded-lg mt-4"
                   >
                     Ver ocorrência
                   </Link>
@@ -178,7 +262,9 @@ export default function Dashboard() {
             </div>
 
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Status da Viatura</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Status da Viatura
+              </h2>
 
               <div className="flex justify-center mb-4">
                 <Image
@@ -186,7 +272,7 @@ export default function Dashboard() {
                   alt="Viatura GCM Biritinga"
                   width={360}
                   height={220}
-                  className="rounded-xl object-contain"
+                  className="rounded-xl object-contain w-full max-w-sm"
                   priority
                 />
               </div>
@@ -208,15 +294,25 @@ export default function Dashboard() {
             </div>
 
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Avisos Operacionais</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Avisos Operacionais
+              </h2>
 
               {avisos.length === 0 ? (
-                <p className="text-slate-400">Nenhum aviso cadastrado.</p>
+                <p className="text-slate-400">
+                  Nenhum aviso cadastrado.
+                </p>
               ) : (
                 <div className="space-y-4">
                   {avisos.slice(0, 3).map((aviso) => (
-                    <div key={aviso.id} className="border-b border-slate-800 pb-3">
-                      <h3 className="font-bold">{aviso.titulo}</h3>
+                    <div
+                      key={aviso.id}
+                      className="border-b border-slate-800 pb-3"
+                    >
+                      <h3 className="font-bold text-lg">
+                        {aviso.titulo}
+                      </h3>
+
                       <p className="text-slate-400 text-sm">
                         {aviso.descricao}
                       </p>
@@ -227,22 +323,36 @@ export default function Dashboard() {
             </div>
 
             <div className="card">
-              <h2 className="text-xl font-bold mb-4">Atalhos</h2>
+              <h2 className="text-xl md:text-2xl font-bold mb-4">
+                Atalhos
+              </h2>
 
               <div className="space-y-3">
-                <Link className="menu-item bg-slate-800" href="/sistema/ocorrencias">
+                <Link
+                  className="menu-item bg-slate-800"
+                  href="/sistema/ocorrencias"
+                >
                   Ocorrências
                 </Link>
 
-                <Link className="menu-item bg-slate-800" href="/sistema/guardas">
-                  Guardas
+                <Link
+                  className="menu-item bg-slate-800"
+                  href="/sistema/chamados"
+                >
+                  Chamados
                 </Link>
 
-                <Link className="menu-item bg-slate-800" href="/sistema/viatura">
-                  Viatura
+                <Link
+                  className="menu-item bg-slate-800"
+                  href="/sistema/patrulhamento"
+                >
+                  Patrulhamento
                 </Link>
 
-                <Link className="menu-item bg-slate-800" href="/sistema/mapa">
+                <Link
+                  className="menu-item bg-slate-800"
+                  href="/sistema/mapa"
+                >
                   Mapa Operacional
                 </Link>
               </div>
@@ -250,6 +360,13 @@ export default function Dashboard() {
           </section>
         </>
       )}
+
+      <Link
+        href="/sistema/ocorrencias/nova"
+        className="fixed bottom-6 right-6 md:hidden bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center text-4xl shadow-xl z-50"
+      >
+        +
+      </Link>
     </div>
   );
 }
@@ -265,32 +382,91 @@ function Card({
 }) {
   return (
     <div className="card">
-      <p className="text-slate-300">{titulo}</p>
-      <h2 className="text-4xl font-bold my-2">{valor}</h2>
-      <p className="text-blue-400 text-sm">{detalhe}</p>
+      <p className="text-slate-300 text-base">
+        {titulo}
+      </p>
+
+      <h2 className="text-5xl md:text-4xl font-bold my-2">
+        {valor}
+      </h2>
+
+      <p className="text-blue-400 text-base md:text-sm">
+        {detalhe}
+      </p>
     </div>
   );
 }
 
-function Resumo({ titulo, valor }: { titulo: string; valor: number }) {
+function Resumo({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: number;
+}) {
   return (
     <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
-      <p className="text-slate-400 text-sm">{titulo}</p>
-      <h3 className="text-3xl font-bold">{valor}</h3>
+      <p className="text-slate-400 text-base md:text-sm">
+        {titulo}
+      </p>
+
+      <h3 className="text-4xl md:text-3xl font-bold">
+        {valor}
+      </h3>
     </div>
   );
 }
 
-function Linha({ nome, valor }: { nome: string; valor: string }) {
+function Atalho({
+  href,
+  titulo,
+  descricao,
+}: {
+  href: string;
+  titulo: string;
+  descricao: string;
+}) {
   return (
-    <div className="flex justify-between border-b border-slate-800 pb-2">
-      <span className="text-slate-400">{nome}</span>
-      <span>{valor}</span>
+    <Link
+      href={href}
+      className="bg-blue-700 hover:bg-blue-800 rounded-xl p-5 block"
+    >
+      <h3 className="text-xl font-bold">
+        {titulo}
+      </h3>
+
+      <p className="text-blue-100 text-sm mt-1">
+        {descricao}
+      </p>
+    </Link>
+  );
+}
+
+function Linha({
+  nome,
+  valor,
+}: {
+  nome: string;
+  valor: string;
+}) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2 text-base">
+      <span className="text-slate-400">
+        {nome}
+      </span>
+
+      <span className="text-right">
+        {valor}
+      </span>
     </div>
   );
 }
 
-function Status({ status }: { status: string }) {
+function Status({
+  status,
+}: {
+  status: string;
+}) {
   let cor = "bg-blue-700 text-blue-100";
 
   if (status === "Aberta") cor = "bg-yellow-600 text-yellow-100";
@@ -298,7 +474,7 @@ function Status({ status }: { status: string }) {
   if (status === "Finalizada") cor = "bg-green-700 text-green-100";
 
   return (
-    <span className={`${cor} px-3 py-1 rounded text-xs`}>
+    <span className={`${cor} px-3 py-2 rounded text-sm inline-block`}>
       {status}
     </span>
   );
