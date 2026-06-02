@@ -25,6 +25,9 @@ export default function NovaOcorrencia() {
   const [foto, setFoto] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
 
+  const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
+  const [equipeEmpenhada, setEquipeEmpenhada] = useState("");
+
   const [envolvidos, setEnvolvidos] = useState<Envolvido[]>([
     {
       nome: "",
@@ -66,8 +69,7 @@ export default function NovaOcorrencia() {
       return;
     }
 
-    const novaLista = envolvidos.filter((_, i) => i !== index);
-    setEnvolvidos(novaLista);
+    setEnvolvidos(envolvidos.filter((_, i) => i !== index));
   }
 
   async function salvarOcorrencia() {
@@ -128,6 +130,8 @@ export default function NovaOcorrencia() {
         envolvidos: JSON.stringify(envolvidosValidos),
         descricao,
         foto_url: fotoUrl,
+        viatura_empenhada: viaturaEmpenhada,
+        equipe_empenhada: equipeEmpenhada,
       },
     ]);
 
@@ -162,27 +166,27 @@ export default function NovaOcorrencia() {
               onChange={(e) => setTipo(e.target.value)}
             >
               <option value="">Selecione</option>
-<option value="Perturbação do sossego">Perturbação do sossego</option>
-<option value="Apoio ao cidadão">Apoio ao cidadão</option>
-<option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
-<option value="Apoio a outro órgão">Apoio a outro órgão</option>
-<option value="Fiscalização">Fiscalização</option>
-<option value="Acidente">Acidente</option>
-<option value="Conselho Tutelar">Conselho Tutelar</option>
-<option value="CAPS">CAPS</option>
-<option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
-<option value="Apoio em evento cultural">Apoio em evento cultural</option>
-<option value="Apoio em evento religioso">Apoio em evento religioso</option>
-<option value="Ronda escolar">Ronda escolar</option>
-<option value="Apoio à escola">Apoio à escola</option>
-<option value="Apoio à saúde">Apoio à saúde</option>
-<option value="Apoio ao CRAS">Apoio ao CRAS</option>
-<option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
-<option value="Averiguação de denúncia">Averiguação de denúncia</option>
-<option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
-<option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
-<option value="Orientação ao público">Orientação ao público</option>
-<option value="Outro">Outro</option>
+              <option value="Perturbação do sossego">Perturbação do sossego</option>
+              <option value="Apoio ao cidadão">Apoio ao cidadão</option>
+              <option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
+              <option value="Apoio a outro órgão">Apoio a outro órgão</option>
+              <option value="Fiscalização">Fiscalização</option>
+              <option value="Acidente">Acidente</option>
+              <option value="Conselho Tutelar">Conselho Tutelar</option>
+              <option value="CAPS">CAPS</option>
+              <option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
+              <option value="Apoio em evento cultural">Apoio em evento cultural</option>
+              <option value="Apoio em evento religioso">Apoio em evento religioso</option>
+              <option value="Ronda escolar">Ronda escolar</option>
+              <option value="Apoio à escola">Apoio à escola</option>
+              <option value="Apoio à saúde">Apoio à saúde</option>
+              <option value="Apoio ao CRAS">Apoio ao CRAS</option>
+              <option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
+              <option value="Averiguação de denúncia">Averiguação de denúncia</option>
+              <option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
+              <option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
+              <option value="Orientação ao público">Orientação ao público</option>
+              <option value="Outro">Outro</option>
             </select>
           </div>
 
@@ -200,27 +204,32 @@ export default function NovaOcorrencia() {
           </div>
         </div>
 
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-6">
+          <div>
+            <label className="label">Viatura empenhada</label>
+            <input
+              className="input"
+              value={viaturaEmpenhada}
+              onChange={(e) => setViaturaEmpenhada(e.target.value)}
+              placeholder="Ex: VTR-01"
+            />
+          </div>
+
+          <div>
+            <label className="label">Equipe empenhada</label>
+            <textarea
+              className="input h-28 resize-none"
+              value={equipeEmpenhada}
+              onChange={(e) => setEquipeEmpenhada(e.target.value)}
+              placeholder={"Ex:\nGCM João\nGCM Maria\nGCM Pedro"}
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Campo
-            label="Bairro"
-            valor={bairro}
-            setValor={setBairro}
-            placeholder="Ex: Centro"
-          />
-
-          <Campo
-            label="Rua / Local"
-            valor={local}
-            setValor={setLocal}
-            placeholder="Ex: Rua da Paz"
-          />
-
-          <Campo
-            label="Número"
-            valor={numero}
-            setValor={setNumero}
-            placeholder="S/N"
-          />
+          <Campo label="Bairro" valor={bairro} setValor={setBairro} placeholder="Ex: Centro" />
+          <Campo label="Rua / Local" valor={local} setValor={setLocal} placeholder="Ex: Rua da Paz" />
+          <Campo label="Número" valor={numero} setValor={setNumero} placeholder="S/N" />
         </div>
 
         <div className="border-t border-slate-800 pt-6">
@@ -248,9 +257,7 @@ export default function NovaOcorrencia() {
                 className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-4"
               >
                 <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg">
-                    Envolvido {index + 1}
-                  </h3>
+                  <h3 className="font-bold text-lg">Envolvido {index + 1}</h3>
 
                   <button
                     type="button"
@@ -262,41 +269,30 @@ export default function NovaOcorrencia() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Nome completo</label>
-                    <input
-                      className="input"
-                      value={pessoa.nome}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "nome", e.target.value)
-                      }
-                      placeholder="Nome do envolvido"
-                    />
-                  </div>
+                  <Campo
+                    label="Nome completo"
+                    valor={pessoa.nome}
+                    setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
+                    placeholder="Nome do envolvido"
+                  />
 
-                  <div>
-                    <label className="label">Documento</label>
-                    <input
-                      className="input"
-                      value={pessoa.documento}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "documento", e.target.value)
-                      }
-                      placeholder="RG, CPF ou outro"
-                    />
-                  </div>
+                  <Campo
+                    label="Documento"
+                    valor={pessoa.documento}
+                    setValor={(valor) =>
+                      atualizarEnvolvido(index, "documento", valor)
+                    }
+                    placeholder="RG, CPF ou outro"
+                  />
 
-                  <div>
-                    <label className="label">Telefone</label>
-                    <input
-                      className="input"
-                      value={pessoa.telefone}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "telefone", e.target.value)
-                      }
-                      placeholder="(75) 99999-9999"
-                    />
-                  </div>
+                  <Campo
+                    label="Telefone"
+                    valor={pessoa.telefone}
+                    setValor={(valor) =>
+                      atualizarEnvolvido(index, "telefone", valor)
+                    }
+                    placeholder="(75) 99999-9999"
+                  />
 
                   <div>
                     <label className="label">Tipo de envolvimento</label>
@@ -317,12 +313,11 @@ export default function NovaOcorrencia() {
                   </div>
 
                   <div className="md:col-span-2">
-                    <label className="label">Endereço</label>
-                    <input
-                      className="input"
-                      value={pessoa.endereco}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "endereco", e.target.value)
+                    <Campo
+                      label="Endereço"
+                      valor={pessoa.endereco}
+                      setValor={(valor) =>
+                        atualizarEnvolvido(index, "endereco", valor)
                       }
                       placeholder="Endereço do envolvido"
                     />
