@@ -18,6 +18,8 @@ type Pessoa = {
 
 export default function PessoasAbordadas() {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+  const [busca, setBusca] = useState("");
+
   const [nome, setNome] = useState("");
   const [documento, setDocumento] = useState("");
   const [nascimento, setNascimento] = useState("");
@@ -27,6 +29,7 @@ export default function PessoasAbordadas() {
   const [hora, setHora] = useState("");
   const [guarda, setGuarda] = useState("");
   const [observacao, setObservacao] = useState("");
+
   const [carregando, setCarregando] = useState(true);
 
   async function carregarPessoas() {
@@ -112,155 +115,322 @@ export default function PessoasAbordadas() {
     carregarPessoas();
   }, []);
 
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const pessoasFiltradas = pessoas.filter((pessoa) => {
+    const texto = `
+      ${pessoa.nome}
+      ${pessoa.documento || ""}
+      ${pessoa.endereco || ""}
+      ${pessoa.local}
+      ${pessoa.data}
+      ${pessoa.hora}
+      ${pessoa.guarda || ""}
+      ${pessoa.observacao || ""}
+    `.toLowerCase();
+
+    return texto.includes(busca.toLowerCase());
+  });
+
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-bold">Pessoas Abordadas</h1>
-        <p className="text-slate-400">
+        <h1 className="text-2xl md:text-3xl font-bold">
+          Pessoas Abordadas
+        </h1>
+
+        <p className="text-slate-400 text-sm md:text-base">
           Registro de abordagens realizadas pela GCM Biritinga.
         </p>
       </header>
 
-      <section className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card">
-          <p className="text-slate-400">Total de abordagens</p>
-          <h2 className="text-4xl font-bold">{pessoas.length}</h2>
-        </div>
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card titulo="Total" valor={pessoas.length} />
 
-        <div className="card">
-          <p className="text-slate-400">Hoje</p>
-          <h2 className="text-4xl font-bold">
-            {
-              pessoas.filter(
-                (p) => p.data === new Date().toISOString().split("T")[0]
-              ).length
-            }
-          </h2>
-        </div>
+        <Card
+          titulo="Hoje"
+          valor={pessoas.filter((p) => p.data === hoje).length}
+        />
+
+        <Card
+          titulo="Com documento"
+          valor={pessoas.filter((p) => p.documento).length}
+        />
+
+        <Card
+          titulo="Sem documento"
+          valor={pessoas.filter((p) => !p.documento).length}
+        />
       </section>
 
-      <section className="grid grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">Nova Abordagem</h2>
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
+            Nova Abordagem
+          </h2>
 
           <div className="space-y-4">
-            <input
-              className="input"
-              placeholder="Nome completo"
-              value={nome}
-              onChange={(e) => setNome(e.target.value)}
+            <Campo
+              label="Nome completo"
+              valor={nome}
+              setValor={setNome}
+              placeholder="Nome da pessoa"
             />
 
-            <input
-              className="input"
-              placeholder="Documento"
-              value={documento}
-              onChange={(e) => setDocumento(e.target.value)}
+            <Campo
+              label="Documento"
+              valor={documento}
+              setValor={setDocumento}
+              placeholder="CPF, RG ou outro"
             />
 
-            <input
-              type="date"
-              className="input"
-              value={nascimento}
-              onChange={(e) => setNascimento(e.target.value)}
+            <div>
+              <label className="label">Data de nascimento</label>
+              <input
+                type="date"
+                className="input"
+                value={nascimento}
+                onChange={(e) => setNascimento(e.target.value)}
+              />
+            </div>
+
+            <Campo
+              label="Endereço"
+              valor={endereco}
+              setValor={setEndereco}
+              placeholder="Endereço informado"
             />
 
-            <input
-              className="input"
-              placeholder="Endereço"
-              value={endereco}
-              onChange={(e) => setEndereco(e.target.value)}
+            <Campo
+              label="Local da abordagem"
+              valor={local}
+              setValor={setLocal}
+              placeholder="Ex: Praça Principal"
             />
 
-            <input
-              className="input"
-              placeholder="Local da abordagem"
-              value={local}
-              onChange={(e) => setLocal(e.target.value)}
+            <div>
+              <label className="label">Data</label>
+              <input
+                type="date"
+                className="input"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label className="label">Hora</label>
+              <input
+                type="time"
+                className="input"
+                value={hora}
+                onChange={(e) => setHora(e.target.value)}
+              />
+            </div>
+
+            <Campo
+              label="Guarda responsável"
+              valor={guarda}
+              setValor={setGuarda}
+              placeholder="Nome do guarda"
             />
 
-            <input
-              type="date"
-              className="input"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-            />
-
-            <input
-              type="time"
-              className="input"
-              value={hora}
-              onChange={(e) => setHora(e.target.value)}
-            />
-
-            <input
-              className="input"
-              placeholder="Guarda responsável"
-              value={guarda}
-              onChange={(e) => setGuarda(e.target.value)}
-            />
-
-            <textarea
-              className="input h-28 resize-none"
-              placeholder="Observação"
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-            />
+            <div>
+              <label className="label">Observação</label>
+              <textarea
+                className="input h-32 resize-none"
+                placeholder="Observações da abordagem"
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+              />
+            </div>
 
             <button
               type="button"
               onClick={salvarPessoa}
-              className="btn-primary w-full"
+              className="btn-primary w-full text-lg"
             >
               Registrar Pessoa
             </button>
           </div>
         </div>
 
-        <div className="card col-span-2">
-          <h2 className="text-xl font-bold mb-4">Pessoas Registradas</h2>
+        <div className="card xl:col-span-2">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
+            Pessoas Registradas
+          </h2>
+
+          <div className="mb-5">
+            <label className="label">Buscar pessoa</label>
+            <input
+              className="input"
+              placeholder="Buscar por nome, documento, local, guarda..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
           {carregando ? (
-            <p className="text-slate-400">Carregando...</p>
-          ) : pessoas.length === 0 ? (
-            <p className="text-slate-400">Nenhuma pessoa registrada.</p>
+            <p className="text-slate-400">Carregando pessoas...</p>
+          ) : pessoasFiltradas.length === 0 ? (
+            <p className="text-slate-400">Nenhuma pessoa encontrada.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-700 text-slate-400">
-                <tr>
-                  <th className="text-left py-3">Nome</th>
-                  <th className="text-left py-3">Documento</th>
-                  <th className="text-left py-3">Local</th>
-                  <th className="text-left py-3">Data</th>
-                  <th className="text-right py-3">Ações</th>
-                </tr>
-              </thead>
+            <>
+              <div className="md:hidden space-y-4">
+                {pessoasFiltradas.map((pessoa) => (
+                  <div
+                    key={pessoa.id}
+                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
+                  >
+                    <div>
+                      <p className="text-blue-400 font-semibold">
+                        {pessoa.documento || "Sem documento"}
+                      </p>
 
-              <tbody>
-                {pessoas.map((pessoa) => (
-                  <tr key={pessoa.id} className="border-b border-slate-800">
-                    <td className="py-4 text-blue-400 font-semibold">
-                      {pessoa.nome}
-                    </td>
-                    <td>{pessoa.documento || "-"}</td>
-                    <td className="text-slate-400">{pessoa.local}</td>
-                    <td>{pessoa.data}</td>
-                    <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => excluirPessoa(pessoa.id)}
-                        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
+                      <h3 className="text-xl font-bold">
+                        {pessoa.nome}
+                      </h3>
+                    </div>
+
+                    <div className="text-slate-300 space-y-1">
+                      <p>
+                        <span className="text-slate-500">Nascimento: </span>
+                        {pessoa.nascimento || "-"}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Endereço: </span>
+                        {pessoa.endereco || "-"}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Local: </span>
+                        {pessoa.local}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Data/Hora: </span>
+                        {pessoa.data} às {pessoa.hora}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Guarda: </span>
+                        {pessoa.guarda || "-"}
+                      </p>
+
+                      {pessoa.observacao && (
+                        <p className="pt-2 text-slate-400">
+                          {pessoa.observacao}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => excluirPessoa(pessoa.id)}
+                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-slate-700 text-slate-400">
+                    <tr>
+                      <th className="text-left py-3">Nome</th>
+                      <th className="text-left py-3">Documento</th>
+                      <th className="text-left py-3">Local</th>
+                      <th className="text-left py-3">Data</th>
+                      <th className="text-left py-3">Guarda</th>
+                      <th className="text-right py-3">Ações</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {pessoasFiltradas.map((pessoa) => (
+                      <tr key={pessoa.id} className="border-b border-slate-800">
+                        <td className="py-4 text-blue-400 font-semibold">
+                          {pessoa.nome}
+                        </td>
+
+                        <td>{pessoa.documento || "-"}</td>
+
+                        <td className="text-slate-400">
+                          {pessoa.local}
+                        </td>
+
+                        <td>{pessoa.data}</td>
+
+                        <td className="text-slate-400">
+                          {pessoa.guarda || "-"}
+                        </td>
+
+                        <td className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => excluirPessoa(pessoa.id)}
+                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Excluir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  valor,
+  setValor,
+  placeholder,
+}: {
+  label: string;
+  valor: string;
+  setValor: (valor: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+
+      <input
+        className="input"
+        placeholder={placeholder}
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+      />
+    </div>
+  );
+}
+
+function Card({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: number;
+}) {
+  return (
+    <div className="card min-h-32 flex flex-col justify-center">
+      <p className="text-slate-400 text-lg md:text-base">
+        {titulo}
+      </p>
+
+      <h2 className="text-5xl md:text-4xl font-bold">
+        {valor}
+      </h2>
     </div>
   );
 }
