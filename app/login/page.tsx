@@ -49,13 +49,11 @@ export default function Login() {
     <div className="min-h-screen bg-[#061426] flex items-center justify-center p-6">
       <div className="w-full max-w-md card">
         <div className="flex flex-col items-center mb-6">
-          <Image
-            src="/brasao-gcm.png"
-            alt="Brasão GCM Biritinga"
-            width={110}
-            height={110}
-            priority
-          />
+          <img
+  src="/brasao-gcm-v2.png"
+  alt="Brasão GCM Biritinga"
+  className="w-16 h-16 object-contain"
+/>
 
           <h1 className="text-2xl font-bold mt-4">SIG-GCM Biritinga</h1>
 

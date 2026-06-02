@@ -22,14 +22,11 @@ export default function Sidebar() {
     <>
       <div className="md:hidden bg-[#020b1c] border-b border-slate-800 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <Image
-            src="/brasao-gcm.png"
-            alt="Brasão GCM Biritinga"
-            width={48}
-            height={48}
-            style={{ width: "48px", height: "auto" }}
-            priority
-          />
+          <img
+  src="/brasao-gcm-v2.png"
+  alt="Brasão GCM Biritinga"
+  className="w-12 h-12 object-contain"
+/>
 
           <div>
             <h1 className="font-bold text-white">SIG-GCM</h1>
@@ -64,13 +61,12 @@ export default function Sidebar() {
       >
         <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
           <Image
-            src="/brasao-gcm.png"
-            alt="Brasão GCM Biritinga"
-            width={70}
-            height={70}
-            style={{ width: "70px", height: "auto" }}
-            priority
-          />
+  src="/brasao-gcm-v2.png"
+  alt="Brasão GCM Biritinga"
+  width={48}
+  height={48}
+  priority
+/>
 
           <div>
             <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
@@ -117,6 +113,10 @@ export default function Sidebar() {
             Viatura
           </Link>
 
+          <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
+            Equipamentos
+          </Link>
+
           <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
             Mapa
           </Link>
@@ -137,12 +137,12 @@ export default function Sidebar() {
         <div className="p-4 border-t border-slate-800">
           <div className="flex gap-3 items-center mb-4">
             <Image
-              src="/brasao-gcm.png"
-              alt="GCM Biritinga"
-              width={50}
-              height={50}
-              style={{ width: "50px", height: "auto" }}
-            />
+  src="/brasao-gcm-v2.png"
+  alt="Brasão GCM Biritinga"
+  width={48}
+  height={48}
+  priority
+/>
 
             <div>
               <p className="font-semibold">GCM Biritinga</p>

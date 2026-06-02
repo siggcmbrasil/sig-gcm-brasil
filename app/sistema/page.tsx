@@ -96,14 +96,18 @@ export default function Dashboard() {
     <div className="p-3 md:p-6 pb-24">
       <header className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">
-            Dashboard Operacional
-          </h1>
+          <h1 className="text-3xl md:text-4xl font-bold">
+  🚔 Central Operacional GCM Biritinga
+</h1>
 
           <p className="text-slate-400 text-sm md:text-base">
             Visão geral da Guarda Civil Municipal de Biritinga.
           </p>
         </div>
+
+        <p className="text-green-400 text-sm mt-2">
+  Sistema Online • Operacional 24h
+</p>
 
         <Link
           href="/sistema/ocorrencias/nova"
@@ -117,7 +121,25 @@ export default function Dashboard() {
         <p className="text-slate-400 text-lg">Carregando painel...</p>
       ) : (
         <>
-         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6"> 
+         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6"> 
+            <Card
+             titulo="Finalizadas"
+             valor={String(finalizadas)}
+             detalhe="Ocorrências concluídas"
+             />
+
+            <Card
+            titulo="Total de Guardas"
+            valor={String(guardas.length)}
+            detalhe="Efetivo cadastrado"
+            />
+
+            <Card
+                titulo="Avisos"
+            valor={String(avisos.length)}
+            detalhe="Comunicados ativos"
+             />
+            
             <Card
               titulo="Ocorrências Hoje"
               valor={String(ocorrenciasHoje)}
@@ -147,6 +169,24 @@ export default function Dashboard() {
               valor={viatura ? "1" : "0"}
               detalhe={viatura?.status || "Não cadastrada"}
             />
+
+            <Card
+  titulo="Finalizadas"
+  valor={String(finalizadas)}
+  detalhe="Ocorrências concluídas"
+/>
+
+<Card
+  titulo="Total Guardas"
+  valor={String(guardas.length)}
+  detalhe="Efetivo cadastrado"
+/>
+
+<Card
+  titulo="Avisos"
+  valor={String(avisos.length)}
+  detalhe="Comunicados ativos"
+/>
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -184,6 +224,28 @@ export default function Dashboard() {
               <h2 className="text-xl md:text-2xl font-bold mb-4">
                 Resumo Operacional
               </h2>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+  <div className="bg-green-900/30 border border-green-700 rounded-xl p-4">
+    <p className="text-green-400 text-sm">Finalizadas</p>
+    <h3 className="text-3xl font-bold">{finalizadas}</h3>
+  </div>
+
+  <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
+    <p className="text-yellow-400 text-sm">Abertas</p>
+    <h3 className="text-3xl font-bold">{abertas}</h3>
+  </div>
+
+  <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
+    <p className="text-blue-400 text-sm">Em Serviço</p>
+    <h3 className="text-3xl font-bold">{guardasServico}</h3>
+  </div>
+
+  <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
+    <p className="text-red-400 text-sm">Folga</p>
+    <h3 className="text-3xl font-bold">{guardasFolga}</h3>
+  </div>
+</div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <Resumo
@@ -241,6 +303,12 @@ export default function Dashboard() {
                     {ultimaOcorrencia.local}
                   </p>
 
+                  {ultimaOcorrencia.bairro && (
+  <p className="text-slate-500">
+    Bairro: {ultimaOcorrencia.bairro}
+  </p>
+)}
+
                   <p className="text-slate-500 text-sm">
                     {ultimaOcorrencia.data} às {ultimaOcorrencia.hora}
                   </p>
@@ -272,7 +340,7 @@ export default function Dashboard() {
                   alt="Viatura GCM Biritinga"
                   width={360}
                   height={220}
-                  className="rounded-xl object-contain w-full max-w-sm"
+                  className="rounded-xl object-contain w-full h-auto max-w-sm"
                   priority
                 />
               </div>

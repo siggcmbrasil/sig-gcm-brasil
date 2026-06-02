@@ -110,7 +110,7 @@ export default function VisualizarOcorrencia() {
     let qrCodeBase64 = "";
 
     try {
-      brasaoBase64 = await carregarImagemBase64("/brasao-gcm.png");
+      brasaoBase64 = await carregarImagemBase64("/brasao-gcm-v2.png");
     } catch {
       console.warn("Não foi possível carregar o brasão.");
     }
@@ -434,7 +434,7 @@ Local: ${ocorrencia.local}
                     alt={`Foto ${index + 1} da ocorrência`}
                     width={900}
                     height={600}
-                    className="rounded-xl object-contain w-full"
+                    className="rounded-xl object-contain w-full h-auto max-w-sm"
                   />
                 </div>
               ))}

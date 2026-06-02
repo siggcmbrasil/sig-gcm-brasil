@@ -148,7 +148,7 @@ export default function Viatura() {
               alt="Viatura GCM Biritinga"
               width={420}
               height={260}
-              className="rounded-xl object-contain w-full max-w-sm"
+              className="rounded-xl object-contain w-full h-auto max-w-sm"
               priority
             />
           </div>
