@@ -17,6 +17,8 @@ type Chamado = {
 
 export default function Chamados() {
   const [chamados, setChamados] = useState<Chamado[]>([]);
+  const [busca, setBusca] = useState("");
+
   const [solicitante, setSolicitante] = useState("");
   const [telefone, setTelefone] = useState("");
   const [tipo, setTipo] = useState("");
@@ -24,6 +26,7 @@ export default function Chamados() {
   const [prioridade, setPrioridade] = useState("Normal");
   const [status, setStatus] = useState("Aberto");
   const [observacao, setObservacao] = useState("");
+
   const [carregando, setCarregando] = useState(true);
 
   async function carregarChamados() {
@@ -87,9 +90,13 @@ export default function Chamados() {
 
   async function excluirChamado(id: number) {
     const confirmar = confirm("Deseja excluir este chamado?");
+
     if (!confirmar) return;
 
-    const { error } = await supabase.from("chamados").delete().eq("id", id);
+    const { error } = await supabase
+      .from("chamados")
+      .delete()
+      .eq("id", id);
 
     if (error) {
       console.error(error);
@@ -104,174 +111,296 @@ export default function Chamados() {
     carregarChamados();
   }, []);
 
+  const chamadosFiltrados = chamados.filter((chamado) => {
+    const texto = `
+      ${chamado.protocolo}
+      ${chamado.solicitante}
+      ${chamado.telefone || ""}
+      ${chamado.tipo}
+      ${chamado.local}
+      ${chamado.prioridade}
+      ${chamado.status}
+    `.toLowerCase();
+
+    return texto.includes(busca.toLowerCase());
+  });
+
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-bold">Chamados</h1>
-        <p className="text-slate-400">
+        <h1 className="text-2xl md:text-3xl font-bold">
+          Chamados
+        </h1>
+
+        <p className="text-slate-400 text-sm md:text-base">
           Central de atendimento e despacho da GCM Biritinga.
         </p>
       </header>
 
-      <section className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card">
-          <p className="text-slate-400">Total de chamados</p>
-          <h2 className="text-4xl font-bold">{chamados.length}</h2>
-        </div>
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card titulo="Total" valor={chamados.length} />
 
-        <div className="card">
-          <p className="text-slate-400">Abertos</p>
-          <h2 className="text-4xl font-bold">
-            {chamados.filter((c) => c.status === "Aberto").length}
-          </h2>
-        </div>
+        <Card
+          titulo="Abertos"
+          valor={chamados.filter((c) => c.status === "Aberto").length}
+        />
 
-        <div className="card">
-          <p className="text-slate-400">Em atendimento</p>
-          <h2 className="text-4xl font-bold">
-            {chamados.filter((c) => c.status === "Em atendimento").length}
-          </h2>
-        </div>
+        <Card
+          titulo="Em atendimento"
+          valor={chamados.filter((c) => c.status === "Em atendimento").length}
+        />
 
-        <div className="card">
-          <p className="text-slate-400">Urgentes</p>
-          <h2 className="text-4xl font-bold">
-            {chamados.filter((c) => c.prioridade === "Urgente").length}
-          </h2>
-        </div>
+        <Card
+          titulo="Urgentes"
+          valor={chamados.filter((c) => c.prioridade === "Urgente").length}
+        />
       </section>
 
-      <section className="grid grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">Novo Chamado</h2>
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
+            Novo Chamado
+          </h2>
 
           <div className="space-y-4">
-            <input
-              className="input"
-              placeholder="Solicitante"
-              value={solicitante}
-              onChange={(e) => setSolicitante(e.target.value)}
-            />
+            <div>
+              <label className="label">Solicitante</label>
+              <input
+                className="input"
+                placeholder="Nome do solicitante"
+                value={solicitante}
+                onChange={(e) => setSolicitante(e.target.value)}
+              />
+            </div>
 
-            <input
-              className="input"
-              placeholder="Telefone"
-              value={telefone}
-              onChange={(e) => setTelefone(e.target.value)}
-            />
+            <div>
+              <label className="label">Telefone</label>
+              <input
+                className="input"
+                placeholder="(75) 99999-9999"
+                value={telefone}
+                onChange={(e) => setTelefone(e.target.value)}
+              />
+            </div>
 
-            <select
-              className="input"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-            >
-              <option value="">Tipo do chamado</option>
-              <option>Perturbação do sossego</option>
-              <option>Apoio ao cidadão</option>
-              <option>Fiscalização</option>
-              <option>Ronda preventiva</option>
-              <option>Acidente</option>
-              <option>Outro</option>
-            </select>
+            <div>
+              <label className="label">Tipo do chamado</label>
+              <select
+                className="input"
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
+              >
+                <option value="">Selecione</option>
+                <option value="Perturbação do sossego">Perturbação do sossego</option>
+                <option value="Apoio ao cidadão">Apoio ao cidadão</option>
+                <option value="Fiscalização">Fiscalização</option>
+                <option value="Ronda preventiva">Ronda preventiva</option>
+                <option value="Acidente">Acidente</option>
+                <option value="Conselho Tutelar">Conselho Tutelar</option>
+                <option value="CAPS">CAPS</option>
+                <option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
+                <option value="Apoio em evento cultural">Apoio em evento cultural</option>
+                <option value="Apoio em evento religioso">Apoio em evento religioso</option>
+                <option value="Apoio à saúde">Apoio à saúde</option>
+                <option value="Averiguação de denúncia">Averiguação de denúncia</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
 
-            <input
-              className="input"
-              placeholder="Local"
-              value={local}
-              onChange={(e) => setLocal(e.target.value)}
-            />
+            <div>
+              <label className="label">Local</label>
+              <input
+                className="input"
+                placeholder="Local do chamado"
+                value={local}
+                onChange={(e) => setLocal(e.target.value)}
+              />
+            </div>
 
-            <select
-              className="input"
-              value={prioridade}
-              onChange={(e) => setPrioridade(e.target.value)}
-            >
-              <option>Baixa</option>
-              <option>Normal</option>
-              <option>Urgente</option>
-            </select>
+            <div>
+              <label className="label">Prioridade</label>
+              <select
+                className="input"
+                value={prioridade}
+                onChange={(e) => setPrioridade(e.target.value)}
+              >
+                <option>Baixa</option>
+                <option>Normal</option>
+                <option>Urgente</option>
+              </select>
+            </div>
 
-            <select
-              className="input"
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-            >
-              <option>Aberto</option>
-              <option>Em atendimento</option>
-              <option>Finalizado</option>
-            </select>
+            <div>
+              <label className="label">Status</label>
+              <select
+                className="input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option>Aberto</option>
+                <option>Em atendimento</option>
+                <option>Finalizado</option>
+              </select>
+            </div>
 
-            <textarea
-              className="input h-28 resize-none"
-              placeholder="Observação"
-              value={observacao}
-              onChange={(e) => setObservacao(e.target.value)}
-            />
+            <div>
+              <label className="label">Observação</label>
+              <textarea
+                className="input h-32 resize-none"
+                placeholder="Detalhes do chamado"
+                value={observacao}
+                onChange={(e) => setObservacao(e.target.value)}
+              />
+            </div>
 
             <button
               type="button"
               onClick={salvarChamado}
-              className="btn-primary w-full"
+              className="btn-primary w-full text-lg"
             >
               Registrar Chamado
             </button>
           </div>
         </div>
 
-        <div className="card col-span-2">
-          <h2 className="text-xl font-bold mb-4">Chamados Registrados</h2>
+        <div className="card xl:col-span-2">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
+            Chamados Registrados
+          </h2>
+
+          <div className="mb-5">
+            <label className="label">Buscar chamado</label>
+            <input
+              className="input"
+              placeholder="Buscar por protocolo, solicitante, tipo, local..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
           {carregando ? (
             <p className="text-slate-400">Carregando chamados...</p>
-          ) : chamados.length === 0 ? (
-            <p className="text-slate-400">Nenhum chamado registrado.</p>
+          ) : chamadosFiltrados.length === 0 ? (
+            <p className="text-slate-400">Nenhum chamado encontrado.</p>
           ) : (
-            <table className="w-full text-sm">
-              <thead className="border-b border-slate-700 text-slate-400">
-                <tr>
-                  <th className="text-left py-3">Protocolo</th>
-                  <th className="text-left py-3">Solicitante</th>
-                  <th className="text-left py-3">Tipo</th>
-                  <th className="text-left py-3">Prioridade</th>
-                  <th className="text-left py-3">Status</th>
-                  <th className="text-right py-3">Ações</th>
-                </tr>
-              </thead>
+            <>
+              <div className="md:hidden space-y-4">
+                {chamadosFiltrados.map((chamado) => (
+                  <div
+                    key={chamado.id}
+                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
+                  >
+                    <div className="flex justify-between gap-3 items-start">
+                      <div>
+                        <p className="text-blue-400 font-semibold">
+                          {chamado.protocolo}
+                        </p>
 
-              <tbody>
-                {chamados.map((chamado) => (
-                  <tr key={chamado.id} className="border-b border-slate-800">
-                    <td className="py-4 text-blue-400 font-semibold">
-                      {chamado.protocolo}
-                    </td>
+                        <h3 className="text-xl font-bold">
+                          {chamado.tipo}
+                        </h3>
+                      </div>
 
-                    <td>{chamado.solicitante}</td>
-                    <td className="text-slate-400">{chamado.tipo}</td>
-
-                    <td>
                       <Prioridade prioridade={chamado.prioridade} />
-                    </td>
+                    </div>
 
-                    <td>
-                      <Status status={chamado.status} />
-                    </td>
+                    <div className="text-slate-300 space-y-1">
+                      <p>
+                        <span className="text-slate-500">Solicitante: </span>
+                        {chamado.solicitante}
+                      </p>
 
-                    <td className="text-right">
-                      <button
-                        type="button"
-                        onClick={() => excluirChamado(chamado.id)}
-                        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                      >
-                        Excluir
-                      </button>
-                    </td>
-                  </tr>
+                      <p>
+                        <span className="text-slate-500">Telefone: </span>
+                        {chamado.telefone || "-"}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Local: </span>
+                        {chamado.local}
+                      </p>
+
+                      <p>
+                        <span className="text-slate-500">Status: </span>
+                        <Status status={chamado.status} />
+                      </p>
+
+                      {chamado.observacao && (
+                        <p className="pt-2 text-slate-400">
+                          {chamado.observacao}
+                        </p>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => excluirChamado(chamado.id)}
+                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Excluir
+                    </button>
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              <div className="hidden md:block overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="border-b border-slate-700 text-slate-400">
+                    <tr>
+                      <th className="text-left py-3">Protocolo</th>
+                      <th className="text-left py-3">Solicitante</th>
+                      <th className="text-left py-3">Tipo</th>
+                      <th className="text-left py-3">Prioridade</th>
+                      <th className="text-left py-3">Status</th>
+                      <th className="text-right py-3">Ações</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {chamadosFiltrados.map((chamado) => (
+                      <tr key={chamado.id} className="border-b border-slate-800">
+                        <td className="py-4 text-blue-400 font-semibold">
+                          {chamado.protocolo}
+                        </td>
+
+                        <td>{chamado.solicitante}</td>
+                        <td className="text-slate-400">{chamado.tipo}</td>
+
+                        <td>
+                          <Prioridade prioridade={chamado.prioridade} />
+                        </td>
+
+                        <td>
+                          <Status status={chamado.status} />
+                        </td>
+
+                        <td className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => excluirChamado(chamado.id)}
+                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Excluir
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function Card({ titulo, valor }: { titulo: string; valor: number }) {
+  return (
+    <div className="card min-h-32 flex flex-col justify-center">
+      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
+      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
     </div>
   );
 }
@@ -283,7 +412,11 @@ function Prioridade({ prioridade }: { prioridade: string }) {
   if (prioridade === "Normal") cor = "bg-blue-700 text-blue-100";
   if (prioridade === "Urgente") cor = "bg-red-700 text-red-100";
 
-  return <span className={`${cor} px-3 py-1 rounded text-xs`}>{prioridade}</span>;
+  return (
+    <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>
+      {prioridade}
+    </span>
+  );
 }
 
 function Status({ status }: { status: string }) {
@@ -293,5 +426,9 @@ function Status({ status }: { status: string }) {
   if (status === "Em atendimento") cor = "bg-blue-700 text-blue-100";
   if (status === "Finalizado") cor = "bg-green-700 text-green-100";
 
-  return <span className={`${cor} px-3 py-1 rounded text-xs`}>{status}</span>;
+  return (
+    <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>
+      {status}
+    </span>
+  );
 }
