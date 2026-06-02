@@ -117,7 +117,7 @@ export default function Dashboard() {
         <p className="text-slate-400 text-lg">Carregando painel...</p>
       ) : (
         <>
-          <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-6">
+         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 mb-6"> 
             <Card
               titulo="Ocorrências Hoje"
               valor={String(ocorrenciasHoje)}
@@ -149,7 +149,7 @@ export default function Dashboard() {
             />
           </section>
 
-          <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+          <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="card xl:col-span-2">
               <h2 className="text-xl md:text-2xl font-bold mb-4">
                 Ações Rápidas
@@ -381,12 +381,12 @@ function Card({
   detalhe: string;
 }) {
   return (
-    <div className="card">
-      <p className="text-slate-300 text-base">
+    <div className="card min-h-40 flex flex-col justify-center">
+      <p className="text-slate-300 text-lg md:text-base">
         {titulo}
       </p>
 
-      <h2 className="text-5xl md:text-4xl font-bold my-2">
+      <h2 className="text-6xl md:text-4xl font-bold my-2">
         {valor}
       </h2>
 
