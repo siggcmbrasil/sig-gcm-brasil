@@ -124,6 +124,10 @@ export default function Sidebar() {
           <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
             Relatórios
           </Link>
+          
+          <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
+            Abastecimentos
+          </Link>
 
           <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
             Configurações

@@ -1,9 +1,9 @@
 "use client";
 
-import QRCode from "qrcode";
 import Image from "next/image";
 import Link from "next/link";
 import jsPDF from "jspdf";
+import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -30,6 +30,7 @@ type Ocorrencia = {
   envolvidos: string | null;
   descricao: string;
   foto_url: string | null;
+  fotos_urls: string | null;
   latitude: string | null;
   longitude: string | null;
   viatura_empenhada: string | null;
@@ -73,23 +74,49 @@ export default function VisualizarOcorrencia() {
     }
   }
 
-  async function gerarPDF() {
-  if (!ocorrencia) return;
+  function obterFotos(): string[] {
+    if (!ocorrencia) return [];
 
-  const pdf = new jsPDF();
-  const envolvidos = obterEnvolvidos();
+    const fotos: string[] = [];
 
-  let brasaoBase64 = "";
-  let qrCodeBase64 = "";
+    if (ocorrencia.fotos_urls) {
+      try {
+        const dados = JSON.parse(ocorrencia.fotos_urls);
+        if (Array.isArray(dados)) {
+          dados.forEach((url) => {
+            if (url && typeof url === "string") fotos.push(url);
+          });
+        }
+      } catch {
+        // ignora erro de JSON antigo
+      }
+    }
 
-  try {
-    brasaoBase64 = await carregarImagemBase64("/brasao-gcm.png");
-  } catch {
-    console.warn("Não foi possível carregar o brasão.");
+    if (ocorrencia.foto_url && !fotos.includes(ocorrencia.foto_url)) {
+      fotos.unshift(ocorrencia.foto_url);
+    }
+
+    return fotos;
   }
 
-  try {
-    const textoQr = `
+  async function gerarPDF() {
+    if (!ocorrencia) return;
+
+    const pdf = new jsPDF();
+    const envolvidos = obterEnvolvidos();
+    const fotos = obterFotos();
+
+    let brasaoBase64 = "";
+    let qrCodeBase64 = "";
+
+    try {
+      brasaoBase64 = await carregarImagemBase64("/brasao-gcm.png");
+    } catch {
+      console.warn("Não foi possível carregar o brasão.");
+    }
+
+    try {
+      const textoQr = `
 SIG-GCM BIRITINGA
 Protocolo: ${ocorrencia.protocolo}
 Tipo: ${ocorrencia.tipo}
@@ -99,152 +126,154 @@ Hora: ${ocorrencia.hora}
 Local: ${ocorrencia.local}
 `;
 
-    qrCodeBase64 = await QRCode.toDataURL(textoQr);
-  } catch {
-    console.warn("Não foi possível gerar QR Code.");
-  }
+      qrCodeBase64 = await QRCode.toDataURL(textoQr);
+    } catch {
+      console.warn("Não foi possível gerar QR Code.");
+    }
 
-  if (brasaoBase64) {
-    pdf.addImage(brasaoBase64, "PNG", 15, 10, 25, 25);
-  }
+    if (brasaoBase64) {
+      pdf.addImage(brasaoBase64, "PNG", 15, 10, 25, 25);
+    }
 
-  pdf.setFontSize(16);
-  pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 105, 18, {
-    align: "center",
-  });
+    pdf.setFontSize(16);
+    pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 105, 18, {
+      align: "center",
+    });
 
-  pdf.setFontSize(14);
-  pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
-    align: "center",
-  });
+    pdf.setFontSize(14);
+    pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
+      align: "center",
+    });
 
-  pdf.setFontSize(12);
-  pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
-    align: "center",
-  });
+    pdf.setFontSize(12);
+    pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
+      align: "center",
+    });
 
-  if (qrCodeBase64) {
-    pdf.addImage(qrCodeBase64, "PNG", 170, 10, 25, 25);
-  }
+    if (qrCodeBase64) {
+      pdf.addImage(qrCodeBase64, "PNG", 170, 10, 25, 25);
+    }
 
-  pdf.line(15, 42, 195, 42);
+    pdf.line(15, 42, 195, 42);
 
-  let y = 55;
+    let y = 55;
 
-  pdf.setFontSize(12);
-  pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 15, y);
-  y += 8;
-  pdf.text(`Tipo: ${ocorrencia.tipo}`, 15, y);
-  y += 8;
-  pdf.text(`Status: ${ocorrencia.status}`, 15, y);
-  y += 8;
-  pdf.text(`Data/Hora: ${ocorrencia.data} às ${ocorrencia.hora}`, 15, y);
-  y += 8;
-  pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 15, y);
-  y += 8;
-  pdf.text(`Local: ${ocorrencia.local}`, 15, y);
-  y += 8;
-  pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 15, y);
-  y += 12;
-
-  if (ocorrencia.latitude && ocorrencia.longitude) {
-    pdf.text(`Latitude: ${ocorrencia.latitude}`, 15, y);
+    pdf.setFontSize(12);
+    pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 15, y);
     y += 8;
-    pdf.text(`Longitude: ${ocorrencia.longitude}`, 15, y);
+    pdf.text(`Tipo: ${ocorrencia.tipo}`, 15, y);
+    y += 8;
+    pdf.text(`Status: ${ocorrencia.status}`, 15, y);
+    y += 8;
+    pdf.text(`Data/Hora: ${ocorrencia.data} às ${ocorrencia.hora}`, 15, y);
+    y += 8;
+    pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 15, y);
+    y += 8;
+    pdf.text(`Local: ${ocorrencia.local}`, 15, y);
+    y += 8;
+    pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 15, y);
     y += 12;
-  }
 
-  pdf.setFontSize(14);
-  pdf.text("VIATURA EMPENHADA", 15, y);
-  y += 8;
-
-  pdf.setFontSize(12);
-  pdf.text(ocorrencia.viatura_empenhada || "Não informada", 15, y);
-  y += 14;
-
-  pdf.setFontSize(14);
-  pdf.text("EQUIPE EMPENHADA", 15, y);
-  y += 8;
-
-  pdf.setFontSize(12);
-  const equipe = pdf.splitTextToSize(
-    ocorrencia.equipe_empenhada || "Equipe não informada.",
-    170
-  );
-  pdf.text(equipe, 15, y);
-  y += equipe.length * 7 + 10;
-
-  pdf.setFontSize(14);
-  pdf.text("DESCRIÇÃO DOS FATOS", 15, y);
-  y += 8;
-
-  pdf.setFontSize(12);
-  const descricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
-  pdf.text(descricao, 15, y);
-  y += descricao.length * 7 + 10;
-
-  if (envolvidos.length > 0) {
-    if (y > 220) {
-      pdf.addPage();
-      y = 20;
+    if (ocorrencia.latitude && ocorrencia.longitude) {
+      pdf.text(`Latitude: ${ocorrencia.latitude}`, 15, y);
+      y += 8;
+      pdf.text(`Longitude: ${ocorrencia.longitude}`, 15, y);
+      y += 12;
     }
 
     pdf.setFontSize(14);
-    pdf.text("ENVOLVIDOS", 15, y);
-    y += 10;
+    pdf.text("VIATURA EMPENHADA", 15, y);
+    y += 8;
 
-    pdf.setFontSize(11);
+    pdf.setFontSize(12);
+    pdf.text(ocorrencia.viatura_empenhada || "Não informada", 15, y);
+    y += 14;
 
-    envolvidos.forEach((pessoa, index) => {
-      if (y > 250) {
+    pdf.setFontSize(14);
+    pdf.text("EQUIPE EMPENHADA", 15, y);
+    y += 8;
+
+    pdf.setFontSize(12);
+    const equipe = pdf.splitTextToSize(
+      ocorrencia.equipe_empenhada || "Equipe não informada.",
+      170
+    );
+
+    pdf.text(equipe, 15, y);
+    y += equipe.length * 7 + 10;
+
+    pdf.setFontSize(14);
+    pdf.text("DESCRIÇÃO DOS FATOS", 15, y);
+    y += 8;
+
+    pdf.setFontSize(12);
+    const descricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
+    pdf.text(descricao, 15, y);
+    y += descricao.length * 7 + 10;
+
+    if (envolvidos.length > 0) {
+      if (y > 220) {
         pdf.addPage();
         y = 20;
       }
 
-      pdf.text(`${index + 1}. ${pessoa.nome || "Sem nome"}`, 15, y);
-      y += 7;
-      pdf.text(`Tipo: ${pessoa.tipo || "-"}`, 20, y);
-      y += 7;
-      pdf.text(`Documento: ${pessoa.documento || "-"}`, 20, y);
-      y += 7;
-      pdf.text(`Telefone: ${pessoa.telefone || "-"}`, 20, y);
-      y += 7;
-      pdf.text(`Endereço: ${pessoa.endereco || "-"}`, 20, y);
+      pdf.setFontSize(14);
+      pdf.text("ENVOLVIDOS", 15, y);
       y += 10;
-    });
-  }
 
-  pdf.line(15, 265, 90, 265);
-  pdf.text("Guarda Responsável", 15, 273);
+      pdf.setFontSize(11);
 
-  pdf.line(110, 265, 190, 265);
-  pdf.text("Supervisor", 110, 273);
+      envolvidos.forEach((pessoa, index) => {
+        if (y > 250) {
+          pdf.addPage();
+          y = 20;
+        }
 
-  if (ocorrencia.foto_url) {
-    try {
-      const imagemBase64 = await carregarImagemBase64(ocorrencia.foto_url);
-
-      pdf.addPage();
-
-      if (brasaoBase64) {
-        pdf.addImage(brasaoBase64, "PNG", 15, 10, 22, 22);
-      }
-
-      pdf.setFontSize(16);
-      pdf.text("ANEXO FOTOGRÁFICO", 105, 22, {
-        align: "center",
+        pdf.text(`${index + 1}. ${pessoa.nome || "Sem nome"}`, 15, y);
+        y += 7;
+        pdf.text(`Tipo: ${pessoa.tipo || "-"}`, 20, y);
+        y += 7;
+        pdf.text(`Documento: ${pessoa.documento || "-"}`, 20, y);
+        y += 7;
+        pdf.text(`Telefone: ${pessoa.telefone || "-"}`, 20, y);
+        y += 7;
+        pdf.text(`Endereço: ${pessoa.endereco || "-"}`, 20, y);
+        y += 10;
       });
-
-      pdf.line(15, 35, 195, 35);
-
-      pdf.addImage(imagemBase64, "JPEG", 15, 45, 180, 120);
-    } catch {
-      alert("PDF gerado, mas não foi possível incluir a foto.");
     }
-  }
 
-  pdf.save(`RELATORIO-${ocorrencia.protocolo}.pdf`);
-}
+    pdf.line(15, 265, 90, 265);
+    pdf.text("Guarda Responsável", 15, 273);
+
+    pdf.line(110, 265, 190, 265);
+    pdf.text("Supervisor", 110, 273);
+
+    if (fotos.length > 0) {
+      for (let i = 0; i < fotos.length; i++) {
+        try {
+          const imagemBase64 = await carregarImagemBase64(fotos[i]);
+
+          pdf.addPage();
+
+          if (brasaoBase64) {
+            pdf.addImage(brasaoBase64, "PNG", 15, 10, 22, 22);
+          }
+
+          pdf.setFontSize(16);
+          pdf.text(`ANEXO FOTOGRÁFICO ${i + 1}`, 105, 22, {
+            align: "center",
+          });
+
+          pdf.line(15, 35, 195, 35);
+          pdf.addImage(imagemBase64, "JPEG", 15, 45, 180, 120);
+        } catch {
+          console.warn("Erro ao adicionar foto no PDF.");
+        }
+      }
+    }
+
+    pdf.save(`RELATORIO-${ocorrencia.protocolo}.pdf`);
+  }
 
   async function carregarImagemBase64(url: string): Promise<string> {
     const resposta = await fetch(url);
@@ -271,6 +300,7 @@ Local: ${ocorrencia.local}
   }
 
   const envolvidos = obterEnvolvidos();
+  const fotos = obterFotos();
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -279,6 +309,7 @@ Local: ${ocorrencia.local}
           <h1 className="text-2xl md:text-3xl font-bold">
             Ocorrência {ocorrencia.protocolo}
           </h1>
+
           <p className="text-slate-400">
             Detalhes completos da ocorrência registrada.
           </p>
@@ -381,20 +412,33 @@ Local: ${ocorrencia.local}
         </div>
 
         <div className="card space-y-4 md:col-span-2">
-          <h2 className="text-xl font-bold">Foto da Ocorrência</h2>
+          <h2 className="text-xl font-bold">
+            Fotos da Ocorrência
+          </h2>
 
-          {ocorrencia.foto_url ? (
-            <div className="flex justify-center">
-              <Image
-                src={ocorrencia.foto_url}
-                alt="Foto da ocorrência"
-                width={900}
-                height={600}
-                className="rounded-xl object-contain w-full"
-              />
-            </div>
-          ) : (
+          {fotos.length === 0 ? (
             <p className="text-slate-400">Nenhuma foto anexada.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {fotos.map((foto, index) => (
+                <div
+                  key={foto}
+                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-3"
+                >
+                  <p className="text-slate-400 text-sm mb-2">
+                    Foto {index + 1}
+                  </p>
+
+                  <Image
+                    src={foto}
+                    alt={`Foto ${index + 1} da ocorrência`}
+                    width={900}
+                    height={600}
+                    className="rounded-xl object-contain w-full"
+                  />
+                </div>
+              ))}
+            </div>
           )}
         </div>
       </section>

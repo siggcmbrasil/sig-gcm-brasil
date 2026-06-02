@@ -42,7 +42,7 @@ export default function NovaOcorrencia() {
   const [local, setLocal] = useState("");
   const [numero, setNumero] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [foto, setFoto] = useState<File | null>(null);
+  const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
 
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
@@ -146,27 +146,29 @@ export default function NovaOcorrencia() {
     const data = agora.toISOString().split("T")[0];
     const hora = agora.toTimeString().slice(0, 8);
 
-    let fotoUrl = "";
+    const fotosUrls: string[] = [];
 
-    if (foto) {
-      const nomeArquivo = `${protocolo}-${foto.name}`;
+    if (fotos.length > 0) {
+      for (const foto of fotos) {
+        const nomeArquivo = `${protocolo}-${Date.now()}-${foto.name}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("fotos-ocorrencias")
-        .upload(nomeArquivo, foto);
+        const { error: uploadError } = await supabase.storage
+          .from("fotos-ocorrencias")
+          .upload(nomeArquivo, foto);
 
-      if (uploadError) {
-        console.error(uploadError);
-        alert("Erro ao enviar foto.");
-        setSalvando(false);
-        return;
+        if (uploadError) {
+          console.error(uploadError);
+          alert("Erro ao enviar uma das fotos.");
+          setSalvando(false);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("fotos-ocorrencias")
+          .getPublicUrl(nomeArquivo);
+
+        fotosUrls.push(urlData.publicUrl);
       }
-
-      const { data: urlData } = supabase.storage
-        .from("fotos-ocorrencias")
-        .getPublicUrl(nomeArquivo);
-
-      fotoUrl = urlData.publicUrl;
     }
 
     const envolvidosValidos = envolvidos.filter(
@@ -192,7 +194,8 @@ export default function NovaOcorrencia() {
         numero,
         envolvidos: JSON.stringify(envolvidosValidos),
         descricao,
-        foto_url: fotoUrl,
+        foto_url: fotosUrls[0] || "",
+        fotos_urls: JSON.stringify(fotosUrls),
         viatura_empenhada: viaturaEmpenhada,
         equipe_empenhada: equipeEmpenhada,
       },
@@ -291,12 +294,6 @@ export default function NovaOcorrencia() {
                 </option>
               ))}
             </select>
-
-            {viaturas.length === 0 && (
-              <p className="text-sm text-yellow-400 mt-2">
-                Nenhuma viatura operacional ou reserva cadastrada.
-              </p>
-            )}
           </div>
 
           <div>
@@ -378,27 +375,21 @@ export default function NovaOcorrencia() {
                   <Campo
                     label="Nome completo"
                     valor={pessoa.nome}
-                    setValor={(valor) =>
-                      atualizarEnvolvido(index, "nome", valor)
-                    }
+                    setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
                     placeholder="Nome do envolvido"
                   />
 
                   <Campo
                     label="Documento"
                     valor={pessoa.documento}
-                    setValor={(valor) =>
-                      atualizarEnvolvido(index, "documento", valor)
-                    }
+                    setValor={(valor) => atualizarEnvolvido(index, "documento", valor)}
                     placeholder="RG, CPF ou outro"
                   />
 
                   <Campo
                     label="Telefone"
                     valor={pessoa.telefone}
-                    setValor={(valor) =>
-                      atualizarEnvolvido(index, "telefone", valor)
-                    }
+                    setValor={(valor) => atualizarEnvolvido(index, "telefone", valor)}
                     placeholder="(75) 99999-9999"
                   />
 
@@ -424,9 +415,7 @@ export default function NovaOcorrencia() {
                     <Campo
                       label="Endereço"
                       valor={pessoa.endereco}
-                      setValor={(valor) =>
-                        atualizarEnvolvido(index, "endereco", valor)
-                      }
+                      setValor={(valor) => atualizarEnvolvido(index, "endereco", valor)}
                       placeholder="Endereço do envolvido"
                     />
                   </div>
@@ -459,13 +448,20 @@ export default function NovaOcorrencia() {
         </div>
 
         <div>
-          <label className="label">Foto da ocorrência</label>
+          <label className="label">Fotos da ocorrência</label>
           <input
             type="file"
             accept="image/*"
+            multiple
             className="input"
-            onChange={(e) => setFoto(e.target.files?.[0] || null)}
+            onChange={(e) => setFotos(Array.from(e.target.files || []))}
           />
+
+          {fotos.length > 0 && (
+            <p className="text-sm text-green-400 mt-2">
+              {fotos.length} foto(s) selecionada(s).
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col md:flex-row justify-end gap-3 border-t border-slate-800 pt-6">

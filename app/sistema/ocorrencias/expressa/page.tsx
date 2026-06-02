@@ -10,7 +10,7 @@ export default function OcorrenciaExpressa() {
   const [tipo, setTipo] = useState("");
   const [local, setLocal] = useState("");
   const [descricao, setDescricao] = useState("");
-  const [foto, setFoto] = useState<File | null>(null);
+  const [fotos, setFotos] = useState<File[]>([]);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
   const [salvando, setSalvando] = useState(false);
@@ -55,27 +55,29 @@ export default function OcorrenciaExpressa() {
     const data = agora.toISOString().split("T")[0];
     const hora = agora.toTimeString().slice(0, 8);
 
-    let fotoUrl = "";
+    const fotosUrls: string[] = [];
 
-    if (foto) {
-      const nomeArquivo = `${protocolo}-${foto.name}`;
+    if (fotos.length > 0) {
+      for (const foto of fotos) {
+        const nomeArquivo = `${protocolo}-${Date.now()}-${foto.name}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("fotos-ocorrencias")
-        .upload(nomeArquivo, foto);
+        const { error: uploadError } = await supabase.storage
+          .from("fotos-ocorrencias")
+          .upload(nomeArquivo, foto);
 
-      if (uploadError) {
-        console.error(uploadError);
-        alert("Erro ao enviar foto.");
-        setSalvando(false);
-        return;
+        if (uploadError) {
+          console.error(uploadError);
+          alert("Erro ao enviar uma das fotos.");
+          setSalvando(false);
+          return;
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("fotos-ocorrencias")
+          .getPublicUrl(nomeArquivo);
+
+        fotosUrls.push(urlData.publicUrl);
       }
-
-      const { data: urlData } = supabase.storage
-        .from("fotos-ocorrencias")
-        .getPublicUrl(nomeArquivo);
-
-      fotoUrl = urlData.publicUrl;
     }
 
     const { error } = await supabase.from("ocorrencias").insert([
@@ -90,7 +92,8 @@ export default function OcorrenciaExpressa() {
         numero: "",
         envolvidos: "",
         descricao,
-        foto_url: fotoUrl,
+        foto_url: fotosUrls[0] || "",
+        fotos_urls: JSON.stringify(fotosUrls),
         latitude,
         longitude,
       },
@@ -128,27 +131,26 @@ export default function OcorrenciaExpressa() {
             onChange={(e) => setTipo(e.target.value)}
           >
             <option value="">Selecione</option>
-<option value="Perturbação do sossego">Perturbação do sossego</option>
-<option value="Apoio ao cidadão">Apoio ao cidadão</option>
-<option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
-<option value="Apoio a outro órgão">Apoio a outro órgão</option>
-<option value="Fiscalização">Fiscalização</option>
-<option value="Acidente">Acidente</option>
-<option value="Conselho Tutelar">Conselho Tutelar</option>
-<option value="CAPS">CAPS</option>
-<option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
-<option value="Apoio em evento cultural">Apoio em evento cultural</option>
-<option value="Apoio em evento religioso">Apoio em evento religioso</option>
-<option value="Ronda escolar">Ronda escolar</option>
-<option value="Apoio à escola">Apoio à escola</option>
-<option value="Apoio à saúde">Apoio à saúde</option>
-<option value="Apoio ao CRAS">Apoio ao CRAS</option>
-<option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
-<option value="Averiguação de denúncia">Averiguação de denúncia</option>
-<option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
-<option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
-<option value="Orientação ao público">Orientação ao público</option>
-<option value="Outro">Outro</option>
+            <option value="Perturbação do sossego">Perturbação do sossego</option>
+            <option value="Apoio ao cidadão">Apoio ao cidadão</option>
+            <option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
+            <option value="Fiscalização">Fiscalização</option>
+            <option value="Acidente">Acidente</option>
+            <option value="Conselho Tutelar">Conselho Tutelar</option>
+            <option value="CAPS">CAPS</option>
+            <option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
+            <option value="Apoio em evento cultural">Apoio em evento cultural</option>
+            <option value="Apoio em evento religioso">Apoio em evento religioso</option>
+            <option value="Ronda escolar">Ronda escolar</option>
+            <option value="Apoio à escola">Apoio à escola</option>
+            <option value="Apoio à saúde">Apoio à saúde</option>
+            <option value="Apoio ao CRAS">Apoio ao CRAS</option>
+            <option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
+            <option value="Averiguação de denúncia">Averiguação de denúncia</option>
+            <option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
+            <option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
+            <option value="Orientação ao público">Orientação ao público</option>
+            <option value="Outro">Outro</option>
           </select>
         </div>
 
@@ -193,19 +195,26 @@ export default function OcorrenciaExpressa() {
         </div>
 
         <div>
-          <label className="label">Foto</label>
+          <label className="label">Fotos</label>
 
           <input
             type="file"
             accept="image/*"
+            multiple
             capture="environment"
             className="input"
-            onChange={(e) => setFoto(e.target.files?.[0] || null)}
+            onChange={(e) => setFotos(Array.from(e.target.files || []))}
           />
 
           <p className="text-sm text-slate-500 mt-2">
-            No celular, este campo abre a câmera traseira.
+            No celular, este campo pode abrir a câmera ou galeria.
           </p>
+
+          {fotos.length > 0 && (
+            <p className="text-sm text-green-400 mt-2">
+              {fotos.length} foto(s) selecionada(s).
+            </p>
+          )}
         </div>
 
         <button
