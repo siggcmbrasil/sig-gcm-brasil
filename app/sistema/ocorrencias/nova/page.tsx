@@ -1,8 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+
+type Guarda = {
+  id: number;
+  matricula: string;
+  nome: string;
+  cargo: string;
+  status: string;
+};
 
 type Envolvido = {
   nome: string;
@@ -16,6 +24,9 @@ type Envolvido = {
 export default function NovaOcorrencia() {
   const router = useRouter();
 
+  const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [guardasSelecionados, setGuardasSelecionados] = useState<string[]>([]);
+
   const [tipo, setTipo] = useState("");
   const [status, setStatus] = useState("Aberta");
   const [bairro, setBairro] = useState("");
@@ -26,7 +37,6 @@ export default function NovaOcorrencia() {
   const [salvando, setSalvando] = useState(false);
 
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
-  const [equipeEmpenhada, setEquipeEmpenhada] = useState("");
 
   const [envolvidos, setEnvolvidos] = useState<Envolvido[]>([
     {
@@ -38,6 +48,32 @@ export default function NovaOcorrencia() {
       observacao: "",
     },
   ]);
+
+  async function carregarGuardas() {
+    const { data, error } = await supabase
+      .from("guardas")
+      .select("id, matricula, nome, cargo, status")
+      .order("nome", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar guardas.");
+      return;
+    }
+
+    setGuardas(data || []);
+  }
+
+  function selecionarGuarda(nome: string) {
+    if (guardasSelecionados.includes(nome)) {
+      setGuardasSelecionados(
+        guardasSelecionados.filter((item) => item !== nome)
+      );
+      return;
+    }
+
+    setGuardasSelecionados([...guardasSelecionados, nome]);
+  }
 
   function atualizarEnvolvido(
     index: number,
@@ -117,6 +153,8 @@ export default function NovaOcorrencia() {
         pessoa.observacao
     );
 
+    const equipeEmpenhada = guardasSelecionados.join("\n");
+
     const { error } = await supabase.from("ocorrencias").insert([
       {
         protocolo,
@@ -146,6 +184,10 @@ export default function NovaOcorrencia() {
     alert("Ocorrência salva com sucesso!");
     router.push("/sistema/ocorrencias");
   }
+
+  useEffect(() => {
+    carregarGuardas();
+  }, []);
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -204,7 +246,9 @@ export default function NovaOcorrencia() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-800 pt-6">
+        <div className="border-t border-slate-800 pt-6 space-y-4">
+          <h2 className="text-2xl font-bold">Equipe Empenhada</h2>
+
           <div>
             <label className="label">Viatura empenhada</label>
             <input
@@ -216,13 +260,39 @@ export default function NovaOcorrencia() {
           </div>
 
           <div>
-            <label className="label">Equipe empenhada</label>
-            <textarea
-              className="input h-28 resize-none"
-              value={equipeEmpenhada}
-              onChange={(e) => setEquipeEmpenhada(e.target.value)}
-              placeholder={"Ex:\nGCM João\nGCM Maria\nGCM Pedro"}
-            />
+            <label className="label">Selecionar guardas</label>
+
+            {guardas.length === 0 ? (
+              <p className="text-slate-400">
+                Nenhum guarda cadastrado.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {guardas.map((guarda) => (
+                  <label
+                    key={guarda.id}
+                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={guardasSelecionados.includes(guarda.nome)}
+                      onChange={() => selecionarGuarda(guarda.nome)}
+                      className="mt-1"
+                    />
+
+                    <div>
+                      <p className="font-bold">{guarda.nome}</p>
+                      <p className="text-sm text-slate-400">
+                        {guarda.matricula} • {guarda.cargo}
+                      </p>
+                      <p className="text-xs text-blue-400">
+                        {guarda.status}
+                      </p>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -358,9 +428,6 @@ export default function NovaOcorrencia() {
             className="input"
             onChange={(e) => setFoto(e.target.files?.[0] || null)}
           />
-          <p className="text-xs text-slate-500 mt-2">
-            Pode anexar uma foto tirada no celular ou no computador.
-          </p>
         </div>
 
         <div className="flex flex-col md:flex-row justify-end gap-3 border-t border-slate-800 pt-6">
@@ -400,6 +467,7 @@ function Campo({
   return (
     <div>
       <label className="label">{label}</label>
+
       <input
         className="input"
         placeholder={placeholder}
