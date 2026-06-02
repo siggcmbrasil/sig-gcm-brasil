@@ -121,17 +121,26 @@ export default function Viatura() {
   }, []);
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-bold">Viatura</h1>
-        <p className="text-slate-400">
+        <h1 className="text-2xl md:text-3xl font-bold">Viatura</h1>
+        <p className="text-slate-400 text-sm md:text-base">
           Controle da viatura operacional da GCM Biritinga.
         </p>
       </header>
 
-      <section className="grid grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card titulo="Prefixo" valor={prefixo || "VTR-01"} />
+        <Card titulo="Status" valor={status || "-"} destaque={status === "Operacional"} />
+        <Card titulo="Combustível" valor={combustivel || "-"} />
+        <Card titulo="Quilometragem" valor={quilometragem || "-"} />
+      </section>
+
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">VTR-01</h2>
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
+            VTR-01
+          </h2>
 
           <div className="flex justify-center mb-6">
             <Image
@@ -139,7 +148,7 @@ export default function Viatura() {
               alt="Viatura GCM Biritinga"
               width={420}
               height={260}
-              className="rounded-xl object-contain"
+              className="rounded-xl object-contain w-full max-w-sm"
               priority
             />
           </div>
@@ -159,21 +168,30 @@ export default function Viatura() {
           )}
         </div>
 
-        <div className="card col-span-2">
-          <h2 className="text-xl font-bold mb-4">
+        <div className="card xl:col-span-2">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">
             Dados da Viatura
           </h2>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Campo label="Prefixo" valor={prefixo} setValor={setPrefixo} />
+
             <Campo label="Modelo" valor={modelo} setValor={setModelo} />
-            <Campo label="Placa" valor={placa} setValor={setPlaca} />
+
+            <Campo
+              label="Placa"
+              valor={placa}
+              setValor={(valor) => setPlaca(valor.toUpperCase())}
+              placeholder="ABC1D23"
+            />
+
             <Campo
               label="Combustível"
               valor={combustivel}
               setValor={setCombustivel}
               placeholder="Ex: 78%"
             />
+
             <Campo
               label="Quilometragem"
               valor={quilometragem}
@@ -191,6 +209,8 @@ export default function Viatura() {
                 <option>Operacional</option>
                 <option>Em manutenção</option>
                 <option>Indisponível</option>
+                <option>Reserva</option>
+                <option>Baixada</option>
               </select>
             </div>
 
@@ -204,7 +224,7 @@ export default function Viatura() {
               />
             </div>
 
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <label className="label">Observações</label>
               <textarea
                 className="input h-32 resize-none"
@@ -219,7 +239,7 @@ export default function Viatura() {
             <button
               type="button"
               onClick={salvarViatura}
-              className="btn-primary"
+              className="btn-primary w-full md:w-auto text-lg"
             >
               Salvar Dados da Viatura
             </button>
@@ -254,11 +274,34 @@ function Campo({
   );
 }
 
+function Card({
+  titulo,
+  valor,
+  destaque,
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div className="card min-h-32 flex flex-col justify-center">
+      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
+      <h2
+        className={`text-3xl md:text-4xl font-bold ${
+          destaque ? "text-green-400" : ""
+        }`}
+      >
+        {valor}
+      </h2>
+    </div>
+  );
+}
+
 function Linha({ nome, valor }: { nome: string; valor: string }) {
   return (
-    <div className="flex justify-between border-b border-slate-800 pb-2">
+    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
       <span className="text-slate-400">{nome}</span>
-      <span>{valor}</span>
+      <span className="text-right">{valor}</span>
     </div>
   );
 }
