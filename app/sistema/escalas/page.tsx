@@ -12,8 +12,17 @@ type Escala = {
   status: string;
 };
 
+type Guarda = {
+  id: number;
+  matricula: string;
+  nome: string;
+  cargo: string;
+  status: string;
+};
+
 export default function Escalas() {
   const [escalas, setEscalas] = useState<Escala[]>([]);
+  const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [busca, setBusca] = useState("");
 
   const [data, setData] = useState("");
@@ -41,6 +50,21 @@ export default function Escalas() {
 
     setEscalas(data || []);
     setCarregando(false);
+  }
+
+  async function carregarGuardas() {
+    const { data, error } = await supabase
+      .from("guardas")
+      .select("id, matricula, nome, cargo, status")
+      .order("nome", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar guardas.");
+      return;
+    }
+
+    setGuardas(data || []);
   }
 
   async function salvarEscala() {
@@ -98,6 +122,7 @@ export default function Escalas() {
 
   useEffect(() => {
     carregarEscalas();
+    carregarGuardas();
   }, []);
 
   const hoje = new Date().toISOString().split("T")[0];
@@ -129,17 +154,8 @@ export default function Escalas() {
 
       <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <Card titulo="Total" valor={escalas.length} />
-
-        <Card
-          titulo="Hoje"
-          valor={escalasHoje.length}
-        />
-
-        <Card
-          titulo="Em serviço hoje"
-          valor={emServicoHoje.length}
-        />
-
+        <Card titulo="Hoje" valor={escalasHoje.length} />
+        <Card titulo="Em serviço hoje" valor={emServicoHoje.length} />
         <Card
           titulo="Folgas"
           valor={escalas.filter((e) => e.status === "Folga").length}
@@ -165,12 +181,26 @@ export default function Escalas() {
 
             <div>
               <label className="label">Guarda</label>
-              <input
+
+              <select
                 className="input"
                 value={guarda}
                 onChange={(e) => setGuarda(e.target.value)}
-                placeholder="Nome do guarda"
-              />
+              >
+                <option value="">Selecione um guarda</option>
+
+                {guardas.map((g) => (
+                  <option key={g.id} value={g.nome}>
+                    {g.nome} • {g.matricula} • {g.status}
+                  </option>
+                ))}
+              </select>
+
+              {guardas.length === 0 && (
+                <p className="text-sm text-yellow-400 mt-2">
+                  Nenhum guarda cadastrado.
+                </p>
+              )}
             </div>
 
             <div>
@@ -316,13 +346,9 @@ export default function Escalas() {
 
                         <td>{escala.guarda}</td>
 
-                        <td className="text-slate-400">
-                          {escala.turno}
-                        </td>
+                        <td className="text-slate-400">{escala.turno}</td>
 
-                        <td className="text-slate-400">
-                          {escala.funcao}
-                        </td>
+                        <td className="text-slate-400">{escala.funcao}</td>
 
                         <td>
                           <Status status={escala.status} />
@@ -350,31 +376,16 @@ export default function Escalas() {
   );
 }
 
-function Card({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: number;
-}) {
+function Card({ titulo, valor }: { titulo: string; valor: number }) {
   return (
     <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">
-        {titulo}
-      </p>
-
-      <h2 className="text-5xl md:text-4xl font-bold">
-        {valor}
-      </h2>
+      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
+      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
     </div>
   );
 }
 
-function Status({
-  status,
-}: {
-  status: string;
-}) {
+function Status({ status }: { status: string }) {
   let cor = "bg-green-700 text-green-100";
 
   if (status === "Folga") cor = "bg-yellow-600 text-yellow-100";
