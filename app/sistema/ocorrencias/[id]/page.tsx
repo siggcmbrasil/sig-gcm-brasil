@@ -7,6 +7,15 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
+type Envolvido = {
+  nome: string;
+  documento: string;
+  telefone: string;
+  endereco: string;
+  tipo: string;
+  observacao: string;
+};
+
 type Ocorrencia = {
   id: number;
   protocolo: string;
@@ -20,6 +29,10 @@ type Ocorrencia = {
   envolvidos: string | null;
   descricao: string;
   foto_url: string | null;
+  latitude: string | null;
+  longitude: string | null;
+  viatura_empenhada: string | null;
+  equipe_empenhada: string | null;
   criado_em: string;
 };
 
@@ -48,6 +61,17 @@ export default function VisualizarOcorrencia() {
     setCarregando(false);
   }
 
+  function obterEnvolvidos(): Envolvido[] {
+    if (!ocorrencia?.envolvidos) return [];
+
+    try {
+      const dados = JSON.parse(ocorrencia.envolvidos);
+      return Array.isArray(dados) ? dados : [];
+    } catch {
+      return [];
+    }
+  }
+
   async function gerarPDF() {
     if (!ocorrencia) return;
 
@@ -66,13 +90,17 @@ export default function VisualizarOcorrencia() {
     pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 20, 100);
     pdf.text(`Local: ${ocorrencia.local}`, 20, 110);
     pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 20, 120);
+    pdf.text(`Viatura: ${ocorrencia.viatura_empenhada || "-"}`, 20, 130);
 
-    pdf.text("Envolvidos:", 20, 140);
-    pdf.text(ocorrencia.envolvidos || "Nenhum informado.", 20, 150);
+    pdf.text("Equipe empenhada:", 20, 145);
+    pdf.text(
+      pdf.splitTextToSize(ocorrencia.equipe_empenhada || "Não informada.", 170),
+      20,
+      155
+    );
 
-    pdf.text("Descrição:", 20, 170);
-    const textoDescricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
-    pdf.text(textoDescricao, 20, 180);
+    pdf.text("Descrição:", 20, 180);
+    pdf.text(pdf.splitTextToSize(ocorrencia.descricao, 170), 20, 190);
 
     pdf.text("__________________________________", 20, 270);
     pdf.text("Assinatura do Guarda Responsável", 20, 278);
@@ -80,13 +108,11 @@ export default function VisualizarOcorrencia() {
     if (ocorrencia.foto_url) {
       try {
         const imagemBase64 = await carregarImagemBase64(ocorrencia.foto_url);
-
         pdf.addPage();
         pdf.setFontSize(16);
         pdf.text("Foto da Ocorrência", 20, 20);
         pdf.addImage(imagemBase64, "JPEG", 20, 35, 170, 120);
-      } catch (error) {
-        console.error(error);
+      } catch {
         alert("PDF gerado, mas não foi possível incluir a foto.");
       }
     }
@@ -100,11 +126,7 @@ export default function VisualizarOcorrencia() {
 
     return new Promise((resolve, reject) => {
       const leitor = new FileReader();
-
-      leitor.onloadend = () => {
-        resolve(leitor.result as string);
-      };
-
+      leitor.onloadend = () => resolve(leitor.result as string);
       leitor.onerror = reject;
       leitor.readAsDataURL(blob);
     });
@@ -115,35 +137,28 @@ export default function VisualizarOcorrencia() {
   }, []);
 
   if (carregando) {
-    return (
-      <div className="p-6">
-        <p className="text-slate-400">Carregando ocorrência...</p>
-      </div>
-    );
+    return <div className="p-6 text-slate-400">Carregando ocorrência...</div>;
   }
 
   if (!ocorrencia) {
-    return (
-      <div className="p-6">
-        <p className="text-slate-400">Ocorrência não encontrada.</p>
-      </div>
-    );
+    return <div className="p-6 text-slate-400">Ocorrência não encontrada.</div>;
   }
 
+  const envolvidos = obterEnvolvidos();
+
   return (
-    <div className="p-6">
-      <header className="flex justify-between items-center border-b border-slate-800 pb-5 mb-6">
+    <div className="p-3 md:p-6 pb-24">
+      <header className="flex flex-col md:flex-row gap-4 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">
+          <h1 className="text-2xl md:text-3xl font-bold">
             Ocorrência {ocorrencia.protocolo}
           </h1>
-
           <p className="text-slate-400">
             Detalhes completos da ocorrência registrada.
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col md:flex-row gap-3">
           <button
             type="button"
             onClick={gerarPDF}
@@ -154,17 +169,16 @@ export default function VisualizarOcorrencia() {
 
           <Link
             href="/sistema/ocorrencias"
-            className="bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl font-semibold"
+            className="bg-slate-700 hover:bg-slate-600 px-5 py-3 rounded-xl font-semibold text-center"
           >
             Voltar
           </Link>
         </div>
       </header>
 
-      <section className="grid grid-cols-2 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card space-y-4">
           <h2 className="text-xl font-bold">Dados principais</h2>
-
           <Linha nome="Protocolo" valor={ocorrencia.protocolo} />
           <Linha nome="Tipo" valor={ocorrencia.tipo} />
           <Linha nome="Status" valor={ocorrencia.status} />
@@ -174,29 +188,73 @@ export default function VisualizarOcorrencia() {
 
         <div className="card space-y-4">
           <h2 className="text-xl font-bold">Localização</h2>
-
           <Linha nome="Bairro" valor={ocorrencia.bairro || "-"} />
           <Linha nome="Local" valor={ocorrencia.local} />
           <Linha nome="Número" valor={ocorrencia.numero || "S/N"} />
+
+          {ocorrencia.latitude && ocorrencia.longitude && (
+            <a
+              href={`https://www.google.com/maps?q=${ocorrencia.latitude},${ocorrencia.longitude}`}
+              target="_blank"
+              className="block bg-blue-700 hover:bg-blue-800 text-center px-4 py-3 rounded-xl font-semibold"
+            >
+              Abrir localização no mapa
+            </a>
+          )}
         </div>
 
         <div className="card space-y-4">
-          <h2 className="text-xl font-bold">Envolvidos</h2>
+          <h2 className="text-xl font-bold">Equipe Empenhada</h2>
+          <Linha nome="Viatura" valor={ocorrencia.viatura_empenhada || "-"} />
 
-          <p className="text-slate-300">
-            {ocorrencia.envolvidos || "Nenhum envolvido informado."}
-          </p>
+          <div>
+            <p className="text-slate-400 mb-2">Guardas</p>
+            <pre className="whitespace-pre-wrap text-white font-sans">
+              {ocorrencia.equipe_empenhada || "Equipe não informada."}
+            </pre>
+          </div>
         </div>
 
         <div className="card space-y-4">
           <h2 className="text-xl font-bold">Descrição</h2>
-
           <p className="text-slate-300 leading-relaxed">
             {ocorrencia.descricao}
           </p>
         </div>
 
-        <div className="card space-y-4 col-span-2">
+        <div className="card space-y-4 md:col-span-2">
+          <h2 className="text-xl font-bold">Envolvidos</h2>
+
+          {envolvidos.length === 0 ? (
+            <p className="text-slate-400">Nenhum envolvido cadastrado.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {envolvidos.map((pessoa, index) => (
+                <div
+                  key={index}
+                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
+                >
+                  <h3 className="font-bold text-lg">
+                    {pessoa.nome || `Envolvido ${index + 1}`}
+                  </h3>
+
+                  <Linha nome="Tipo" valor={pessoa.tipo || "-"} />
+                  <Linha nome="Documento" valor={pessoa.documento || "-"} />
+                  <Linha nome="Telefone" valor={pessoa.telefone || "-"} />
+                  <Linha nome="Endereço" valor={pessoa.endereco || "-"} />
+
+                  {pessoa.observacao && (
+                    <p className="text-slate-300 pt-2">
+                      {pessoa.observacao}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card space-y-4 md:col-span-2">
           <h2 className="text-xl font-bold">Foto da Ocorrência</h2>
 
           {ocorrencia.foto_url ? (
@@ -206,13 +264,11 @@ export default function VisualizarOcorrencia() {
                 alt="Foto da ocorrência"
                 width={900}
                 height={600}
-                className="rounded-xl object-contain"
+                className="rounded-xl object-contain w-full"
               />
             </div>
           ) : (
-            <p className="text-slate-400">
-              Nenhuma foto anexada.
-            </p>
+            <p className="text-slate-400">Nenhuma foto anexada.</p>
           )}
         </div>
       </section>
@@ -222,9 +278,9 @@ export default function VisualizarOcorrencia() {
 
 function Linha({ nome, valor }: { nome: string; valor: string }) {
   return (
-    <div className="flex justify-between border-b border-slate-800 pb-2">
+    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
       <span className="text-slate-400">{nome}</span>
-      <span>{valor}</span>
+      <span className="text-right">{valor}</span>
     </div>
   );
 }
