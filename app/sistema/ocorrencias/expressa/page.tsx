@@ -128,12 +128,27 @@ export default function OcorrenciaExpressa() {
             onChange={(e) => setTipo(e.target.value)}
           >
             <option value="">Selecione</option>
-            <option value="Perturbação do sossego">Perturbação do sossego</option>
-            <option value="Apoio ao cidadão">Apoio ao cidadão</option>
-            <option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
-            <option value="Fiscalização">Fiscalização</option>
-            <option value="Acidente">Acidente</option>
-            <option value="Outro">Outro</option>
+<option value="Perturbação do sossego">Perturbação do sossego</option>
+<option value="Apoio ao cidadão">Apoio ao cidadão</option>
+<option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
+<option value="Apoio a outro órgão">Apoio a outro órgão</option>
+<option value="Fiscalização">Fiscalização</option>
+<option value="Acidente">Acidente</option>
+<option value="Conselho Tutelar">Conselho Tutelar</option>
+<option value="CAPS">CAPS</option>
+<option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
+<option value="Apoio em evento cultural">Apoio em evento cultural</option>
+<option value="Apoio em evento religioso">Apoio em evento religioso</option>
+<option value="Ronda escolar">Ronda escolar</option>
+<option value="Apoio à escola">Apoio à escola</option>
+<option value="Apoio à saúde">Apoio à saúde</option>
+<option value="Apoio ao CRAS">Apoio ao CRAS</option>
+<option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
+<option value="Averiguação de denúncia">Averiguação de denúncia</option>
+<option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
+<option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
+<option value="Orientação ao público">Orientação ao público</option>
+<option value="Outro">Outro</option>
           </select>
         </div>
 
