@@ -1,9 +1,5 @@
 @import "tailwindcss";
 
-/* ==========================
-   CONFIGURAÇÕES GERAIS
-========================== */
-
 * {
   margin: 0;
   padding: 0;
@@ -18,10 +14,6 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
-/* ==========================
-   MENU LATERAL
-========================== */
-
 .menu-item {
   display: block;
   padding: 14px 18px;
@@ -35,25 +27,12 @@ body {
   background: #1d4ed8;
 }
 
-/* ==========================
-   CARDS
-========================== */
-
 .card {
-  background: linear-gradient(
-    180deg,
-    #10233a 0%,
-    #07182b 100%
-  );
-
+  background: linear-gradient(180deg, #10233a 0%, #07182b 100%);
   border: 1px solid #1e3a5f;
   border-radius: 16px;
   padding: 20px;
 }
-
-/* ==========================
-   FORMULÁRIOS
-========================== */
 
 .label {
   display: block;
@@ -79,31 +58,6 @@ body {
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
-/* ==========================
-   SCROLLBAR
-========================== */
-
-::-webkit-scrollbar {
-  width: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #061426;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #1e3a5f;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #2563eb;
-}
-
-/* ==========================
-   TABELAS
-========================== */
-
 table {
   border-collapse: collapse;
 }
@@ -116,10 +70,6 @@ td,
 th {
   padding: 10px;
 }
-
-/* ==========================
-   BOTÕES
-========================== */
 
 .btn-primary {
   background: #2563eb;
@@ -147,4 +97,49 @@ th {
 
 .btn-secondary:hover {
   background: #475569;
+}
+
+@media (max-width: 768px) {
+  body {
+    font-size: 18px;
+  }
+
+  .menu-item {
+    padding: 16px;
+    font-size: 18px;
+  }
+
+  .card {
+    padding: 18px;
+    border-radius: 18px;
+    margin-bottom: 14px;
+  }
+
+  .input {
+    font-size: 18px;
+    padding: 16px;
+  }
+
+  .label {
+    font-size: 16px;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    font-size: 18px;
+    padding: 16px;
+  }
+
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    font-size: 16px;
+  }
+
+  th,
+  td {
+    white-space: nowrap;
+  }
 }

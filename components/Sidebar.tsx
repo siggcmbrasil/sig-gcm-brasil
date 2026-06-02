@@ -7,15 +7,13 @@ import { supabase } from "@/lib/supabase";
 export default function Sidebar() {
   async function sair() {
     await supabase.auth.signOut();
-
     localStorage.removeItem("usuarioLogado");
-
     window.location.href = "/login";
   }
 
   return (
-    <aside className="w-72 min-h-screen bg-[#020b1c] border-r border-slate-800 text-white flex flex-col">
-      <div className="p-6 border-b border-slate-800 flex gap-4 items-center">
+    <aside className="w-full md:w-72 md:min-h-screen bg-[#020b1c] border-r border-slate-800 text-white flex flex-col">
+      <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
         <Image
           src="/brasao-gcm.png"
           alt="Brasão GCM Biritinga"
@@ -26,9 +24,7 @@ export default function Sidebar() {
         />
 
         <div>
-          <h1 className="text-lg font-bold">
-            SIG-GCM BIRITINGA
-          </h1>
+          <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
 
           <p className="text-xs text-slate-400">
             Sistema Integrado da Guarda Civil Municipal
@@ -36,7 +32,7 @@ export default function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 p-4 space-y-2">
+      <nav className="p-4 space-y-2 md:flex-1">
         <Link href="/sistema" className="menu-item bg-blue-600">
           Dashboard
         </Link>
@@ -97,24 +93,16 @@ export default function Sidebar() {
           />
 
           <div>
-            <p className="font-semibold">
-              GCM Biritinga
-            </p>
-
-            <p className="text-xs text-slate-400">
-              Servir e Proteger
-            </p>
-
-            <p className="text-xs text-slate-500">
-              Biritinga - Bahia
-            </p>
+            <p className="font-semibold">GCM Biritinga</p>
+            <p className="text-xs text-slate-400">Servir e Proteger</p>
+            <p className="text-xs text-slate-500">Biritinga - Bahia</p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={sair}
-          className="w-full bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm font-semibold"
+          className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
         >
           Sair do Sistema
         </button>

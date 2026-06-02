@@ -48,29 +48,33 @@ export default function SistemaLayout({
 
   if (verificando) {
     return (
-      <div className="min-h-screen bg-[#061426] flex items-center justify-center text-white">
+      <div className="min-h-screen bg-[#061426] flex items-center justify-center text-white text-xl">
         Carregando sistema...
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen bg-[#061426]">
+    <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
       <Sidebar />
 
-      <main className="flex-1">
-        <div className="border-b border-slate-800 px-6 py-4 flex justify-between items-center">
+      <main className="flex-1 w-full">
+        <div className="border-b border-slate-800 px-4 md:px-6 py-4 flex flex-col md:flex-row gap-2 md:gap-0 justify-between md:items-center">
           <div>
-            <h1 className="font-bold text-white">
+            <h1 className="font-bold text-white text-lg md:text-base">
               Sistema Integrado GCM Biritinga
             </h1>
-            <p className="text-xs text-slate-400">Painel Operacional</p>
+            <p className="text-sm md:text-xs text-slate-400">
+              Painel Operacional
+            </p>
           </div>
 
-          <div className="text-sm text-slate-300 text-right">
+          <div className="text-sm text-slate-300 md:text-right">
             <p>
               Usuário:{" "}
-              <span className="font-semibold text-white">{usuario?.email}</span>
+              <span className="font-semibold text-white">
+                {usuario?.email}
+              </span>
             </p>
 
             <p className="text-xs text-slate-500">
