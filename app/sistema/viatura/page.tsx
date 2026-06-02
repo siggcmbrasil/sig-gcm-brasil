@@ -1,0 +1,264 @@
+"use client";
+
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Viatura = {
+  id: number;
+  prefixo: string;
+  modelo: string;
+  placa: string;
+  status: string;
+  combustivel: string | null;
+  quilometragem: string | null;
+  ultima_manutencao: string | null;
+  observacoes: string | null;
+};
+
+export default function Viatura() {
+  const [viatura, setViatura] = useState<Viatura | null>(null);
+  const [carregando, setCarregando] = useState(true);
+
+  const [prefixo, setPrefixo] = useState("VTR-01");
+  const [modelo, setModelo] = useState("Renault Duster");
+  const [placa, setPlaca] = useState("");
+  const [status, setStatus] = useState("Operacional");
+  const [combustivel, setCombustivel] = useState("");
+  const [quilometragem, setQuilometragem] = useState("");
+  const [ultimaManutencao, setUltimaManutencao] = useState("");
+  const [observacoes, setObservacoes] = useState("");
+
+  async function carregarViatura() {
+    setCarregando(true);
+
+    const { data, error } = await supabase
+      .from("viaturas")
+      .select("*")
+      .order("id", { ascending: true })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      console.error(error);
+      alert("Erro ao carregar viatura.");
+      setCarregando(false);
+      return;
+    }
+
+    if (data) {
+      setViatura(data);
+      setPrefixo(data.prefixo || "VTR-01");
+      setModelo(data.modelo || "Renault Duster");
+      setPlaca(data.placa || "");
+      setStatus(data.status || "Operacional");
+      setCombustivel(data.combustivel || "");
+      setQuilometragem(data.quilometragem || "");
+      setUltimaManutencao(data.ultima_manutencao || "");
+      setObservacoes(data.observacoes || "");
+    }
+
+    setCarregando(false);
+  }
+
+  async function salvarViatura() {
+    if (!prefixo || !modelo || !placa) {
+      alert("Preencha prefixo, modelo e placa.");
+      return;
+    }
+
+    if (viatura) {
+      const { error } = await supabase
+        .from("viaturas")
+        .update({
+          prefixo,
+          modelo,
+          placa,
+          status,
+          combustivel,
+          quilometragem,
+          ultima_manutencao: ultimaManutencao || null,
+          observacoes,
+        })
+        .eq("id", viatura.id);
+
+      if (error) {
+        console.error(error);
+        alert("Erro ao atualizar viatura.");
+        return;
+      }
+
+      alert("Viatura atualizada com sucesso.");
+      carregarViatura();
+      return;
+    }
+
+    const { error } = await supabase.from("viaturas").insert([
+      {
+        prefixo,
+        modelo,
+        placa,
+        status,
+        combustivel,
+        quilometragem,
+        ultima_manutencao: ultimaManutencao || null,
+        observacoes,
+      },
+    ]);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao cadastrar viatura.");
+      return;
+    }
+
+    alert("Viatura cadastrada com sucesso.");
+    carregarViatura();
+  }
+
+  useEffect(() => {
+    carregarViatura();
+  }, []);
+
+  return (
+    <div className="p-6">
+      <header className="border-b border-slate-800 pb-5 mb-6">
+        <h1 className="text-3xl font-bold">Viatura</h1>
+        <p className="text-slate-400">
+          Controle da viatura operacional da GCM Biritinga.
+        </p>
+      </header>
+
+      <section className="grid grid-cols-3 gap-4">
+        <div className="card">
+          <h2 className="text-xl font-bold mb-4">VTR-01</h2>
+
+          <div className="flex justify-center mb-6">
+            <Image
+              src="/viatura-gcm.png"
+              alt="Viatura GCM Biritinga"
+              width={420}
+              height={260}
+              className="rounded-xl object-contain"
+              priority
+            />
+          </div>
+
+          {carregando ? (
+            <p className="text-slate-400">Carregando...</p>
+          ) : (
+            <div className="space-y-3">
+              <Linha nome="Prefixo" valor={prefixo} />
+              <Linha nome="Modelo" valor={modelo} />
+              <Linha nome="Placa" valor={placa || "-"} />
+              <Linha nome="Status" valor={status} />
+              <Linha nome="Combustível" valor={combustivel || "-"} />
+              <Linha nome="Quilometragem" valor={quilometragem || "-"} />
+              <Linha nome="Última manutenção" valor={ultimaManutencao || "-"} />
+            </div>
+          )}
+        </div>
+
+        <div className="card col-span-2">
+          <h2 className="text-xl font-bold mb-4">
+            Dados da Viatura
+          </h2>
+
+          <div className="grid grid-cols-2 gap-4">
+            <Campo label="Prefixo" valor={prefixo} setValor={setPrefixo} />
+            <Campo label="Modelo" valor={modelo} setValor={setModelo} />
+            <Campo label="Placa" valor={placa} setValor={setPlaca} />
+            <Campo
+              label="Combustível"
+              valor={combustivel}
+              setValor={setCombustivel}
+              placeholder="Ex: 78%"
+            />
+            <Campo
+              label="Quilometragem"
+              valor={quilometragem}
+              setValor={setQuilometragem}
+              placeholder="Ex: 25.430 km"
+            />
+
+            <div>
+              <label className="label">Status</label>
+              <select
+                className="input"
+                value={status}
+                onChange={(e) => setStatus(e.target.value)}
+              >
+                <option>Operacional</option>
+                <option>Em manutenção</option>
+                <option>Indisponível</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Última manutenção</label>
+              <input
+                type="date"
+                className="input"
+                value={ultimaManutencao}
+                onChange={(e) => setUltimaManutencao(e.target.value)}
+              />
+            </div>
+
+            <div className="col-span-2">
+              <label className="label">Observações</label>
+              <textarea
+                className="input h-32 resize-none"
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Ex: viatura em operação normal."
+              />
+            </div>
+          </div>
+
+          <div className="flex justify-end mt-6">
+            <button
+              type="button"
+              onClick={salvarViatura}
+              className="btn-primary"
+            >
+              Salvar Dados da Viatura
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function Campo({
+  label,
+  valor,
+  setValor,
+  placeholder,
+}: {
+  label: string;
+  valor: string;
+  setValor: (valor: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div>
+      <label className="label">{label}</label>
+      <input
+        className="input"
+        value={valor}
+        onChange={(e) => setValor(e.target.value)}
+        placeholder={placeholder}
+      />
+    </div>
+  );
+}
+
+function Linha({ nome, valor }: { nome: string; valor: string }) {
+  return (
+    <div className="flex justify-between border-b border-slate-800 pb-2">
+      <span className="text-slate-400">{nome}</span>
+      <span>{valor}</span>
+    </div>
+  );
+}
