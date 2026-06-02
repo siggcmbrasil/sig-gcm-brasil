@@ -32,15 +32,23 @@ export default function Login() {
       return;
     }
 
-    localStorage.setItem(
-      "usuarioLogado",
-      JSON.stringify({
-        id: data.user.id,
-        nome: data.user.email,
-        email: data.user.email,
-        perfil: "admin",
-      })
-    );
+    const { data: usuarioSistema } = await supabase
+  .from("usuarios")
+  .select("*")
+  .eq("email", data.user.email)
+  .single();
+
+localStorage.setItem(
+  "usuarioLogado",
+  JSON.stringify({
+    id: data.user.id,
+    nome: usuarioSistema?.nome || data.user.email,
+    matricula: usuarioSistema?.matricula || "",
+    email: data.user.email,
+    perfil: usuarioSistema?.perfil || "GUARDA",
+    status: usuarioSistema?.status || "Ativo",
+  })
+);
 
     router.push("/sistema");
   }

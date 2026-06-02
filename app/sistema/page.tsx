@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import InstalarApp from "@/components/InstalarApp";
 
 type Ocorrencia = {
   id: number;
@@ -115,6 +116,9 @@ export default function Dashboard() {
         >
           + Nova Ocorrência
         </Link>
+
+        <InstalarApp />
+
       </header>
 
       {carregando ? (
@@ -188,6 +192,49 @@ export default function Dashboard() {
   detalhe="Comunicados ativos"
 />
           </section>
+
+<section className="md:hidden card mb-6">
+  <h2 className="text-xl font-bold mb-4">
+    Acesso Rápido Mobile
+  </h2>
+
+  <div className="grid grid-cols-2 gap-3">
+    <Link
+      href="/sistema/ocorrencias/expressa"
+      className="bg-red-700 rounded-xl p-4 text-center font-bold"
+    >
+      🚨 Expressa
+    </Link>
+
+    <Link
+      href="/sistema/ocorrencias/nova"
+      className="bg-blue-700 rounded-xl p-4 text-center font-bold"
+    >
+      📷 Nova
+    </Link>
+
+    <Link
+      href="/sistema/chamados"
+      className="bg-yellow-700 rounded-xl p-4 text-center font-bold"
+    >
+      📞 Chamados
+    </Link>
+
+    <Link
+      href="/sistema/patrulhamento"
+      className="bg-green-700 rounded-xl p-4 text-center font-bold"
+    >
+      🚔 Ronda
+    </Link>
+
+    <Link
+      href="/sistema/mapa"
+      className="bg-purple-700 rounded-xl p-4 text-center font-bold col-span-2"
+    >
+      📍 Mapa Operacional
+    </Link>
+  </div>
+</section>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
             <div className="card xl:col-span-2">

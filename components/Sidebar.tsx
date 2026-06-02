@@ -129,6 +129,10 @@ export default function Sidebar() {
             Abastecimentos
           </Link>
 
+          <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
+            Usuários
+          </Link>
+
           <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
             Configurações
           </Link>
