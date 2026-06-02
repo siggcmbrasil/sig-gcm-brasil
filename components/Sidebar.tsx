@@ -1,12 +1,27 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+
+type UsuarioLogado = {
+  nome: string;
+  matricula?: string;
+  email: string;
+  perfil: "ADMIN" | "COMANDANTE" | "OPERADOR" | "GUARDA";
+};
 
 export default function Sidebar() {
   const [aberto, setAberto] = useState(false);
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+
+  useEffect(() => {
+    const dados = localStorage.getItem("usuarioLogado");
+
+    if (dados) {
+      setUsuario(JSON.parse(dados));
+    }
+  }, []);
 
   async function sair() {
     await supabase.auth.signOut();
@@ -18,15 +33,20 @@ export default function Sidebar() {
     setAberto(false);
   }
 
+  function podeVer(perfis: string[]) {
+    if (!usuario) return false;
+    return perfis.includes(usuario.perfil);
+  }
+
   return (
     <>
       <div className="md:hidden bg-[#020b1c] border-b border-slate-800 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
-  src="/brasao-gcm-v2.png"
-  alt="Brasão GCM Biritinga"
-  className="w-12 h-12 object-contain"
-/>
+            src="/brasao-gcm-v2.png"
+            alt="Brasão GCM Biritinga"
+            className="w-12 h-12 object-contain"
+          />
 
           <div>
             <h1 className="font-bold text-white">SIG-GCM</h1>
@@ -60,13 +80,11 @@ export default function Sidebar() {
         `}
       >
         <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
-          <Image
-  src="/brasao-gcm-v2.png"
-  alt="Brasão GCM Biritinga"
-  width={48}
-  height={48}
-  priority
-/>
+          <img
+            src="/brasao-gcm-v2.png"
+            alt="Brasão GCM Biritinga"
+            className="w-12 h-12 object-contain"
+          />
 
           <div>
             <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
@@ -76,77 +94,115 @@ export default function Sidebar() {
           </div>
         </div>
 
+        {usuario && (
+          <div className="p-4 border-b border-slate-800 bg-slate-950/40">
+            <p className="font-semibold text-sm">{usuario.nome}</p>
+            <p className="text-xs text-slate-400">
+              Matrícula: {usuario.matricula || "-"}
+            </p>
+            <p className="text-xs text-blue-400">
+              Perfil: {usuario.perfil}
+            </p>
+          </div>
+        )}
+
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
             Dashboard
           </Link>
 
-          <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
-            Ocorrências
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR", "GUARDA"]) && (
+            <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
+              Ocorrências
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
-            Chamados
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
+            <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
+              Chamados
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
-            Patrulhamento
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR", "GUARDA"]) && (
+            <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
+              Patrulhamento
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
-            Veículos
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
+            <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
+              Veículos
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
-            Pessoas
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
+            <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
+              Pessoas
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
-            Guardas
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
+              Guardas
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
-            Escalas
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
+              Escalas
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
-            Viatura
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
+              Viatura
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
-            Equipamentos
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
+              Equipamentos
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
-            Mapa
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR", "GUARDA"]) && (
+            <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
+              Mapa
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
-            Relatórios
-          </Link>
-          
-          <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
-            Abastecimentos
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
+              Relatórios
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
-            Usuários
-          </Link>
+          {podeVer(["ADMIN", "COMANDANTE"]) && (
+            <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
+              Abastecimentos
+            </Link>
+          )}
 
-          <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
-            Configurações
-          </Link>
+          {podeVer(["ADMIN"]) && (
+            <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
+              Usuários
+            </Link>
+          )}
+
+          {podeVer(["ADMIN"]) && (
+            <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
+              Configurações
+            </Link>
+          )}
         </nav>
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex gap-3 items-center mb-4">
-            <Image
-  src="/brasao-gcm-v2.png"
-  alt="Brasão GCM Biritinga"
-  width={48}
-  height={48}
-  priority
-/>
+            <img
+              src="/brasao-gcm-v2.png"
+              alt="Brasão GCM Biritinga"
+              className="w-12 h-12 object-contain"
+            />
 
             <div>
               <p className="font-semibold">GCM Biritinga</p>

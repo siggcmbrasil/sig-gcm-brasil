@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 
 type Usuario = {
   id: number;
@@ -122,6 +123,7 @@ export default function Usuarios() {
   });
 
   return (
+  <ProtecaoPerfil perfisPermitidos={["ADMIN"]}>
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">
@@ -338,8 +340,9 @@ export default function Usuarios() {
           )}
         </div>
       </section>
-    </div>
-  );
+        </div>
+    </ProtecaoPerfil>
+);
 }
 
 function Campo({

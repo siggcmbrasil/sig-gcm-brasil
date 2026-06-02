@@ -49,7 +49,12 @@ localStorage.setItem(
     status: usuarioSistema?.status || "Ativo",
   })
 );
-
+if (usuarioSistema?.status === "Inativo" || usuarioSistema?.status === "Bloqueado") {
+  alert("Usuário inativo ou bloqueado. Procure o administrador.");
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
     router.push("/sistema");
   }
 
