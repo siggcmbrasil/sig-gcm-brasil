@@ -362,7 +362,7 @@ export default function Dashboard() {
       )}
 
       <Link
-        href="/sistema/ocorrencias/nova"
+        href="/sistema/ocorrencias/expressa"
         className="fixed bottom-6 right-6 md:hidden bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center text-4xl shadow-xl z-50"
       >
         +
