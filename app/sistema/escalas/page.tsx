@@ -10,6 +10,10 @@ type Escala = {
   turno: string;
   funcao: string;
   status: string;
+  supervisor: string | null;
+  viatura: string | null;
+  equipe: string | null;
+  observacoes: string | null;
 };
 
 type Guarda = {
@@ -20,16 +24,28 @@ type Guarda = {
   status: string;
 };
 
+type Viatura = {
+  id: number;
+  prefixo: string;
+  modelo: string;
+  status: string;
+};
+
 export default function Escalas() {
   const [escalas, setEscalas] = useState<Escala[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
+  const [equipeSelecionada, setEquipeSelecionada] = useState<string[]>([]);
   const [busca, setBusca] = useState("");
 
   const [data, setData] = useState("");
   const [guarda, setGuarda] = useState("");
+  const [supervisor, setSupervisor] = useState("");
+  const [viatura, setViatura] = useState("");
   const [turno, setTurno] = useState("07:00 - 19:00");
   const [funcao, setFuncao] = useState("Patrulhamento");
   const [status, setStatus] = useState("Em serviço");
+  const [observacoes, setObservacoes] = useState("");
 
   const [carregando, setCarregando] = useState(true);
 
@@ -67,9 +83,34 @@ export default function Escalas() {
     setGuardas(data || []);
   }
 
+  async function carregarViaturas() {
+    const { data, error } = await supabase
+      .from("viaturas")
+      .select("id, prefixo, modelo, status")
+      .in("status", ["Operacional", "Reserva"])
+      .order("prefixo", { ascending: true });
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar viaturas.");
+      return;
+    }
+
+    setViaturas(data || []);
+  }
+
+  function selecionarMembroEquipe(nome: string) {
+    if (equipeSelecionada.includes(nome)) {
+      setEquipeSelecionada(equipeSelecionada.filter((item) => item !== nome));
+      return;
+    }
+
+    setEquipeSelecionada([...equipeSelecionada, nome]);
+  }
+
   async function salvarEscala() {
     if (!data || !guarda || !turno || !funcao) {
-      alert("Preencha data, guarda, turno e função.");
+      alert("Preencha data, guarda principal, turno e função.");
       return;
     }
 
@@ -77,9 +118,13 @@ export default function Escalas() {
       {
         data,
         guarda,
+        supervisor,
+        viatura,
         turno,
         funcao,
         status,
+        equipe: equipeSelecionada.join("\n"),
+        observacoes,
       },
     ]);
 
@@ -93,9 +138,13 @@ export default function Escalas() {
 
     setData("");
     setGuarda("");
+    setSupervisor("");
+    setViatura("");
     setTurno("07:00 - 19:00");
     setFuncao("Patrulhamento");
     setStatus("Em serviço");
+    setObservacoes("");
+    setEquipeSelecionada([]);
 
     carregarEscalas();
   }
@@ -105,10 +154,7 @@ export default function Escalas() {
 
     if (!confirmar) return;
 
-    const { error } = await supabase
-      .from("escalas")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("escalas").delete().eq("id", id);
 
     if (error) {
       console.error(error);
@@ -123,32 +169,39 @@ export default function Escalas() {
   useEffect(() => {
     carregarEscalas();
     carregarGuardas();
+    carregarViaturas();
   }, []);
 
   const hoje = new Date().toISOString().split("T")[0];
+
+  const escalasHoje = escalas.filter((e) => e.data === hoje);
+  const emServicoHoje = escalasHoje.filter((e) => e.status === "Em serviço");
 
   const escalasFiltradas = escalas.filter((escala) => {
     const texto = `
       ${escala.data}
       ${escala.guarda}
+      ${escala.supervisor || ""}
+      ${escala.viatura || ""}
+      ${escala.equipe || ""}
       ${escala.turno}
       ${escala.funcao}
       ${escala.status}
+      ${escala.observacoes || ""}
     `.toLowerCase();
 
     return texto.includes(busca.toLowerCase());
   });
 
-  const escalasHoje = escalas.filter((e) => e.data === hoje);
-  const emServicoHoje = escalasHoje.filter((e) => e.status === "Em serviço");
-
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Escalas</h1>
+        <h1 className="text-2xl md:text-3xl font-bold">
+          Escala Operacional
+        </h1>
 
         <p className="text-slate-400 text-sm md:text-base">
-          Controle das escalas de serviço da GCM Biritinga.
+          Controle diário de equipe, supervisor, viatura e plantão.
         </p>
       </header>
 
@@ -157,9 +210,57 @@ export default function Escalas() {
         <Card titulo="Hoje" valor={escalasHoje.length} />
         <Card titulo="Em serviço hoje" valor={emServicoHoje.length} />
         <Card
-          titulo="Folgas"
-          valor={escalas.filter((e) => e.status === "Folga").length}
+          titulo="Plantões 24h"
+          valor={escalas.filter((e) => e.turno === "24 horas").length}
         />
+      </section>
+
+      <section className="card mb-6">
+        <h2 className="text-xl md:text-2xl font-bold mb-4">
+          Escala de Hoje
+        </h2>
+
+        {escalasHoje.length === 0 ? (
+          <p className="text-slate-400">
+            Nenhuma escala cadastrada para hoje.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {escalasHoje.map((escala) => (
+              <div
+                key={escala.id}
+                className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
+              >
+                <div className="flex justify-between gap-3 items-start">
+                  <div>
+                    <p className="text-blue-400 font-semibold">
+                      {escala.turno}
+                    </p>
+
+                    <h3 className="text-xl font-bold">
+                      {escala.guarda}
+                    </h3>
+                  </div>
+
+                  <Status status={escala.status} />
+                </div>
+
+                <Linha nome="Supervisor" valor={escala.supervisor || "-"} />
+                <Linha nome="Viatura" valor={escala.viatura || "-"} />
+                <Linha nome="Função" valor={escala.funcao} />
+
+                {escala.equipe && (
+                  <div>
+                    <p className="text-slate-400">Equipe</p>
+                    <pre className="whitespace-pre-wrap font-sans">
+                      {escala.equipe}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -180,8 +281,7 @@ export default function Escalas() {
             </div>
 
             <div>
-              <label className="label">Guarda</label>
-
+              <label className="label">Guarda principal</label>
               <select
                 className="input"
                 value={guarda}
@@ -195,12 +295,40 @@ export default function Escalas() {
                   </option>
                 ))}
               </select>
+            </div>
 
-              {guardas.length === 0 && (
-                <p className="text-sm text-yellow-400 mt-2">
-                  Nenhum guarda cadastrado.
-                </p>
-              )}
+            <div>
+              <label className="label">Supervisor</label>
+              <select
+                className="input"
+                value={supervisor}
+                onChange={(e) => setSupervisor(e.target.value)}
+              >
+                <option value="">Selecione o supervisor</option>
+
+                {guardas.map((g) => (
+                  <option key={g.id} value={g.nome}>
+                    {g.nome} • {g.matricula}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Viatura</label>
+              <select
+                className="input"
+                value={viatura}
+                onChange={(e) => setViatura(e.target.value)}
+              >
+                <option value="">Selecione uma viatura</option>
+
+                {viaturas.map((v) => (
+                  <option key={v.id} value={v.prefixo}>
+                    {v.prefixo} • {v.modelo} • {v.status}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>
@@ -212,6 +340,7 @@ export default function Escalas() {
               >
                 <option>07:00 - 19:00</option>
                 <option>19:00 - 07:00</option>
+                <option>24 horas</option>
                 <option>08:00 - 12:00</option>
                 <option>13:00 - 17:00</option>
                 <option>Plantão especial</option>
@@ -250,12 +379,54 @@ export default function Escalas() {
               </select>
             </div>
 
+            <div className="border-t border-slate-800 pt-4">
+              <label className="label">Equipe</label>
+
+              {guardas.length === 0 ? (
+                <p className="text-slate-400">Nenhum guarda cadastrado.</p>
+              ) : (
+                <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
+                  {guardas.map((g) => (
+                    <label
+                      key={g.id}
+                      className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={equipeSelecionada.includes(g.nome)}
+                        onChange={() => selecionarMembroEquipe(g.nome)}
+                        className="mt-1"
+                      />
+
+                      <div>
+                        <p className="font-bold">{g.nome}</p>
+                        <p className="text-sm text-slate-400">
+                          {g.matricula} • {g.cargo}
+                        </p>
+                        <p className="text-xs text-blue-400">{g.status}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="label">Observações</label>
+              <textarea
+                className="input h-28 resize-none"
+                value={observacoes}
+                onChange={(e) => setObservacoes(e.target.value)}
+                placeholder="Observações da escala..."
+              />
+            </div>
+
             <button
               type="button"
               onClick={salvarEscala}
               className="btn-primary w-full text-lg"
             >
-              Salvar Escala
+              Salvar Escala Operacional
             </button>
           </div>
         </div>
@@ -269,7 +440,7 @@ export default function Escalas() {
             <label className="label">Buscar escala</label>
             <input
               className="input"
-              placeholder="Buscar por data, guarda, turno, função ou status..."
+              placeholder="Buscar por data, guarda, supervisor, viatura..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
@@ -290,7 +461,7 @@ export default function Escalas() {
                     <div className="flex justify-between gap-3 items-start">
                       <div>
                         <p className="text-blue-400 font-semibold">
-                          {escala.data}
+                          {escala.data} • {escala.turno}
                         </p>
 
                         <h3 className="text-xl font-bold">
@@ -301,17 +472,24 @@ export default function Escalas() {
                       <Status status={escala.status} />
                     </div>
 
-                    <div className="text-slate-300 space-y-1">
-                      <p>
-                        <span className="text-slate-500">Turno: </span>
-                        {escala.turno}
-                      </p>
+                    <Linha nome="Supervisor" valor={escala.supervisor || "-"} />
+                    <Linha nome="Viatura" valor={escala.viatura || "-"} />
+                    <Linha nome="Função" valor={escala.funcao} />
 
-                      <p>
-                        <span className="text-slate-500">Função: </span>
-                        {escala.funcao}
+                    {escala.equipe && (
+                      <div>
+                        <p className="text-slate-400">Equipe</p>
+                        <pre className="whitespace-pre-wrap font-sans text-slate-300">
+                          {escala.equipe}
+                        </pre>
+                      </div>
+                    )}
+
+                    {escala.observacoes && (
+                      <p className="text-slate-400">
+                        {escala.observacoes}
                       </p>
-                    </div>
+                    )}
 
                     <button
                       type="button"
@@ -330,8 +508,9 @@ export default function Escalas() {
                     <tr>
                       <th className="text-left py-3">Data</th>
                       <th className="text-left py-3">Guarda</th>
+                      <th className="text-left py-3">Supervisor</th>
+                      <th className="text-left py-3">Viatura</th>
                       <th className="text-left py-3">Turno</th>
-                      <th className="text-left py-3">Função</th>
                       <th className="text-left py-3">Status</th>
                       <th className="text-right py-3">Ações</th>
                     </tr>
@@ -345,10 +524,11 @@ export default function Escalas() {
                         </td>
 
                         <td>{escala.guarda}</td>
-
+                        <td className="text-slate-400">
+                          {escala.supervisor || "-"}
+                        </td>
+                        <td>{escala.viatura || "-"}</td>
                         <td className="text-slate-400">{escala.turno}</td>
-
-                        <td className="text-slate-400">{escala.funcao}</td>
 
                         <td>
                           <Status status={escala.status} />
@@ -381,6 +561,15 @@ function Card({ titulo, valor }: { titulo: string; valor: number }) {
     <div className="card min-h-32 flex flex-col justify-center">
       <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
       <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
+    </div>
+  );
+}
+
+function Linha({ nome, valor }: { nome: string; valor: string }) {
+  return (
+    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
+      <span className="text-slate-400">{nome}</span>
+      <span className="text-right">{valor}</span>
     </div>
   );
 }
