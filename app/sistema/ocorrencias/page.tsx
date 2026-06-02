@@ -16,6 +16,7 @@ type Ocorrencia = {
 
 export default function Ocorrencias() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
+  const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
 
   async function carregarOcorrencias() {
@@ -61,134 +62,221 @@ export default function Ocorrencias() {
     carregarOcorrencias();
   }, []);
 
+  const ocorrenciasFiltradas = ocorrencias.filter((o) => {
+    const texto = `${o.protocolo} ${o.tipo} ${o.local} ${o.bairro || ""} ${o.status}`.toLowerCase();
+    return texto.includes(busca.toLowerCase());
+  });
+
   return (
-    <div className="p-6">
-      <header className="flex justify-between items-center border-b border-slate-800 pb-5 mb-6">
+    <div className="p-3 md:p-6 pb-24">
+      <header className="flex flex-col md:flex-row gap-4 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
         <div>
-          <h1 className="text-3xl font-bold">Ocorrências</h1>
-          <p className="text-slate-400">
+          <h1 className="text-2xl md:text-3xl font-bold">Ocorrências</h1>
+          <p className="text-slate-400 text-sm md:text-base">
             Registro e acompanhamento das ocorrências da GCM.
           </p>
         </div>
 
-        <Link
-          href="/sistema/ocorrencias/nova"
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-semibold"
-        >
-          + Nova Ocorrência
-        </Link>
+        <div className="flex flex-col md:flex-row gap-3">
+          <Link
+            href="/sistema/ocorrencias/expressa"
+            className="bg-green-700 hover:bg-green-800 px-5 py-4 rounded-xl font-semibold text-center"
+          >
+            Ocorrência Expressa
+          </Link>
+
+          <Link
+            href="/sistema/ocorrencias/nova"
+            className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center"
+          >
+            + Nova Ocorrência
+          </Link>
+        </div>
       </header>
 
-      <section className="grid grid-cols-4 gap-4 mb-6">
-        <div className="card">
-          <p className="text-slate-400">Total</p>
-          <h2 className="text-4xl font-bold">{ocorrencias.length}</h2>
-        </div>
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <Card titulo="Total" valor={ocorrencias.length} />
+        <Card
+          titulo="Abertas"
+          valor={ocorrencias.filter((o) => o.status === "Aberta").length}
+        />
+        <Card
+          titulo="Em andamento"
+          valor={ocorrencias.filter((o) => o.status === "Em andamento").length}
+        />
+        <Card
+          titulo="Finalizadas"
+          valor={ocorrencias.filter((o) => o.status === "Finalizada").length}
+        />
+      </section>
 
-        <div className="card">
-          <p className="text-slate-400">Abertas</p>
-          <h2 className="text-4xl font-bold">
-            {ocorrencias.filter((o) => o.status === "Aberta").length}
-          </h2>
-        </div>
-
-        <div className="card">
-          <p className="text-slate-400">Em andamento</p>
-          <h2 className="text-4xl font-bold">
-            {ocorrencias.filter((o) => o.status === "Em andamento").length}
-          </h2>
-        </div>
-
-        <div className="card">
-          <p className="text-slate-400">Finalizadas</p>
-          <h2 className="text-4xl font-bold">
-            {ocorrencias.filter((o) => o.status === "Finalizada").length}
-          </h2>
-        </div>
+      <section className="card mb-6">
+        <label className="label">Buscar ocorrência</label>
+        <input
+          className="input"
+          placeholder="Buscar por protocolo, tipo, local, bairro ou status..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
       </section>
 
       <section className="card">
-        <h2 className="text-xl font-bold mb-4">
+        <h2 className="text-xl md:text-2xl font-bold mb-4">
           Ocorrências cadastradas
         </h2>
 
         {carregando ? (
           <p className="text-slate-400">Carregando ocorrências...</p>
-        ) : ocorrencias.length === 0 ? (
-          <p className="text-slate-400">
-            Nenhuma ocorrência cadastrada ainda.
-          </p>
+        ) : ocorrenciasFiltradas.length === 0 ? (
+          <p className="text-slate-400">Nenhuma ocorrência encontrada.</p>
         ) : (
-          <table className="w-full text-sm">
-            <thead className="text-slate-400 border-b border-slate-700">
-              <tr>
-                <th className="text-left py-3">Protocolo</th>
-                <th className="text-left py-3">Tipo</th>
-                <th className="text-left py-3">Local</th>
-                <th className="text-left py-3">Bairro</th>
-                <th className="text-left py-3">Data</th>
-                <th className="text-left py-3">Status</th>
-                <th className="text-right py-3">Ações</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {ocorrencias.map((ocorrencia) => (
-                <tr
+          <>
+            <div className="md:hidden space-y-4">
+              {ocorrenciasFiltradas.map((ocorrencia) => (
+                <div
                   key={ocorrencia.id}
-                  className="border-b border-slate-800"
+                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
                 >
-                  <td className="py-4 text-blue-400 font-semibold">
-                    {ocorrencia.protocolo}
-                  </td>
+                  <div className="flex justify-between gap-3 items-start">
+                    <div>
+                      <p className="text-blue-400 font-semibold">
+                        {ocorrencia.protocolo}
+                      </p>
 
-                  <td>{ocorrencia.tipo}</td>
-
-                  <td className="text-slate-400">
-                    {ocorrencia.local}
-                  </td>
-
-                  <td className="text-slate-400">
-                    {ocorrencia.bairro || "-"}
-                  </td>
-
-                  <td>{ocorrencia.data}</td>
-
-                  <td>
-                    <Status status={ocorrencia.status} />
-                  </td>
-
-                  <td className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Link
-                        href={`/sistema/ocorrencias/${ocorrencia.id}`}
-                        className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
-                      >
-                        Ver
-                      </Link>
-
-                      <Link
-                        href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs"
-                      >
-                        Editar
-                      </Link>
-
-                      <button
-                        type="button"
-                        onClick={() => excluirOcorrencia(ocorrencia.id)}
-                        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                      >
-                        Excluir
-                      </button>
+                      <h3 className="text-xl font-bold">
+                        {ocorrencia.tipo}
+                      </h3>
                     </div>
-                  </td>
-                </tr>
+
+                    <Status status={ocorrencia.status} />
+                  </div>
+
+                  <div className="text-slate-300 space-y-1">
+                    <p>
+                      <span className="text-slate-500">Local: </span>
+                      {ocorrencia.local}
+                    </p>
+
+                    <p>
+                      <span className="text-slate-500">Bairro: </span>
+                      {ocorrencia.bairro || "-"}
+                    </p>
+
+                    <p>
+                      <span className="text-slate-500">Data: </span>
+                      {ocorrencia.data}
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2 pt-2">
+                    <Link
+                      href={`/sistema/ocorrencias/${ocorrencia.id}`}
+                      className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-3 rounded-xl text-center font-semibold"
+                    >
+                      Ver
+                    </Link>
+
+                    <Link
+                      href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
+                    >
+                      Editar
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => excluirOcorrencia(ocorrencia.id)}
+                      className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-slate-400 border-b border-slate-700">
+                  <tr>
+                    <th className="text-left py-3">Protocolo</th>
+                    <th className="text-left py-3">Tipo</th>
+                    <th className="text-left py-3">Local</th>
+                    <th className="text-left py-3">Bairro</th>
+                    <th className="text-left py-3">Data</th>
+                    <th className="text-left py-3">Status</th>
+                    <th className="text-right py-3">Ações</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {ocorrenciasFiltradas.map((ocorrencia) => (
+                    <tr
+                      key={ocorrencia.id}
+                      className="border-b border-slate-800"
+                    >
+                      <td className="py-4 text-blue-400 font-semibold">
+                        {ocorrencia.protocolo}
+                      </td>
+
+                      <td>{ocorrencia.tipo}</td>
+
+                      <td className="text-slate-400">
+                        {ocorrencia.local}
+                      </td>
+
+                      <td className="text-slate-400">
+                        {ocorrencia.bairro || "-"}
+                      </td>
+
+                      <td>{ocorrencia.data}</td>
+
+                      <td>
+                        <Status status={ocorrencia.status} />
+                      </td>
+
+                      <td className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/sistema/ocorrencias/${ocorrencia.id}`}
+                            className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Ver
+                          </Link>
+
+                          <Link
+                            href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Editar
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => excluirOcorrencia(ocorrencia.id)}
+                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
+    </div>
+  );
+}
+
+function Card({ titulo, valor }: { titulo: string; valor: number }) {
+  return (
+    <div className="card min-h-32 flex flex-col justify-center">
+      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
+      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
     </div>
   );
 }
@@ -209,7 +297,7 @@ function Status({ status }: { status: string }) {
   }
 
   return (
-    <span className={`${cor} px-3 py-1 rounded text-xs`}>
+    <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>
       {status}
     </span>
   );
