@@ -11,7 +11,36 @@ export default function OcorrenciaExpressa() {
   const [local, setLocal] = useState("");
   const [descricao, setDescricao] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [capturandoGps, setCapturandoGps] = useState(false);
+
+  function obterLocalizacao() {
+    if (!navigator.geolocation) {
+      alert("GPS não suportado neste dispositivo.");
+      return;
+    }
+
+    setCapturandoGps(true);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLatitude(position.coords.latitude.toString());
+        setLongitude(position.coords.longitude.toString());
+        setCapturandoGps(false);
+        alert("GPS capturado com sucesso.");
+      },
+      () => {
+        setCapturandoGps(false);
+        alert("Não foi possível obter a localização.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      }
+    );
+  }
 
   async function salvarExpressa() {
     if (!tipo || !local || !descricao) {
@@ -62,6 +91,8 @@ export default function OcorrenciaExpressa() {
         envolvidos: "",
         descricao,
         foto_url: fotoUrl,
+        latitude,
+        longitude,
       },
     ]);
 
@@ -80,9 +111,7 @@ export default function OcorrenciaExpressa() {
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-bold">
-          Ocorrência Expressa
-        </h1>
+        <h1 className="text-3xl font-bold">Ocorrência Expressa</h1>
 
         <p className="text-slate-400">
           Registro rápido para uso em campo pelo celular.
@@ -91,9 +120,7 @@ export default function OcorrenciaExpressa() {
 
       <div className="card space-y-5">
         <div>
-          <label className="label">
-            Tipo da ocorrência
-          </label>
+          <label className="label">Tipo da ocorrência</label>
 
           <select
             className="input"
@@ -101,31 +128,17 @@ export default function OcorrenciaExpressa() {
             onChange={(e) => setTipo(e.target.value)}
           >
             <option value="">Selecione</option>
-            <option value="Perturbação do sossego">
-              Perturbação do sossego
-            </option>
-            <option value="Apoio ao cidadão">
-              Apoio ao cidadão
-            </option>
-            <option value="Patrulhamento preventivo">
-              Patrulhamento preventivo
-            </option>
-            <option value="Fiscalização">
-              Fiscalização
-            </option>
-            <option value="Acidente">
-              Acidente
-            </option>
-            <option value="Outro">
-              Outro
-            </option>
+            <option value="Perturbação do sossego">Perturbação do sossego</option>
+            <option value="Apoio ao cidadão">Apoio ao cidadão</option>
+            <option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
+            <option value="Fiscalização">Fiscalização</option>
+            <option value="Acidente">Acidente</option>
+            <option value="Outro">Outro</option>
           </select>
         </div>
 
         <div>
-          <label className="label">
-            Local
-          </label>
+          <label className="label">Local</label>
 
           <input
             className="input"
@@ -136,9 +149,25 @@ export default function OcorrenciaExpressa() {
         </div>
 
         <div>
-          <label className="label">
-            Descrição rápida
-          </label>
+          <button
+            type="button"
+            onClick={obterLocalizacao}
+            disabled={capturandoGps}
+            className="btn-secondary w-full text-lg disabled:opacity-50"
+          >
+            {capturandoGps ? "Capturando GPS..." : "📍 Capturar GPS Atual"}
+          </button>
+
+          {latitude && longitude && (
+            <div className="mt-3 rounded-xl border border-green-700 bg-green-950/40 p-3 text-sm text-green-300">
+              <p>Latitude: {latitude}</p>
+              <p>Longitude: {longitude}</p>
+            </div>
+          )}
+        </div>
+
+        <div>
+          <label className="label">Descrição rápida</label>
 
           <textarea
             className="input h-40 resize-none"
@@ -149,9 +178,7 @@ export default function OcorrenciaExpressa() {
         </div>
 
         <div>
-          <label className="label">
-            Foto
-          </label>
+          <label className="label">Foto</label>
 
           <input
             type="file"
