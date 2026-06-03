@@ -121,6 +121,10 @@ export default function Sidebar() {
   Arquivo Histórico
 </Link>
 
+<Link onClick={fecharMenu} href="/sistema/escala-mensal" className="menu-item">
+  Escala Mensal
+</Link>
+
           {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
             <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
               Chamados

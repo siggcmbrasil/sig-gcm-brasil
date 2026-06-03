@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
-type Perfil = "ADMIN" | "COMANDANTE" | "OPERADOR" | "GUARDA";
+type Perfil =
+  | "ADMIN"
+  | "COMANDANTE"
+  | "SUPERVISOR"
+  | "OPERADOR"
+  | "PLANTONISTA"
+  | "GUARDA"
+  | "CONSULTA";
 
 type UsuarioLogado = {
   nome: string;
