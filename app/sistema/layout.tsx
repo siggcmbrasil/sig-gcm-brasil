@@ -31,16 +31,24 @@ export default function SistemaLayout({
         return;
       }
 
-      const usuarioAtual = {
-        id: data.user.id,
-        nome: data.user.email || "Usuário",
-        email: data.user.email || "",
-        perfil: "admin",
-      };
+      const { data: usuarioSistema } = await supabase
+  .from("usuarios")
+  .select("*")
+  .eq("email", data.user.email)
+  .single();
 
-      localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
-      setUsuario(usuarioAtual);
-      setVerificando(false);
+const usuarioAtual = {
+  id: data.user.id,
+  nome: usuarioSistema?.nome || data.user.email || "Usuário",
+  matricula: usuarioSistema?.matricula || "",
+  email: data.user.email || "",
+  perfil: (usuarioSistema?.perfil || "GUARDA").toUpperCase(),
+  status: usuarioSistema?.status || "Ativo",
+};
+
+localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
+setUsuario(usuarioAtual);
+setVerificando(false);
     }
 
     verificarSessao();

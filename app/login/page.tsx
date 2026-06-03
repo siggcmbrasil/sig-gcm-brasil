@@ -45,7 +45,7 @@ localStorage.setItem(
     nome: usuarioSistema?.nome || data.user.email,
     matricula: usuarioSistema?.matricula || "",
     email: data.user.email,
-    perfil: usuarioSistema?.perfil || "GUARDA",
+    perfil: (usuarioSistema?.perfil || "GUARDA").toUpperCase(),
     status: usuarioSistema?.status || "Ativo",
   })
 );
