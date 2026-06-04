@@ -48,11 +48,12 @@ export default function IAConsultaPage() {
           </label>
 
           <textarea
-            value={pergunta}
-            onChange={(e) => setPergunta(e.target.value)}
-            placeholder="Ex: Gere um relatório profissional sobre uma ocorrência de perturbação do sossego."
-            className="min-h-32 w-full rounded-xl border border-slate-300 p-4 outline-none focus:border-blue-600"
-          />
+  value={pergunta}
+  onChange={(e) => setPergunta(e.target.value)}
+  placeholder="Digite sua pergunta aqui..."
+  className="w-full rounded-xl border border-slate-300 bg-white p-4 text-black outline-none focus:border-blue-600"
+  rows={8}
+/>
 
           <button
             onClick={consultarIA}
