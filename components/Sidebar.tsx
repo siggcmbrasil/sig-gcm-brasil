@@ -137,6 +137,12 @@ export default function Sidebar() {
             </Link>
           )}
 
+          {podeVer(["ADMIN", "COMANDANTE", "OPERADOR", "GUARDA"]) && (
+  <Link onClick={fecharMenu} href="/ia" className="menu-item">
+    🤖 Inteligência Artificial
+  </Link>
+)}
+
           {podeVer(["ADMIN", "COMANDANTE", "OPERADOR"]) && (
             <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
               Veículos
