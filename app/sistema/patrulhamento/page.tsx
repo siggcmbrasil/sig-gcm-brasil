@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import CardIndicador from "@/components/CardIndicador";
 
 type Patrulhamento = {
   id: number;
@@ -225,32 +226,67 @@ export default function Patrulhamento() {
 
   return (
     <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Patrulhamento</h1>
+      <header className="mb-6">
+  <div className="flex flex-col gap-4 border-b border-slate-800 pb-5">
 
-        <p className="text-slate-400 text-sm md:text-base">
-          Registro das rondas, equipes, viaturas e pontos de presença.
-        </p>
-      </header>
+    <div>
+      <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+        Patrulhamento
+      </h1>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Total de rondas" valor={patrulhamentos.length} />
+      <p className="text-slate-400 text-base md:text-lg mt-1">
+        Controle das rondas, equipes, viaturas e áreas patrulhadas.
+      </p>
+    </div>
 
-        <Card
-          titulo="Hoje"
-          valor={patrulhamentos.filter((p) => p.data === hoje).length}
-        />
+  </div>
+</header>
 
-        <Card
-          titulo="Com GPS"
-          valor={patrulhamentos.filter((p) => p.latitude && p.longitude).length}
-        />
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
-        <Card
-          titulo="Com viatura"
-          valor={patrulhamentos.filter((p) => p.viatura).length}
-        />
-      </section>
+  <CardIndicador
+    titulo="Total"
+    valor={patrulhamentos.length}
+    icone="🚔"
+    cor="blue"
+  />
+
+  <CardIndicador
+    titulo="Viaturas"
+    valor={
+      new Set(
+        patrulhamentos.map((p) => p.viatura)
+      ).size
+    }
+    icone="🚓"
+    cor="purple"
+  />
+
+  <CardIndicador
+    titulo="Equipes"
+    valor={
+      new Set(
+        patrulhamentos.map((p) => p.equipe)
+      ).size
+    }
+    icone="👮"
+    cor="green"
+  />
+
+  <CardIndicador
+    titulo="Hoje"
+    valor={
+      patrulhamentos.filter(
+        (p) =>
+          p.data ===
+          new Date().toISOString().split("T")[0]
+      ).length
+    }
+    icone="📍"
+    cor="yellow"
+  />
+
+</section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
@@ -513,11 +549,3 @@ export default function Patrulhamento() {
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: number }) {
-  return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
-    </div>
-  );
-}

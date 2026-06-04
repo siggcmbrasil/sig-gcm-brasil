@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import CardIndicador from "@/components/CardIndicador";
 
 type Ocorrencia = {
   id: number;
@@ -68,47 +69,58 @@ export default function Ocorrencias() {
   });
 
   return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="flex flex-col md:flex-row gap-4 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
+  
+  <div className="p-3 md:p-6 pb-24">
+
+    <header className="mb-6">
+      <div className="flex flex-col gap-4 border-b border-slate-800 pb-5">
+
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold">Ocorrências</h1>
-          <p className="text-slate-400 text-sm md:text-base">
+          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+            Ocorrências
+          </h1>
+
+          <p className="text-slate-400 text-base md:text-lg mt-1">
             Registro e acompanhamento das ocorrências da GCM.
           </p>
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3">
-          <Link
-            href="/sistema/ocorrencias/expressa"
-            className="bg-green-700 hover:bg-green-800 px-5 py-4 rounded-xl font-semibold text-center"
-          >
-            Ocorrência Expressa
-          </Link>
-
-          <Link
-            href="/sistema/ocorrencias/nova"
-            className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center"
-          >
-            + Nova Ocorrência
-          </Link>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          ...
         </div>
-      </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Total" valor={ocorrencias.length} />
-        <Card
-          titulo="Abertas"
-          valor={ocorrencias.filter((o) => o.status === "Aberta").length}
-        />
-        <Card
-          titulo="Em andamento"
-          valor={ocorrencias.filter((o) => o.status === "Em andamento").length}
-        />
-        <Card
-          titulo="Finalizadas"
-          valor={ocorrencias.filter((o) => o.status === "Finalizada").length}
-        />
-      </section>
+      </div>
+    </header>
+
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+  <CardIndicador
+    titulo="Total"
+    valor={ocorrencias.length}
+    icone="📋"
+    cor="blue"
+  />
+
+  <CardIndicador
+    titulo="Abertas"
+    valor={ocorrencias.filter(o => o.status === "Aberta").length}
+    icone="🚨"
+    cor="yellow"
+  />
+
+  <CardIndicador
+    titulo="Andamento"
+    valor={ocorrencias.filter(o => o.status === "Em andamento").length}
+    icone="🚔"
+    cor="purple"
+  />
+
+  <CardIndicador
+    titulo="Finalizadas"
+    valor={ocorrencias.filter(o => o.status === "Finalizada").length}
+    icone="✅"
+    cor="green"
+  />
+</section>
 
       <section className="card mb-6">
         <label className="label">Buscar ocorrência</label>

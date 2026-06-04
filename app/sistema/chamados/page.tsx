@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import CardIndicador from "@/components/CardIndicador";
 
 type Chamado = {
   id: number;
@@ -127,34 +128,65 @@ export default function Chamados() {
 
   return (
     <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">
-          Chamados
-        </h1>
+      <header className="mb-6">
+  <div className="flex flex-col gap-4 border-b border-slate-800 pb-5">
 
-        <p className="text-slate-400 text-sm md:text-base">
-          Central de atendimento e despacho da GCM Biritinga.
-        </p>
-      </header>
+    <div>
+      <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+        Chamados
+      </h1>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Total" valor={chamados.length} />
+      <p className="text-slate-400 text-base md:text-lg mt-1">
+        Atendimento e controle dos chamados recebidos pela GCM.
+      </p>
+    </div>
 
-        <Card
-          titulo="Abertos"
-          valor={chamados.filter((c) => c.status === "Aberto").length}
-        />
+  </div>
+</header>
 
-        <Card
-          titulo="Em atendimento"
-          valor={chamados.filter((c) => c.status === "Em atendimento").length}
-        />
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
-        <Card
-          titulo="Urgentes"
-          valor={chamados.filter((c) => c.prioridade === "Urgente").length}
-        />
-      </section>
+  <CardIndicador
+    titulo="Total"
+    valor={chamados.length}
+    icone="📞"
+    cor="blue"
+  />
+
+  <CardIndicador
+    titulo="Abertos"
+    valor={
+      chamados.filter(
+        (c) => c.status === "Aberto"
+      ).length
+    }
+    icone="🚨"
+    cor="yellow"
+  />
+
+  <CardIndicador
+    titulo="Em Atendimento"
+    valor={
+      chamados.filter(
+        (c) => c.status === "Em Atendimento"
+      ).length
+    }
+    icone="🚔"
+    cor="purple"
+  />
+
+  <CardIndicador
+    titulo="Finalizados"
+    valor={
+      chamados.filter(
+        (c) => c.status === "Finalizado"
+      ).length
+    }
+    icone="✅"
+    cor="green"
+  />
+
+</section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
