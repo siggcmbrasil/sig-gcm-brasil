@@ -320,7 +320,7 @@ export default function Chamados() {
                 {chamadosFiltrados.map((chamado) => (
                   <div
                     key={chamado.id}
-                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
+                    className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 shadow-lg"
                   >
                     <div className="flex justify-between gap-3 items-start">
                       <div>
@@ -428,14 +428,6 @@ export default function Chamados() {
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: number }) {
-  return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
-    </div>
-  );
-}
 
 function Prioridade({ prioridade }: { prioridade: string }) {
   let cor = "bg-blue-700 text-blue-100";

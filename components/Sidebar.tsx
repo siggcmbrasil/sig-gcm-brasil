@@ -197,6 +197,10 @@ export default function Sidebar() {
             </Link>
           )}
 
+          <Link href="/relatorio-geral">
+  Relatório Geral do Plantão
+</Link>
+
           {podeVer(["ADMIN"]) && (
             <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
               Configurações
