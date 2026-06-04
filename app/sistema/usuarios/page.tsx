@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import CardIndicador from "@/components/CardIndicador";
 
 type Usuario = {
   id: number;
@@ -125,31 +126,49 @@ export default function Usuarios() {
   return (
   <ProtecaoPerfil perfisPermitidos={["ADMIN"]}>
     <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">
-          Usuários do Sistema
-        </h1>
+      <header className="mb-6">
+  <div className="border-b border-slate-800 pb-5">
+    <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+      Usuários
+    </h1>
 
-        <p className="text-slate-400 text-sm md:text-base">
-          Cadastro de usuários, perfis e permissões da GCM Biritinga.
-        </p>
-      </header>
+    <p className="text-slate-400 text-base md:text-lg mt-1">
+      Gestão de acessos, perfis e permissões do sistema.
+    </p>
+  </div>
+</header>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Total" valor={usuarios.length} />
-        <Card
-          titulo="Ativos"
-          valor={usuarios.filter((u) => u.status === "Ativo").length}
-        />
-        <Card
-          titulo="Admins"
-          valor={usuarios.filter((u) => u.perfil === "ADMIN").length}
-        />
-        <Card
-          titulo="Guardas"
-          valor={usuarios.filter((u) => u.perfil === "GUARDA").length}
-        />
-      </section>
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+
+  <CardIndicador
+    titulo="Usuários"
+    valor={usuarios.length}
+    icone="👮"
+    cor="blue"
+  />
+
+  <CardIndicador
+    titulo="Ativos"
+    valor={usuarios.filter((u) => u.status === "Ativo").length}
+    icone="✅"
+    cor="green"
+  />
+
+  <CardIndicador
+    titulo="Admins"
+    valor={usuarios.filter((u) => u.perfil === "ADMIN").length}
+    icone="🛡️"
+    cor="purple"
+  />
+
+  <CardIndicador
+    titulo="Inativos"
+    valor={usuarios.filter((u) => u.status !== "Ativo").length}
+    icone="⛔"
+    cor="red"
+  />
+
+</section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
@@ -370,14 +389,6 @@ function Campo({
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: number }) {
-  return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
-    </div>
-  );
-}
 
 function Linha({ nome, valor }: { nome: string; valor: string }) {
   return (

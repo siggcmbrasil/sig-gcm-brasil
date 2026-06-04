@@ -192,55 +192,105 @@ function Resumo({ titulo, valor }: { titulo: string; valor: number }) {
 }
 
 function Secao({ titulo, itens }: { titulo: string; itens: any[] }) {
+  function formatarData(valor: any) {
+    if (!valor) return "Não informado";
+
+    const data = new Date(valor);
+
+    if (isNaN(data.getTime())) {
+      return String(valor);
+    }
+
+    return data.toLocaleString("pt-BR");
+  }
+
+  function statusClasse(status: string) {
+    const s = String(status || "").toLowerCase();
+
+    if (s.includes("finalizada")) {
+      return "bg-green-100 text-green-700 border-green-200";
+    }
+
+    if (s.includes("andamento")) {
+      return "bg-blue-100 text-blue-700 border-blue-200";
+    }
+
+    if (s.includes("aberta")) {
+      return "bg-yellow-100 text-yellow-700 border-yellow-200";
+    }
+
+    return "bg-slate-100 text-slate-700 border-slate-200";
+  }
+
   return (
     <div className="mb-10">
-      <h3 className="text-xl font-bold text-slate-900 border-b pb-2 mb-4">
-        {titulo}
-      </h3>
+      <div className="flex items-center justify-between border-b border-slate-300 pb-3 mb-5">
+        <h3 className="text-xl font-bold text-slate-900">{titulo}</h3>
+
+        <span className="text-sm font-bold text-slate-500">
+          {itens.length} registro(s)
+        </span>
+      </div>
 
       {itens.length === 0 ? (
-        <p className="text-sm text-slate-500">
+        <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm text-slate-500">
           Nenhum registro encontrado neste período.
-        </p>
+        </div>
       ) : (
         <div className="space-y-4">
-          {itens.map((item, index) => (
-            <div
-              key={item.id || index}
-              className="rounded-2xl border border-slate-200 bg-slate-50 p-4 shadow-sm"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 mb-3">
-                <div>
-                  <p className="text-xs text-slate-500">Protocolo</p>
-                  <p className="font-bold text-blue-700">
-                    {item.protocolo || item.numero || "Sem protocolo"}
-                  </p>
+          {itens.map((item, index) => {
+            const protocolo = item.protocolo || item.numero || `Registro ${index + 1}`;
+            const status = item.status || "Sem status";
+
+            return (
+              <div
+                key={item.id || index}
+                className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-md mb-5"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-900 px-5 py-4 text-white">
+                  <div>
+                    <p className="text-xs text-slate-300">Protocolo</p>
+                    <p className="text-lg font-black text-blue-300">
+                      {protocolo}
+                    </p>
+                  </div>
+
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-black ${statusClasse(
+                      status
+                    )}`}
+                  >
+                    {status}
+                  </span>
                 </div>
 
-                <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-                  {item.status || "Sem status"}
-                </span>
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 x1:grid-cols-4 gap-4 p-5">
+                  <Campo label="Tipo" valor={item.tipo} />
+                  <Campo label="Data" valor={formatarData(item.criado_em || item.data)} />
+                  <Campo label="Local" valor={item.local} />
+                  <Campo label="Bairro" valor={item.bairro} />
+                  <Campo label="Equipe" valor={item.equipe_empenhada} />
+                  <Campo label="Viatura" valor={item.viatura_empenhada} />
+                  <Campo label="Finalizado em" valor={formatarData(item.finalizado_em)} />
+                  <Campo label="Plantão" valor={item.plantao} />
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                <Campo label="Tipo" valor={item.tipo} />
-                <Campo label="Local" valor={item.local} />
-                <Campo label="Bairro" valor={item.bairro} />
-                <Campo label="Data" valor={item.data || item.criado_em} />
-                <Campo label="Equipe" valor={item.equipe_empenhada} />
-                <Campo label="Viatura" valor={item.viatura_empenhada} />
-              </div>
+                <div className="border-t bg-slate-50 p-4">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500">
+                    Descrição / Observação
+                  </p>
 
-              <div className="mt-4">
-                <p className="text-xs font-bold text-slate-500 uppercase">
-                  Descrição
-                </p>
-                <p className="mt-1 text-sm text-slate-800 whitespace-pre-wrap">
-                  {item.descricao || item.relato || "Sem descrição registrada."}
-                </p>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-800">
+                    {item.descricao ||
+                      item.relato ||
+                      item.observacao ||
+                      item.observacoes ||
+                      "Sem descrição registrada."}
+                  </p>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
@@ -249,10 +299,15 @@ function Secao({ titulo, itens }: { titulo: string; itens: any[] }) {
 
 function Campo({ label, valor }: { label: string; valor: any }) {
   return (
-    <div>
-      <p className="text-xs font-bold text-slate-500 uppercase">{label}</p>
-      <p className="text-sm font-semibold text-slate-800">
-        {valor ? String(valor) : "Não informado"}
+    <div className="rounded-xl border border-slate-300 bg-slate-50 p-4 min-h-20">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-1 wrap-break-words text-sm font-bold text-slate-900">
+        {valor !== null && valor !== undefined && valor !== ""
+          ? String(valor)
+          : "Não informado"}
       </p>
     </div>
   );

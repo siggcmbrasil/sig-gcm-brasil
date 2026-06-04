@@ -1,3 +1,5 @@
+
+
 export default function CardIndicador({
   titulo,
   valor,
@@ -19,7 +21,7 @@ export default function CardIndicador({
 
   return (
     <div
-      className={`${cores[cor]} rounded-2xl border p-4 min-h-28 shadow-lg flex flex-col justify-between`}
+      className={`${cores[cor]} rounded-2xl border p-3 min-h-24 shadow-lg flex flex-col justify-between`}
     >
       <div className="w-10 h-10 rounded-xl bg-slate-900/70 flex items-center justify-center text-xl">
         {icone}
@@ -27,7 +29,7 @@ export default function CardIndicador({
 
       <div>
         <p className="text-slate-400 text-sm">{titulo}</p>
-        <h2 className="text-4xl font-bold leading-none mt-1">{valor}</h2>
+        <h2 className="text-3xl font-bold leading-none mt-1">{valor}</h2>
       </div>
     </div>
   );
