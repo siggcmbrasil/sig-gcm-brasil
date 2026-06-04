@@ -257,15 +257,16 @@ export default function Usuarios() {
             Usuários Cadastrados
           </h2>
 
-          <div className="mb-5">
-            <label className="label">Buscar usuário</label>
-            <input
-              className="input"
-              placeholder="Buscar por nome, email, matrícula, perfil..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
+          <div className="mb-5 bg-slate-950/30 border border-slate-800 rounded-2xl p-4">
+  <label className="label">🔍 Buscar usuário</label>
+
+  <input
+    className="input"
+    placeholder="Nome, email, matrícula ou perfil..."
+    value={busca}
+    onChange={(e) => setBusca(e.target.value)}
+  />
+</div>
 
           {carregando ? (
             <p className="text-slate-400">Carregando usuários...</p>
@@ -277,7 +278,7 @@ export default function Usuarios() {
                 {usuariosFiltrados.map((usuario) => (
                   <div
                     key={usuario.id}
-                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
+                    className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5 space-y-3 shadow-lg"
                   >
                     <div className="flex justify-between gap-3 items-start">
                       <div>
