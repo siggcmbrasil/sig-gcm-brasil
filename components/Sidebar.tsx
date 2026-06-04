@@ -117,6 +117,10 @@ export default function Sidebar() {
             </Link>
           )}
 
+          <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item">
+  📴 Ocorrências Offline
+</Link>
+
           <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
   Arquivo Histórico
 </Link>
@@ -139,7 +143,7 @@ export default function Sidebar() {
 
           {podeVer(["ADMIN", "COMANDANTE", "OPERADOR", "GUARDA"]) && (
   <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
-    🤖 Inteligência Artificial
+    🤖 I.A
   </Link>
 )}
 
