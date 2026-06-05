@@ -547,7 +547,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
                         <td>{item.viatura || "-"}</td>
 
-                        <td>{item.guarda}</td>
+                        <td>{item.guarda || "-"}</td>
 
                         <td className="text-right">
                           {podeEditar && (

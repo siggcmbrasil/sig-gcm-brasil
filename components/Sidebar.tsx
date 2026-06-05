@@ -137,126 +137,118 @@ export default function Sidebar() {
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
           <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
-            Dashboard
+            🏠 Dashboard
           </Link>
+
+          <Divisor />
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
-              Ocorrências
+              🚨 Ocorrências
             </Link>
           )}
 
           {podeVer(operacionais) && (
             <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item">
-              Ocorrências Offline 📴 
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
-              Arquivo Histórico
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/escala-mensal" className="menu-item">
-              Escala Mensal
+              📴 Ocorrências Offline
             </Link>
           )}
 
           {podeVer(operacionais) && (
             <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
-              Chamados
+              📞 Chamados
             </Link>
           )}
 
           {podeVer(operacionais) && (
             <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
-              Patrulhamento
+              🚔 Patrulhamento
             </Link>
           )}
 
-          {podeVer(operacionais) && (
-            <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
-              🤖 I.A
+          <Divisor />
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
+              👤 Pessoas
             </Link>
           )}
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
-              Veículos
+              🚗 Veículos
             </Link>
           )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
-              Pessoas
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
-              Guardas
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
-              Escalas
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
-              Viatura
+          {podeVer(operacionais) && (
+            <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
+              🤖 IA Operacional
             </Link>
           )}
 
           {podeVer(gestao) && (
             <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
-              Equipamentos
+              🦺 Equipamentos
             </Link>
           )}
 
           {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
-              Mapa
+            <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
+              🚓 Viatura
             </Link>
           )}
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
-              Relatórios
+              📋 Relatórios
             </Link>
           )}
 
-          {podeVer(gestao) && (
-            <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
-              Abastecimentos
+          <Divisor />
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
+              👮 Guardas
+            </Link>
+          )}
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
+              📅 Escalas
+            </Link>
+          )}
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/guarnicoes" className="menu-item">
+              👥 Guarnições
             </Link>
           )}
 
           {podeVer(comando) && (
-            <Link onClick={fecharMenu} href="/sistema/relatorio-plantao" className="menu-item">
-              Relatório Geral do Plantão
+            <Link onClick={fecharMenu} href="/sistema/estatisticas" className="menu-item">
+              📊 Estatísticas
+            </Link>
+          )}
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
+              🗂️ Arquivo
             </Link>
           )}
 
           {podeVer(["ADMIN"]) && (
             <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
-              Usuários
+              👤 Usuários
             </Link>
           )}
+
+          <Divisor />
 
           {podeVer(["ADMIN"]) && (
             <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
-              Configurações
+              ⚙️ Configurações
             </Link>
           )}
-
-          <Link href="/sistema/guarnicoes">
-  👮 Guarnições
-</Link>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -285,4 +277,8 @@ export default function Sidebar() {
       </aside>
     </>
   );
+}
+
+function Divisor() {
+  return <div className="border-t border-slate-800 my-3" />;
 }
