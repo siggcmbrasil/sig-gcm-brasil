@@ -45,6 +45,14 @@ export default function Dashboard() {
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  const usuarioLogado =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
+
+  const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const podeOperar = perfilUsuario !== "CONSULTA";
+
   async function carregarDashboard() {
     setCarregando(true);
 
@@ -73,7 +81,6 @@ export default function Dashboard() {
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
     setAvisos(avisosData || []);
-
     setCarregando(false);
   }
 
@@ -85,7 +92,6 @@ export default function Dashboard() {
 
   const ocorrenciasHoje = ocorrencias.filter((o) => o.data === hoje).length;
   const abertas = ocorrencias.filter((o) => o.status === "Aberta").length;
-  const andamento = ocorrencias.filter((o) => o.status === "Em andamento").length;
   const finalizadas = ocorrencias.filter((o) => o.status === "Finalizada").length;
 
   const guardasServico = guardas.filter((g) => g.status === "Em serviço").length;
@@ -95,224 +101,135 @@ export default function Dashboard() {
 
   return (
     <div className="p-3 md:p-6 pb-24">
-      <header className="mb-6">
-  <div className="border-b border-slate-800 pb-5">
-          <h1 className="text-3xl md:text-4xl font-bold">
-  🚔 Central Operacional GCM Biritinga
-</h1>
+      <header className="mb-6 border-b border-slate-800 pb-5">
+        <h1 className="text-3xl md:text-4xl font-bold">
+          🚔 Central Operacional GCM Biritinga
+        </h1>
 
-          <p className="text-slate-400 text-sm md:text-base">
-            Visão geral da Guarda Civil Municipal de Biritinga.
-          </p>
-        </div>
+        <p className="text-slate-400 text-sm md:text-base">
+          Visão geral da Guarda Civil Municipal de Biritinga.
+        </p>
 
         <p className="text-green-400 text-sm mt-2">
-  Sistema Online • Operacional 24h
-</p>
+          Sistema Online • Operacional 24h
+        </p>
 
-        <Link
-  href="/sistema/ocorrencias/nova"
-  className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
->
-  + Nova Ocorrência
-</Link>
+        <div className="mt-4 flex flex-col md:flex-row gap-3">
+          {podeOperar && (
+            <Link
+              href="/sistema/ocorrencias/nova"
+              className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
+            >
+              + Nova Ocorrência
+            </Link>
+          )}
 
-<InstalarApp />
+          <InstalarApp />
+        </div>
+      </header>
 
-</header>
-
-{carregando ? (
-  <p className="text-slate-400 text-lg">
-    Carregando painel...
-  </p>
-) : (
-  <>
-<section className="mb-6">
-  <div className="card border-l-4 border-yellow-500">
-    <h2 className="text-2xl font-bold mb-4 text-yellow-400">
-      🚨 Avisos Operacionais
-    </h2>
-
-    {avisos.length === 0 ? (
-      <p className="text-slate-400">
-        Nenhum aviso operacional cadastrado.
-      </p>
-    ) : (
-      <div className="space-y-3">
-        {avisos.slice(0, 5).map((aviso) => (
-          <div
-            key={aviso.id}
-            className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-4"
-          >
-            <h3 className="font-bold text-yellow-400 text-lg">
-              {aviso.titulo}
-            </h3>
-
-            <p className="text-slate-300 mt-1">
-              {aviso.descricao}
-            </p>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-</section>
-
-    <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-
-  <Card
-    titulo="Hoje"
-    valor={String(ocorrenciasHoje)}
-    detalhe="Ocorrências"
-  />
-
-  <Card
-    titulo="Abertas"
-    valor={String(abertas)}
-    detalhe="Pendentes"
-  />
-
-  <Card
-    titulo="Serviço"
-    valor={String(guardasServico)}
-    detalhe="Guardas"
-  />
-
-  <Card
-    titulo="Avisos"
-    valor={String(avisos.length)}
-    detalhe="Ativos"
-  />
-
-</section>
-
-<section className="md:hidden card mb-6">
-  <h2 className="text-xl font-bold mb-4">
-    Acesso Rápido Mobile
-  </h2>
-
-  <div className="grid grid-cols-2 gap-3">
-    <Link
-      href="/sistema/ocorrencias/expressa"
-      className="bg-red-700 rounded-xl p-4 text-center font-bold"
-    >
-      🚨 Expressa
-    </Link>
-
-    <Link
-      href="/sistema/ocorrencias/nova"
-      className="bg-blue-700 rounded-xl p-4 text-center font-bold"
-    >
-      📷 Nova
-    </Link>
-
-    <Link
-      href="/sistema/chamados"
-      className="bg-yellow-700 rounded-xl p-4 text-center font-bold"
-    >
-      📞 Chamados
-    </Link>
-
-    <Link
-      href="/sistema/patrulhamento"
-      className="bg-green-700 rounded-xl p-4 text-center font-bold"
-    >
-      🚔 Ronda
-    </Link>
-
-    <Link
-      href="/sistema/mapa"
-      className="bg-purple-700 rounded-xl p-4 text-center font-bold col-span-2"
-    >
-      📍 Mapa Operacional
-    </Link>
-  </div>
-</section>
-
-          <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-            <div className="card xl:col-span-2">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Ações Rápidas
+      {carregando ? (
+        <p className="text-slate-400 text-lg">Carregando painel...</p>
+      ) : (
+        <>
+          <section className="mb-6">
+            <div className="card border-l-4 border-yellow-500">
+              <h2 className="text-2xl font-bold mb-4 text-yellow-400">
+                🚨 Avisos Operacionais
               </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
-                <Atalho
-                  href="/sistema/ocorrencias/nova"
-                  titulo="Nova Ocorrência"
-                  descricao="Registrar ocorrência com foto"
-                />
+              {avisos.length === 0 ? (
+                <p className="text-slate-400">
+                  Nenhum aviso operacional cadastrado.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {avisos.slice(0, 5).map((aviso) => (
+                    <div
+                      key={aviso.id}
+                      className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-4"
+                    >
+                      <h3 className="font-bold text-yellow-400 text-lg">
+                        {aviso.titulo}
+                      </h3>
 
-                <Atalho
-                  href="/sistema/chamados"
-                  titulo="Novo Chamado"
-                  descricao="Abrir chamado operacional"
-                />
+                      <p className="text-slate-300 mt-1">
+                        {aviso.descricao}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </section>
 
-                <Atalho
-                  href="/sistema/patrulhamento"
-                  titulo="Patrulhamento"
-                  descricao="Registrar ronda da VTR"
-                />
+          <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <Card titulo="Hoje" valor={String(ocorrenciasHoje)} detalhe="Ocorrências" />
+            <Card titulo="Abertas" valor={String(abertas)} detalhe="Pendentes" />
+            <Card titulo="Serviço" valor={String(guardasServico)} detalhe="Guardas" />
+            <Card titulo="Avisos" valor={String(avisos.length)} detalhe="Ativos" />
+          </section>
 
-                <Atalho
-                  href="/sistema/mapa"
-                  titulo="Mapa Operacional"
-                  descricao="Visualizar área da cidade"
-                />
+          {podeOperar && (
+            <section className="md:hidden card mb-6">
+              <h2 className="text-xl font-bold mb-4">Acesso Rápido Mobile</h2>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Link href="/sistema/ocorrencias/expressa" className="bg-red-700 rounded-xl p-4 text-center font-bold">
+                  🚨 Expressa
+                </Link>
+
+                <Link href="/sistema/ocorrencias/nova" className="bg-blue-700 rounded-xl p-4 text-center font-bold">
+                  📷 Nova
+                </Link>
+
+                <Link href="/sistema/chamados" className="bg-yellow-700 rounded-xl p-4 text-center font-bold">
+                  📞 Chamados
+                </Link>
+
+                <Link href="/sistema/patrulhamento" className="bg-green-700 rounded-xl p-4 text-center font-bold">
+                  🚔 Ronda
+                </Link>
+
+                <Link href="/sistema/mapa" className="bg-purple-700 rounded-xl p-4 text-center font-bold col-span-2">
+                  📍 Mapa Operacional
+                </Link>
               </div>
+            </section>
+          )}
 
+          <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+            {podeOperar && (
+              <div className="card xl:col-span-2">
+                <h2 className="text-xl md:text-2xl font-bold mb-4">
+                  Ações Rápidas
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <Atalho href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" descricao="Registrar ocorrência com foto" />
+                  <Atalho href="/sistema/chamados" titulo="Novo Chamado" descricao="Abrir chamado operacional" />
+                  <Atalho href="/sistema/patrulhamento" titulo="Patrulhamento" descricao="Registrar ronda da VTR" />
+                  <Atalho href="/sistema/mapa" titulo="Mapa Operacional" descricao="Visualizar área da cidade" />
+                </div>
+              </div>
+            )}
+
+            <div className="card xl:col-span-2">
               <h2 className="text-xl md:text-2xl font-bold mb-4">
                 Resumo Operacional
               </h2>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-  <div className="bg-green-900/30 border border-green-700 rounded-xl p-4">
-    <p className="text-green-400 text-sm">Finalizadas</p>
-    <h3 className="text-3xl font-bold">{finalizadas}</h3>
-  </div>
-
-  <div className="bg-yellow-900/30 border border-yellow-700 rounded-xl p-4">
-    <p className="text-yellow-400 text-sm">Abertas</p>
-    <h3 className="text-3xl font-bold">{abertas}</h3>
-  </div>
-
-  <div className="bg-blue-900/30 border border-blue-700 rounded-xl p-4">
-    <p className="text-blue-400 text-sm">Em Serviço</p>
-    <h3 className="text-3xl font-bold">{guardasServico}</h3>
-  </div>
-
-  <div className="bg-red-900/30 border border-red-700 rounded-xl p-4">
-    <p className="text-red-400 text-sm">Folga</p>
-    <h3 className="text-3xl font-bold">{guardasFolga}</h3>
-  </div>
-</div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Resumo
-                  titulo="Total de ocorrências"
-                  valor={ocorrencias.length}
-                />
-
-                <Resumo
-                  titulo="Finalizadas"
-                  valor={finalizadas}
-                />
-
-                <Resumo
-                  titulo="Efetivo cadastrado"
-                  valor={guardas.length}
-                />
+                <Resumo titulo="Finalizadas" valor={finalizadas} />
+                <Resumo titulo="Abertas" valor={abertas} />
+                <Resumo titulo="Em Serviço" valor={guardasServico} />
+                <Resumo titulo="Folga" valor={guardasFolga} />
               </div>
 
               <div className="mt-6 h-52 md:h-64 rounded-xl bg-slate-200 text-slate-900 flex items-center justify-center">
                 <div className="text-center px-4">
-                  <p className="text-2xl font-bold">
-                    Biritinga - BA
-                  </p>
-
-                  <p>
-                    Mapa resumido da operação
-                  </p>
+                  <p className="text-2xl font-bold">Biritinga - BA</p>
+                  <p>Mapa resumido da operação</p>
 
                   <Link
                     href="/sistema/mapa"
@@ -344,10 +261,10 @@ export default function Dashboard() {
                   </p>
 
                   {ultimaOcorrencia.bairro && (
-  <p className="text-slate-500">
-    Bairro: {ultimaOcorrencia.bairro}
-  </p>
-)}
+                    <p className="text-slate-500">
+                      Bairro: {ultimaOcorrencia.bairro}
+                    </p>
+                  )}
 
                   <p className="text-slate-500 text-sm">
                     {ultimaOcorrencia.data} às {ultimaOcorrencia.hora}
@@ -401,80 +318,43 @@ export default function Dashboard() {
               )}
             </div>
 
-            <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Avisos Operacionais
-              </h2>
+            {podeOperar && (
+              <div className="card">
+                <h2 className="text-xl md:text-2xl font-bold mb-4">
+                  Atalhos
+                </h2>
 
-              {avisos.length === 0 ? (
-                <p className="text-slate-400">
-                  Nenhum aviso cadastrado.
-                </p>
-              ) : (
-                <div className="space-y-4">
-                  {avisos.slice(0, 3).map((aviso) => (
-                    <div
-  key={aviso.id}
-  className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-4"
->
-                      <h3 className="font-bold text-yellow-400 text-lg">
-                        {aviso.titulo}
-                      </h3>
+                <div className="space-y-3">
+                  <Link className="menu-item bg-slate-800" href="/sistema/ocorrencias">
+                    Ocorrências
+                  </Link>
 
-                      <p className="text-slate-400 text-sm">
-                        {aviso.descricao}
-                      </p>
-                    </div>
-                  ))}
+                  <Link className="menu-item bg-slate-800" href="/sistema/chamados">
+                    Chamados
+                  </Link>
+
+                  <Link className="menu-item bg-slate-800" href="/sistema/patrulhamento">
+                    Patrulhamento
+                  </Link>
+
+                  <Link className="menu-item bg-slate-800" href="/sistema/mapa">
+                    Mapa Operacional
+                  </Link>
                 </div>
-              )}
-            </div>
-
-            <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Atalhos
-              </h2>
-
-              <div className="space-y-3">
-                <Link
-                  className="menu-item bg-slate-800"
-                  href="/sistema/ocorrencias"
-                >
-                  Ocorrências
-                </Link>
-
-                <Link
-                  className="menu-item bg-slate-800"
-                  href="/sistema/chamados"
-                >
-                  Chamados
-                </Link>
-
-                <Link
-                  className="menu-item bg-slate-800"
-                  href="/sistema/patrulhamento"
-                >
-                  Patrulhamento
-                </Link>
-
-                <Link
-                  className="menu-item bg-slate-800"
-                  href="/sistema/mapa"
-                >
-                  Mapa Operacional
-                </Link>
               </div>
-            </div>
+            )}
           </section>
         </>
       )}
 
-      <Link
-        href="/sistema/ocorrencias/expressa"
-        className="fixed bottom-6 right-6 md:hidden bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center text-4xl shadow-xl z-50"
-      >
-        +
-      </Link>
+      {podeOperar && (
+        <Link
+          href="/sistema/ocorrencias/expressa"
+          className="fixed bottom-6 right-6 md:hidden bg-blue-600 w-16 h-16 rounded-full flex items-center justify-center text-4xl shadow-xl z-50"
+        >
+          +
+        </Link>
+      )}
     </div>
   );
 }
@@ -489,38 +369,19 @@ function Card({
   detalhe: string;
 }) {
   return (
-    <div className="card min-h-40 flex flex-col justify-center">
-      <p className="text-slate-300 text-lg md:text-base">
-        {titulo}
-      </p>
-
-      <h2 className="text-6xl md:text-4xl font-bold my-2">
-        {valor}
-      </h2>
-
-      <p className="text-blue-400 text-base md:text-sm">
-        {detalhe}
-      </p>
+    <div className="card min-h-28 flex flex-col justify-center">
+      <p className="text-slate-300 text-base">{titulo}</p>
+      <h2 className="text-4xl font-bold my-1">{valor}</h2>
+      <p className="text-blue-400 text-sm">{detalhe}</p>
     </div>
   );
 }
 
-function Resumo({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: number;
-}) {
+function Resumo({ titulo, valor }: { titulo: string; valor: number }) {
   return (
     <div className="bg-slate-900 rounded-xl p-4 border border-slate-700">
-      <p className="text-slate-400 text-base md:text-sm">
-        {titulo}
-      </p>
-
-      <h3 className="text-4xl md:text-3xl font-bold">
-        {valor}
-      </h3>
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h3 className="text-3xl font-bold">{valor}</h3>
     </div>
   );
 }
@@ -535,46 +396,23 @@ function Atalho({
   descricao: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="bg-blue-700 hover:bg-blue-800 rounded-xl p-5 block"
-    >
-      <h3 className="text-xl font-bold">
-        {titulo}
-      </h3>
-
-      <p className="text-blue-100 text-sm mt-1">
-        {descricao}
-      </p>
+    <Link href={href} className="bg-blue-700 hover:bg-blue-800 rounded-xl p-5 block">
+      <h3 className="text-xl font-bold">{titulo}</h3>
+      <p className="text-blue-100 text-sm mt-1">{descricao}</p>
     </Link>
   );
 }
 
-function Linha({
-  nome,
-  valor,
-}: {
-  nome: string;
-  valor: string;
-}) {
+function Linha({ nome, valor }: { nome: string; valor: string }) {
   return (
     <div className="flex justify-between gap-4 border-b border-slate-800 pb-2 text-base">
-      <span className="text-slate-400">
-        {nome}
-      </span>
-
-      <span className="text-right">
-        {valor}
-      </span>
+      <span className="text-slate-400">{nome}</span>
+      <span className="text-right">{valor}</span>
     </div>
   );
 }
 
-function Status({
-  status,
-}: {
-  status: string;
-}) {
+function Status({ status }: { status: string }) {
   let cor = "bg-blue-700 text-blue-100";
 
   if (status === "Aberta") cor = "bg-yellow-600 text-yellow-100";

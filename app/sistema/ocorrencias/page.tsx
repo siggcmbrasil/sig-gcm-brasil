@@ -19,6 +19,14 @@ export default function Ocorrencias() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarOcorrencias() {
     setCarregando(true);
@@ -40,7 +48,14 @@ export default function Ocorrencias() {
   }
 
   async function excluirOcorrencia(id: number) {
-    const confirmar = confirm("Tem certeza que deseja excluir esta ocorrência?");
+  if (!podeEditar) {
+    alert("Você não possui permissão para excluir ocorrências.");
+    return;
+  }
+
+  const confirmar = confirm(
+    "Tem certeza que deseja excluir esta ocorrência?"
+  );
 
     if (!confirmar) return;
 
@@ -85,9 +100,23 @@ export default function Ocorrencias() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          ...
-        </div>
+        {podeEditar && (
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+    <Link
+      href="/sistema/ocorrencias/expressa"
+      className="bg-red-700 hover:bg-red-800 px-5 py-4 rounded-2xl font-semibold text-center"
+    >
+      🚨 Ocorrência Expressa
+    </Link>
+
+    <Link
+      href="/sistema/ocorrencias/nova"
+      className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-2xl font-semibold text-center"
+    >
+      ➕ Nova Ocorrência
+    </Link>
+  </div>
+)}
 
       </div>
     </header>
@@ -188,20 +217,24 @@ export default function Ocorrencias() {
                       Ver
                     </Link>
 
-                    <Link
-                      href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                      className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
-                    >
-                      Editar
-                    </Link>
+                    {podeEditar && (
+  <Link
+    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
+  >
+    Editar
+  </Link>
+)}
 
-                    <button
-                      type="button"
-                      onClick={() => excluirOcorrencia(ocorrencia.id)}
-                      className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
+                    {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirOcorrencia(ocorrencia.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+  >
+    Excluir
+  </button>
+)}
                   </div>
                 </div>
               ))}
@@ -256,20 +289,24 @@ export default function Ocorrencias() {
                             Ver
                           </Link>
 
-                          <Link
-                            href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                            className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Editar
-                          </Link>
+                          {podeEditar && (
+  <Link
+    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Editar
+  </Link>
+)}
 
-                          <button
-                            type="button"
-                            onClick={() => excluirOcorrencia(ocorrencia.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
+{podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirOcorrencia(ocorrencia.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Excluir
+  </button>
+)}
                         </div>
                       </td>
                     </tr>

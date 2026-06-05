@@ -279,54 +279,82 @@ export default function NovaOcorrencia() {
           <h2 className="text-2xl font-bold">Equipe Empenhada</h2>
 
           <div>
-            <label className="label">Viatura empenhada</label>
+  <label className="label">Selecionar guardas</label>
 
-            <select
-              className="input"
-              value={viaturaEmpenhada}
-              onChange={(e) => setViaturaEmpenhada(e.target.value)}
-            >
-              <option value="">Selecione uma viatura</option>
+  <select
+    className="input"
+    onChange={(e) => {
+      const nome = e.target.value;
 
-              {viaturas.map((viatura) => (
-                <option key={viatura.id} value={viatura.prefixo}>
-                  {viatura.prefixo} • {viatura.modelo} • {viatura.status}
-                </option>
-              ))}
-            </select>
-          </div>
+      if (!nome) return;
 
-          <div>
-            <label className="label">Selecionar guardas</label>
+      if (!guardasSelecionados.includes(nome)) {
+        setGuardasSelecionados([
+          ...guardasSelecionados,
+          nome,
+        ]);
+      }
 
-            {guardas.length === 0 ? (
-              <p className="text-slate-400">Nenhum guarda cadastrado.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {guardas.map((guarda) => (
-                  <label
-                    key={guarda.id}
-                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={guardasSelecionados.includes(guarda.nome)}
-                      onChange={() => selecionarGuarda(guarda.nome)}
-                      className="mt-1"
-                    />
+      e.target.value = "";
+    }}
+  >
+    <option value="">
+      Selecione ou busque guardas para adicionar
+    </option>
 
-                    <div>
-                      <p className="font-bold">{guarda.nome}</p>
-                      <p className="text-sm text-slate-400">
-                        {guarda.matricula} • {guarda.cargo}
-                      </p>
-                      <p className="text-xs text-blue-400">{guarda.status}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
+    {guardas.map((guarda) => (
+      <option
+        key={guarda.id}
+        value={guarda.nome}
+      >
+        {guarda.nome} • {guarda.cargo}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+  {guardasSelecionados.map((nome) => {
+    const guarda = guardas.find(
+      (g) => g.nome === nome
+    );
+
+    if (!guarda) return null;
+
+    return (
+      <div
+        key={guarda.id}
+        className="relative bg-slate-950/40 border border-slate-700 rounded-xl p-4"
+      >
+        <button
+          type="button"
+          onClick={() =>
+            setGuardasSelecionados(
+              guardasSelecionados.filter(
+                (g) => g !== guarda.nome
+              )
+            )
+          }
+          className="absolute top-2 right-3 text-red-400 text-xl"
+        >
+          ×
+        </button>
+
+        <p className="font-bold">
+          {guarda.nome}
+        </p>
+
+        <p className="text-sm text-slate-400">
+          {guarda.matricula} • {guarda.cargo}
+        </p>
+
+        <p className="text-xs text-blue-400">
+          {guarda.status}
+        </p>
+      </div>
+    );
+  })}
+</div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

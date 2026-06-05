@@ -28,6 +28,14 @@ export default function Viatura() {
   const [quilometragem, setQuilometragem] = useState("");
   const [ultimaManutencao, setUltimaManutencao] = useState("");
   const [observacoes, setObservacoes] = useState("");
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarViatura() {
     setCarregando(true);
@@ -62,6 +70,10 @@ export default function Viatura() {
   }
 
   async function salvarViatura() {
+  if (!podeEditar) {
+    alert("Você não possui permissão para alterar dados da viatura.");
+    return;
+  }
     if (!prefixo || !modelo || !placa) {
       alert("Preencha prefixo, modelo e placa.");
       return;
@@ -168,10 +180,11 @@ export default function Viatura() {
           )}
         </div>
 
-        <div className="card xl:col-span-2">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Dados da Viatura
-          </h2>
+        {podeEditar && (
+  <div className="card xl:col-span-2">
+    <h2 className="text-xl md:text-2xl font-bold mb-4">
+      Dados da Viatura
+    </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Campo label="Prefixo" valor={prefixo} setValor={setPrefixo} />
@@ -244,8 +257,9 @@ export default function Viatura() {
               Salvar Dados da Viatura
             </button>
           </div>
-        </div>
-      </section>
+          </div>
+)}
+</section>
     </div>
   );
 }

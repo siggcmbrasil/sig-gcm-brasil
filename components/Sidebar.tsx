@@ -4,50 +4,28 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Perfil =
+  | "ADMIN"
+  | "COMANDANTE"
+  | "DIRETOR"
+  | "CMT_GUARNICAO"
+  | "PLANTONISTA"
+  | "CONSULTA";
+
 type UsuarioLogado = {
   nome: string;
   matricula?: string;
   email: string;
-  perfil:
-    | "ADMIN"
-    | "COMANDANTE"
-    | "DIRETOR"
-    | "CMT_GUARNICAO"
-    | "PLANTONISTA"
-    | "CONSULTA";
+  perfil: Perfil;
 };
 
 export default function Sidebar() {
   const [aberto, setAberto] = useState(false);
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
 
-  const perfil = usuario?.perfil || "CONSULTA";
-
-const ehAdmin = perfil === "ADMIN";
-
-const ehComandante =
-  perfil === "ADMIN" ||
-  perfil === "COMANDANTE";
-
-const ehDiretor =
-  ehComandante ||
-  perfil === "DIRETOR";
-
-const ehCmt =
-  ehDiretor ||
-  perfil === "CMT_GUARNICAO";
-
-const ehPlantonista =
-  ehCmt ||
-  perfil === "PLANTONISTA";
-  
-
   useEffect(() => {
     const dados = localStorage.getItem("usuarioLogado");
-
-    if (dados) {
-      setUsuario(JSON.parse(dados));
-    }
+    if (dados) setUsuario(JSON.parse(dados));
   }, []);
 
   async function sair() {
@@ -60,10 +38,36 @@ const ehPlantonista =
     setAberto(false);
   }
 
-  function podeVer(perfis: string[]) {
+  function podeVer(perfis: Perfil[]) {
     if (!usuario) return false;
     return perfis.includes(usuario.perfil);
   }
+
+  const todos: Perfil[] = [
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "CMT_GUARNICAO",
+    "PLANTONISTA",
+    "CONSULTA",
+  ];
+
+  const operacionais: Perfil[] = [
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "CMT_GUARNICAO",
+    "PLANTONISTA",
+  ];
+
+  const comando: Perfil[] = [
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "CMT_GUARNICAO",
+  ];
+
+  const gestao: Perfil[] = ["ADMIN", "COMANDANTE", "DIRETOR"];
 
   return (
     <>
@@ -127,131 +131,129 @@ const ehPlantonista =
             <p className="text-xs text-slate-400">
               Matrícula: {usuario.matricula || "-"}
             </p>
-            <p className="text-xs text-blue-400">
-              Perfil: {usuario.perfil}
-            </p>
+            <p className="text-xs text-blue-400">Perfil: {usuario.perfil}</p>
           </div>
         )}
 
         <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-  <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
-    Dashboard
-  </Link>
+          <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
+            Dashboard
+          </Link>
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
-      Ocorrências
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
+              Ocorrências
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item">
-      📴 Ocorrências Offline
-    </Link>
-  )}
+          {podeVer(operacionais) && (
+            <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item">
+              Ocorrências Offline 📴 
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
-      Arquivo Histórico
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
+              Arquivo Histórico
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/escala-mensal" className="menu-item">
-      Escala Mensal
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/escala-mensal" className="menu-item">
+              Escala Mensal
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
-      Chamados
-    </Link>
-  )}
+          {podeVer(operacionais) && (
+            <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
+              Chamados
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
-      Patrulhamento
-    </Link>
-  )}
+          {podeVer(operacionais) && (
+            <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
+              Patrulhamento
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
-      🤖 I.A
-    </Link>
-  )}
+          {podeVer(operacionais) && (
+            <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
+              🤖 I.A
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
-      Veículos
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
+              Veículos
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
-      Pessoas
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
+              Pessoas
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
-      Guardas
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
+              Guardas
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
-      Escalas
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
+              Escalas
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
-      Viatura
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
+              Viatura
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR"]) && (
-    <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
-      Equipamentos
-    </Link>
-  )}
+          {podeVer(gestao) && (
+            <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
+              Equipamentos
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "PLANTONISTA", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
-      Mapa
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/mapa" className="menu-item">
+              Mapa
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO", "CONSULTA"]) && (
-    <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
-      Relatórios
-    </Link>
-  )}
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
+              Relatórios
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR"]) && (
-    <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
-      Abastecimentos
-    </Link>
-  )}
+          {podeVer(gestao) && (
+            <Link onClick={fecharMenu} href="/sistema/abastecimentos" className="menu-item">
+              Abastecimentos
+            </Link>
+          )}
 
-  {podeVer(["ADMIN"]) && (
-    <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
-      Usuários
-    </Link>
-  )}
+          {podeVer(comando) && (
+            <Link onClick={fecharMenu} href="/sistema/relatorio-plantao" className="menu-item">
+              Relatório Geral do Plantão
+            </Link>
+          )}
 
-  {podeVer(["ADMIN", "COMANDANTE", "DIRETOR", "CMT_GUARNICAO"]) && (
-    <Link onClick={fecharMenu} href="/sistema/relatorio-plantao" className="menu-item">
-      Relatório Geral do Plantão
-    </Link>
-  )}
+          {podeVer(["ADMIN"]) && (
+            <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
+              Usuários
+            </Link>
+          )}
 
-  {podeVer(["ADMIN"]) && (
-    <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
-      Configurações
-    </Link>
-  )}
-</nav>
+          {podeVer(["ADMIN"]) && (
+            <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
+              Configurações
+            </Link>
+          )}
+        </nav>
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex gap-3 items-center mb-4">

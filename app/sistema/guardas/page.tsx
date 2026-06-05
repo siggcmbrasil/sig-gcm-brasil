@@ -23,6 +23,14 @@ export default function Guardas() {
   const [status, setStatus] = useState("Em serviço");
 
   const [carregando, setCarregando] = useState(true);
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarGuardas() {
     setCarregando(true);
@@ -44,6 +52,10 @@ export default function Guardas() {
   }
 
   async function salvarGuarda() {
+  if (!podeEditar) {
+    alert("Você não possui permissão para cadastrar guardas.");
+    return;
+  }
     if (!matricula || !nome || !cargo) {
       alert("Preencha matrícula, nome e cargo.");
       return;
@@ -77,6 +89,11 @@ export default function Guardas() {
   }
 
   async function excluirGuarda(id: number) {
+    if (!podeEditar) {
+      alert("Você não possui permissão para excluir guardas.");
+      return;
+    }
+
     const confirmar = confirm("Tem certeza que deseja excluir este guarda?");
 
     if (!confirmar) return;
@@ -139,10 +156,11 @@ export default function Guardas() {
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Cadastrar Guarda
-          </h2>
+        {podeEditar && (
+  <div className="card">
+    <h2 className="text-xl md:text-2xl font-bold mb-4">
+      Cadastrar Guarda
+    </h2>
 
           <div className="space-y-4">
             <div>
@@ -207,7 +225,8 @@ export default function Guardas() {
               Salvar Guarda
             </button>
           </div>
-        </div>
+          </div>
+)}
 
         <div className="card xl:col-span-2">
           <h2 className="text-xl md:text-2xl font-bold mb-4">
@@ -261,12 +280,12 @@ export default function Guardas() {
                     </div>
 
                     <button
-                      type="button"
-                      onClick={() => excluirGuarda(guarda.id)}
-                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
+  type="button"
+  onClick={() => excluirGuarda(guarda.id)}
+  className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+>
+  Excluir
+</button>
                   </div>
                 ))}
               </div>
@@ -304,13 +323,15 @@ export default function Guardas() {
                         </td>
 
                         <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => excluirGuarda(guarda.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
+                          {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirGuarda(guarda.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Excluir
+  </button>
+)}
                         </td>
                       </tr>
                     ))}

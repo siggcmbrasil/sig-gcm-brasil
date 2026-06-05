@@ -31,6 +31,14 @@ export default function VeiculosAbordados() {
   const [observacao, setObservacao] = useState("");
 
   const [carregando, setCarregando] = useState(true);
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarVeiculos() {
     setCarregando(true);
@@ -52,6 +60,10 @@ export default function VeiculosAbordados() {
   }
 
   async function salvarVeiculo() {
+  if (!podeEditar) {
+    alert("Você não possui permissão para registrar veículos.");
+    return;
+  }
     if (!placa || !local || !data || !hora) {
       alert("Preencha placa, local, data e hora.");
       return;
@@ -93,6 +105,11 @@ export default function VeiculosAbordados() {
   }
 
   async function excluirVeiculo(id: number) {
+    if (!podeEditar) {
+      alert("Você não possui permissão para excluir veículos.");
+      return;
+    }
+
     const confirmar = confirm("Deseja excluir este registro?");
 
     if (!confirmar) return;
@@ -165,10 +182,11 @@ export default function VeiculosAbordados() {
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Nova Abordagem
-          </h2>
+        {podeEditar && (
+  <div className="card">
+    <h2 className="text-xl md:text-2xl font-bold mb-4">
+      Nova Abordagem
+    </h2>
 
           <div className="space-y-4">
             <Campo
@@ -251,7 +269,8 @@ export default function VeiculosAbordados() {
               Registrar Veículo
             </button>
           </div>
-        </div>
+          </div>
+)}
 
         <div className="card xl:col-span-2">
           <h2 className="text-xl md:text-2xl font-bold mb-4">
@@ -323,13 +342,15 @@ export default function VeiculosAbordados() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => excluirVeiculo(veiculo.id)}
-                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
+                    {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirVeiculo(veiculo.id)}
+    className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+  >
+    Excluir
+  </button>
+)}
                   </div>
                 ))}
               </div>
@@ -370,13 +391,15 @@ export default function VeiculosAbordados() {
                         <td>{veiculo.data}</td>
 
                         <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => excluirVeiculo(veiculo.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
+                          {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirVeiculo(veiculo.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Excluir
+  </button>
+)}
                         </td>
                       </tr>
                     ))}

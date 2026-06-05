@@ -51,6 +51,14 @@ export default function Patrulhamento() {
 
   const [carregando, setCarregando] = useState(true);
   const [capturandoGps, setCapturandoGps] = useState(false);
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarPatrulhamentos() {
     setCarregando(true);
@@ -140,6 +148,10 @@ export default function Patrulhamento() {
   }
 
   async function salvarPatrulhamento() {
+  if (!podeEditar) {
+    alert("Você não possui permissão para registrar patrulhamentos.");
+    return;
+  }
     const equipe = guardasSelecionados.join("\n");
     const guardaPrincipal = guardasSelecionados[0] || guarda;
 
@@ -184,6 +196,10 @@ export default function Patrulhamento() {
   }
 
   async function excluirPatrulhamento(id: number) {
+  if (!podeEditar) {
+    alert("Você não possui permissão para excluir patrulhamentos.");
+    return;
+  }
     const confirmar = confirm("Deseja excluir este patrulhamento?");
 
     if (!confirmar) return;
@@ -289,8 +305,11 @@ export default function Patrulhamento() {
 </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">Nova Ronda</h2>
+        {podeEditar && (
+  <div className="card">
+    <h2 className="text-xl md:text-2xl font-bold mb-4">
+      Nova Ronda
+    </h2>
 
           <div className="space-y-4">
             <div>
@@ -408,7 +427,8 @@ export default function Patrulhamento() {
               Registrar Patrulhamento
             </button>
           </div>
-        </div>
+          </div>
+)}
 
         <div className="card xl:col-span-2">
           <h2 className="text-xl md:text-2xl font-bold mb-4">
@@ -488,13 +508,15 @@ export default function Patrulhamento() {
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => excluirPatrulhamento(item.id)}
-                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
+                    {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirPatrulhamento(item.id)}
+    className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+  >
+    Excluir
+  </button>
+)}
                   </div>
                 ))}
               </div>
@@ -528,13 +550,15 @@ export default function Patrulhamento() {
                         <td>{item.guarda}</td>
 
                         <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => excluirPatrulhamento(item.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
+                          {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirPatrulhamento(item.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Excluir
+  </button>
+)}
                         </td>
                       </tr>
                     ))}
