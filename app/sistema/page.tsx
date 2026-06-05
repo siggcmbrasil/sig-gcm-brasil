@@ -210,6 +210,11 @@ export default function Dashboard() {
                   <Atalho href="/sistema/chamados" titulo="Novo Chamado" descricao="Abrir chamado operacional" />
                   <Atalho href="/sistema/patrulhamento" titulo="Patrulhamento" descricao="Registrar ronda da VTR" />
                   <Atalho href="/sistema/mapa" titulo="Mapa Operacional" descricao="Visualizar área da cidade" />
+                  <Atalho
+  href="/sistema/guarnicoes"
+  titulo="Guarnições"
+  descricao="Gerenciar equipes operacionais"
+/>
                 </div>
               </div>
             )}
@@ -326,20 +331,24 @@ export default function Dashboard() {
 
                 <div className="space-y-3">
                   <Link className="menu-item bg-slate-800" href="/sistema/ocorrencias">
-                    Ocorrências
-                  </Link>
+  Ocorrências
+</Link>
 
-                  <Link className="menu-item bg-slate-800" href="/sistema/chamados">
-                    Chamados
-                  </Link>
+<Link className="menu-item bg-slate-800" href="/sistema/chamados">
+  Chamados
+</Link>
 
-                  <Link className="menu-item bg-slate-800" href="/sistema/patrulhamento">
-                    Patrulhamento
-                  </Link>
+<Link className="menu-item bg-slate-800" href="/sistema/patrulhamento">
+  Patrulhamento
+</Link>
 
-                  <Link className="menu-item bg-slate-800" href="/sistema/mapa">
-                    Mapa Operacional
-                  </Link>
+<Link className="menu-item bg-slate-800" href="/sistema/mapa">
+  Mapa Operacional
+</Link>
+
+<Link className="menu-item bg-blue-700" href="/sistema/guarnicoes">
+  👮 Guarnições
+</Link>
                 </div>
               </div>
             )}

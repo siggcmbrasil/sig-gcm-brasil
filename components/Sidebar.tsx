@@ -253,6 +253,10 @@ export default function Sidebar() {
               Configurações
             </Link>
           )}
+
+          <Link href="/sistema/guarnicoes">
+  👮 Guarnições
+</Link>
         </nav>
 
         <div className="p-4 border-t border-slate-800">
