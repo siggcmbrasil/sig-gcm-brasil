@@ -8,6 +8,14 @@
     "start": "next start",
     "lint": "eslint"
   },
+  "build": {
+    "appId": "br.com.gcm.biritinga",
+    "productName": "SIG-GCM Biritinga",
+    "win": {
+      "target": "nsis",
+      "icon": "public/brasao-gcm-v2.png"
+    }
+  },
   "dependencies": {
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",

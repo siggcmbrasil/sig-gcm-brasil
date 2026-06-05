@@ -101,32 +101,56 @@ export default function Dashboard() {
 
   return (
     <div className="p-3 md:p-6 pb-24">
-      <header className="mb-6 border-b border-slate-800 pb-5">
-        <h1 className="text-3xl md:text-4xl font-bold">
-          🚔 Central Operacional GCM Biritinga
+      <header className="mb-6">
+  <div className="bg-linear-to-r from-blue-950 via-slate-900 to-blue-950 rounded-2xl p-6 border border-blue-800 shadow-xl">
+
+    <div className="flex flex-col lg:flex-row justify-between gap-4">
+
+      <div>
+        <h1 className="text-4xl md:text-5xl font-bold">
+          🚔 SIG-GCM Biritinga
         </h1>
 
-        <p className="text-slate-400 text-sm md:text-base">
-          Visão geral da Guarda Civil Municipal de Biritinga.
+        <p className="text-slate-300 mt-2 text-lg">
+          Central Operacional Integrada
         </p>
 
-        <p className="text-green-400 text-sm mt-2">
-          Sistema Online • Operacional 24h
+        <p className="text-green-400 text-sm mt-3">
+          ● Sistema Online • Operacional 24h
+        </p>
+      </div>
+
+      <div className="bg-slate-950/40 rounded-xl p-4 min-w-55">
+        <p className="text-slate-400 text-sm">
+          Perfil Logado
         </p>
 
-        <div className="mt-4 flex flex-col md:flex-row gap-3">
-          {podeOperar && (
-            <Link
-              href="/sistema/ocorrencias/nova"
-              className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
-            >
-              + Nova Ocorrência
-            </Link>
-          )}
+        <p className="text-2xl font-bold text-blue-400">
+          {perfilUsuario}
+        </p>
 
-          <InstalarApp />
-        </div>
-      </header>
+        <p className="text-slate-500 text-xs mt-2">
+          Guarda Civil Municipal de Biritinga
+        </p>
+      </div>
+
+    </div>
+
+    <div className="mt-5 flex flex-col md:flex-row gap-3">
+      {podeOperar && (
+        <Link
+          href="/sistema/ocorrencias/nova"
+          className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center"
+        >
+          + Nova Ocorrência
+        </Link>
+      )}
+
+      <InstalarApp />
+    </div>
+
+  </div>
+</header>
 
       {carregando ? (
         <p className="text-slate-400 text-lg">Carregando painel...</p>
@@ -364,6 +388,15 @@ export default function Dashboard() {
           +
         </Link>
       )}
+      <footer className="mt-10 border-t border-slate-800 pt-4 text-center">
+  <p className="text-xs text-slate-500">
+    SIG-GCM Biritinga © {new Date().getFullYear()}
+  </p>
+
+  <p className="text-xs text-blue-400 font-semibold">
+    Desenvolvido por Maick Lustosa Costa
+  </p>
+</footer>
     </div>
   );
 }
