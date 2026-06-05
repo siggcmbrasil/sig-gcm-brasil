@@ -63,36 +63,51 @@ setVerificando(false);
   }
 
   return (
-    <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
-      <Sidebar />
+  <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
+    <Sidebar />
 
-      <main className="flex-1 w-full">
-        <div className="border-b border-slate-800 px-4 md:px-6 py-4 flex flex-col md:flex-row gap-2 md:gap-0 justify-between md:items-center">
-          <div>
-            <h1 className="font-bold text-white text-lg md:text-base">
-              Sistema Integrado GCM Biritinga
-            </h1>
-            <p className="text-sm md:text-xs text-slate-400">
-              Painel Operacional
-            </p>
-          </div>
+    <main className="flex-1 w-full">
 
-          <div className="text-sm text-slate-300 md:text-right">
-            <p>
-              Usuário:{" "}
-              <span className="font-semibold text-white">
-                {usuario?.email}
-              </span>
-            </p>
+      <div className="border-b border-slate-800 px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between md:items-center gap-3">
+        <div>
+          <h1 className="font-bold text-white text-lg md:text-base">
+            Sistema Integrado GCM Biritinga
+          </h1>
 
-            <p className="text-xs text-slate-500">
-              Perfil: {usuario?.perfil}
-            </p>
-          </div>
+          <p className="text-sm md:text-xs text-slate-400">
+            Painel Operacional
+          </p>
         </div>
 
-        <div className="text-white">{children}</div>
-      </main>
-    </div>
-  );
+        <div className="text-sm text-slate-300 md:text-right">
+          <p>
+            Usuário:
+            <span className="font-semibold text-white">
+              {" "}
+              {usuario?.email}
+            </span>
+          </p>
+
+          <p className="text-xs text-slate-500">
+            Perfil: {usuario?.perfil}
+          </p>
+        </div>
+      </div>
+
+      <div className="text-white">
+        {children}
+
+        <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">
+          SIG-GCM Biritinga © {new Date().getFullYear()}
+          <br />
+          Desenvolvido por
+          <span className="text-blue-400 font-semibold">
+            {" "}Maick Lustosa Costa
+          </span>
+        </footer>
+      </div>
+
+    </main>
+  </div>
+);
 }

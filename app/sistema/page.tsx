@@ -127,6 +127,37 @@ export default function Dashboard() {
   </p>
 ) : (
   <>
+<section className="mb-6">
+  <div className="card border-l-4 border-yellow-500">
+    <h2 className="text-2xl font-bold mb-4 text-yellow-400">
+      🚨 Avisos Operacionais
+    </h2>
+
+    {avisos.length === 0 ? (
+      <p className="text-slate-400">
+        Nenhum aviso operacional cadastrado.
+      </p>
+    ) : (
+      <div className="space-y-3">
+        {avisos.slice(0, 5).map((aviso) => (
+          <div
+            key={aviso.id}
+            className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-4"
+          >
+            <h3 className="font-bold text-yellow-400 text-lg">
+              {aviso.titulo}
+            </h3>
+
+            <p className="text-slate-300 mt-1">
+              {aviso.descricao}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</section>
+
     <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
   <Card
