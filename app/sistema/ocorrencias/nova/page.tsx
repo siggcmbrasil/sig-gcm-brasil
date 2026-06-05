@@ -20,6 +20,12 @@ type Viatura = {
   status: string;
 };
 
+type LocalCadastrado = {
+  id: number;
+  nome: string;
+  tipo: string;
+};
+
 type Envolvido = {
   nome: string;
   documento: string;
@@ -44,6 +50,7 @@ export default function NovaOcorrencia() {
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [locais, setLocais] = useState<LocalCadastrado[]>([]);
 
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
 
@@ -57,6 +64,20 @@ export default function NovaOcorrencia() {
       observacao: "",
     },
   ]);
+  async function carregarLocais() {
+  const { data, error } = await supabase
+    .from("locais")
+    .select("id,nome,tipo")
+    .eq("ativo", true)
+    .order("nome");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  setLocais(data || []);
+}
 
   async function carregarGuardas() {
     const { data, error } = await supabase
@@ -214,9 +235,10 @@ export default function NovaOcorrencia() {
   }
 
   useEffect(() => {
-    carregarGuardas();
-    carregarViaturas();
-  }, []);
+  carregarGuardas();
+  carregarViaturas();
+  carregarLocais();
+}, []);
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -359,7 +381,28 @@ export default function NovaOcorrencia() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Campo label="Bairro" valor={bairro} setValor={setBairro} placeholder="Ex: Centro" />
-          <Campo label="Rua / Local" valor={local} setValor={setLocal} placeholder="Ex: Rua da Paz" />
+          <div>
+  <label className="label">Local</label>
+
+  <select
+    className="input"
+    value={local}
+    onChange={(e) => setLocal(e.target.value)}
+  >
+    <option value="">
+      Selecione um local cadastrado
+    </option>
+
+    {locais.map((item) => (
+      <option
+        key={item.id}
+        value={item.nome}
+      >
+        {item.nome} - {item.tipo}
+      </option>
+    ))}
+  </select>
+</div>
           <Campo label="Número" valor={numero} setValor={setNumero} placeholder="S/N" />
         </div>
 
