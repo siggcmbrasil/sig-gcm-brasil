@@ -50,7 +50,7 @@ type Escala = {
 export default function RelatorioPlantao() {
   const [dataPlantao, setDataPlantao] = useState("");
   const [turno, setTurno] = useState("24 horas");
-  const [supervisor, setSupervisor] = useState("");
+  const [comandante, setComandante] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gerando, setGerando] = useState(false);
 
@@ -117,7 +117,7 @@ export default function RelatorioPlantao() {
     y += 8;
     pdf.text(`Turno: ${turno}`, 15, y);
     y += 8;
-    pdf.text(`Supervisor/Responsável: ${supervisor || "-"}`, 15, y);
+    pdf.text(`Comandante: ${comandante || "-"}`, 15, y);
     y += 12;
 
     y = tituloSecao(pdf, "1. EQUIPE ESCALADA", y);
@@ -211,7 +211,7 @@ export default function RelatorioPlantao() {
     y += 7;
 
     pdf.text("Plantonista", 38, y);
-    pdf.text("Supervisor", 137, y);
+    pdf.text("Comandante", 137, y);
 
     pdf.save(`RELATORIO-PLANTAO-${dataPlantao}.pdf`);
   }
@@ -249,7 +249,7 @@ export default function RelatorioPlantao() {
   }
 
   return (
-    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "SUPERVISOR"]}>
+    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "CMT_GUARNICAO"]}>
       <div className="p-3 md:p-6 pb-24">
         <header className="border-b border-slate-800 pb-5 mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">
@@ -294,12 +294,12 @@ export default function RelatorioPlantao() {
             </div>
 
             <div>
-              <label className="label">Supervisor / Responsável</label>
+              <label className="label">Comandante</label>
               <input
                 className="input"
-                value={supervisor}
-                onChange={(e) => setSupervisor(e.target.value)}
-                placeholder="Nome do supervisor do plantão"
+                value={comandante}
+                onChange={(e) => setComandante(e.target.value)}
+                placeholder="Nome do comandante do plantão"
               />
             </div>
 

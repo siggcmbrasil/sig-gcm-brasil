@@ -166,7 +166,7 @@ export default function EscalaMensalPage() {
   const totalExtra = registrosMes.filter((r) => r.tipo === "Serviço Extra").length;
 
   return (
-    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "SUPERVISOR"]}>
+    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "CMT_GUARNICAO"]}>
       <div className="p-3 md:p-6 pb-24">
         <header className="border-b border-slate-800 pb-5 mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">

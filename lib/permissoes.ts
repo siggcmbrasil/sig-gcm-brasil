@@ -9,7 +9,7 @@ export const PERFIS = {
     "equipamentos",
   ],
 
-  SUPERVISOR: [
+  CMT_GUARNICAO: [
     "dashboard",
     "ocorrencias",
     "chamados",

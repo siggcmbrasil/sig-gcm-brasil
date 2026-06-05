@@ -6,10 +6,9 @@ import { useEffect, useState } from "react";
 type Perfil =
   | "ADMIN"
   | "COMANDANTE"
-  | "SUPERVISOR"
-  | "OPERADOR"
+  | "DIRETOR"
+  | "CMT_GUARNICAO"
   | "PLANTONISTA"
-  | "GUARDA"
   | "CONSULTA";
 
 type UsuarioLogado = {

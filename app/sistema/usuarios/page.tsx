@@ -213,9 +213,11 @@ export default function Usuarios() {
                 onChange={(e) => setPerfil(e.target.value)}
               >
                 <option>ADMIN</option>
-                <option>COMANDANTE</option>
-                <option>OPERADOR</option>
-                <option>GUARDA</option>
+<option>COMANDANTE</option>
+<option>DIRETOR</option>
+<option>CMT_GUARNICAO</option>
+<option>PLANTONISTA</option>
+<option>CONSULTA</option>
               </select>
             </div>
 

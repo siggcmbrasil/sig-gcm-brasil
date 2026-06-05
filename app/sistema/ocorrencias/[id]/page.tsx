@@ -246,7 +246,7 @@ Local: ${ocorrencia.local}
     pdf.text("Guarda Responsável", 15, 273);
 
     pdf.line(110, 265, 190, 265);
-    pdf.text("Supervisor", 110, 273);
+    pdf.text("Comandante", 110, 273);
 
     if (fotos.length > 0) {
       for (let i = 0; i < fotos.length; i++) {

@@ -160,7 +160,7 @@ export default function Escalas() {
   });
 
   return (
-    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "SUPERVISOR"]}>
+    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "CMT_GUARNICAO"]}>
       <div className="p-3 md:p-6 pb-24">
         <header className="border-b border-slate-800 pb-5 mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">
@@ -312,7 +312,7 @@ export default function Escalas() {
                   <option>Patrulheiro</option>
                   <option>Motorista</option>
                   <option>Comandante da Guarnição</option>
-                  <option>Supervisor</option>
+                  <option>Comandante</option>
                   <option>Coordenador</option>
                   <option>Base</option>
                   <option>Ronda Escolar</option>
