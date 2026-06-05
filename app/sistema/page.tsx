@@ -95,8 +95,8 @@ export default function Dashboard() {
 
   return (
     <div className="p-3 md:p-6 pb-24">
-      <header className="flex flex-col md:flex-row gap-4 md:gap-0 justify-between md:items-center border-b border-slate-800 pb-5 mb-6">
-        <div>
+      <header className="mb-6">
+  <div className="border-b border-slate-800 pb-5">
           <h1 className="text-3xl md:text-4xl font-bold">
   🚔 Central Operacional GCM Biritinga
 </h1>
@@ -111,87 +111,49 @@ export default function Dashboard() {
 </p>
 
         <Link
-          href="/sistema/ocorrencias/nova"
-          className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
-        >
-          + Nova Ocorrência
-        </Link>
+  href="/sistema/ocorrencias/nova"
+  className="bg-blue-600 hover:bg-blue-700 px-5 py-4 rounded-xl font-semibold text-center w-full md:w-auto"
+>
+  + Nova Ocorrência
+</Link>
 
-        <InstalarApp />
+<InstalarApp />
 
-      </header>
+</header>
 
-      {carregando ? (
-        <p className="text-slate-400 text-lg">Carregando painel...</p>
-      ) : (
-        <>
-         <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6"> 
-            <Card
-             titulo="Finalizadas"
-             valor={String(finalizadas)}
-             detalhe="Ocorrências concluídas"
-             />
+{carregando ? (
+  <p className="text-slate-400 text-lg">
+    Carregando painel...
+  </p>
+) : (
+  <>
+    <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
 
-            <Card
-            titulo="Total de Guardas"
-            valor={String(guardas.length)}
-            detalhe="Efetivo cadastrado"
-            />
+  <Card
+    titulo="Hoje"
+    valor={String(ocorrenciasHoje)}
+    detalhe="Ocorrências"
+  />
 
-            <Card
-                titulo="Avisos"
-            valor={String(avisos.length)}
-            detalhe="Comunicados ativos"
-             />
-            
-            <Card
-              titulo="Ocorrências Hoje"
-              valor={String(ocorrenciasHoje)}
-              detalhe="Registradas hoje"
-            />
+  <Card
+    titulo="Abertas"
+    valor={String(abertas)}
+    detalhe="Pendentes"
+  />
 
-            <Card
-              titulo="Ocorrências Abertas"
-              valor={String(abertas)}
-              detalhe="Aguardando andamento"
-            />
+  <Card
+    titulo="Serviço"
+    valor={String(guardasServico)}
+    detalhe="Guardas"
+  />
 
-            <Card
-              titulo="Em Andamento"
-              valor={String(andamento)}
-              detalhe="Atendimento ativo"
-            />
+  <Card
+    titulo="Avisos"
+    valor={String(avisos.length)}
+    detalhe="Ativos"
+  />
 
-            <Card
-              titulo="Guardas em Serviço"
-              valor={String(guardasServico)}
-              detalhe={`Folga: ${guardasFolga}`}
-            />
-
-            <Card
-              titulo="Viatura"
-              valor={viatura ? "1" : "0"}
-              detalhe={viatura?.status || "Não cadastrada"}
-            />
-
-            <Card
-  titulo="Finalizadas"
-  valor={String(finalizadas)}
-  detalhe="Ocorrências concluídas"
-/>
-
-<Card
-  titulo="Total Guardas"
-  valor={String(guardas.length)}
-  detalhe="Efetivo cadastrado"
-/>
-
-<Card
-  titulo="Avisos"
-  valor={String(avisos.length)}
-  detalhe="Comunicados ativos"
-/>
-          </section>
+</section>
 
 <section className="md:hidden card mb-6">
   <h2 className="text-xl font-bold mb-4">
@@ -421,10 +383,10 @@ export default function Dashboard() {
                 <div className="space-y-4">
                   {avisos.slice(0, 3).map((aviso) => (
                     <div
-                      key={aviso.id}
-                      className="border-b border-slate-800 pb-3"
-                    >
-                      <h3 className="font-bold text-lg">
+  key={aviso.id}
+  className="rounded-2xl border border-yellow-700 bg-yellow-950/20 p-4"
+>
+                      <h3 className="font-bold text-yellow-400 text-lg">
                         {aviso.titulo}
                       </h3>
 
