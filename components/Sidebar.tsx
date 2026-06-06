@@ -180,6 +180,16 @@ export default function Sidebar() {
             </Link>
           )}
 
+          {podeVer(todos) && (
+  <Link
+    onClick={fecharMenu}
+    href="/sistema/locais"
+    className="menu-item"
+  >
+    📍 Cadastro Territorial
+  </Link>
+)}
+
           {podeVer(operacionais) && (
             <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
               🤖 IA Operacional

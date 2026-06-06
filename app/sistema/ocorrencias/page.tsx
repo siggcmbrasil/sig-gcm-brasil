@@ -27,6 +27,8 @@ export default function Ocorrencias() {
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
 const podeEditar = perfilUsuario !== "CONSULTA";
+const [filtroStatus, setFiltroStatus] = useState("");
+const [filtroData, setFiltroData] = useState("");
 
   async function carregarOcorrencias() {
     setCarregando(true);
@@ -79,9 +81,14 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }, []);
 
   const ocorrenciasFiltradas = ocorrencias.filter((o) => {
-    const texto = `${o.protocolo} ${o.tipo} ${o.local} ${o.bairro || ""} ${o.status}`.toLowerCase();
-    return texto.includes(busca.toLowerCase());
-  });
+  const texto = `${o.protocolo} ${o.tipo} ${o.local} ${o.bairro || ""} ${o.status}`.toLowerCase();
+
+  const passaBusca = texto.includes(busca.toLowerCase());
+  const passaStatus = filtroStatus ? o.status === filtroStatus : true;
+  const passaData = filtroData ? o.data === filtroData : true;
+
+  return passaBusca && passaStatus && passaData;
+});
 
   return (
   
@@ -92,12 +99,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
         <div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-            Ocorrências
-          </h1>
+  🚨 Central de Ocorrências
+</h1>
 
-          <p className="text-slate-400 text-base md:text-lg mt-1">
-            Registro e acompanhamento das ocorrências da GCM.
-          </p>
+<p className="text-slate-400 text-base md:text-lg mt-1">
+  Registro, acompanhamento e gerenciamento operacional das ocorrências da Guarda Civil Municipal de Biritinga.
+</p>
         </div>
 
         {podeEditar && (
@@ -152,18 +159,68 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 </section>
 
       <section className="card mb-6">
-        <label className="label">Buscar ocorrência</label>
-        <input
-          className="input"
-          placeholder="Buscar por protocolo, tipo, local, bairro ou status..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
-      </section>
+  <h2 className="text-xl font-bold mb-4">
+    🔎 Filtros de Ocorrências
+  </h2>
+
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div>
+      <label className="label">Buscar</label>
+      <input
+        className="input"
+        placeholder="Protocolo, tipo, local, bairro..."
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+      />
+    </div>
+
+    <div>
+      <label className="label">Status</label>
+      <select
+        className="input"
+        value={filtroStatus}
+        onChange={(e) => setFiltroStatus(e.target.value)}
+      >
+        <option value="">Todos</option>
+        <option value="Aberta">Aberta</option>
+        <option value="Em andamento">Em andamento</option>
+        <option value="Finalizada">Finalizada</option>
+      </select>
+    </div>
+
+    <div>
+      <label className="label">Data</label>
+      <input
+        type="date"
+        className="input"
+        value={filtroData}
+        onChange={(e) => setFiltroData(e.target.value)}
+      />
+    </div>
+  </div>
+
+  <div className="mt-4 flex justify-between items-center gap-3 text-sm text-slate-400">
+    <p>
+      Exibindo {ocorrenciasFiltradas.length} ocorrência(s)
+    </p>
+
+    <button
+      type="button"
+      onClick={() => {
+        setBusca("");
+        setFiltroStatus("");
+        setFiltroData("");
+      }}
+      className="text-blue-400 hover:text-blue-300 font-semibold"
+    >
+      Limpar filtros
+    </button>
+  </div>
+</section>
 
       <section className="card">
         <h2 className="text-xl md:text-2xl font-bold mb-4">
-          Ocorrências cadastradas
+          Ocorrências Registradas
         </h2>
 
         {carregando ? (
@@ -245,11 +302,11 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                 <thead className="text-slate-400 border-b border-slate-700">
                   <tr>
                     <th className="text-left py-3">Protocolo</th>
-                    <th className="text-left py-3">Tipo</th>
+                    <th className="text-left py-3">Natureza</th>
                     <th className="text-left py-3">Local</th>
                     <th className="text-left py-3">Bairro</th>
                     <th className="text-left py-3">Data</th>
-                    <th className="text-left py-3">Status</th>
+                    <th className="text-left py-3">Situação</th>
                     <th className="text-right py-3">Ações</th>
                   </tr>
                 </thead>

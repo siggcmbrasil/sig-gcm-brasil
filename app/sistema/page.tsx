@@ -233,7 +233,6 @@ export default function Dashboard() {
                   <Atalho href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" descricao="Registrar ocorrência com foto" />
                   <Atalho href="/sistema/chamados" titulo="Novo Chamado" descricao="Abrir chamado operacional" />
                   <Atalho href="/sistema/patrulhamento" titulo="Patrulhamento" descricao="Registrar ronda da VTR" />
-                  <Atalho href="/sistema/mapa" titulo="Mapa Operacional" descricao="Visualizar área da cidade" />
                   <Atalho
   href="/sistema/guarnicoes"
   titulo="Guarnições"
@@ -255,19 +254,18 @@ export default function Dashboard() {
                 <Resumo titulo="Folga" valor={guardasFolga} />
               </div>
 
-              <div className="mt-6 h-52 md:h-64 rounded-xl bg-slate-200 text-slate-900 flex items-center justify-center">
-                <div className="text-center px-4">
-                  <p className="text-2xl font-bold">Biritinga - BA</p>
-                  <p>Mapa resumido da operação</p>
+              <div className="mt-6 rounded-xl bg-slate-900 border border-slate-700 p-6">
+  <h3 className="text-xl font-bold mb-4">
+    📍 Situação Operacional
+  </h3>
 
-                  <Link
-                    href="/sistema/mapa"
-                    className="inline-block mt-4 bg-blue-700 text-white px-4 py-3 rounded-xl"
-                  >
-                    Abrir mapa
-                  </Link>
-                </div>
-              </div>
+  <div className="grid grid-cols-2 gap-4">
+    <Resumo titulo="Ocorrências Hoje" valor={ocorrenciasHoje} />
+    <Resumo titulo="Abertas" valor={abertas} />
+    <Resumo titulo="Em Serviço" valor={guardasServico} />
+    <Resumo titulo="Avisos" valor={avisos.length} />
+  </div>
+</div>
             </div>
 
             <div className="card">
@@ -366,9 +364,6 @@ export default function Dashboard() {
   Patrulhamento
 </Link>
 
-<Link className="menu-item bg-slate-800" href="/sistema/mapa">
-  Mapa Operacional
-</Link>
 
 <Link className="menu-item bg-blue-700" href="/sistema/guarnicoes">
   👮 Guarnições
