@@ -28,11 +28,11 @@ type Chamado = {
 type Patrulhamento = {
   id: number;
   data: string | null;
-  hora_inicio: string | null;
-  hora_fim: string | null;
-  viatura: string | null;
+  hora: string | null;
+  local: string | null;
+  guarda: string | null;
   equipe: string | null;
-  roteiro: string | null;
+  viatura: string | null;
   observacao: string | null;
 };
 
@@ -75,10 +75,22 @@ export default function RelatorioPlantao() {
       .order("id", { ascending: true });
 
     const { data: patrulhamentos } = await supabase
-      .from("patrulhamento")
+      .from("patrulhamentos")
       .select("*")
       .eq("data", dataPlantao)
       .order("id", { ascending: true });
+      
+      const { data: pessoas } = await supabase
+  .from("pessoas_abordadas")
+  .select("*")
+  .eq("data", dataPlantao)
+  .order("hora", { ascending: true });
+
+const { data: veiculos } = await supabase
+  .from("veiculos_abordados")
+  .select("*")
+  .eq("data", dataPlantao)
+  .order("hora", { ascending: true });
 
     const { data: escalas } = await supabase
       .from("escalas_servico")
@@ -119,6 +131,48 @@ export default function RelatorioPlantao() {
     y += 8;
     pdf.text(`Comandante: ${comandante || "-"}`, 15, y);
     y += 12;
+    pdf.setFontSize(11);
+
+pdf.text(
+  `Resumo: ${ocorrencias?.length || 0} ocorrência(s), ${
+    chamados?.length || 0
+  } chamado(s) e ${
+    patrulhamentos?.length || 0
+  } patrulhamento(s) registrados.`,
+  15,
+  y
+);
+
+y += 12;
+
+const ocorrenciasAbertas =
+  ocorrencias?.filter((o) => o.status === "Aberta").length || 0;
+
+const ocorrenciasAndamento =
+  ocorrencias?.filter((o) => o.status === "Em andamento").length || 0;
+
+const ocorrenciasFinalizadas =
+  ocorrencias?.filter((o) => o.status === "Finalizada").length || 0;
+
+y = tituloSecao(pdf, "RESUMO ESTATÍSTICO DO PLANTÃO", y);
+
+pdf.text(`Ocorrências registradas: ${ocorrencias?.length || 0}`, 15, y);
+y += 7;
+
+pdf.text(`Ocorrências abertas: ${ocorrenciasAbertas}`, 15, y);
+y += 7;
+
+pdf.text(`Ocorrências em andamento: ${ocorrenciasAndamento}`, 15, y);
+y += 7;
+
+pdf.text(`Ocorrências finalizadas: ${ocorrenciasFinalizadas}`, 15, y);
+y += 7;
+
+pdf.text(`Chamados registrados: ${chamados?.length || 0}`, 15, y);
+y += 7;
+
+pdf.text(`Patrulhamentos registrados: ${patrulhamentos?.length || 0}`, 15, y);
+y += 12;
 
     y = tituloSecao(pdf, "1. EQUIPE ESCALADA", y);
 
@@ -184,7 +238,7 @@ export default function RelatorioPlantao() {
       patrulhamentos.forEach((item: Patrulhamento) => {
         y = verificarPagina(pdf, y);
 
-        const texto = `Viatura: ${item.viatura || "-"} | Início: ${item.hora_inicio || "-"} | Fim: ${item.hora_fim || "-"} | Equipe: ${item.equipe || "-"} | Roteiro: ${item.roteiro || "-"} | Obs: ${item.observacao || "-"}`;
+        const texto = `${item.hora || "-"} | Local: ${item.local || "-"} | Viatura: ${item.viatura || "-"} | Guarda: ${item.guarda || "-"} | Equipe: ${item.equipe || "-"} | Obs: ${item.observacao || "-"}`;
         const linhas = pdf.splitTextToSize(texto, 175);
 
         pdf.text(linhas, 15, y);
@@ -193,7 +247,50 @@ export default function RelatorioPlantao() {
     }
 
     y += 6;
-    y = tituloSecao(pdf, "5. OBSERVAÇÕES DO PLANTÃO", y);
+
+y += 6;
+y = tituloSecao(pdf, "5. PESSOAS ABORDADAS", y);
+
+if (!pessoas || pessoas.length === 0) {
+  pdf.text("Nenhuma pessoa abordada registrada no plantão.", 15, y);
+  y += 8;
+} else {
+  pessoas.forEach((item: any) => {
+    y = verificarPagina(pdf, y);
+
+    const texto = `${item.hora || "-"} | ${item.nome || "-"} | Documento: ${
+      item.documento || "-"
+    } | Local: ${item.local || "-"} | Guarda: ${item.guarda || "-"}`;
+
+    const linhas = pdf.splitTextToSize(texto, 175);
+    pdf.text(linhas, 15, y);
+    y += linhas.length * 6 + 4;
+  });
+}
+
+y += 6;
+y = tituloSecao(pdf, "6. VEÍCULOS ABORDADOS", y);
+
+if (!veiculos || veiculos.length === 0) {
+  pdf.text("Nenhum veículo abordado registrado no plantão.", 15, y);
+  y += 8;
+} else {
+  veiculos.forEach((item: any) => {
+    y = verificarPagina(pdf, y);
+
+    const texto = `${item.hora || "-"} | Placa: ${item.placa || "-"} | Modelo: ${
+      item.modelo || "-"
+    } | Condutor: ${item.condutor || "-"} | Local: ${item.local || "-"}`;
+
+    const linhas = pdf.splitTextToSize(texto, 175);
+    pdf.text(linhas, 15, y);
+    y += linhas.length * 6 + 4;
+  });
+}
+
+y += 6;
+
+    y = tituloSecao(pdf, "7. OBSERVAÇÕES DO PLANTÃO", y);
 
     const obs = pdf.splitTextToSize(
       observacoes || "Sem observações adicionais.",
