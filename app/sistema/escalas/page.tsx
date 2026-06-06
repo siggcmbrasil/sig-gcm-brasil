@@ -37,7 +37,7 @@ export default function Escalas() {
   const [busca, setBusca] = useState("");
 
   const [dataServico, setDataServico] = useState("");
-  const [turno, setTurno] = useState("06h às 18h");
+  const [turno, setTurno] = useState("24 horas");
   const [guardaNome, setGuardaNome] = useState("");
   const [matricula, setMatricula] = useState("");
   const [equipe, setEquipe] = useState("Equipe Alfa");
@@ -237,9 +237,8 @@ export default function Escalas() {
                   value={turno}
                   onChange={(e) => setTurno(e.target.value)}
                 >
-                  <option>06h às 18h</option>
-                  <option>18h às 06h</option>
                   <option>24 horas</option>
+                  <option>07h às 07h</option>
                   <option>Administrativo</option>
                   <option>Extra</option>
                   <option>Evento</option>

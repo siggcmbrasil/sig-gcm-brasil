@@ -229,6 +229,18 @@ export default function Sidebar() {
           )}
 
           {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/escalas/modelos" className="menu-item">
+              ⚙️ Modelos de Escala
+            </Link>
+          )}
+
+          {podeVer(todos) && (
+            <Link onClick={fecharMenu} href="/sistema/escalas/permutas" className="menu-item">
+              🔁 Permutas de Plantão
+            </Link>
+          )}
+
+          {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/guarnicoes" className="menu-item">
               👥 Guarnições
             </Link>
@@ -251,6 +263,10 @@ export default function Sidebar() {
               👤 Usuários
             </Link>
           )}
+
+          <Link onClick={fecharMenu} href="/sistema/municipios"className="menu-item">
+              🏛️ Municípios
+            </Link>
 
           <Divisor />
 

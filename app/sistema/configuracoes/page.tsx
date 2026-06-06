@@ -3,6 +3,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Municipio = {
+  id: number;
+  nome: string;
+  estado: string;
+  ativo: boolean;
+};
+
+type ConfiguracaoSistema = {
+  id: number;
+  municipio_padrao_id: number | null;
+};
+
 type Aviso = {
   id: number;
   titulo: string;
@@ -15,6 +27,8 @@ export default function Configuracoes() {
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [municipioPadraoId, setMunicipioPadraoId] = useState("");
 
   async function carregarAvisos() {
     setCarregando(true);
@@ -81,9 +95,51 @@ export default function Configuracoes() {
     carregarAvisos();
   }
 
+  async function carregarConfiguracoes() {
+  const { data: municipiosData } = await supabase
+    .from("municipios")
+    .select("id, nome, estado, ativo")
+    .eq("ativo", true)
+    .order("nome");
+
+  const { data: configData } = await supabase
+    .from("configuracoes_sistema")
+    .select("id, municipio_padrao_id")
+    .order("id", { ascending: true })
+    .limit(1)
+    .single();
+
+  setMunicipios(municipiosData || []);
+  setMunicipioPadraoId(configData?.municipio_padrao_id?.toString() || "");
+}
+
+async function salvarMunicipioPadrao() {
+  if (!municipioPadraoId) {
+    alert("Selecione um município.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("configuracoes_sistema")
+    .update({
+      municipio_padrao_id: Number(municipioPadraoId),
+    })
+    .eq("id", 1);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao salvar município padrão.");
+    return;
+  }
+
+  alert("Município padrão atualizado com sucesso!");
+  carregarConfiguracoes();
+}
+
   useEffect(() => {
-    carregarAvisos();
-  }, []);
+  carregarAvisos();
+  carregarConfiguracoes();
+}, []);
 
   return (
     <div className="p-6">
@@ -93,6 +149,32 @@ export default function Configuracoes() {
           Gerenciamento dos avisos operacionais do dashboard.
         </p>
       </header>
+
+      <section className="card mb-6 max-w-2xl">
+  <h2 className="text-xl font-bold mb-4">Município Padrão</h2>
+
+  <select
+    className="input"
+    value={municipioPadraoId}
+    onChange={(e) => setMunicipioPadraoId(e.target.value)}
+  >
+    <option value="">Selecione o município</option>
+
+    {municipios.map((m) => (
+      <option key={m.id} value={m.id}>
+        {m.nome} - {m.estado}
+      </option>
+    ))}
+  </select>
+
+  <button
+    type="button"
+    onClick={salvarMunicipioPadrao}
+    className="btn-primary mt-4"
+  >
+    Salvar Município Padrão
+  </button>
+</section>
 
       <section className="grid grid-cols-3 gap-4">
         <div className="card">

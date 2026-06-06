@@ -6,6 +6,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import InstalarApp from "@/components/InstalarApp";
 
+type Municipio = {
+  id: number;
+  nome: string;
+  estado: string;
+};
+
 type Ocorrencia = {
   id: number;
   protocolo: string;
@@ -19,6 +25,7 @@ type Ocorrencia = {
 
 type Guarda = {
   id: number;
+  nome: string;
   status: string;
 };
 
@@ -38,13 +45,51 @@ type Aviso = {
   descricao: string;
 };
 
+type Permuta = {
+  id: number;
+  status: string;
+};
+
+type Guarnicao = {
+  id: number;
+  nome: string;
+  comandante_id: number | null;
+  viatura_id: number | null;
+  ativa: boolean;
+};
+
+type MembroGuarnicao = {
+  id: number;
+  guarnicao_id: number;
+  guarda_id: number;
+};
+
+type EscalaHoje = {
+  id: number;
+  data_servico: string;
+  guarda_nome: string;
+  matricula: string;
+  tipo: string;
+  turno: string;
+  equipe: string;
+};
+
+
+
 export default function Dashboard() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [viatura, setViatura] = useState<Viatura | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [permutas, setPermutas] = useState<Permuta[]>([]);
   const [carregando, setCarregando] = useState(true);
-
+  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [membrosGuarnicao, setMembrosGuarnicao] = useState<MembroGuarnicao[]>([]);
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
+  const [escalaHoje, setEscalaHoje] = useState<EscalaHoje[]>([]);
+  const [municipioPadraoId, setMunicipioPadraoId] = useState<number | null>(null);
+  const [municipioAtivo, setMunicipioAtivo] = useState<Municipio | null>(null);
+  const [modeloEscalaAtivo, setModeloEscalaAtivo] = useState<string>("");
   const usuarioLogado =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
@@ -56,32 +101,99 @@ export default function Dashboard() {
   async function carregarDashboard() {
     setCarregando(true);
 
-    const { data: ocorrenciasData } = await supabase
-      .from("ocorrencias")
-      .select("id, protocolo, tipo, local, bairro, data, hora, status")
-      .order("id", { ascending: false });
-
-    const { data: guardasData } = await supabase
-      .from("guardas")
-      .select("id, status");
-
-    const { data: viaturaData } = await supabase
-      .from("viaturas")
-      .select("*")
+    const { data: configData } = await supabase
+      .from("configuracoes_sistema")
+      .select("municipio_padrao_id")
       .order("id", { ascending: true })
       .limit(1)
       .single();
+      
+
+    const municipioId = configData?.municipio_padrao_id || 1;
+
+    setMunicipioPadraoId(municipioId);
+    
+const { data: municipioData } = await supabase
+  .from("municipios")
+  .select("id, nome, estado")
+  .eq("id", municipioId)
+  .single();
+
+setMunicipioAtivo(municipioData || null);
+
+const { data: modeloData } = await supabase
+  .from("escala_modelos")
+  .select("nome")
+  .eq("municipio_id", municipioId)
+  .eq("ativo", true)
+  .limit(1)
+  .single();
+
+setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
+
+    const { data: ocorrenciasData } = await supabase
+    .from("ocorrencias")
+  .select("id, protocolo, tipo, local, bairro, data, hora, status")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: false });
+
+    const { data: guardasData } = await supabase
+  .from("guardas")
+  .select("id, nome, status")
+  .eq("municipio_id", municipioId);
+
+    const { data: viaturaData } = await supabase
+  .from("viaturas")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: true })
+  .limit(1)
+  .single();
 
     const { data: avisosData } = await supabase
       .from("avisos")
       .select("*")
       .order("id", { ascending: false });
 
+    const { data: permutasData } = await supabase
+      .from("permutas_plantao")
+      .select("id, status");
+
+    const { data: guarnicoesData } = await supabase
+  .from("guarnicoes")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .eq("ativa", true)
+  .order("id");
+
+    const { data: membrosGuarnicaoData } = await supabase
+      .from("guarnicao_membros")
+      .select("id, guarnicao_id, guarda_id");
+
+    const { data: viaturasData } = await supabase
+  .from("viaturas")
+  .select("*")
+  .eq("municipio_id", municipioId);
+
+    const hoje = new Date().toISOString().split("T")[0];
+
+    const hojeData = new Date().toISOString().split("T")[0];
+
+    const { data: escalaHojeData } = await supabase
+  .from("escalas_servico")
+  .select("*")
+  .eq("data_servico", hojeData);
+
     setOcorrencias(ocorrenciasData || []);
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
     setAvisos(avisosData || []);
+    setEscalaHoje(escalaHojeData || []);
+    setViaturas(viaturasData || []);
+    setPermutas(permutasData || []);
     setCarregando(false);
+    setGuarnicoes(guarnicoesData || []);
+    setMembrosGuarnicao(membrosGuarnicaoData || []);
   }
 
   useEffect(() => {
@@ -98,6 +210,42 @@ export default function Dashboard() {
   const guardasFolga = guardas.filter((g) => g.status === "Folga").length;
 
   const ultimaOcorrencia = ocorrencias[0];
+  const permutasPendentes = permutas.filter(
+  (p) => p.status === "PENDENTE" || p.status === "ACEITA").length;
+  const guarnicoesAtivas = guarnicoes.length;
+  const totalMembrosGuarnicoes = membrosGuarnicao.length;
+  const guarnicoesComViatura = guarnicoes.filter((g) => g.viatura_id).length;
+
+function calcularGuarnicaoPlantao() {
+  const guarnicoesOrdem = [
+    "Guarnição Alpha",
+    "Guarnição Bravo",
+    "Guarnição Charlie",
+    "Guarnição Delta",
+    "Guarnição Echo",
+  ];
+
+  
+  const dataBase = new Date("2026-06-05T07:00:00");
+  const agora = new Date();
+
+  const diferencaMs = agora.getTime() - dataBase.getTime();
+  const diasPassados = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
+
+  const indice = ((diasPassados % guarnicoesOrdem.length) + guarnicoesOrdem.length) % guarnicoesOrdem.length;
+
+  return guarnicoesOrdem[indice];
+}
+
+const guarnicaoPlantaoHoje = calcularGuarnicaoPlantao();
+
+const guarnicaoAtual = guarnicoes.find(
+  (g) => g.nome === guarnicaoPlantaoHoje
+);
+
+const membrosGuarnicaoAtual = guarnicaoAtual
+  ? membrosGuarnicao.filter((m) => m.guarnicao_id === guarnicaoAtual.id)
+  : [];
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -114,6 +262,23 @@ export default function Dashboard() {
         <p className="text-slate-300 mt-2 text-lg">
           Central Operacional Integrada
         </p>
+        
+<div className="mt-4 space-y-1">
+  <p className="text-blue-400 font-semibold">
+    🏛️ Município:{" "}
+    {municipioAtivo
+      ? `${municipioAtivo.nome} - ${municipioAtivo.estado}`
+      : "Carregando..."}
+  </p>
+
+  <p className="text-green-400">
+    📅 Escala: {modeloEscalaAtivo}
+  </p>
+
+  <p className="text-yellow-400">
+    👮 Plantão: {guarnicaoPlantaoHoje}
+  </p>
+</div>
 
         <p className="text-green-400 text-sm mt-3">
           ● Sistema Online • Operacional 24h
@@ -187,11 +352,14 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+          <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3 mb-6">
             <Card titulo="Hoje" valor={String(ocorrenciasHoje)} detalhe="Ocorrências" />
             <Card titulo="Abertas" valor={String(abertas)} detalhe="Pendentes" />
             <Card titulo="Serviço" valor={String(guardasServico)} detalhe="Guardas" />
             <Card titulo="Avisos" valor={String(avisos.length)} detalhe="Ativos" />
+            <Card titulo="Guarnições" valor={String(guarnicoesAtivas)} detalhe="Ativas" />
+            <Card titulo="Efetivo" valor={String(totalMembrosGuarnicoes)} detalhe="Nas guarnições" />
+            <Card titulo="Permutas" valor={String(permutasPendentes)} detalhe="Pendentes" />
           </section>
 
           {podeOperar && (
@@ -223,6 +391,121 @@ export default function Dashboard() {
           )}
 
           <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+<div className="card">
+  <h2 className="text-xl md:text-2xl font-bold mb-4">
+    👮 Guarnições Operacionais
+  </h2>
+
+  <div className="space-y-3">
+    {guarnicoes.length === 0 ? (
+      <p className="text-slate-400">
+        Nenhuma guarnição ativa.
+      </p>
+    ) : (
+      guarnicoes.map((g) => {
+        const total = membrosGuarnicao.filter(
+          (m) => m.guarnicao_id === g.id
+        ).length;
+
+        const comandante = guardas.find(
+          (guarda) => guarda.id === g.comandante_id
+        );
+
+        const viaturaGuarnicao = viaturas.find(
+          (v) => v.id === g.viatura_id
+);
+
+        return (
+          <div
+            key={g.id}
+            className="bg-slate-900 border border-slate-700 rounded-xl p-4"
+          >
+            <p className="font-bold text-lg text-blue-400">
+              👮 {g.nome}
+            </p>
+
+            <p className="text-sm text-slate-300 mt-2">
+              👥 {total} membro(s)
+            </p>
+
+            <p className="text-sm text-slate-300">
+              👤 {comandante?.nome || "Sem comandante"}
+            </p>
+
+            <p className="text-sm text-slate-300">
+              🚓 {viaturaGuarnicao?.prefixo || "Sem viatura"}
+            </p>
+          </div>
+        );
+      })
+    )}
+  </div>
+</div>
+
+<div className="card">
+  <h2 className="text-xl md:text-2xl font-bold mb-4">
+    📅 Escala de Hoje
+  </h2>
+
+  {escalaHoje.length === 0 ? (
+    <p className="text-slate-400">
+      Nenhum plantão cadastrado para hoje.
+    </p>
+  ) : (
+    <div className="space-y-3">
+      {escalaHoje.map((escala) => (
+        <div
+          key={escala.id}
+          className="bg-slate-900 border border-slate-700 rounded-xl p-4"
+        >
+          <p className="font-bold text-blue-400">
+            {escala.equipe}
+          </p>
+
+          <p className="text-sm text-slate-300">
+            👮 {escala.guarda_nome} • Matrícula {escala.matricula}
+          </p>
+
+          <p className="text-sm text-slate-300">
+            🕖 07:00 às 07:00
+          </p>
+
+          <p className="text-sm text-green-400 font-semibold">
+            ⏱️ {escala.tipo} • {escala.turno}
+          </p>
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+<div className="card">
+  <h2 className="text-xl md:text-2xl font-bold mb-4">
+    🚨 Guarnição de Plantão Hoje
+  </h2>
+
+  <div className="bg-slate-900 border border-green-600 rounded-xl p-4">
+    <p className="text-2xl font-bold text-green-400">
+      {guarnicaoPlantaoHoje}
+    </p>
+
+    <p className="mt-3 text-slate-300">
+      🕖 Plantão 24 horas
+    </p>
+
+    <p className="text-slate-300">
+      ⏰ 07:00 às 07:00
+    </p>
+
+    <p className="text-blue-400 font-semibold mt-3">
+      👥 {membrosGuarnicaoAtual.length} membro(s)
+    </p>
+
+    <p className="text-slate-400 text-sm mt-2">
+      Escala automática 24/96
+    </p>
+  </div>
+</div>
+
             {podeOperar && (
               <div className="card xl:col-span-2">
                 <h2 className="text-xl md:text-2xl font-bold mb-4">
@@ -233,11 +516,7 @@ export default function Dashboard() {
                   <Atalho href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" descricao="Registrar ocorrência com foto" />
                   <Atalho href="/sistema/chamados" titulo="Novo Chamado" descricao="Abrir chamado operacional" />
                   <Atalho href="/sistema/patrulhamento" titulo="Patrulhamento" descricao="Registrar ronda da VTR" />
-                  <Atalho
-  href="/sistema/guarnicoes"
-  titulo="Guarnições"
-  descricao="Gerenciar equipes operacionais"
-/>
+                  <Atalho href="/sistema/guarnicoes" titulo="Guarnições" descricao="Gerenciar equipes operacionais"/>
                 </div>
               </div>
             )}
