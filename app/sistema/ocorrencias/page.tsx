@@ -13,30 +13,52 @@ type Ocorrencia = {
   bairro: string | null;
   data: string;
   status: string;
+  guarnicao_id: number | null;
+  viatura_id: number | null;
+  guarda_responsavel_id: number | null;
 };
 
+type Guarnicao = {
+  id: number;
+  nome: string;
+};
+
+type Viatura = {
+  id: number;
+  prefixo: string;
+};
+
+type Guarda = {
+  id: number;
+  nome: string;
+};
 export default function Ocorrencias() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
+  const [guardas, setGuardas] = useState<Guarda[]>([]);
   const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
     : {};
 
-const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
-const podeEditar = perfilUsuario !== "CONSULTA";
-const [filtroStatus, setFiltroStatus] = useState("");
-const [filtroData, setFiltroData] = useState("");
+  const podeEditar = perfilUsuario !== "CONSULTA";
+  const [filtroStatus, setFiltroStatus] = useState("");
+  const [filtroData, setFiltroData] = useState("");
+  const [municipioId, setMunicipioId] = useState<number>(1);
 
-  async function carregarOcorrencias() {
+  async function carregarOcorrencias(municipio: number) {
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("ocorrencias")
-      .select("id, protocolo, tipo, local, bairro, data, status")
-      .order("id", { ascending: false });
+  .from("ocorrencias")
+  .select(`id, protocolo, tipo, local, bairro, data, status, guarnicao_id, viatura_id, guarda_responsavel_id`)
+  .eq("municipio_id", municipio)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -48,6 +70,30 @@ const [filtroData, setFiltroData] = useState("");
     setOcorrencias(data || []);
     setCarregando(false);
   }
+
+  async function carregarDadosApoio(municipio: number) {
+  const { data: guarnicoesData } = await supabase
+    .from("guarnicoes")
+    .select("id, nome")
+    .eq("municipio_id", municipio)
+    .order("nome");
+
+  const { data: viaturasData } = await supabase
+    .from("viaturas")
+    .select("id, prefixo")
+    .eq("municipio_id", municipio)
+    .order("prefixo");
+
+  const { data: guardasData } = await supabase
+    .from("guardas")
+    .select("id, nome")
+    .eq("municipio_id", municipio)
+    .order("nome");
+
+  setGuarnicoes(guarnicoesData || []);
+  setViaturas(viaturasData || []);
+  setGuardas(guardasData || []);
+}
 
   async function excluirOcorrencia(id: number) {
   if (!podeEditar) {
@@ -73,12 +119,26 @@ const [filtroData, setFiltroData] = useState("");
     }
 
     alert("Ocorrência excluída com sucesso.");
-    carregarOcorrencias();
+    carregarOcorrencias(municipioId);
   }
 
   useEffect(() => {
-    carregarOcorrencias();
-  }, []);
+  carregarSistema();
+}, []);
+
+async function carregarSistema() {
+  const { data } = await supabase
+    .from("configuracoes_sistema")
+    .select("municipio_padrao_id")
+    .limit(1)
+    .single();
+
+  const id = data?.municipio_padrao_id || 1;
+
+  setMunicipioId(id);
+  carregarOcorrencias(id);
+  carregarDadosApoio(id);
+}
 
   const ocorrenciasFiltradas = ocorrencias.filter((o) => {
   const texto = `${o.protocolo} ${o.tipo} ${o.local} ${o.bairro || ""} ${o.status}`.toLowerCase();
@@ -89,6 +149,27 @@ const [filtroData, setFiltroData] = useState("");
 
   return passaBusca && passaStatus && passaData;
 });
+
+function nomeGuarnicao(id: number | null) {
+  if (!id) return "-";
+
+  const guarnicao = guarnicoes.find((g) => g.id === id);
+  return guarnicao?.nome || "-";
+}
+
+function prefixoViatura(id: number | null) {
+  if (!id) return "-";
+
+  const viatura = viaturas.find((v) => v.id === id);
+  return viatura?.prefixo || "-";
+}
+
+function nomeGuarda(id: number | null) {
+  if (!id) return "-";
+
+  const guarda = guardas.find((g) => g.id === id);
+  return guarda?.nome || "-";
+}
 
   return (
   
@@ -264,6 +345,21 @@ const [filtroData, setFiltroData] = useState("");
                       <span className="text-slate-500">Data: </span>
                       {ocorrencia.data}
                     </p>
+
+                    <p>
+  <span className="text-slate-500">Guarnição: </span>
+  {nomeGuarnicao(ocorrencia.guarnicao_id)}
+</p>
+
+<p>
+  <span className="text-slate-500">Viatura: </span>
+  {prefixoViatura(ocorrencia.viatura_id)}
+</p>
+
+<p>
+  <span className="text-slate-500">Responsável: </span>
+  {nomeGuarda(ocorrencia.guarda_responsavel_id)}
+</p>
                   </div>
 
                   <div className="grid grid-cols-1 gap-2 pt-2">
@@ -306,6 +402,9 @@ const [filtroData, setFiltroData] = useState("");
                     <th className="text-left py-3">Local</th>
                     <th className="text-left py-3">Bairro</th>
                     <th className="text-left py-3">Data</th>
+                    <th className="text-left py-3">Guarnição</th>
+                    <th className="text-left py-3">Viatura</th>
+                    <th className="text-left py-3">Responsável</th>
                     <th className="text-left py-3">Situação</th>
                     <th className="text-right py-3">Ações</th>
                   </tr>
@@ -333,9 +432,21 @@ const [filtroData, setFiltroData] = useState("");
 
                       <td>{ocorrencia.data}</td>
 
-                      <td>
-                        <Status status={ocorrencia.status} />
-                      </td>
+<td>
+  {nomeGuarnicao(ocorrencia.guarnicao_id)}
+</td>
+
+<td>
+  {prefixoViatura(ocorrencia.viatura_id)}
+</td>
+
+<td>
+  {nomeGuarda(ocorrencia.guarda_responsavel_id)}
+</td>
+
+<td>
+  <Status status={ocorrencia.status} />
+</td>
 
                       <td className="text-right">
                         <div className="flex justify-end gap-2">

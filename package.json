@@ -10,7 +10,7 @@
   },
   "build": {
     "appId": "br.com.gcm.biritinga",
-    "productName": "SIG-GCM Biritinga",
+    "productName": "SIG-GCM Brasil",
     "win": {
       "target": "nsis",
       "icon": "public/brasao-gcm-v2.png"

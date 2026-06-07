@@ -98,7 +98,7 @@ setVerificando(false);
         {children}
 
         <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">
-          SIG-GCM Biritinga © {new Date().getFullYear()}
+          SIG-GCM Brasil © {new Date().getFullYear()}
           <br />
           Desenvolvido por
           <span className="text-blue-400 font-semibold">

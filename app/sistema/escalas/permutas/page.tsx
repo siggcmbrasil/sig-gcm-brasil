@@ -18,11 +18,14 @@ type Permuta = {
   motivo: string | null;
   status: string;
   criado_em: string;
+  aprovado_por: string | null;
+  data_aprovacao: string | null;
 };
 
 export default function PermutasPage() {
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [permutas, setPermutas] = useState<Permuta[]>([]);
+  const [municipioId, setMunicipioId] = useState<number>(1);
 
   const [dataOriginal, setDataOriginal] = useState("");
   const [dataTroca, setDataTroca] = useState("");
@@ -31,29 +34,45 @@ export default function PermutasPage() {
   const [motivo, setMotivo] = useState("");
 
   useEffect(() => {
-    carregarGuardas();
-    carregarPermutas();
-  }, []);
+  carregarSistema();
+}, []);
 
-  async function carregarGuardas() {
-    const { data, error } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula")
-      .order("nome", { ascending: true });
+async function carregarSistema() {
+  const { data } = await supabase
+    .from("configuracoes_sistema")
+    .select("municipio_padrao_id")
+    .limit(1)
+    .single();
 
-    if (error) {
-      alert("Erro ao carregar guardas.");
-      console.error(error);
-      return;
-    }
+  const id = data?.municipio_padrao_id || 1;
 
-    setGuardas(data || []);
+  setMunicipioId(id);
+
+  carregarGuardas(id);
+  carregarPermutas(id);
+}
+
+async function carregarGuardas(municipio: number) {
+  const { data, error } = await supabase
+    .from("guardas")
+    .select("id, nome, matricula")
+    .eq("municipio_id", municipio)
+    .order("nome", { ascending: true });
+
+  if (error) {
+    alert("Erro ao carregar guardas.");
+    console.error(error);
+    return;
   }
 
-  async function carregarPermutas() {
+  setGuardas(data || []);
+}
+
+  async function carregarPermutas(municipio: number) {
     const { data, error } = await supabase
       .from("permutas_plantao")
       .select("*")
+      .eq("municipio_id", municipio)
       .order("id", { ascending: false });
 
     if (error) {
@@ -101,21 +120,22 @@ export default function PermutasPage() {
     }
 
     const { error } = await supabase.from("permutas_plantao").insert([
-      {
-        data_original: dataOriginal,
-        data_troca: dataTroca,
-        guarda_solicitante_id: Number(guardaSolicitanteId),
-        guarda_substituto_id: Number(guardaSubstitutoId),
-        motivo,
-        status: "PENDENTE",
-      },
-    ]);
+  {
+    municipio_id: municipioId,
+    data_original: dataOriginal,
+    data_troca: dataTroca,
+    guarda_solicitante_id: Number(guardaSolicitanteId),
+    guarda_substituto_id: Number(guardaSubstitutoId),
+    motivo,
+    status: "PENDENTE",
+  },
+]);
 
     if (error) {
-      alert("Erro ao salvar permuta.");
-      console.error(error);
-      return;
-    }
+  console.error("ERRO AO SALVAR PERMUTA:", error);
+  alert(error.message);
+  return;
+}
 
     alert("Permuta cadastrada com sucesso!");
 
@@ -125,7 +145,7 @@ export default function PermutasPage() {
     setGuardaSubstitutoId("");
     setMotivo("");
 
-    carregarPermutas();
+    carregarPermutas(municipioId);
   }
 
   async function aceitarPermuta(id: number) {
@@ -142,16 +162,20 @@ export default function PermutasPage() {
       return;
     }
 
-    carregarPermutas();
+    carregarPermutas(municipioId);
   }
 
   async function aprovarPermuta(id: number) {
+    const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
     const { error } = await supabase
       .from("permutas_plantao")
       .update({
-        status: "APROVADA",
-        aprovado_por: "ADMIN",
-      })
+  status: "APROVADA",
+  aprovado_por: usuario.nome || "ADMIN",
+  data_aprovacao: new Date().toISOString(),
+})
       .eq("id", id);
 
     if (error) {
@@ -160,16 +184,20 @@ export default function PermutasPage() {
       return;
     }
 
-    carregarPermutas();
+    carregarPermutas(municipioId);
   }
 
   async function negarPermuta(id: number) {
+    const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
     const { error } = await supabase
       .from("permutas_plantao")
       .update({
-        status: "NEGADA",
-        aprovado_por: "ADMIN",
-      })
+  status: "NEGADA",
+  aprovado_por: usuario.nome || "ADMIN",
+  data_aprovacao: new Date().toISOString(),
+})
       .eq("id", id);
 
     if (error) {
@@ -178,8 +206,29 @@ export default function PermutasPage() {
       return;
     }
 
-    carregarPermutas();
+    carregarPermutas(municipioId);
   }
+
+async function excluirPermuta(id: number) {
+  const confirmar = confirm("Deseja realmente excluir esta permuta?");
+
+  if (!confirmar) return;
+
+  const { error } = await supabase
+    .from("permutas_plantao")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    alert("Erro ao excluir permuta.");
+    console.error(error);
+    return;
+  }
+
+  alert("Permuta excluída com sucesso!");
+
+  carregarPermutas(municipioId);
+}
 
   return (
     <div className="p-6 space-y-6">
@@ -258,13 +307,16 @@ export default function PermutasPage() {
                 <th className="p-3 text-left border">Substituto</th>
                 <th className="p-3 text-left border">Status</th>
                 <th className="p-3 text-left border">Motivo</th>
+<th className="p-3 text-left border">Aprovado por</th>
+<th className="p-3 text-left border">Data Aprovação</th>
+<th className="p-3 text-left border">Ações</th>
               </tr>
             </thead>
 
             <tbody>
               {permutas.length === 0 ? (
                 <tr>
-                  <td className="p-3 border text-center" colSpan={6}>
+                  <td className="p-3 border text-center" colSpan={7}>
                     Nenhuma permuta cadastrada.
                   </td>
                 </tr>
@@ -327,6 +379,27 @@ export default function PermutasPage() {
                     </td>
 
                     <td className="p-3 border">{permuta.motivo || "-"}</td>
+
+<td className="p-3 border">
+  {permuta.aprovado_por || "-"}
+</td>
+
+<td className="p-3 border">
+  {permuta.data_aprovacao
+    ? new Date(permuta.data_aprovacao).toLocaleString("pt-BR")
+    : "-"}
+</td>
+
+<td className="p-3 border">
+  <button
+    type="button"
+    onClick={() => excluirPermuta(permuta.id)}
+    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded text-sm font-semibold"
+  >
+    Excluir
+  </button>
+</td>
+                    <th className="p-3 text-left border">Ações</th>
                   </tr>
                 ))
               )}

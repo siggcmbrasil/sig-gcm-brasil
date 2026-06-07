@@ -10,6 +10,9 @@ type Municipio = {
   id: number;
   nome: string;
   estado: string;
+  brasao: string | null;
+  cor_principal: string | null;
+  ativo: boolean;
 };
 
 type Ocorrencia = {
@@ -74,7 +77,15 @@ type EscalaHoje = {
   equipe: string;
 };
 
-
+type ConfigEscalaOperacional = {
+  id: number;
+  municipio_id: number;
+  modelo_escala_id: number;
+  data_base: string;
+  guarnicao_base_id: number;
+  ordem_guarnicoes: number[];
+  ativo: boolean;
+};
 
 export default function Dashboard() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
@@ -90,6 +101,8 @@ export default function Dashboard() {
   const [municipioPadraoId, setMunicipioPadraoId] = useState<number | null>(null);
   const [municipioAtivo, setMunicipioAtivo] = useState<Municipio | null>(null);
   const [modeloEscalaAtivo, setModeloEscalaAtivo] = useState<string>("");
+  const [configEscala, setConfigEscala] = useState<ConfigEscalaOperacional | null>(null);
+
   const usuarioLogado =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
@@ -115,7 +128,7 @@ export default function Dashboard() {
     
 const { data: municipioData } = await supabase
   .from("municipios")
-  .select("id, nome, estado")
+  .select("*")
   .eq("id", municipioId)
   .single();
 
@@ -130,6 +143,17 @@ const { data: modeloData } = await supabase
   .single();
 
 setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
+
+const { data: configEscalaData } = await supabase
+  .from("escala_operacional_config")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .eq("ativo", true)
+  .order("id", { ascending: false })
+  .limit(1)
+  .single();
+
+setConfigEscala((configEscalaData as ConfigEscalaOperacional) || null);
 
     const { data: ocorrenciasData } = await supabase
     .from("ocorrencias")
@@ -216,36 +240,52 @@ setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
   const totalMembrosGuarnicoes = membrosGuarnicao.length;
   const guarnicoesComViatura = guarnicoes.filter((g) => g.viatura_id).length;
 
-function calcularGuarnicaoPlantao() {
-  const guarnicoesOrdem = [
-    "Guarnição Alpha",
-    "Guarnição Bravo",
-    "Guarnição Charlie",
-    "Guarnição Delta",
-    "Guarnição Echo",
-  ];
+function calcularGuarnicaoPlantaoConfigurada() {
+  if (!configEscala || !configEscala.ordem_guarnicoes?.length) {
+    return null;
+  }
 
-  
-  const dataBase = new Date("2026-06-05T07:00:00");
+  const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
   const agora = new Date();
 
   const diferencaMs = agora.getTime() - dataBase.getTime();
-  const diasPassados = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
+  const diasPassados = Math.floor(
+    diferencaMs / (1000 * 60 * 60 * 24)
+  );
 
-  const indice = ((diasPassados % guarnicoesOrdem.length) + guarnicoesOrdem.length) % guarnicoesOrdem.length;
+  const ordem = configEscala.ordem_guarnicoes;
 
-  return guarnicoesOrdem[indice];
+  const indiceBase = ordem.findIndex(
+    (id) => id === configEscala.guarnicao_base_id
+  );
+
+  if (indiceBase === -1) return null;
+
+  const indiceAtual =
+    ((indiceBase + diasPassados) % ordem.length + ordem.length) %
+    ordem.length;
+
+  const guarnicaoIdAtual = ordem[indiceAtual];
+
+  return guarnicoes.find((g) => g.id === guarnicaoIdAtual) || null;
 }
 
-const guarnicaoPlantaoHoje = calcularGuarnicaoPlantao();
+const guarnicaoAtual = calcularGuarnicaoPlantaoConfigurada();
 
-const guarnicaoAtual = guarnicoes.find(
-  (g) => g.nome === guarnicaoPlantaoHoje
-);
+const guarnicaoPlantaoHoje =
+  guarnicaoAtual?.nome || "Escala não configurada";
 
 const membrosGuarnicaoAtual = guarnicaoAtual
   ? membrosGuarnicao.filter((m) => m.guarnicao_id === guarnicaoAtual.id)
   : [];
+
+  const comandantePlantao = guarnicaoAtual
+  ? guardas.find((g) => g.id === guarnicaoAtual.comandante_id)
+  : null;
+
+const viaturaPlantao = guarnicaoAtual
+  ? viaturas.find((v) => v.id === guarnicaoAtual.viatura_id)
+  : null;
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -255,13 +295,25 @@ const membrosGuarnicaoAtual = guarnicaoAtual
     <div className="flex flex-col lg:flex-row justify-between gap-4">
 
       <div>
-        <h1 className="text-4xl md:text-5xl font-bold">
-          🚔 SIG-GCM Biritinga
-        </h1>
+        <div className="flex items-center gap-4">
+  {municipioAtivo?.brasao && (
+    <img
+      src={municipioAtivo.brasao}
+      alt={municipioAtivo.nome}
+      className="w-20 h-20 object-contain"
+    />
+  )}
 
-        <p className="text-slate-300 mt-2 text-lg">
-          Central Operacional Integrada
-        </p>
+  <div>
+    <h1 className="text-4xl md:text-5xl font-bold">
+      🚔 SIG-GCM Brasil
+    </h1>
+
+    <p className="text-slate-300 mt-2 text-lg">
+      Central Operacional Integrada
+    </p>
+  </div>
+</div>
         
 <div className="mt-4 space-y-1">
   <p className="text-blue-400 font-semibold">
@@ -295,8 +347,10 @@ const membrosGuarnicaoAtual = guarnicaoAtual
         </p>
 
         <p className="text-slate-500 text-xs mt-2">
-          Guarda Civil Municipal de Biritinga
-        </p>
+  {municipioAtivo?.nome
+    ? `Guarda Civil Municipal de ${municipioAtivo.nome}`
+    : "Sistema Integrado das Guardas Municipais"}
+</p>
       </div>
 
     </div>
@@ -483,26 +537,67 @@ const membrosGuarnicaoAtual = guarnicaoAtual
     🚨 Guarnição de Plantão Hoje
   </h2>
 
-  <div className="bg-slate-900 border border-green-600 rounded-xl p-4">
+  <div className="bg-slate-900 border border-green-600 rounded-xl p-4 space-y-3">
     <p className="text-2xl font-bold text-green-400">
-      {guarnicaoPlantaoHoje}
+      👮 {guarnicaoPlantaoHoje}
     </p>
 
-    <p className="mt-3 text-slate-300">
-      🕖 Plantão 24 horas
-    </p>
+    <div className="border-t border-slate-700 pt-3 space-y-2">
+      <p className="text-slate-300">
+        👤 Comandante:{" "}
+        <span className="font-semibold text-white">
+          {comandantePlantao?.nome || "Sem comandante"}
+        </span>
+      </p>
 
-    <p className="text-slate-300">
-      ⏰ 07:00 às 07:00
-    </p>
+      <p className="text-slate-300">
+        🚓 Viatura:{" "}
+        <span className="font-semibold text-white">
+          {viaturaPlantao?.prefixo || "Sem viatura"}
+        </span>
+      </p>
 
-    <p className="text-blue-400 font-semibold mt-3">
-      👥 {membrosGuarnicaoAtual.length} membro(s)
-    </p>
+      <p className="text-slate-300">
+        👥 Efetivo:{" "}
+        <span className="font-semibold text-white">
+          {membrosGuarnicaoAtual.length} membro(s)
+        </span>
+      </p>
 
-    <p className="text-slate-400 text-sm mt-2">
-      Escala automática 24/96
-    </p>
+      <div className="border-t border-slate-700 pt-3">
+  <p className="font-semibold text-blue-400 mb-2">
+    👥 Equipe de Serviço
+  </p>
+
+  <div className="space-y-1">
+    {membrosGuarnicaoAtual.map((membro) => {
+      const guarda = guardas.find(
+        (g) => g.id === membro.guarda_id
+      );
+
+      return (
+        <p
+          key={membro.id}
+          className="text-slate-300 text-sm"
+        >
+          • {guarda?.nome || "Guarda"}
+        </p>
+      );
+    })}
+  </div>
+</div>
+
+      <p className="text-slate-300">
+        🕖 Horário:{" "}
+        <span className="font-semibold text-white">
+          07:00 às 07:00
+        </span>
+      </p>
+
+      <p className="text-blue-400 font-semibold">
+        📅 Escala automática 24/96
+      </p>
+    </div>
   </div>
 </div>
 
@@ -664,7 +759,7 @@ const membrosGuarnicaoAtual = guarnicaoAtual
       )}
       <footer className="mt-10 border-t border-slate-800 pt-4 text-center">
   <p className="text-xs text-slate-500">
-    SIG-GCM Biritinga © {new Date().getFullYear()}
+    SIG-GCM Brasil © {new Date().getFullYear()}
   </p>
 
   <p className="text-xs text-blue-400 font-semibold">

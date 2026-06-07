@@ -117,7 +117,7 @@ export default function VisualizarOcorrencia() {
 
     try {
       const textoQr = `
-SIG-GCM BIRITINGA
+SIG-GCM Brasil
 Protocolo: ${ocorrencia.protocolo}
 Tipo: ${ocorrencia.tipo}
 Status: ${ocorrencia.status}

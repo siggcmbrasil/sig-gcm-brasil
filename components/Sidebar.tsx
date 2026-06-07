@@ -118,9 +118,9 @@ export default function Sidebar() {
           />
 
           <div>
-            <h1 className="text-lg font-bold">SIG-GCM BIRITINGA</h1>
+            <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
             <p className="text-xs text-slate-400">
-              Sistema Integrado da Guarda Civil Municipal
+              Sistema Integrado das Guardas Municipais
             </p>
           </div>
         </div>
@@ -233,6 +233,14 @@ export default function Sidebar() {
               ⚙️ Modelos de Escala
             </Link>
           )}
+
+          <Link
+  onClick={fecharMenu}
+  href="/sistema/escalas/configuracao"
+  className="menu-item"
+>
+  🧭 Configuração da Escala
+</Link>
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/escalas/permutas" className="menu-item">

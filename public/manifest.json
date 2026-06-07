@@ -1,7 +1,7 @@
 {
-  "name": "SIG-GCM Biritinga",
+  "name": "SIG-GCM Brasil",
   "short_name": "SIG-GCM",
-  "description": "Sistema Integrado da Guarda Civil Municipal de Biritinga",
+  "description": "Sistema Integrado das Guardas Municipais",
   "start_url": "/login",
   "display": "standalone",
   "background_color": "#061426",

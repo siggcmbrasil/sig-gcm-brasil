@@ -35,14 +35,18 @@ type Envolvido = {
   observacao: string;
 };
 
+type Guarnicao = {
+  id: number;
+  nome: string;
+};
+
 export default function NovaOcorrencia() {
   const router = useRouter();
-
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
   const [guardasSelecionados, setGuardasSelecionados] = useState<string[]>([]);
-
   const [tipo, setTipo] = useState("");
+  const [guardaResponsavelId, setGuardaResponsavelId] = useState("");
   const [status, setStatus] = useState("Aberta");
   const [bairro, setBairro] = useState("");
   const [local, setLocal] = useState("");
@@ -50,11 +54,14 @@ export default function NovaOcorrencia() {
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [municipioId, setMunicipioId] = useState<number>(1);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
-
+  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [guarnicaoId, setGuarnicaoId] = useState("");
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
-
+  const [viaturaId, setViaturaId] = useState("");
   const [envolvidos, setEnvolvidos] = useState<Envolvido[]>([
+    
     {
       nome: "",
       documento: "",
@@ -64,12 +71,13 @@ export default function NovaOcorrencia() {
       observacao: "",
     },
   ]);
-  async function carregarLocais() {
+  async function carregarLocais(municipio: number) {
   const { data, error } = await supabase
-    .from("locais")
-    .select("id,nome,tipo")
-    .eq("ativo", true)
-    .order("nome");
+  .from("locais")
+  .select("id,nome,tipo")
+  .eq("municipio_id", municipio)
+  .eq("ativo", true)
+  .order("nome");
 
   if (error) {
     console.error(error);
@@ -79,11 +87,12 @@ export default function NovaOcorrencia() {
   setLocais(data || []);
 }
 
-  async function carregarGuardas() {
+  async function carregarGuardas(municipio: number) {
     const { data, error } = await supabase
-      .from("guardas")
-      .select("id, matricula, nome, cargo, status")
-      .order("nome", { ascending: true });
+  .from("guardas")
+  .select("id, matricula, nome, cargo, status")
+  .eq("municipio_id", municipio)
+  .order("nome", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -94,12 +103,30 @@ export default function NovaOcorrencia() {
     setGuardas(data || []);
   }
 
-  async function carregarViaturas() {
+  async function carregarGuarnicoes(municipio: number) {
+  const { data, error } = await supabase
+    .from("guarnicoes")
+    .select("id, nome")
+    .eq("municipio_id", municipio)
+    .eq("ativa", true)
+    .order("nome");
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar guarnições.");
+    return;
+  }
+
+  setGuarnicoes(data || []);
+}
+
+  async function carregarViaturas(municipio: number) {
     const { data, error } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, placa, status")
-      .in("status", ["Operacional", "Reserva"])
-      .order("prefixo", { ascending: true });
+  .from("viaturas")
+  .select("id, prefixo, modelo, placa, status")
+  .eq("municipio_id", municipio)
+  .in("status", ["Operacional", "Reserva"])
+  .order("prefixo", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -204,23 +231,29 @@ export default function NovaOcorrencia() {
     const equipeEmpenhada = guardasSelecionados.join("\n");
 
     const { error } = await supabase.from("ocorrencias").insert([
-      {
-        protocolo,
-        tipo,
-        status,
-        data,
-        hora,
-        bairro,
-        local,
-        numero,
-        envolvidos: JSON.stringify(envolvidosValidos),
-        descricao,
-        foto_url: fotosUrls[0] || "",
-        fotos_urls: JSON.stringify(fotosUrls),
-        viatura_empenhada: viaturaEmpenhada,
-        equipe_empenhada: equipeEmpenhada,
-      },
-    ]);
+  {
+    municipio_id: municipioId,
+    guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
+    viatura_id: viaturaId ? Number(viaturaId) : null,
+    guarda_responsavel_id: guardaResponsavelId
+  ? Number(guardaResponsavelId)
+  : null,
+    protocolo,
+    tipo,
+    status,
+    data,
+    hora,
+    bairro,
+    local,
+    numero,
+    envolvidos: JSON.stringify(envolvidosValidos),
+    descricao,
+    foto_url: fotosUrls[0] || "",
+    fotos_urls: JSON.stringify(fotosUrls),
+    viatura_empenhada: viaturaEmpenhada,
+    equipe_empenhada: equipeEmpenhada,
+  },
+]);
 
     setSalvando(false);
 
@@ -233,11 +266,25 @@ export default function NovaOcorrencia() {
     alert("Ocorrência salva com sucesso!");
     router.push("/sistema/ocorrencias");
   }
+async function carregarSistema() {
+  const { data } = await supabase
+    .from("configuracoes_sistema")
+    .select("municipio_padrao_id")
+    .limit(1)
+    .single();
+
+  const id = data?.municipio_padrao_id || 1;
+
+  setMunicipioId(id);
+
+  carregarGuardas(id);
+  carregarGuarnicoes(id);
+  carregarViaturas(id);
+  carregarLocais(id);
+}
 
   useEffect(() => {
-  carregarGuardas();
-  carregarViaturas();
-  carregarLocais();
+  carregarSistema();
 }, []);
 
   return (
@@ -296,6 +343,77 @@ export default function NovaOcorrencia() {
             </select>
           </div>
         </div>
+
+        <div className="border-t border-slate-800 pt-6">
+  <label className="label">Guarnição empenhada</label>
+
+  <select
+    className="input"
+    value={guarnicaoId}
+    onChange={(e) => setGuarnicaoId(e.target.value)}
+  >
+    <option value="">Selecione a guarnição</option>
+
+    {guarnicoes.map((g) => (
+      <option key={g.id} value={g.id}>
+        {g.nome}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="mt-4">
+  <label className="label">Viatura empenhada</label>
+
+  <div className="mt-4">
+  <label className="label">Guarda responsável</label>
+
+  <select
+    className="input"
+    value={guardaResponsavelId}
+    onChange={(e) => setGuardaResponsavelId(e.target.value)}
+  >
+    <option value="">Selecione o guarda responsável</option>
+
+    {guardas.map((guarda) => (
+      <option key={guarda.id} value={guarda.id}>
+        {guarda.nome} • {guarda.matricula}
+      </option>
+    ))}
+  </select>
+</div>
+
+  <select
+    className="input"
+    value={viaturaId}
+    onChange={(e) => {
+      const id = e.target.value;
+
+      setViaturaId(id);
+
+      const viatura = viaturas.find(
+        (v) => String(v.id) === id
+      );
+
+      setViaturaEmpenhada(
+        viatura?.prefixo || ""
+      );
+    }}
+  >
+    <option value="">
+      Selecione a viatura
+    </option>
+
+    {viaturas.map((viatura) => (
+      <option
+        key={viatura.id}
+        value={viatura.id}
+      >
+        {viatura.prefixo} - {viatura.modelo}
+      </option>
+    ))}
+  </select>
+</div>
 
         <div className="border-t border-slate-800 pt-6 space-y-4">
           <h2 className="text-2xl font-bold">Equipe Empenhada</h2>

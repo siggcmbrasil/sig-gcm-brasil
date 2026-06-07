@@ -1,6 +1,6 @@
 # Changelog
 
-## 07/06/2026
+## 06/06/2026
 
 * Criada documentação oficial do projeto.
 * Criada pasta /docs.
@@ -10,7 +10,7 @@
 * Definida arquitetura multi-município.
 * Definido suporte a escalas configuráveis por município.
 
-## 08/06/2026
+## 06/06/2026
 
 ### Módulo de Permutas
 
@@ -25,7 +25,7 @@
   PENDENTE → ACEITA → NEGADA.
 * Integração completa com Supabase.
 
-## 08/06/2026
+## 06/06/2026
 
 ### Multi-Município
 
@@ -38,3 +38,20 @@
 - Vinculados chamados ao município.
 - Vinculados patrulhamentos ao município.
 - Vinculados modelos de escala ao município.
+
+## 06/06/2026
+
+### Dashboard
+- Adicionado município ativo no topo.
+- Adicionado modelo de escala ativo.
+- Adicionada guarnição de plantão automática 24/96.
+- Adicionado card de guarnições operacionais.
+- Adicionado card de escala de hoje.
+- Adicionado card de permutas pendentes.
+
+### Multi-Município
+- Criada tabela municipios.
+- Criada configuração de município padrão.
+- Adicionado filtro por município no Dashboard.
+- Criada página de cadastro de municípios.
+- Criada página de modelos de escala.

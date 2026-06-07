@@ -133,7 +133,7 @@ export default function RelatorioGeralPlantao() {
         {dados && (
           <div className="relatorio">
             <div className="text-center border-b pb-4 mb-6">
-              <h2 className="text-2xl font-bold">SIG-GCM BIRITINGA</h2>
+              <h2 className="text-2xl font-bold">SIG-GCM Brasil</h2>
               <p className="font-semibold">Relatório Geral do Plantão</p>
               <p className="text-sm">
                 Período: {inicio ? new Date(inicio).toLocaleString("pt-BR") : "Todos"} até{" "}

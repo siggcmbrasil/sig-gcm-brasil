@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "SIG-GCM Biritinga",
-  description: "Sistema Integrado da Guarda Civil Municipal",
+  title: "SIG-GCM Brasil",
+  description: "Sistema Integrado das Guardas Municipais",
   manifest: "/manifest.json",
 };
 

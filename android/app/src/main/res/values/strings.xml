@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">SIG-GCM Biritinga</string>
-    <string name="title_activity_main">SIG-GCM Biritinga</string>
+    <string name="app_name">SIG-GCM Brasil</string>
+    <string name="title_activity_main">SIG-GCM Brasil</string>
     <string name="package_name">br.com.gcm.biritinga</string>
     <string name="custom_url_scheme">br.com.gcm.biritinga</string>
 </resources>

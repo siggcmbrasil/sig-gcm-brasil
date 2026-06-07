@@ -69,11 +69,11 @@ if (usuarioSistema?.status === "Inativo" || usuarioSistema?.status === "Bloquead
         />
 
         <h1 className="text-2xl font-bold mt-4">
-          SIG-GCM Biritinga
+          SIG-GCM Brasil
         </h1>
 
         <p className="text-slate-400 text-sm text-center">
-          Sistema Integrado da Guarda Civil Municipal
+          Sistema Integrado das Guardas Municipais
         </p>
       </div>
 
@@ -117,7 +117,7 @@ if (usuarioSistema?.status === "Inativo" || usuarioSistema?.status === "Bloquead
 
         <div className="border-t border-slate-800 pt-4">
           <p className="text-xs text-slate-500">
-            SIG-GCM Biritinga © {new Date().getFullYear()}
+            SIG-GCM Brasil © {new Date().getFullYear()}
           </p>
 
           <p className="text-xs text-blue-400 font-semibold">
