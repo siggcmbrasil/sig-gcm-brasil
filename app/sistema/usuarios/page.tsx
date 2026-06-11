@@ -30,9 +30,11 @@ const [nome, setNome] = useState("");
 const [matricula, setMatricula] = useState("");
 const [telefone, setTelefone] = useState("");
 const [email, setEmail] = useState("");
+const [senha, setSenha] = useState("");
 const [perfil, setPerfil] = useState("GUARDA");
 const [status, setStatus] = useState("Ativo");
 const [observacao, setObservacao] = useState("");
+const [editandoId, setEditandoId] = useState<number | null>(null);
 
 const [carregando, setCarregando] = useState(true);
 
@@ -52,47 +54,142 @@ async function carregarUsuarios() {
     }
 
     setUsuarios(data || []);
+const { data: municipiosData } = await supabase
+  .from("municipios")
+  .select("id, nome, estado")
+  .order("nome");
+
+setMunicipios(municipiosData || []);
+
     setCarregando(false);
   }
 
+function editarUsuario(usuario: Usuario) {
+  setEditandoId(usuario.id);
+
+  setNome(usuario.nome || "");
+  setMatricula(usuario.matricula || "");
+  setTelefone(usuario.telefone || "");
+  setEmail(usuario.email || "");
+  setCpf(usuario.cpf || "");
+  setPerfil(usuario.perfil || "GUARDA");
+  setStatus(usuario.status || "Ativo");
+  setObservacao(usuario.observacao || "");
+  setMunicipioId(
+    usuario.municipio_id ? String(usuario.municipio_id) : ""
+  );
+}
+
   async function salvarUsuario() {
-    if (!nome || !email || !perfil) {
-      alert("Preencha nome, email e perfil.");
+  if (!nome || !email || !perfil) {
+    alert("Preencha nome, email e perfil.");
+    return;
+  }
+
+  if (!senha) {
+    alert("Informe uma senha.");
+    return;
+  }
+
+  if (editandoId) {
+    const { data: emailExistente } = await supabase
+      .from("usuarios")
+      .select("id")
+      .eq("email", email)
+      .neq("id", editandoId)
+      .maybeSingle();
+
+    if (emailExistente) {
+      alert("Já existe outro usuário cadastrado com este e-mail.");
       return;
     }
 
-    const { error } = await supabase.from("usuarios").insert([
-      {
-  nome,
-  matricula,
-  telefone,
-  email,
-  cpf,
-  perfil,
-  status,
-  observacao,
-  municipio_id: municipioId ? Number(municipioId) : null,
-},
-    ]);
+    const { error } = await supabase
+      .from("usuarios")
+      .update({
+        nome,
+        matricula,
+        telefone,
+        email,
+        cpf,
+        
+        perfil,
+        status,
+        observacao,
+        municipio_id: municipioId ? Number(municipioId) : null,
+      })
+      .eq("id", editandoId);
 
     if (error) {
       console.error(error);
-      alert("Erro ao salvar usuário.");
+      alert(error.message);
       return;
     }
 
-    alert("Usuário cadastrado com sucesso!");
+    alert("Usuário atualizado com sucesso!");
 
+    setEditandoId(null);
     setNome("");
     setMatricula("");
     setTelefone("");
+    setCpf("");
+    setMunicipioId("");
     setEmail("");
+    setSenha("");
     setPerfil("GUARDA");
     setStatus("Ativo");
     setObservacao("");
 
     carregarUsuarios();
+    return;
   }
+
+  const { data: emailExistente } = await supabase
+    .from("usuarios")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (emailExistente) {
+    alert("Já existe usuário cadastrado com este e-mail.");
+    return;
+  }
+
+  const { error } = await supabase.from("usuarios").insert([
+    {
+      nome,
+      matricula,
+      telefone,
+      email,
+      cpf,
+      perfil,
+      status,
+      observacao,
+      municipio_id: municipioId ? Number(municipioId) : null,
+    },
+  ]);
+
+  if (error) {
+    console.error(error);
+    alert(error.message);
+    return;
+  }
+
+  alert("Usuário cadastrado com sucesso!");
+
+  setNome("");
+  setMatricula("");
+  setTelefone("");
+  setCpf("");
+  setMunicipioId("");
+  setEmail("");
+  setSenha("");
+  setPerfil("GUARDA");
+  setStatus("Ativo");
+  setObservacao("");
+
+  carregarUsuarios();
+}
 
   async function excluirUsuario(id: number) {
     const confirmar = confirm("Deseja excluir este usuário?");
@@ -206,12 +303,44 @@ async function carregarUsuarios() {
               placeholder="(75) 99999-9999"
             />
 
+<Campo
+  label="CPF"
+  valor={cpf}
+  setValor={setCpf}
+  placeholder="000.000.000-00"
+/>
+
+<div>
+  <label className="label">Município</label>
+
+  <select
+    className="input"
+    value={municipioId}
+    onChange={(e) => setMunicipioId(e.target.value)}
+  >
+    <option value="">Selecione</option>
+
+    {municipios.map((m) => (
+      <option key={m.id} value={m.id}>
+        {m.nome} - {m.estado}
+      </option>
+    ))}
+  </select>
+</div>
+
             <Campo
               label="Email de acesso"
               valor={email}
               setValor={setEmail}
               placeholder="usuario@email.com"
             />
+
+<Campo
+  label="Senha Inicial"
+  valor={senha}
+  setValor={setSenha}
+  placeholder="Digite a senha"
+/>
 
             <div>
               <label className="label">Perfil</label>
@@ -257,8 +386,7 @@ async function carregarUsuarios() {
               onClick={salvarUsuario}
               className="btn-primary w-full text-lg"
             >
-              Salvar Usuário
-            </button>
+{editandoId ? "Atualizar Usuário" : "Salvar Usuário"}            </button>
           </div>
         </div>
 
@@ -331,6 +459,8 @@ async function carregarUsuarios() {
                     <tr>
                       <th className="text-left py-3">Nome</th>
                       <th className="text-left py-3">Matrícula</th>
+                      <th className="text-left py-3">CPF</th>
+                      <th className="text-left py-3">Município</th>
                       <th className="text-left py-3">Email</th>
                       <th className="text-left py-3">Perfil</th>
                       <th className="text-left py-3">Status</th>
@@ -345,6 +475,14 @@ async function carregarUsuarios() {
                           {usuario.nome}
                         </td>
                         <td>{usuario.matricula || "-"}</td>
+<td>{usuario.cpf || "-"}</td>
+
+<td>
+  {municipios.find(
+    (m) => m.id === usuario.municipio_id
+  )?.nome || "-"}
+</td>
+
                         <td className="text-slate-400">
                           {usuario.email || "-"}
                         </td>
@@ -353,6 +491,14 @@ async function carregarUsuarios() {
                           <Status status={usuario.status || "-"} />
                         </td>
                         <td className="text-right">
+                          
+                          <button
+  type="button"
+  onClick={() => editarUsuario(usuario)}
+  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
+>
+  Editar
+</button>
                           <button
                             type="button"
                             onClick={() => excluirUsuario(usuario.id)}
