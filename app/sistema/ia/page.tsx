@@ -29,7 +29,10 @@ export default function IAConsultaPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ pergunta: perguntaFinal }),
+        body: JSON.stringify({
+  pergunta: perguntaFinal,
+  usuario: JSON.parse(localStorage.getItem("usuarioLogado") || "{}"),
+}),
       });
 
       const data = await res.json();
@@ -97,70 +100,20 @@ ${pergunta}
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-4 md:p-8 text-slate-900">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 rounded-2xl bg-slate-900 p-6 text-white shadow">
-          <h1 className="text-2xl font-bold">🤖 Inteligência Artificial</h1>
-          <p className="mt-2 text-sm text-slate-300">
-            Consulte a IA, grave por voz e gere relatos profissionais de ocorrência.
-          </p>
-        </div>
+  <main className="min-h-screen bg-[#020b1c] text-white p-6">
+    <div className="painel-premium p-10 text-center">
+      <h1 className="text-4xl font-black text-yellow-400">
+        🤖 IA Operacional
+      </h1>
 
-        <div className="rounded-2xl bg-white p-5 shadow">
-          <label className="mb-2 block font-semibold text-slate-700">
-            Pergunta ou informações da ocorrência
-          </label>
+      <p className="mt-4 text-xl text-slate-300">
+        Módulo em desenvolvimento
+      </p>
 
-          <textarea
-            value={pergunta}
-            onChange={(e) => setPergunta(e.target.value)}
-            placeholder="Digite ou grave por voz. Ex: Hoje por volta das 20h, a guarnição foi acionada para uma perturbação do sossego..."
-            className="w-full rounded-xl border border-slate-300 bg-white p-4 text-black outline-none focus:border-blue-600"
-            rows={8}
-          />
-
-          <div className="mt-4 flex flex-col gap-3 md:flex-row">
-            <button
-              type="button"
-              onClick={gravarVoz}
-              disabled={gravando || carregando}
-              className="rounded-xl bg-red-700 px-6 py-3 font-semibold text-white hover:bg-red-800 disabled:opacity-60"
-            >
-              {gravando ? "🎙️ Gravando..." : "🎙️ Gravar com voz"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => consultarIA()}
-              disabled={carregando}
-              className="rounded-xl bg-blue-700 px-6 py-3 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
-            >
-              {carregando ? "Consultando..." : "Consultar IA"}
-            </button>
-
-            <button
-              type="button"
-              onClick={fazerRelatoOcorrencia}
-              disabled={carregando || !pergunta.trim()}
-              className="rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white hover:bg-emerald-800 disabled:opacity-60"
-            >
-              📝 Fazer relato de ocorrência
-            </button>
-          </div>
-        </div>
-
-        {resposta && (
-          <div className="mt-6 rounded-2xl bg-white p-5 shadow">
-            <h2 className="mb-3 text-lg font-bold text-slate-800">
-              Resposta da IA
-            </h2>
-
-            <div className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-slate-700">
-              {resposta}
-            </div>
-          </div>
-        )}
-      </div>
+      <p className="mt-2 text-slate-500">
+        Em breve o SIG-GCM Brasil contará com consultas por inteligentes articial.
+      </p>
     </div>
-  );
+  </main>
+);
 }

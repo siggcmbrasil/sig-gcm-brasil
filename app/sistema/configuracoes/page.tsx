@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 
 type Municipio = {
   id: number;
@@ -142,6 +143,7 @@ async function salvarMunicipioPadrao() {
 }, []);
 
   return (
+  <ProtecaoPerfil perfilMinimo="ADMIN">
     <div className="p-6">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl font-bold">Configurações</h1>
@@ -255,6 +257,7 @@ async function salvarMunicipioPadrao() {
           )}
         </div>
       </section>
-    </div>
+            </div>
+  </ProtecaoPerfil>
   );
 }

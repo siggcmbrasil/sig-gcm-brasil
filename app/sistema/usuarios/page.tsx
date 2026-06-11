@@ -11,32 +11,38 @@ type Usuario = {
   matricula: string | null;
   telefone: string | null;
   email: string | null;
+  cpf: string | null;
   perfil: string | null;
   status: string | null;
   observacao: string | null;
+  municipio_id: number | null;
 };
 
 export default function Usuarios() {
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [busca, setBusca] = useState("");
+const [busca, setBusca] = useState("");
 
-  const [nome, setNome] = useState("");
-  const [matricula, setMatricula] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
-  const [perfil, setPerfil] = useState("GUARDA");
-  const [status, setStatus] = useState("Ativo");
-  const [observacao, setObservacao] = useState("");
+const [cpf, setCpf] = useState("");
+const [municipioId, setMunicipioId] = useState("");
+const [municipios, setMunicipios] = useState<any[]>([]);
 
-  const [carregando, setCarregando] = useState(true);
+const [nome, setNome] = useState("");
+const [matricula, setMatricula] = useState("");
+const [telefone, setTelefone] = useState("");
+const [email, setEmail] = useState("");
+const [perfil, setPerfil] = useState("GUARDA");
+const [status, setStatus] = useState("Ativo");
+const [observacao, setObservacao] = useState("");
 
-  async function carregarUsuarios() {
-    setCarregando(true);
+const [carregando, setCarregando] = useState(true);
 
-    const { data, error } = await supabase
-      .from("usuarios")
-      .select("*")
-      .order("id", { ascending: false });
+async function carregarUsuarios() {
+  setCarregando(true);
+
+  const { data, error } = await supabase
+    .from("usuarios")
+    .select("*")
+    .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -57,14 +63,16 @@ export default function Usuarios() {
 
     const { error } = await supabase.from("usuarios").insert([
       {
-        nome,
-        matricula,
-        telefone,
-        email,
-        perfil,
-        status,
-        observacao,
-      },
+  nome,
+  matricula,
+  telefone,
+  email,
+  cpf,
+  perfil,
+  status,
+  observacao,
+  municipio_id: municipioId ? Number(municipioId) : null,
+},
     ]);
 
     if (error) {
@@ -124,7 +132,7 @@ export default function Usuarios() {
   });
 
   return (
-  <ProtecaoPerfil perfisPermitidos={["ADMIN"]}>
+  <ProtecaoPerfil perfilMinimo="ADMIN">
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6">
   <div className="border-b border-slate-800 pb-5">

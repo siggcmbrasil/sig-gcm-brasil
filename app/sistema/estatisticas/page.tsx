@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 
 type Ocorrencia = {
   id: number;
@@ -61,6 +62,7 @@ export default function Estatisticas() {
   const guardasServico = guardas.filter((g) => g.status === "Em serviço").length;
 
   return (
+  <ProtecaoPerfil perfilMinimo="COMANDANTE">
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6 border-b border-slate-800 pb-5">
         <h1 className="text-3xl md:text-5xl font-bold">
@@ -109,7 +111,8 @@ export default function Estatisticas() {
           </section>
         </>
       )}
-    </div>
+        </div>
+  </ProtecaoPerfil>
   );
 }
 

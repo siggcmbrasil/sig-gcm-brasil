@@ -55,11 +55,16 @@ export default function OfflinePage() {
     if (navigator.onLine) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
-          titulo: nova.titulo,
-          descricao: nova.descricao,
-          local: nova.local,
-          data: nova.data,
-        },
+  protocolo: `OFF-${Date.now()}`,
+  tipo: nova.titulo,
+  local: nova.local,
+  data: new Date(nova.data).toISOString().split("T")[0],
+  hora: new Date(nova.data).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+  status: "Aberta",
+},
       ]);
 
       if (!error) {
@@ -85,11 +90,16 @@ export default function OfflinePage() {
     for (const item of pendentes) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
-          titulo: item.titulo,
-          descricao: item.descricao,
-          local: item.local,
-          data: item.data,
-        },
+  protocolo: `OFF-${Date.now()}`,
+  tipo: item.titulo,
+  local: item.local,
+  data: new Date(item.data).toISOString().split("T")[0],
+  hora: new Date(item.data).toLocaleTimeString("pt-BR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }),
+  status: "Aberta",
+},
       ]);
 
       if (error) {

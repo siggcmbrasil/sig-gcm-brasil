@@ -5,11 +5,13 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Perfil =
+  | "DESENVOLVEDOR"
   | "ADMIN"
   | "COMANDANTE"
   | "DIRETOR"
   | "CMT_GUARNICAO"
   | "PLANTONISTA"
+  | "GUARDA"
   | "CONSULTA";
 
 type UsuarioLogado = {
@@ -39,9 +41,14 @@ export default function Sidebar() {
   }
 
   function podeVer(perfis: Perfil[]) {
-    if (!usuario) return false;
-    return perfis.includes(usuario.perfil);
+  if (!usuario) return false;
+
+  if (usuario.perfil === "DESENVOLVEDOR") {
+    return true;
   }
+
+  return perfis.includes(usuario.perfil);
+}
 
   const todos: Perfil[] = [
     "ADMIN",
@@ -166,6 +173,14 @@ export default function Sidebar() {
             </Link>
           )}
 
+         <Link
+  onClick={fecharMenu}
+  href="/sistema/legislacao"
+  className="menu-item"
+>
+  ⚖️ Legislação
+</Link>
+
           <Divisor />
 
           {podeVer(todos) && (
@@ -181,20 +196,24 @@ export default function Sidebar() {
           )}
 
           {podeVer(todos) && (
-  <Link
-    onClick={fecharMenu}
-    href="/sistema/locais"
-    className="menu-item"
-  >
-    📍 Cadastro Territorial
-  </Link>
-)}
+            <Link onClick={fecharMenu} href="/sistema/locais" className="menu-item">
+            📍 Cadastro Territorial
+            </Link>
+          )}
 
           {podeVer(operacionais) && (
             <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
               🤖 IA Operacional
             </Link>
           )}
+
+          <Link
+  onClick={fecharMenu}
+  href="/sistema/legislacao/ia"
+  className="menu-item"
+>
+  🤖 IA Jurídica
+</Link>
 
           {podeVer(gestao) && (
             <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
@@ -215,6 +234,13 @@ export default function Sidebar() {
           )}
 
           <Divisor />
+          <Link
+  onClick={fecharMenu}
+  href="/sistema/banco-horas"
+  className="menu-item"
+>
+  ⏱️ Banco de Horas
+</Link>
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
@@ -227,6 +253,12 @@ export default function Sidebar() {
               📅 Escalas
             </Link>
           )}
+
+          {podeVer(gestao) && (
+            <Link className="menu-item" href="/sistema/escala-mensal">
+              📅 Escala Mensal
+            </Link>
+            )}
 
           {podeVer(todos) && (
             <Link onClick={fecharMenu} href="/sistema/escalas/modelos" className="menu-item">
@@ -272,11 +304,29 @@ export default function Sidebar() {
             </Link>
           )}
 
+{usuario?.perfil === "DESENVOLVEDOR" && (
+  <Link
+    onClick={fecharMenu}
+    href="/sistema/desenvolvedor"
+    className="menu-item"
+  >
+    🧠 Painel Desenvolvedor
+  </Link>
+)}
+
           <Link onClick={fecharMenu} href="/sistema/municipios"className="menu-item">
               🏛️ Municípios
             </Link>
 
           <Divisor />
+
+          <Link
+  onClick={fecharMenu}
+  href="/sistema/perfil"
+  className="menu-item"
+>
+  👤 Meu Perfil
+</Link>
 
           {podeVer(["ADMIN"]) && (
             <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">

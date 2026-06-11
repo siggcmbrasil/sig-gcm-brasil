@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Guarda = {
@@ -11,6 +11,8 @@ type Guarda = {
 
 type Permuta = {
   id: number;
+  municipio_id: number;
+  tipo_solicitacao: string | null;
   data_original: string;
   data_troca: string;
   guarda_solicitante_id: number;
@@ -22,11 +24,21 @@ type Permuta = {
   data_aprovacao: string | null;
 };
 
+const tiposSolicitacao = [
+  { valor: "PERMUTA", nome: "Permuta / Troca de Serviço", icone: "🔄" },
+  { valor: "COBERTURA", nome: "Cobertura de Plantão", icone: "👮" },
+  { valor: "EXTRA", nome: "Serviço Extra", icone: "⭐" },
+  { valor: "ADMINISTRATIVO", nome: "Administrativo", icone: "🏢" },
+];
+
 export default function PermutasPage() {
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [permutas, setPermutas] = useState<Permuta[]>([]);
   const [municipioId, setMunicipioId] = useState<number>(1);
+  const [carregando, setCarregando] = useState(true);
+  const [busca, setBusca] = useState("");
 
+  const [tipoSolicitacao, setTipoSolicitacao] = useState("PERMUTA");
   const [dataOriginal, setDataOriginal] = useState("");
   const [dataTroca, setDataTroca] = useState("");
   const [guardaSolicitanteId, setGuardaSolicitanteId] = useState("");
@@ -34,39 +46,40 @@ export default function PermutasPage() {
   const [motivo, setMotivo] = useState("");
 
   useEffect(() => {
-  carregarSistema();
-}, []);
+    carregarSistema();
+  }, []);
 
-async function carregarSistema() {
-  const { data } = await supabase
-    .from("configuracoes_sistema")
-    .select("municipio_padrao_id")
-    .limit(1)
-    .single();
+  async function carregarSistema() {
+    setCarregando(true);
 
-  const id = data?.municipio_padrao_id || 1;
+    const { data } = await supabase
+      .from("configuracoes_sistema")
+      .select("municipio_padrao_id")
+      .limit(1)
+      .single();
 
-  setMunicipioId(id);
+    const id = data?.municipio_padrao_id || 1;
 
-  carregarGuardas(id);
-  carregarPermutas(id);
-}
-
-async function carregarGuardas(municipio: number) {
-  const { data, error } = await supabase
-    .from("guardas")
-    .select("id, nome, matricula")
-    .eq("municipio_id", municipio)
-    .order("nome", { ascending: true });
-
-  if (error) {
-    alert("Erro ao carregar guardas.");
-    console.error(error);
-    return;
+    setMunicipioId(id);
+    await Promise.all([carregarGuardas(id), carregarPermutas(id)]);
+    setCarregando(false);
   }
 
-  setGuardas(data || []);
-}
+  async function carregarGuardas(municipio: number) {
+    const { data, error } = await supabase
+      .from("guardas")
+      .select("id, nome, matricula")
+      .eq("municipio_id", municipio)
+      .order("nome", { ascending: true });
+
+    if (error) {
+      alert("Erro ao carregar guardas.");
+      console.error(error);
+      return;
+    }
+
+    setGuardas(data || []);
+  }
 
   async function carregarPermutas(municipio: number) {
     const { data, error } = await supabase
@@ -81,12 +94,12 @@ async function carregarGuardas(municipio: number) {
       return;
     }
 
-    setPermutas(data || []);
+    setPermutas((data as Permuta[]) || []);
   }
 
   function nomeGuarda(id: number) {
     const guarda = guardas.find((item) => item.id === id);
-    return guarda ? guarda.nome : `ID ${id}`;
+    return guarda ? `${guarda.nome}${guarda.matricula ? ` • ${guarda.matricula}` : ""}` : `ID ${id}`;
   }
 
   function formatarData(data: string) {
@@ -95,21 +108,47 @@ async function carregarGuardas(municipio: number) {
     return `${dia}/${mes}/${ano}`;
   }
 
-  function corStatus(status: string) {
-    if (status === "PENDENTE") return "bg-yellow-100 text-yellow-700";
-    if (status === "ACEITA") return "bg-blue-100 text-blue-700";
-    if (status === "APROVADA") return "bg-green-100 text-green-700";
-    if (status === "NEGADA") return "bg-red-100 text-red-700";
-    return "bg-slate-100 text-slate-700";
+  function nomeTipo(tipo?: string | null) {
+    return tiposSolicitacao.find((t) => t.valor === tipo)?.nome || "Permuta / Troca de Serviço";
   }
 
+  function iconeTipo(tipo?: string | null) {
+    return tiposSolicitacao.find((t) => t.valor === tipo)?.icone || "🔄";
+  }
+
+  function corStatus(status: string) {
+    if (status === "PENDENTE") return "bg-yellow-500/15 text-yellow-300 border-yellow-500/40";
+    if (status === "ACEITA") return "bg-blue-500/15 text-blue-300 border-blue-500/40";
+    if (status === "APROVADA") return "bg-green-500/15 text-green-300 border-green-500/40";
+    if (status === "NEGADA") return "bg-red-500/15 text-red-300 border-red-500/40";
+    return "bg-slate-500/15 text-slate-300 border-slate-500/40";
+  }
+
+  const permutasFiltradas = useMemo(() => {
+    const termo = busca.toLowerCase();
+
+    return permutas.filter((p) => {
+      const texto = `
+        ${nomeTipo(p.tipo_solicitacao)}
+        ${nomeGuarda(p.guarda_solicitante_id)}
+        ${nomeGuarda(p.guarda_substituto_id)}
+        ${p.status}
+        ${p.motivo || ""}
+        ${p.data_original}
+        ${p.data_troca}
+      `.toLowerCase();
+
+      return texto.includes(termo);
+    });
+  }, [busca, permutas, guardas]);
+
+  const totalPendente = permutas.filter((p) => p.status === "PENDENTE").length;
+  const totalAprovada = permutas.filter((p) => p.status === "APROVADA").length;
+  const totalAceita = permutas.filter((p) => p.status === "ACEITA").length;
+  const totalNegada = permutas.filter((p) => p.status === "NEGADA").length;
+
   async function salvarPermuta() {
-    if (
-      !dataOriginal ||
-      !dataTroca ||
-      !guardaSolicitanteId ||
-      !guardaSubstitutoId
-    ) {
+    if (!dataOriginal || !dataTroca || !guardaSolicitanteId || !guardaSubstitutoId) {
       alert("Preencha todos os campos obrigatórios.");
       return;
     }
@@ -120,25 +159,27 @@ async function carregarGuardas(municipio: number) {
     }
 
     const { error } = await supabase.from("permutas_plantao").insert([
-  {
-    municipio_id: municipioId,
-    data_original: dataOriginal,
-    data_troca: dataTroca,
-    guarda_solicitante_id: Number(guardaSolicitanteId),
-    guarda_substituto_id: Number(guardaSubstitutoId),
-    motivo,
-    status: "PENDENTE",
-  },
-]);
+      {
+        municipio_id: municipioId,
+        tipo_solicitacao: tipoSolicitacao,
+        data_original: dataOriginal,
+        data_troca: dataTroca,
+        guarda_solicitante_id: Number(guardaSolicitanteId),
+        guarda_substituto_id: Number(guardaSubstitutoId),
+        motivo,
+        status: "PENDENTE",
+      },
+    ]);
 
     if (error) {
-  console.error("ERRO AO SALVAR PERMUTA:", error);
-  alert(error.message);
-  return;
-}
+      console.error("ERRO AO SALVAR PERMUTA:", error);
+      alert(error.message);
+      return;
+    }
 
-    alert("Permuta cadastrada com sucesso!");
+    alert("Solicitação cadastrada com sucesso!");
 
+    setTipoSolicitacao("PERMUTA");
     setDataOriginal("");
     setDataTroca("");
     setGuardaSolicitanteId("");
@@ -148,16 +189,23 @@ async function carregarGuardas(municipio: number) {
     carregarPermutas(municipioId);
   }
 
-  async function aceitarPermuta(id: number) {
+  async function atualizarStatus(id: number, status: string) {
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+    const atualizacao: any = { status };
+
+    if (status === "APROVADA" || status === "NEGADA") {
+      atualizacao.aprovado_por = usuario.nome || "ADMIN";
+      atualizacao.data_aprovacao = new Date().toISOString();
+    }
+
     const { error } = await supabase
       .from("permutas_plantao")
-      .update({
-        status: "ACEITA",
-      })
+      .update(atualizacao)
       .eq("id", id);
 
     if (error) {
-      alert("Erro ao aceitar permuta.");
+      alert("Erro ao atualizar solicitação.");
       console.error(error);
       return;
     }
@@ -165,248 +213,262 @@ async function carregarGuardas(municipio: number) {
     carregarPermutas(municipioId);
   }
 
-  async function aprovarPermuta(id: number) {
-    const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-    const { error } = await supabase
-      .from("permutas_plantao")
-      .update({
-  status: "APROVADA",
-  aprovado_por: usuario.nome || "ADMIN",
-  data_aprovacao: new Date().toISOString(),
-})
-      .eq("id", id);
+  async function excluirPermuta(id: number) {
+    const confirmar = confirm("Deseja realmente excluir esta solicitação?");
+    if (!confirmar) return;
+
+    const { error } = await supabase.from("permutas_plantao").delete().eq("id", id);
 
     if (error) {
-      alert("Erro ao aprovar permuta.");
+      alert("Erro ao excluir solicitação.");
       console.error(error);
       return;
     }
 
     carregarPermutas(municipioId);
   }
-
-  async function negarPermuta(id: number) {
-    const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-    const { error } = await supabase
-      .from("permutas_plantao")
-      .update({
-  status: "NEGADA",
-  aprovado_por: usuario.nome || "ADMIN",
-  data_aprovacao: new Date().toISOString(),
-})
-      .eq("id", id);
-
-    if (error) {
-      alert("Erro ao negar permuta.");
-      console.error(error);
-      return;
-    }
-
-    carregarPermutas(municipioId);
-  }
-
-async function excluirPermuta(id: number) {
-  const confirmar = confirm("Deseja realmente excluir esta permuta?");
-
-  if (!confirmar) return;
-
-  const { error } = await supabase
-    .from("permutas_plantao")
-    .delete()
-    .eq("id", id);
-
-  if (error) {
-    alert("Erro ao excluir permuta.");
-    console.error(error);
-    return;
-  }
-
-  alert("Permuta excluída com sucesso!");
-
-  carregarPermutas(municipioId);
-}
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Permutas de Plantão</h1>
+    <div className="p-3 md:p-6 pb-24 space-y-6">
+      <header className="border-b border-slate-800 pb-5">
+        <h1 className="text-2xl md:text-3xl font-bold">🔄 Permutas e Coberturas</h1>
+        <p className="text-slate-400 text-sm md:text-base">
+          Controle operacional de permutas, coberturas de plantão, serviços extras e administrativo.
+        </p>
+      </header>
 
-      <div className="bg-white rounded-xl shadow p-4 space-y-4 text-black">
-        <h2 className="text-xl font-bold">Nova Permuta</h2>
+      <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card titulo="Pendentes" valor={totalPendente} icone="🟡" />
+        <Card titulo="Aceitas" valor={totalAceita} icone="🔵" />
+        <Card titulo="Aprovadas" valor={totalAprovada} icone="🟢" />
+        <Card titulo="Negadas" valor={totalNegada} icone="🔴" />
+      </section>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <input
-            type="date"
-            value={dataOriginal}
-            onChange={(e) => setDataOriginal(e.target.value)}
-            className="border p-3 rounded"
-          />
+      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        <div className="card xl:col-span-1">
+          <h2 className="text-xl md:text-2xl font-bold mb-4">Nova Solicitação</h2>
 
-          <input
-            type="date"
-            value={dataTroca}
-            onChange={(e) => setDataTroca(e.target.value)}
-            className="border p-3 rounded"
-          />
+          <div className="space-y-4">
+            <div>
+              <label className="label">Tipo de Solicitação</label>
+              <select
+                value={tipoSolicitacao}
+                onChange={(e) => setTipoSolicitacao(e.target.value)}
+                className="input"
+              >
+                {tiposSolicitacao.map((tipo) => (
+                  <option key={tipo.valor} value={tipo.valor}>
+                    {tipo.icone} {tipo.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          <select
-            value={guardaSolicitanteId}
-            onChange={(e) => setGuardaSolicitanteId(e.target.value)}
-            className="border p-3 rounded"
-          >
-            <option value="">Guarda solicitante</option>
-            {guardas.map((guarda) => (
-              <option key={guarda.id} value={guarda.id}>
-                {guarda.nome}
-              </option>
-            ))}
-          </select>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label className="label">Data original</label>
+                <input
+                  type="date"
+                  value={dataOriginal}
+                  onChange={(e) => setDataOriginal(e.target.value)}
+                  className="input"
+                />
+              </div>
 
-          <select
-            value={guardaSubstitutoId}
-            onChange={(e) => setGuardaSubstitutoId(e.target.value)}
-            className="border p-3 rounded"
-          >
-            <option value="">Guarda substituto</option>
-            {guardas.map((guarda) => (
-              <option key={guarda.id} value={guarda.id}>
-                {guarda.nome}
-              </option>
-            ))}
-          </select>
+              <div>
+                <label className="label">Data da troca/cobertura</label>
+                <input
+                  type="date"
+                  value={dataTroca}
+                  onChange={(e) => setDataTroca(e.target.value)}
+                  className="input"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Guarda solicitante</label>
+              <select
+                value={guardaSolicitanteId}
+                onChange={(e) => setGuardaSolicitanteId(e.target.value)}
+                className="input"
+              >
+                <option value="">Selecione</option>
+                {guardas.map((guarda) => (
+                  <option key={guarda.id} value={guarda.id}>
+                    {guarda.nome} {guarda.matricula ? `• ${guarda.matricula}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Guarda que assume/substitui</label>
+              <select
+                value={guardaSubstitutoId}
+                onChange={(e) => setGuardaSubstitutoId(e.target.value)}
+                className="input"
+              >
+                <option value="">Selecione</option>
+                {guardas.map((guarda) => (
+                  <option key={guarda.id} value={guarda.id}>
+                    {guarda.nome} {guarda.matricula ? `• ${guarda.matricula}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="label">Motivo / Observação</label>
+              <textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Ex: necessidade particular, cobertura autorizada, serviço extra convocado..."
+                className="input h-28 resize-none"
+              />
+            </div>
+
+            <button onClick={salvarPermuta} className="btn-primary w-full text-lg">
+              Salvar Solicitação
+            </button>
+          </div>
         </div>
 
-        <textarea
-          value={motivo}
-          onChange={(e) => setMotivo(e.target.value)}
-          placeholder="Motivo da permuta"
-          className="border p-3 rounded w-full"
-        />
+        <div className="card xl:col-span-2">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold">Solicitações Cadastradas</h2>
+              <p className="text-slate-400 text-sm">Acompanhe aprovação, aceite e histórico operacional.</p>
+            </div>
 
-        <button
-          onClick={salvarPermuta}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-bold"
-        >
-          Salvar Permuta
-        </button>
-      </div>
+            <input
+              className="input md:max-w-xs"
+              placeholder="Buscar por guarda, tipo, status..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
-      <div className="bg-white rounded-xl shadow p-4 text-black">
-        <h2 className="text-xl font-bold mb-4">Permutas Cadastradas</h2>
-
-        <div className="overflow-x-auto">
-          <table className="w-full border">
-            <thead className="bg-slate-100">
-              <tr>
-                <th className="p-3 text-left border">Data Original</th>
-                <th className="p-3 text-left border">Data Troca</th>
-                <th className="p-3 text-left border">Solicitante</th>
-                <th className="p-3 text-left border">Substituto</th>
-                <th className="p-3 text-left border">Status</th>
-                <th className="p-3 text-left border">Motivo</th>
-<th className="p-3 text-left border">Aprovado por</th>
-<th className="p-3 text-left border">Data Aprovação</th>
-<th className="p-3 text-left border">Ações</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {permutas.length === 0 ? (
-                <tr>
-                  <td className="p-3 border text-center" colSpan={7}>
-                    Nenhuma permuta cadastrada.
-                  </td>
-                </tr>
-              ) : (
-                permutas.map((permuta) => (
-                  <tr key={permuta.id}>
-                    <td className="p-3 border">
-                      {formatarData(permuta.data_original)}
-                    </td>
-
-                    <td className="p-3 border">
-                      {formatarData(permuta.data_troca)}
-                    </td>
-
-                    <td className="p-3 border">
-                      {nomeGuarda(permuta.guarda_solicitante_id)}
-                    </td>
-
-                    <td className="p-3 border">
-                      {nomeGuarda(permuta.guarda_substituto_id)}
-                    </td>
-
-                    <td className="p-3 border">
-                      <div className="flex flex-col gap-2">
-                        <span
-                          className={`${corStatus(
-                            permuta.status
-                          )} px-2 py-1 rounded text-center font-semibold`}
-                        >
-                          {permuta.status}
-                        </span>
-
-                        {permuta.status === "PENDENTE" && (
-                          <button
-                            onClick={() => aceitarPermuta(permuta.id)}
-                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded"
-                          >
-                            Aceitar
-                          </button>
-                        )}
-
-                        {permuta.status === "ACEITA" && (
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => aprovarPermuta(permuta.id)}
-                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded"
-                            >
-                              Aprovar
-                            </button>
-
-                            <button
-                              onClick={() => negarPermuta(permuta.id)}
-                              className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
-                            >
-                              Negar
-                            </button>
-                          </div>
-                        )}
+          {carregando ? (
+            <p className="text-slate-400">Carregando solicitações...</p>
+          ) : permutasFiltradas.length === 0 ? (
+            <div className="bg-slate-950/40 border border-slate-700 rounded-xl p-8 text-center">
+              <p className="text-slate-400">Nenhuma solicitação encontrada.</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {permutasFiltradas.map((permuta) => (
+                <div
+                  key={permuta.id}
+                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 space-y-4"
+                >
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <span className="text-2xl">{iconeTipo(permuta.tipo_solicitacao)}</span>
+                        <h3 className="text-xl font-bold text-white">{nomeTipo(permuta.tipo_solicitacao)}</h3>
                       </div>
-                    </td>
 
-                    <td className="p-3 border">{permuta.motivo || "-"}</td>
+                      <p className="text-slate-400 text-sm">
+                        Criado em: {permuta.criado_em ? new Date(permuta.criado_em).toLocaleString("pt-BR") : "-"}
+                      </p>
+                    </div>
 
-<td className="p-3 border">
-  {permuta.aprovado_por || "-"}
-</td>
+                    <span className={`border px-3 py-1 rounded-full text-sm font-bold ${corStatus(permuta.status)}`}>
+                      {permuta.status}
+                    </span>
+                  </div>
 
-<td className="p-3 border">
-  {permuta.data_aprovacao
-    ? new Date(permuta.data_aprovacao).toLocaleString("pt-BR")
-    : "-"}
-</td>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Info label="Data original" valor={formatarData(permuta.data_original)} />
+                    <Info label="Data troca/cobertura" valor={formatarData(permuta.data_troca)} />
+                    <Info label="Solicitante" valor={nomeGuarda(permuta.guarda_solicitante_id)} />
+                    <Info label="Assume/Substitui" valor={nomeGuarda(permuta.guarda_substituto_id)} />
+                  </div>
 
-<td className="p-3 border">
-  <button
-    type="button"
-    onClick={() => excluirPermuta(permuta.id)}
-    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded text-sm font-semibold"
-  >
-    Excluir
-  </button>
-</td>
-                    <th className="p-3 text-left border">Ações</th>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                  {permuta.motivo && (
+                    <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+                      <p className="text-slate-400 text-sm">Motivo / Observação</p>
+                      <p className="text-white">{permuta.motivo}</p>
+                    </div>
+                  )}
+
+                  {(permuta.aprovado_por || permuta.data_aprovacao) && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <Info label="Aprovado/negado por" valor={permuta.aprovado_por || "-"} />
+                      <Info
+                        label="Data da decisão"
+                        valor={
+                          permuta.data_aprovacao
+                            ? new Date(permuta.data_aprovacao).toLocaleString("pt-BR")
+                            : "-"
+                        }
+                      />
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
+                    {permuta.status === "PENDENTE" && (
+                      <button
+                        onClick={() => atualizarStatus(permuta.id, "ACEITA")}
+                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-xl font-semibold"
+                      >
+                        Aceitar
+                      </button>
+                    )}
+
+                    {permuta.status === "ACEITA" && (
+                      <>
+                        <button
+                          onClick={() => atualizarStatus(permuta.id, "APROVADA")}
+                          className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl font-semibold"
+                        >
+                          Aprovar
+                        </button>
+
+                        <button
+                          onClick={() => atualizarStatus(permuta.id, "NEGADA")}
+                          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-xl font-semibold"
+                        >
+                          Negar
+                        </button>
+                      </>
+                    )}
+
+                    <button
+                      onClick={() => excluirPermuta(permuta.id)}
+                      className="bg-slate-800 hover:bg-red-900 text-white px-4 py-2 rounded-xl font-semibold"
+                    >
+                      Excluir
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
+      </section>
+    </div>
+  );
+}
+
+function Card({ titulo, valor, icone }: { titulo: string; valor: number; icone: string }) {
+  return (
+    <div className="card min-h-28 flex items-center justify-between">
+      <div>
+        <p className="text-slate-400 text-sm">{titulo}</p>
+        <h2 className="text-4xl font-bold">{valor}</h2>
       </div>
+      <p className="text-4xl">{icone}</p>
+    </div>
+  );
+}
+
+function Info({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="bg-slate-900/70 border border-slate-700 rounded-xl p-3">
+      <p className="text-slate-400 text-xs uppercase tracking-wide">{label}</p>
+      <p className="font-semibold text-white mt-1">{valor}</p>
     </div>
   );
 }

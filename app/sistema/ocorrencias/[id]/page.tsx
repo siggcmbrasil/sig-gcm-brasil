@@ -36,6 +36,34 @@ type Ocorrencia = {
   viatura_empenhada: string | null;
   equipe_empenhada: string | null;
   criado_em: string;
+  municipio_id: number | null;
+  guarnicao_id: number | null;
+  viatura_id: number | null;
+  guarda_responsavel_id: number | null;
+};
+
+type Municipio = {
+  id: number;
+  nome: string;
+  estado: string;
+  brasao: string | null;
+  nome_corporacao: string | null;
+  sigla_corporacao: string | null;
+};
+
+type Guarnicao = {
+  id: number;
+  nome: string;
+};
+
+type Viatura = {
+  id: number;
+  prefixo: string;
+};
+
+type Guarda = {
+  id: number;
+  nome: string;
 };
 
 export default function VisualizarOcorrencia() {
@@ -44,6 +72,11 @@ export default function VisualizarOcorrencia() {
 
   const [ocorrencia, setOcorrencia] = useState<Ocorrencia | null>(null);
   const [carregando, setCarregando] = useState(true);
+
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
+  const [guardas, setGuardas] = useState<Guarda[]>([]);
 
   async function carregarOcorrencia() {
     const { data, error } = await supabase
@@ -62,6 +95,29 @@ export default function VisualizarOcorrencia() {
     setOcorrencia(data);
     setCarregando(false);
   }
+
+  async function carregarDadosApoio() {
+  const { data: municipiosData } = await supabase
+    .from("municipios")
+.select("id, nome, estado, brasao, nome_corporacao, sigla_corporacao");
+
+  const { data: guarnicoesData } = await supabase
+    .from("guarnicoes")
+    .select("id, nome");
+
+  const { data: viaturasData } = await supabase
+    .from("viaturas")
+    .select("id, prefixo");
+
+  const { data: guardasData } = await supabase
+    .from("guardas")
+    .select("id, nome");
+
+  setMunicipios(municipiosData || []);
+  setGuarnicoes(guarnicoesData || []);
+  setViaturas(viaturasData || []);
+  setGuardas(guardasData || []);
+}
 
   function obterEnvolvidos(): Envolvido[] {
     if (!ocorrencia?.envolvidos) return [];
@@ -99,6 +155,16 @@ export default function VisualizarOcorrencia() {
     return fotos;
   }
 
+  function municipioDaOcorrencia() {
+  if (!ocorrencia?.municipio_id) return null;
+
+  return (
+    municipios.find(
+      (m) => m.id === ocorrencia.municipio_id
+    ) || null
+  );
+}
+
   async function gerarPDF() {
     if (!ocorrencia) return;
 
@@ -109,8 +175,14 @@ export default function VisualizarOcorrencia() {
     let brasaoBase64 = "";
     let qrCodeBase64 = "";
 
+    const municipioAtual = municipioDaOcorrencia();
+
     try {
-      brasaoBase64 = await carregarImagemBase64("/brasao-gcm-v2.png");
+      if (municipioAtual?.brasao) {
+  brasaoBase64 = await carregarImagemBase64(municipioAtual.brasao);
+} else {
+  brasaoBase64 = await carregarImagemBase64("/brasao-gcm-v2.png");
+}
     } catch {
       console.warn("Não foi possível carregar o brasão.");
     }
@@ -137,13 +209,13 @@ Local: ${ocorrencia.local}
 
     pdf.setFontSize(16);
     pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 105, 18, {
-      align: "center",
-    });
+  align: "center",
+});
 
-    pdf.setFontSize(14);
-    pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
-      align: "center",
-    });
+pdf.setFontSize(14);
+pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
+  align: "center",
+});
 
     pdf.setFontSize(12);
     pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
@@ -173,6 +245,31 @@ Local: ${ocorrencia.local}
     y += 8;
     pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 15, y);
     y += 12;
+    pdf.text(
+  `Município: ${nomeMunicipio(ocorrencia.municipio_id)}`, 15, y
+);
+y += 8;
+
+pdf.text(
+  `Guarnição: ${nomeGuarnicao(ocorrencia.guarnicao_id)}`,
+  15,
+  y
+);
+y += 8;
+
+pdf.text(
+  `Viatura: ${prefixoViatura(ocorrencia.viatura_id)}`,
+  15,
+  y
+);
+y += 8;
+
+pdf.text(
+  `Responsável: ${nomeGuarda(ocorrencia.guarda_responsavel_id)}`,
+  15,
+  y
+);
+y += 12;
 
     if (ocorrencia.latitude && ocorrencia.longitude) {
       pdf.text(`Latitude: ${ocorrencia.latitude}`, 15, y);
@@ -288,8 +385,9 @@ Local: ${ocorrencia.local}
   }
 
   useEffect(() => {
-    carregarOcorrencia();
-  }, []);
+  carregarOcorrencia();
+  carregarDadosApoio();
+}, []);
 
   if (carregando) {
     return <div className="p-6 text-slate-400">Carregando ocorrência...</div>;
@@ -301,6 +399,34 @@ Local: ${ocorrencia.local}
 
   const envolvidos = obterEnvolvidos();
   const fotos = obterFotos();
+
+function nomeMunicipio(id: number | null) {
+  if (!id) return "-";
+
+  const municipio = municipios.find((m) => m.id === id);
+  return municipio ? `${municipio.nome} - ${municipio.estado}` : "-";
+}
+
+function nomeGuarnicao(id: number | null) {
+  if (!id) return "-";
+
+  const guarnicao = guarnicoes.find((g) => g.id === id);
+  return guarnicao?.nome || "-";
+}
+
+function prefixoViatura(id: number | null) {
+  if (!id) return "-";
+
+  const viatura = viaturas.find((v) => v.id === id);
+  return viatura?.prefixo || "-";
+}
+
+function nomeGuarda(id: number | null) {
+  if (!id) return "-";
+
+  const guarda = guardas.find((g) => g.id === id);
+  return guarda?.nome || "-";
+}
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -363,7 +489,10 @@ Local: ${ocorrencia.local}
         <div className="card space-y-4">
           <h2 className="text-xl font-bold">Equipe Empenhada</h2>
           <Linha nome="Viatura" valor={ocorrencia.viatura_empenhada || "-"} />
-
+          <Linha nome="Município" valor={nomeMunicipio(ocorrencia.municipio_id)}/>
+          <Linha nome="Guarnição" valor={nomeGuarnicao(ocorrencia.guarnicao_id)}/>
+          <Linha nome="Viatura" valor={prefixoViatura(ocorrencia.viatura_id)}/>
+          <Linha nome="Responsável" valor={nomeGuarda(ocorrencia.guarda_responsavel_id)}/>
           <div>
             <p className="text-slate-400 mb-2">Guardas</p>
             <pre className="whitespace-pre-wrap text-white font-sans">

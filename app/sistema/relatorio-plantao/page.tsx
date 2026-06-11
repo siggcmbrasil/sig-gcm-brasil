@@ -346,7 +346,7 @@ y += 6;
   }
 
   return (
-    <ProtecaoPerfil perfisPermitidos={["ADMIN", "COMANDANTE", "CMT_GUARNICAO"]}>
+    <ProtecaoPerfil perfilMinimo="CMT_GUARNICAO">
       <div className="p-3 md:p-6 pb-24">
         <header className="border-b border-slate-800 pb-5 mb-6">
           <h1 className="text-2xl md:text-3xl font-bold">

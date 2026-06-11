@@ -11,35 +11,32 @@ type Municipio = {
 
 type ModeloEscala = {
   id: number;
-  nome: string;
-};
-
-type Guarnicao = {
-  id: number;
-  nome: string;
-};
-
-type ConfigEscala = {
-  id: number;
   municipio_id: number;
-  modelo_escala_id: number;
-  data_base: string;
-  guarnicao_base_id: number;
-  ordem_guarnicoes: number[];
+  nome: string;
+  tipo: string;
+  horario_inicio: string | null;
+  horario_fim: string | null;
   ativo: boolean;
+};
+
+type GrupoEscala = {
+  id: number;
+  modelo_id: number;
+  nome: string;
+  ordem: number;
 };
 
 export default function ConfiguracaoEscalaPage() {
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [modelos, setModelos] = useState<ModeloEscala[]>([]);
-  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
-  const [configs, setConfigs] = useState<ConfigEscala[]>([]);
+  const [grupos, setGrupos] = useState<GrupoEscala[]>([]);
 
   const [municipioId, setMunicipioId] = useState("");
-  const [modeloId, setModeloId] = useState("");
-  const [dataBase, setDataBase] = useState("");
-  const [guarnicaoBaseId, setGuarnicaoBaseId] = useState("");
-  const [ordemGuarnicoes, setOrdemGuarnicoes] = useState<number[]>([]);
+  const [nomeModelo, setNomeModelo] = useState("");
+  const [tipo, setTipo] = useState("Plantão");
+  const [horarioInicio, setHorarioInicio] = useState("07:00");
+  const [horarioFim, setHorarioFim] = useState("07:00");
+  const [quantidadeGrupos, setQuantidadeGrupos] = useState("5");
 
   useEffect(() => {
     carregarDados();
@@ -53,105 +50,129 @@ export default function ConfiguracaoEscalaPage() {
       .order("nome");
 
     const { data: modelosData } = await supabase
-      .from("escala_modelos")
-      .select("id, nome")
-      .eq("ativo", true)
-      .order("nome");
-
-    const { data: guarnicoesData } = await supabase
-      .from("guarnicoes")
-      .select("id, nome")
-      .eq("ativa", true)
-      .order("id");
-
-    const { data: configsData } = await supabase
-      .from("escala_operacional_config")
+      .from("modelos_escala")
       .select("*")
       .order("id", { ascending: false });
 
+    const { data: gruposData } = await supabase
+      .from("grupos_escala")
+      .select("*")
+      .order("ordem", { ascending: true });
+
     setMunicipios(municipiosData || []);
-    setModelos(modelosData || []);
-    setGuarnicoes(guarnicoesData || []);
-    setConfigs((configsData as ConfigEscala[]) || []);
+    setModelos((modelosData as ModeloEscala[]) || []);
+    setGrupos((gruposData as GrupoEscala[]) || []);
   }
 
-  function alternarGuarnicao(id: number) {
-    if (ordemGuarnicoes.includes(id)) {
-      setOrdemGuarnicoes(ordemGuarnicoes.filter((item) => item !== id));
+  async function salvarModelo() {
+    if (!municipioId || !nomeModelo || !tipo || !quantidadeGrupos) {
+      alert("Preencha município, nome, tipo e quantidade de grupos.");
       return;
     }
 
-    setOrdemGuarnicoes([...ordemGuarnicoes, id]);
-  }
+    const quantidade = Number(quantidadeGrupos);
 
-  async function salvarConfiguracao() {
-    if (
-      !municipioId ||
-      !modeloId ||
-      !dataBase ||
-      !guarnicaoBaseId ||
-      ordemGuarnicoes.length === 0
-    ) {
-      alert("Preencha todos os campos.");
+    if (quantidade < 0 || quantidade > 12) {
+      alert("A quantidade de grupos deve ser entre 0 e 12.");
       return;
     }
 
-    const { error } = await supabase.from("escala_operacional_config").insert([
-      {
-        municipio_id: Number(municipioId),
-        modelo_escala_id: Number(modeloId),
-        data_base: dataBase,
-        guarnicao_base_id: Number(guarnicaoBaseId),
-        ordem_guarnicoes: ordemGuarnicoes,
-        ativo: true,
-      },
-    ]);
+    const { data: modeloCriado, error } = await supabase
+      .from("modelos_escala")
+      .insert([
+        {
+          municipio_id: Number(municipioId),
+          nome: nomeModelo,
+          tipo,
+          horario_inicio: horarioInicio,
+          horario_fim: horarioFim,
+          ativo: true,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error || !modeloCriado) {
+      console.error(error);
+      alert("Erro ao criar modelo de escala.");
+      return;
+    }
+
+    if (quantidade > 0) {
+      const gruposParaCriar = Array.from({ length: quantidade }, (_, index) => ({
+        modelo_id: modeloCriado.id,
+        nome:
+          tipo === "Plantão"
+            ? `Plantão ${index + 1}`
+            : `${tipo} ${index + 1}`,
+        ordem: index + 1,
+      }));
+
+      const { error: gruposError } = await supabase
+        .from("grupos_escala")
+        .insert(gruposParaCriar);
+
+      if (gruposError) {
+        console.error(gruposError);
+        alert("Modelo criado, mas houve erro ao criar os grupos.");
+      }
+    }
+
+    alert("Modelo de escala criado com sucesso!");
+
+    setMunicipioId("");
+    setNomeModelo("");
+    setTipo("Plantão");
+    setHorarioInicio("07:00");
+    setHorarioFim("07:00");
+    setQuantidadeGrupos("5");
+
+    carregarDados();
+  }
+
+  async function renomearGrupo(id: number, nomeAtual: string) {
+    const novoNome = prompt("Digite o novo nome do grupo:", nomeAtual);
+
+    if (!novoNome) return;
+
+    const { error } = await supabase
+      .from("grupos_escala")
+      .update({ nome: novoNome })
+      .eq("id", id);
 
     if (error) {
       console.error(error);
-      alert("Erro ao salvar configuração.");
+      alert("Erro ao renomear grupo.");
       return;
     }
-
-    alert("Configuração salva com sucesso!");
-
-    setMunicipioId("");
-    setModeloId("");
-    setDataBase("");
-    setGuarnicaoBaseId("");
-    setOrdemGuarnicoes([]);
 
     carregarDados();
   }
 
   function nomeMunicipio(id: number) {
-    const item = municipios.find((m) => m.id === id);
-    return item ? `${item.nome} - ${item.estado}` : `ID ${id}`;
+    const municipio = municipios.find((m) => m.id === id);
+    return municipio ? `${municipio.nome} - ${municipio.estado}` : `ID ${id}`;
   }
 
-  function nomeModelo(id: number) {
-    return modelos.find((m) => m.id === id)?.nome || `ID ${id}`;
-  }
-
-  function nomeGuarnicao(id: number) {
-    return guarnicoes.find((g) => g.id === id)?.nome || `ID ${id}`;
+  function gruposDoModelo(modeloId: number) {
+    return grupos.filter((g) => g.modelo_id === modeloId);
   }
 
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl font-bold">
-          ⚙️ Configuração da Escala Automática
+          ⚙️ Configuração de Escalas
         </h1>
 
         <p className="text-slate-400">
-          Configure o rodízio de guarnições por município e modelo de escala.
+          Cada município pode criar seus próprios tipos de escala, nomes e grupos.
         </p>
       </header>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
-          <h2 className="text-xl font-bold mb-4">Nova Configuração</h2>
+          <h2 className="text-xl font-bold mb-4">Novo Modelo de Escala</h2>
 
           <div className="space-y-4">
             <div>
@@ -171,122 +192,145 @@ export default function ConfiguracaoEscalaPage() {
             </div>
 
             <div>
-              <label className="label">Modelo de escala</label>
-              <select
-                className="input"
-                value={modeloId}
-                onChange={(e) => setModeloId(e.target.value)}
-              >
-                <option value="">Selecione</option>
-                {modelos.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="label">Data base</label>
+              <label className="label">Nome da escala</label>
               <input
-                type="date"
                 className="input"
-                value={dataBase}
-                onChange={(e) => setDataBase(e.target.value)}
+                value={nomeModelo}
+                onChange={(e) => setNomeModelo(e.target.value)}
+                placeholder="Ex: Escala Operacional 24/96"
               />
             </div>
 
             <div>
-              <label className="label">Guarnição da data base</label>
+              <label className="label">Tipo da escala</label>
               <select
                 className="input"
-                value={guarnicaoBaseId}
-                onChange={(e) => setGuarnicaoBaseId(e.target.value)}
+                value={tipo}
+                onChange={(e) => setTipo(e.target.value)}
               >
-                <option value="">Selecione</option>
-                {guarnicoes.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.nome}
-                  </option>
-                ))}
+                <option>Plantão</option>
+                <option>Administrativo</option>
+                <option>Escala Extra</option>
+                <option>Evento</option>
+                <option>Férias</option>
+                <option>Licença</option>
               </select>
             </div>
 
-            <div>
-              <label className="label">Ordem do rodízio</label>
-
-              <div className="space-y-2">
-                {guarnicoes.map((g) => (
-                  <button
-                    key={g.id}
-                    type="button"
-                    onClick={() => alternarGuarnicao(g.id)}
-                    className={`w-full text-left px-4 py-3 rounded-xl border ${
-                      ordemGuarnicoes.includes(g.id)
-                        ? "bg-blue-700 border-blue-500"
-                        : "bg-slate-900 border-slate-700"
-                    }`}
-                  >
-                    {ordemGuarnicoes.includes(g.id)
-                      ? `${ordemGuarnicoes.indexOf(g.id) + 1}. ${g.nome}`
-                      : g.nome}
-                  </button>
-                ))}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label">Horário início</label>
+                <input
+                  type="time"
+                  className="input"
+                  value={horarioInicio}
+                  onChange={(e) => setHorarioInicio(e.target.value)}
+                />
               </div>
+
+              <div>
+                <label className="label">Horário fim</label>
+                <input
+                  type="time"
+                  className="input"
+                  value={horarioFim}
+                  onChange={(e) => setHorarioFim(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="label">Quantidade de grupos</label>
+              <input
+                type="number"
+                className="input"
+                value={quantidadeGrupos}
+                onChange={(e) => setQuantidadeGrupos(e.target.value)}
+                placeholder="Ex: 5"
+              />
             </div>
 
             <button
               type="button"
-              onClick={salvarConfiguracao}
+              onClick={salvarModelo}
               className="btn-primary w-full"
             >
-              Salvar Configuração
+              Criar Modelo de Escala
             </button>
           </div>
         </div>
 
         <div className="card xl:col-span-2">
           <h2 className="text-xl font-bold mb-4">
-            Configurações Cadastradas
+            Modelos Cadastrados
           </h2>
 
-          {configs.length === 0 ? (
+          {modelos.length === 0 ? (
             <p className="text-slate-400">
-              Nenhuma configuração cadastrada.
+              Nenhum modelo de escala cadastrado.
             </p>
           ) : (
             <div className="space-y-4">
-              {configs.map((config) => (
+              {modelos.map((modelo) => (
                 <div
-                  key={config.id}
+                  key={modelo.id}
                   className="bg-slate-950/40 border border-slate-700 rounded-xl p-4"
                 >
-                  <h3 className="text-xl font-bold text-blue-400">
-                    {nomeMunicipio(config.municipio_id)}
-                  </h3>
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                    <div>
+                      <h3 className="text-xl font-bold text-blue-400">
+                        {modelo.nome}
+                      </h3>
 
-                  <p className="text-slate-300 mt-2">
-                    📅 Modelo: {nomeModelo(config.modelo_escala_id)}
-                  </p>
+                      <p className="text-slate-300 mt-1">
+                        Município: {nomeMunicipio(modelo.municipio_id)}
+                      </p>
 
-                  <p className="text-slate-300">
-                    🗓️ Data base: {config.data_base}
-                  </p>
+                      <p className="text-slate-400">
+                        Tipo: {modelo.tipo} • Horário:{" "}
+                        {modelo.horario_inicio || "--:--"} às{" "}
+                        {modelo.horario_fim || "--:--"}
+                      </p>
+                    </div>
 
-                  <p className="text-slate-300">
-                    👮 Guarnição base: {nomeGuarnicao(config.guarnicao_base_id)}
-                  </p>
+                    <span
+                      className={`px-3 py-1 rounded-full text-sm font-bold ${
+                        modelo.ativo
+                          ? "bg-green-900/40 text-green-400"
+                          : "bg-red-900/40 text-red-400"
+                      }`}
+                    >
+                      {modelo.ativo ? "Ativo" : "Inativo"}
+                    </span>
+                  </div>
 
-                  <p className="text-slate-400 mt-3">
-                    Ordem:{" "}
-                    {config.ordem_guarnicoes
-                      .map((id) => nomeGuarnicao(id))
-                      .join(" → ")}
-                  </p>
+                  <div className="mt-4">
+                    <p className="font-bold mb-2">Grupos:</p>
 
-                  <p className="text-sm mt-2 text-green-400">
-                    {config.ativo ? "Ativa" : "Inativa"}
-                  </p>
+                    {gruposDoModelo(modelo.id).length === 0 ? (
+                      <p className="text-slate-500 text-sm">
+                        Este modelo não possui grupos.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {gruposDoModelo(modelo.id).map((grupo) => (
+                          <button
+                            key={grupo.id}
+                            type="button"
+                            onClick={() =>
+                              renomearGrupo(grupo.id, grupo.nome)
+                            }
+                            className="text-left bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 hover:border-blue-500"
+                          >
+                            <span className="text-blue-400 font-bold">
+                              {grupo.ordem}.
+                            </span>{" "}
+                            {grupo.nome}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>

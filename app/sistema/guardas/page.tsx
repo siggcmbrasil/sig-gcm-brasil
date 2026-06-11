@@ -10,6 +10,8 @@ type Guarda = {
   cargo: string;
   telefone: string | null;
   status: string;
+  municipio_id: 1,
+  data_nascimento: string | null;
 };
 
 export default function Guardas() {
@@ -21,7 +23,8 @@ export default function Guardas() {
   const [cargo, setCargo] = useState("");
   const [telefone, setTelefone] = useState("");
   const [status, setStatus] = useState("Em serviço");
-
+  const [dataNascimento, setDataNascimento] = useState("");
+  const [editandoId, setEditandoId] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
   const usuarioLogado =
   typeof window !== "undefined"
@@ -52,6 +55,32 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
   async function salvarGuarda() {
+if (editandoId) {
+  const { error } = await supabase
+    .from("guardas")
+    .update({
+      matricula,
+      nome,
+      cargo,
+      telefone,
+      status,
+      data_nascimento: dataNascimento || null,
+    })
+    .eq("id", editandoId);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atualizar guarda.");
+    return;
+  }
+
+  alert("Guarda atualizado com sucesso!");
+
+  limparFormulario();
+  carregarGuardas();
+  return;
+}
+
   if (!podeEditar) {
     alert("Você não possui permissão para cadastrar guardas.");
     return;
@@ -63,12 +92,13 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     const { error } = await supabase.from("guardas").insert([
       {
-        matricula,
-        nome,
-        cargo,
-        telefone,
-        status,
-      },
+  matricula,
+  nome,
+  cargo,
+  telefone,
+  status,
+  data_nascimento: dataNascimento || null,
+}
     ]);
 
     if (error) {
@@ -84,9 +114,19 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setCargo("");
     setTelefone("");
     setStatus("Em serviço");
+    setDataNascimento("");
 
     carregarGuardas();
   }
+function editarGuarda(guarda: Guarda) {
+  setEditandoId(guarda.id);
+  setMatricula(guarda.matricula);
+  setNome(guarda.nome);
+  setCargo(guarda.cargo);
+  setTelefone(guarda.telefone || "");
+  setStatus(guarda.status);
+  setDataNascimento(guarda.data_nascimento || "");
+}
 
   async function excluirGuarda(id: number) {
     if (!podeEditar) {
@@ -125,6 +165,23 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     return texto.includes(busca.toLowerCase());
   });
+
+function limparFormulario() {
+  setEditandoId(null);
+  setMatricula("");
+  setNome("");
+  setCargo("");
+  setTelefone("");
+  setStatus("Em serviço");
+  setDataNascimento("");
+}
+
+function formatarData(data: string | null) {
+  if (!data) return "-";
+
+  const [ano, mes, dia] = data.split("-");
+  return `${dia}/${mes}/${ano}`;
+}
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -203,6 +260,16 @@ const podeEditar = perfilUsuario !== "CONSULTA";
               />
             </div>
 
+<div>
+  <label className="label">Data de Nascimento</label>
+  <input
+    type="date"
+    className="input"
+    value={dataNascimento}
+    onChange={(e) => setDataNascimento(e.target.value)}
+  />
+</div>
+
             <div>
               <label className="label">Status</label>
               <select
@@ -222,7 +289,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
               onClick={salvarGuarda}
               className="btn-primary w-full text-lg"
             >
-              Salvar Guarda
+              {editandoId ? "Atualizar Guarda" : "Salvar Guarda"}
             </button>
           </div>
           </div>
@@ -279,6 +346,14 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                       </p>
                     </div>
 
+<button
+  type="button"
+  onClick={() => editarGuarda(guarda)}
+  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
+>
+  Editar
+</button>
+
                     <button
   type="button"
   onClick={() => excluirGuarda(guarda.id)}
@@ -298,6 +373,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                       <th className="text-left py-3">Nome</th>
                       <th className="text-left py-3">Cargo</th>
                       <th className="text-left py-3">Telefone</th>
+                      <th className="text-left py-3">Nascimento</th>
                       <th className="text-left py-3">Status</th>
                       <th className="text-right py-3">Ações</th>
                     </tr>
@@ -318,19 +394,33 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                           {guarda.telefone || "-"}
                         </td>
 
+<td className="text-slate-400">
+  {formatarData(guarda.data_nascimento)}
+</td>
+
                         <td>
                           <Status status={guarda.status} />
                         </td>
 
                         <td className="text-right">
                           {podeEditar && (
-  <button
-    type="button"
-    onClick={() => excluirGuarda(guarda.id)}
-    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-  >
-    Excluir
-  </button>
+  <>
+    <button
+      type="button"
+      onClick={() => editarGuarda(guarda)}
+      className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
+    >
+      Editar
+    </button>
+
+    <button
+      type="button"
+      onClick={() => excluirGuarda(guarda.id)}
+      className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+    >
+      Excluir
+    </button>
+  </>
 )}
                         </td>
                       </tr>

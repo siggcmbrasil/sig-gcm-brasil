@@ -71,7 +71,7 @@ setVerificando(false);
       <div className="border-b border-slate-800 px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between md:items-center gap-3">
         <div>
           <h1 className="font-bold text-white text-lg md:text-base">
-            Sistema Integrado GCM Biritinga
+            Sistema Integrado GCM Brasil
           </h1>
 
           <p className="text-sm md:text-xs text-slate-400">
