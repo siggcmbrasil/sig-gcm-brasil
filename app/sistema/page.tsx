@@ -29,6 +29,7 @@ type Guarda = {
   nome: string;
   status: string;
   data_nascimento: string | null;
+  foto_url: string | null;
 };
 
 type Viatura = {
@@ -170,7 +171,7 @@ export default function Dashboard() {
 
     const { data: guardasData } = await supabase
       .from("guardas")
-.select("id, nome, status, data_nascimento")
+.select("id, nome, status, data_nascimento, foto_url")
       .eq("municipio_id", municipioId);
 
     const { data: viaturaData } = await supabase

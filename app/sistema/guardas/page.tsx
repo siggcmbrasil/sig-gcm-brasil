@@ -10,8 +10,9 @@ type Guarda = {
   cargo: string;
   telefone: string | null;
   status: string;
-  municipio_id: 1,
+  municipio_id: 1;
   data_nascimento: string | null;
+  foto_url: string | null;
 };
 
 export default function Guardas() {
@@ -24,6 +25,8 @@ export default function Guardas() {
   const [telefone, setTelefone] = useState("");
   const [status, setStatus] = useState("Em serviço");
   const [dataNascimento, setDataNascimento] = useState("");
+  const [foto, setFoto] = useState<File | null>(null);
+  const [fotoUrl, setFotoUrl] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
   const usuarioLogado =
@@ -262,6 +265,18 @@ function formatarData(data: string | null) {
 
 <div>
   <label className="label">Data de Nascimento</label>
+  <div>
+  <label className="label">Foto do Guarda</label>
+
+  <input
+    type="file"
+    accept="image/*"
+    className="input"
+    onChange={(e) =>
+      setFoto(e.target.files?.[0] || null)
+    }
+  />
+</div>
   <input
     type="date"
     className="input"
@@ -383,10 +398,12 @@ function formatarData(data: string | null) {
                     {guardasFiltrados.map((guarda) => (
                       <tr key={guarda.id} className="border-b border-slate-800">
                         <td className="py-4 text-blue-400 font-semibold">
-                          {guarda.matricula}
-                        </td>
+  {guarda.matricula}
+</td>
 
-                        <td>{guarda.nome}</td>
+<td className="font-medium">
+  {guarda.nome}
+</td>
 
                         <td className="text-slate-400">{guarda.cargo}</td>
 

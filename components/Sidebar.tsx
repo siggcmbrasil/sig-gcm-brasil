@@ -130,28 +130,39 @@ export default function Sidebar() {
   </div>
 
   <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
+  {!menuCompacto && (
+    <div>
+      <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
+      <p className="text-xs text-slate-400">
+        Sistema Integrado das Guardas Municipais
+      </p>
+    </div>
+  )}
+</div>
 
-          <div>
-            {!menuCompacto && (
-  <>
-    <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
-    <p className="text-xs text-slate-400">
-      Sistema Integrado das Guardas Municipais
-    </p>
-  </>
+{usuario && (
+  <div
+    className={`p-4 border-b border-slate-800 bg-slate-950/40 flex items-center gap-3 ${
+      menuCompacto ? "justify-center" : ""
+    }`}
+  >
+    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden">
+      <span className="text-lg">👤</span>
+    </div>
+
+    {!menuCompacto && (
+      <div>
+        <p className="font-semibold text-sm">{usuario.nome}</p>
+        <p className="text-xs text-slate-400">
+          Matrícula: {usuario.matricula || "-"}
+        </p>
+        <p className="text-xs text-blue-400">
+          Perfil: {usuario.perfil}
+        </p>
+      </div>
+    )}
+  </div>
 )}
-          </div>
-        </div>
-
-        {usuario && (
-          <div className="p-4 border-b border-slate-800 bg-slate-950/40">
-            <p className="font-semibold text-sm">{usuario.nome}</p>
-            <p className="text-xs text-slate-400">
-              Matrícula: {usuario.matricula || "-"}
-            </p>
-            <p className="text-xs text-blue-400">Perfil: {usuario.perfil}</p>
-          </div>
-        )}
 
         <nav className={`p-3 space-y-2 flex-1 overflow-y-auto ${menuCompacto ? "items-center" : ""}`}>
   <Link
