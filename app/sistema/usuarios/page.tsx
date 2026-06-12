@@ -29,6 +29,7 @@ const [municipios, setMunicipios] = useState<any[]>([]);
 const [nome, setNome] = useState("");
 const [matricula, setMatricula] = useState("");
 const [telefone, setTelefone] = useState("");
+const [cargo, setCargo] = useState("");
 const [email, setEmail] = useState("");
 const [senha, setSenha] = useState("");
 const [perfil, setPerfil] = useState("GUARDA");
@@ -155,27 +156,36 @@ function editarUsuario(usuario: Usuario) {
     return;
   }
 
-  const { error } = await supabase.from("usuarios").insert([
-    {
-      nome,
-      matricula,
-      telefone,
-      email,
-      cpf,
-      perfil,
-      status,
-      observacao,
-      municipio_id: municipioId ? Number(municipioId) : null,
-    },
-  ]);
+  const resposta = await fetch("/api/criar-usuario", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    nome,
+    matricula,
+    telefone,
+    email,
+    cpf,
+    cargo,
+    senha,
+    perfil,
+    status,
+    observacao,
+    municipio_id: municipioId
+      ? Number(municipioId)
+      : null,
+  }),
+});
 
-  if (error) {
-    console.error(error);
-    alert(error.message);
-    return;
-  }
+const resultado = await resposta.json();
 
-  alert("Usuário cadastrado com sucesso!");
+if (!resposta.ok) {
+  alert(resultado.error);
+  return;
+}
+
+    alert("Usuário cadastrado com sucesso!");
 
   setNome("");
   setMatricula("");
@@ -229,7 +239,9 @@ function editarUsuario(usuario: Usuario) {
   });
 
   return (
-  <ProtecaoPerfil perfilMinimo="ADMIN">
+  <ProtecaoPerfil
+  perfisPermitidos={["DESENVOLVEDOR"]}
+>
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6">
   <div className="border-b border-slate-800 pb-5">
@@ -296,28 +308,53 @@ function editarUsuario(usuario: Usuario) {
               placeholder="Ex: GCM-001"
             />
 
-            <Campo
-              label="Telefone"
-              valor={telefone}
-              setValor={setTelefone}
-              placeholder="(75) 99999-9999"
-            />
+            <div>
+  <label className="label">Telefone</label>
 
-<Campo
-  label="CPF"
-  valor={cpf}
-  setValor={setCpf}
-  placeholder="000.000.000-00"
-/>
-
-<div>
-  <label className="label">Município</label>
-
-  <select
+  <input
     className="input"
-    value={municipioId}
-    onChange={(e) => setMunicipioId(e.target.value)}
-  >
+    value={telefone}
+    placeholder="(75) 99999-9999"
+    onChange={(e) => {
+      let valor = e.target.value.replace(/\D/g, "");
+
+      valor = valor
+        .replace(/^(\d{2})(\d)/g, "($1) $2")
+        .replace(/(\d)(\d{4})$/, "$1-$2");
+
+      setTelefone(valor);
+    }}
+  />
+</div>
+
+            <div>
+  <label className="label">CPF</label>
+
+  <input
+    className="input"
+    value={cpf}
+    placeholder="000.000.000-00"
+    onChange={(e) => {
+      let valor = e.target.value.replace(/\D/g, "");
+
+      valor = valor
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d)/, "$1.$2")
+        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+
+      setCpf(valor);
+    }}
+  />
+</div>
+
+          <div>
+  <           label className="label">Município</label>
+
+            <select
+              className="input"
+              value={municipioId}
+              onChange={(e) => setMunicipioId(e.target.value)}
+              >
     <option value="">Selecione</option>
 
     {municipios.map((m) => (
@@ -327,6 +364,13 @@ function editarUsuario(usuario: Usuario) {
     ))}
   </select>
 </div>
+
+            <Campo
+              label="Cargo/Função"
+              valor={cargo}
+              setValor={setCargo}
+              placeholder="Ex: Guarda Municipal"
+            />
 
             <Campo
               label="Email de acesso"

@@ -62,7 +62,14 @@ export default function Estatisticas() {
   const guardasServico = guardas.filter((g) => g.status === "Em serviço").length;
 
   return (
-  <ProtecaoPerfil perfilMinimo="COMANDANTE">
+  <ProtecaoPerfil
+  perfisPermitidos={[
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+  ]}
+>
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6 border-b border-slate-800 pb-5">
         <h1 className="text-3xl md:text-5xl font-bold">

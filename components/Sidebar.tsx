@@ -23,6 +23,7 @@ type UsuarioLogado = {
 
 export default function Sidebar() {
   const [aberto, setAberto] = useState(false);
+  const [menuCompacto, setMenuCompacto] = useState(false);
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
 
   useEffect(() => {
@@ -109,26 +110,36 @@ export default function Sidebar() {
       )}
 
       <aside
-        className={`
-          bg-[#020b1c] border-r border-slate-800 text-white flex flex-col z-50
-          fixed md:static top-0 left-0 h-full md:h-auto
-          w-80 md:w-72 md:min-h-screen
-          transition-transform duration-300
-          ${aberto ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
-        `}
-      >
-        <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
-          <img
-            src="/brasao-gcm-v2.png"
-            alt="Brasão GCM Biritinga"
-            className="w-12 h-12 object-contain"
-          />
+  className={`
+    bg-[#020b1c] border-r border-slate-800 text-white flex flex-col z-50
+    fixed md:static top-0 left-0 h-full md:h-auto
+    w-80 md:min-h-screen
+    ${menuCompacto ? "md:w-20" : "md:w-72"}
+    transition-all duration-300
+    ${aberto ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+  `}
+>
+  <div className="hidden md:flex justify-end p-2 border-b border-slate-800">
+    <button
+      type="button"
+      onClick={() => setMenuCompacto(!menuCompacto)}
+      className="text-white text-xl hover:text-blue-400"
+    >
+      ☰
+    </button>
+  </div>
+
+  <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
 
           <div>
-            <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
-            <p className="text-xs text-slate-400">
-              Sistema Integrado das Guardas Municipais
-            </p>
+            {!menuCompacto && (
+  <>
+    <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
+    <p className="text-xs text-slate-400">
+      Sistema Integrado das Guardas Municipais
+    </p>
+  </>
+)}
           </div>
         </div>
 
@@ -142,198 +153,235 @@ export default function Sidebar() {
           </div>
         )}
 
-        <nav className="p-4 space-y-2 flex-1 overflow-y-auto">
-          <Link onClick={fecharMenu} href="/sistema" className="menu-item bg-blue-600">
-            🏠 Dashboard
-          </Link>
-
-          <Divisor />
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/ocorrencias" className="menu-item">
-              🚨 Ocorrências
-            </Link>
-          )}
-
-          {podeVer(operacionais) && (
-            <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item">
-              📴 Ocorrências Offline
-            </Link>
-          )}
-
-          {podeVer(operacionais) && (
-            <Link onClick={fecharMenu} href="/sistema/chamados" className="menu-item">
-              📞 Chamados
-            </Link>
-          )}
-
-          {podeVer(operacionais) && (
-            <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item">
-              🚔 Patrulhamento
-            </Link>
-          )}
-
-         <Link
+        <nav className={`p-3 space-y-2 flex-1 overflow-y-auto ${menuCompacto ? "items-center" : ""}`}>
+  <Link
   onClick={fecharMenu}
-  href="/sistema/legislacao"
-  className="menu-item"
+  href="/sistema"
+  className="menu-item bg-blue-600"
+  title="Dashboard"
 >
-  ⚖️ Legislação
+  <span>🏠</span>
+  {!menuCompacto && <span>Dashboard</span>}
 </Link>
 
-          <Divisor />
+  <Divisor />
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item">
-              👤 Pessoas
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item">
-              🚗 Veículos
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/locais" className="menu-item">
-            📍 Cadastro Territorial
-            </Link>
-          )}
-
-          {podeVer(operacionais) && (
-            <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item">
-              🤖 IA Operacional
-            </Link>
-          )}
-
-          <Link
+  {podeVer(todos) && (
+    <Link
   onClick={fecharMenu}
-  href="/sistema/legislacao/ia"
+  href="/sistema/ocorrencias"
   className="menu-item"
+  title="Ocorrências"
 >
-  🤖 IA Jurídica
-</Link>
+      <span>🚨</span>
+      {!menuCompacto && <span>Ocorrências</span>}
+    </Link>
+  )}
 
-          {podeVer(gestao) && (
-            <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item">
-              🦺 Equipamentos
-            </Link>
-          )}
+  {podeVer(operacionais) && (
+    <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item" title="Ocorrências Offline">
+      <span>📴</span>
+      {!menuCompacto && <span>Ocorrências Offline</span>}
+    </Link>
+  )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item">
-              🚓 Viatura
-            </Link>
-          )}
-
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item">
-              📋 Relatórios
-            </Link>
-          )}
-
-          <Divisor />
-          <Link
+  {podeVer(operacionais) && (
+    <Link
   onClick={fecharMenu}
-  href="/sistema/banco-horas"
+  href="/sistema/chamados"
   className="menu-item"
+  title="Chamados"
 >
-  ⏱️ Banco de Horas
-</Link>
+      <span>📞</span>
+      {!menuCompacto && <span>Chamados</span>}
+    </Link>
+  )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item">
-              👮 Guardas
-            </Link>
-          )}
+  {podeVer(operacionais) && (
+    <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item" title="Patrulhamento">
+      <span>🚔</span>
+      {!menuCompacto && <span>Patrulhamento</span>}
+    </Link>
+  )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item">
-              📅 Escalas
-            </Link>
-          )}
+  <Link onClick={fecharMenu} href="/sistema/legislacao" className="menu-item" title="Legislação">
+    <span>⚖️</span>
+    {!menuCompacto && <span>Legislação</span>}
+  </Link>
 
-          {podeVer(gestao) && (
-            <Link className="menu-item" href="/sistema/escala-mensal">
-              📅 Escala Mensal
-            </Link>
-            )}
+  <Divisor />
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/escalas/modelos" className="menu-item">
-              ⚙️ Modelos de Escala
-            </Link>
-          )}
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item" title="Pessoas">
+      <span>👤</span>
+      {!menuCompacto && <span>Pessoas</span>}
+    </Link>
+  )}
 
-          <Link
-  onClick={fecharMenu}
-  href="/sistema/escalas/configuracao"
-  className="menu-item"
->
-  🧭 Configuração da Escala
-</Link>
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item" title="Veículos">
+      <span>🚗</span>
+      {!menuCompacto && <span>Veículos</span>}
+    </Link>
+  )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/escalas/permutas" className="menu-item">
-              🔁 Permutas de Plantão
-            </Link>
-          )}
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/locais" className="menu-item" title="Cadastro Territorial">
+      <span>📍</span>
+      {!menuCompacto && <span>Cadastro Territorial</span>}
+    </Link>
+  )}
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/guarnicoes" className="menu-item">
-              👥 Guarnições
-            </Link>
-          )}
+  {podeVer(operacionais) && (
+    <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item" title="IA Operacional">
+      <span>🤖</span>
+      {!menuCompacto && <span>IA Operacional</span>}
+    </Link>
+  )}
 
-          {podeVer(comando) && (
-            <Link onClick={fecharMenu} href="/sistema/estatisticas" className="menu-item">
-              📊 Estatísticas
-            </Link>
-          )}
+  <Link onClick={fecharMenu} href="/sistema/legislacao/ia" className="menu-item" title="IA Jurídica">
+    <span>🤖</span>
+    {!menuCompacto && <span>IA Jurídica</span>}
+  </Link>
 
-          {podeVer(todos) && (
-            <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item">
-              🗂️ Arquivo
-            </Link>
-          )}
+  {podeVer(gestao) && (
+    <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item" title="Equipamentos">
+      <span>🦺</span>
+      {!menuCompacto && <span>Equipamentos</span>}
+    </Link>
+  )}
 
-          {podeVer(["ADMIN"]) && (
-            <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item">
-              👤 Usuários
-            </Link>
-          )}
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item" title="Viatura">
+      <span>🚓</span>
+      {!menuCompacto && <span>Viatura</span>}
+    </Link>
+  )}
 
-{usuario?.perfil === "DESENVOLVEDOR" && (
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item" title="Relatórios">
+      <span>📋</span>
+      {!menuCompacto && <span>Relatórios</span>}
+    </Link>
+  )}
+
+  <Divisor />
+
+  {podeVer(todos) && (
   <Link
     onClick={fecharMenu}
-    href="/sistema/desenvolvedor"
-    className="menu-item"
+    href="/sistema/banco-horas"
+    className="menu-item" title="Banco de Horas"
   >
-    🧠 Painel Desenvolvedor
+    <span>⏱️</span>
+    {!menuCompacto && <span>Banco de Horas</span>}
   </Link>
 )}
 
-          <Link onClick={fecharMenu} href="/sistema/municipios"className="menu-item">
-              🏛️ Municípios
-            </Link>
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item" title="Guardas">
+      <span>👮</span>
+      {!menuCompacto && <span>Guardas</span>}
+    </Link>
+  )}
 
-          <Divisor />
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item" title="Escalas">
+      <span>📅</span>
+      {!menuCompacto && <span>Escalas</span>}
+    </Link>
+  )}
 
-          <Link
-  onClick={fecharMenu}
-  href="/sistema/perfil"
-  className="menu-item"
->
-  👤 Meu Perfil
-</Link>
+  {podeVer(gestao) && (
+    <Link onClick={fecharMenu} className="menu-item" href="/sistema/escala-mensal" title="Escala Mensal">
+      <span>📅</span>
+      {!menuCompacto && <span>Escala Mensal</span>}
+    </Link>
+  )}
 
-          {podeVer(["ADMIN"]) && (
-            <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item">
-              ⚙️ Configurações
-            </Link>
-          )}
-        </nav>
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/escalas/modelos" className="menu-item" title="Modelos de Escala">
+      <span>⚙️</span>
+      {!menuCompacto && <span>Modelos de Escala</span>}
+    </Link>
+  )}
+
+  <Link onClick={fecharMenu} href="/sistema/escalas/configuracao" className="menu-item" title="Configuração da Escala">
+    <span>🧭</span>
+    {!menuCompacto && <span>Configuração da Escala</span>}
+  </Link>
+
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/escalas/permutas" className="menu-item" title="Permutas de Plantão">
+      <span>🔁</span>
+      {!menuCompacto && <span>Permutas de Plantão</span>}
+    </Link>
+  )}
+
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/guarnicoes" className="menu-item" title="">
+      <span>👥</span>
+      {!menuCompacto && <span>Guarnições</span>}
+    </Link>
+  )}
+
+  {podeVer(comando) && (
+    <Link onClick={fecharMenu} href="/sistema/estatisticas" className="menu-item" title="Estatísticas">
+      <span>📊</span>
+      {!menuCompacto && <span>Estatísticas</span>}
+    </Link>
+  )}
+
+  {podeVer(todos) && (
+    <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item" title="Arquivo">
+      <span>🗂️</span>
+      {!menuCompacto && <span>Arquivo</span>}
+    </Link>
+  )}
+
+  {podeVer(["ADMIN", "DESENVOLVEDOR"]) && (
+    <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item" title="Usuários">
+      <span>👤</span>
+      {!menuCompacto && <span>Usuários</span>}
+    </Link>
+  )}
+
+  {usuario?.perfil === "DESENVOLVEDOR" && (
+    <Link onClick={fecharMenu} href="/sistema/desenvolvedor" className="menu-item" title="Painel Desenvolvedor">
+      <span>🧠</span>
+      {!menuCompacto && <span>Painel Desenvolvedor</span>}
+    </Link>
+  )}
+
+  {usuario?.perfil === "DESENVOLVEDOR" && (
+  <Link
+    onClick={fecharMenu}
+    href="/sistema/municipios"
+    className="menu-item" title="Municípios"
+  >
+    <span>🏛️</span>
+    {!menuCompacto && <span>Municípios</span>}
+  </Link>
+)}
+  <Divisor />
+
+  <Link onClick={fecharMenu} href="/sistema/sobre" className="menu-item" title="Sobre o Sistema">
+    <span>ℹ️</span>
+    {!menuCompacto && <span>Sobre o Sistema</span>}
+  </Link>
+
+  <Link onClick={fecharMenu} href="/sistema/perfil" className="menu-item" title="Meu Perfil">
+    <span>👤</span>
+    {!menuCompacto && <span>Meu Perfil</span>}
+  </Link>
+
+  {podeVer(["ADMIN", "DESENVOLVEDOR"]) && (
+    <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item" title="Configurações">
+      <span>⚙️</span>
+      {!menuCompacto && <span>Configurações</span>}
+    </Link>
+  )}
+</nav>
 
         <div className="p-4 border-t border-slate-800">
           <div className="flex gap-3 items-center mb-4">
@@ -344,9 +392,13 @@ export default function Sidebar() {
             />
 
             <div>
-              <p className="font-semibold">GCM Biritinga</p>
-              <p className="text-xs text-slate-400">Servir e Proteger</p>
-              <p className="text-xs text-slate-500">Biritinga - Bahia</p>
+              <p className="font-semibold">SIG-GCM Brasil</p>
+              <p className="text-xs text-slate-400">
+                  Sistema Integrado das Guardas Municipais
+            </p>
+              <p className="text-xs text-slate-500">
+                  suporte@siggcmbrasil.com
+            </p>
             </div>
           </div>
 
@@ -359,6 +411,14 @@ export default function Sidebar() {
           </button>
         </div>
       </aside>
+      <div className="hidden md:flex justify-end p-2 border-b border-slate-800">
+  <button
+    onClick={() => setMenuCompacto(!menuCompacto)}
+    className="text-white text-xl hover:text-blue-400"
+  >
+    ☰
+  </button>
+</div>
     </>
   );
 }

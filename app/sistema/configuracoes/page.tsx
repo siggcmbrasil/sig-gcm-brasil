@@ -143,7 +143,12 @@ async function salvarMunicipioPadrao() {
 }, []);
 
   return (
-  <ProtecaoPerfil perfilMinimo="ADMIN">
+  <ProtecaoPerfil
+  perfisPermitidos={[
+    "DESENVOLVEDOR",
+    "ADMIN",
+  ]}
+>
     <div className="p-6">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl font-bold">Configurações</h1>

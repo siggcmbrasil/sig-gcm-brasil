@@ -4,13 +4,17 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { temPermissao } from "@/lib/permissoes";
 
+type Props = {
+  perfilMinimo?: string;
+  perfisPermitidos?: string[];
+  children: React.ReactNode;
+};
+
 export default function ProtecaoPerfil({
   perfilMinimo,
+  perfisPermitidos,
   children,
-}: {
-  perfilMinimo: string;
-  children: React.ReactNode;
-}) {
+}: Props) {
   const router = useRouter();
 
   useEffect(() => {
@@ -22,12 +26,21 @@ export default function ProtecaoPerfil({
     }
 
     const usuario = JSON.parse(dados);
+    const perfilUsuario = usuario?.perfil;
 
-    if (!temPermissao(usuario.perfil, perfilMinimo)) {
+    if (perfilUsuario === "DESENVOLVEDOR") return;
+
+    if (perfisPermitidos && !perfisPermitidos.includes(perfilUsuario)) {
+      alert("Você não tem permissão para acessar esta página.");
+      router.push("/sistema");
+      return;
+    }
+
+    if (perfilMinimo && !temPermissao(perfilUsuario, perfilMinimo)) {
       alert("Você não tem permissão para acessar esta página.");
       router.push("/sistema");
     }
-  }, [router, perfilMinimo]);
+  }, [router, perfilMinimo, perfisPermitidos]);
 
   return <>{children}</>;
 }

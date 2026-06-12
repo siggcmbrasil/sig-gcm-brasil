@@ -160,7 +160,9 @@ function editarMunicipio(municipio: Municipio) {
 }
 
   return (
-  <ProtecaoPerfil perfilMinimo="DESENVOLVEDOR">
+  <ProtecaoPerfil
+  perfisPermitidos={["DESENVOLVEDOR"]}
+>
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl font-bold">🏛️ Municípios</h1>

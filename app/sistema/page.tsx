@@ -118,6 +118,13 @@ export default function Dashboard() {
       : {};
 
   const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const ehDesenvolvedor = perfilUsuario === "DESENVOLVEDOR";
+  const ehAdmin = perfilUsuario === "ADMIN";
+  const ehComandante = perfilUsuario === "COMANDANTE";
+  const ehDiretor = perfilUsuario === "DIRETOR";
+  const ehPlantonista = perfilUsuario === "PLANTONISTA";
+  const ehConsulta = perfilUsuario === "CONSULTA";
+  const ehCmtGuarnicao = perfilUsuario === "CMT_GUARNICAO";
   const podeOperar = perfilUsuario !== "CONSULTA";
 
   async function carregarDashboard() {
@@ -345,13 +352,45 @@ const aniversariantesHoje = guardas.filter((g) => {
   setMostrarMensagens={setMostrarMensagens}
 />
 
+<section className="mb-6">
+  <div className="painel-premium p-5 rounded-xl border border-green-800">
+    <h2 className="text-xl font-bold text-green-400 mb-3">
+      🚔 Guarnição de Serviço
+    </h2>
+
+    <div className="grid md:grid-cols-3 gap-4">
+      <div>
+        <p className="text-slate-400 text-sm">Guarnição</p>
+        <p className="font-bold text-lg">
+          {guarnicaoPlantaoHoje || "Não definida"}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-slate-400 text-sm">Escala</p>
+        <p className="font-bold text-lg">
+          {modeloEscalaAtivo || "Não definida"}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-slate-400 text-sm">Data</p>
+        <p className="font-bold text-lg">
+          {dataBR}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
         {carregando ? (
           <div className="painel-premium p-10 text-center text-slate-300">
             Carregando painel operacional...
           </div>
         ) : (
           <>
-            <section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
+            {(ehDesenvolvedor || ehAdmin) && (
+<section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
               <CardComando
                 titulo="Ocorrências"
                 valor={String(ocorrenciasHoje)}
@@ -400,6 +439,119 @@ const aniversariantesHoje = guardas.filter((g) => {
                 cor="indigo"
               />
             </section>
+            
+)}
+{(ehComandante || ehCmtGuarnicao) && (
+<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+
+  <CardComando
+    titulo="Ocorrências"
+    valor={String(ocorrenciasHoje)}
+    detalhe="Hoje"
+    icone="🚨"
+    cor="blue"
+  />
+
+  <CardComando
+    titulo="Plantão"
+    valor={guarnicaoPlantaoHoje}
+    detalhe="Guarnição"
+    icone="🚔"
+    cor="green"
+  />
+
+  <CardComando
+    titulo="Viaturas"
+    valor={String(viaturas.length)}
+    detalhe="Operacionais"
+    icone="🚓"
+    cor="cyan"
+  />
+
+  <CardComando
+    titulo="Permutas"
+    valor={String(permutasPendentes)}
+    detalhe="Pendentes"
+    icone="🔁"
+    cor="indigo"
+  />
+
+</section>
+)}
+{ehDiretor && (
+<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+
+  <CardComando
+    titulo="Ocorrências"
+    valor={String(ocorrencias.length)}
+    detalhe="Total"
+    icone="🚨"
+    cor="blue"
+  />
+
+  <CardComando
+    titulo="Guardas"
+    valor={String(guardas.length)}
+    detalhe="Cadastrados"
+    icone="👥"
+    cor="purple"
+  />
+
+  <CardComando
+    titulo="Viaturas"
+    valor={String(viaturas.length)}
+    detalhe="Ativas"
+    icone="🚓"
+    cor="green"
+  />
+
+  <CardComando
+    titulo="Relatórios"
+    valor="✓"
+    detalhe="Disponíveis"
+    icone="📊"
+    cor="gold"
+  />
+
+</section>
+)}
+{(ehPlantonista || ehConsulta) && (
+<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
+
+  <CardComando
+    titulo="Chamados"
+    valor="0"
+    detalhe="Pendentes"
+    icone="📞"
+    cor="gold"
+  />
+
+  <CardComando
+    titulo="Ocorrências"
+    valor={String(ocorrenciasHoje)}
+    detalhe="Hoje"
+    icone="🚨"
+    cor="blue"
+  />
+
+  <CardComando
+    titulo="Plantão"
+    valor={guarnicaoPlantaoHoje}
+    detalhe="Atual"
+    icone="🚔"
+    cor="green"
+  />
+
+  <CardComando
+    titulo="Viaturas"
+    valor={String(viaturas.length)}
+    detalhe="Operacionais"
+    icone="🚓"
+    cor="cyan"
+  />
+
+</section>
+)}
 
            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
 <PainelOcorrenciasTipo ocorrencias={ocorrencias} />
@@ -751,7 +903,7 @@ function CardComando({
 
   return (
     <div
-      className={`rounded-2xl p-5 bg-gradient-to-br ${cores[cor]} border shadow-xl min-h-36`}
+      className={`rounded-2xl p-5 bg-linear-to-br ${cores[cor]} border shadow-xl min-h-36`}
     >
       <div className="flex justify-between items-start">
         <p className="uppercase text-sm font-black">{titulo}</p>

@@ -14,7 +14,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body>{children}</body>
+      <body>
+        {children}
+
+        <footer className="text-center text-sm text-gray-500 py-4 border-t mt-8">
+          <p>SIG-GCM Brasil © 2026</p>
+          <p>Suporte: suporte@siggcmbrasil.com</p>
+          <p>Comercial: comercial@siggcmbrasil.com</p>
+        </footer>
+      </body>
     </html>
   );
 }

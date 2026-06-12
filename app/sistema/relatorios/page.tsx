@@ -110,7 +110,14 @@ export default function Relatorios() {
   const bairrosMaisComuns = contarPorCampo(ocorrencias, "bairro");
 
   return (
-  <ProtecaoPerfil perfilMinimo="CMT_GUARNICAO">
+  <ProtecaoPerfil
+  perfisPermitidos={[
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+  ]}
+>
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">Relatórios</h1>
