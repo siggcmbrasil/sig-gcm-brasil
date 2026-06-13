@@ -53,6 +53,111 @@ export default function RelatorioPlantao() {
   const [comandante, setComandante] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [gerando, setGerando] = useState(false);
+  const [guarnicaoPlantao, setGuarnicaoPlantao] =
+  useState("");
+
+const [viaturaPlantao, setViaturaPlantao] =
+  useState("");
+
+const [equipePlantao, setEquipePlantao] =
+  useState<string[]>([]);
+
+  async function carregarPlantaoAutomatico(dataSelecionada: string) {
+  if (!dataSelecionada) return;
+
+  const { data: configSistema } = await supabase
+    .from("configuracoes_sistema")
+    .select("municipio_padrao_id")
+    .limit(1)
+    .single();
+
+  const municipioId = configSistema?.municipio_padrao_id || 1;
+
+  const { data: configEscala } = await supabase
+    .from("escala_operacional_config")
+    .select("*")
+    .eq("municipio_id", municipioId)
+    .eq("ativo", true)
+    .single();
+
+  const { data: guarnicoes } = await supabase
+    .from("guarnicoes")
+    .select("id, nome, comandante_id, viatura_id")
+    .eq("municipio_id", municipioId)
+    .eq("ativa", true);
+
+  if (!configEscala || !guarnicoes || !configEscala.ordem_guarnicoes?.length) {
+    return;
+  }
+
+  const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
+  const dataPlantaoObj = new Date(`${dataSelecionada}T07:00:00`);
+
+  const diasPassados = Math.floor(
+    (dataPlantaoObj.getTime() - dataBase.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  const ordem = configEscala.ordem_guarnicoes;
+
+  const indiceBase = ordem.findIndex(
+    (id: number) => Number(id) === Number(configEscala.guarnicao_base_id)
+  );
+
+  if (indiceBase === -1) return;
+
+  const indiceAtual =
+    ((indiceBase + diasPassados) % ordem.length + ordem.length) %
+    ordem.length;
+
+  const guarnicaoAtual = guarnicoes.find(
+    (g: any) => Number(g.id) === Number(ordem[indiceAtual])
+  );
+
+  if (!guarnicaoAtual) return;
+
+  setGuarnicaoPlantao(guarnicaoAtual.nome);
+
+  if (guarnicaoAtual.comandante_id) {
+    const { data: guarda } = await supabase
+      .from("guardas")
+      .select("nome")
+      .eq("id", guarnicaoAtual.comandante_id)
+      .single();
+
+    setComandante(guarda?.nome || "");
+  }
+
+  if (guarnicaoAtual.viatura_id) {
+    const { data: viatura } = await supabase
+      .from("viaturas")
+      .select("prefixo, modelo")
+      .eq("id", guarnicaoAtual.viatura_id)
+      .single();
+
+    setViaturaPlantao(
+      viatura ? `${viatura.prefixo} - ${viatura.modelo}` : ""
+    );
+  }
+
+  const { data: membros } = await supabase
+    .from("guarnicao_membros")
+    .select("guarda_id")
+    .eq("guarnicao_id", guarnicaoAtual.id);
+
+  if (membros && membros.length > 0) {
+    const ids = membros.map((m: any) => m.guarda_id);
+
+    const { data: guardasEquipe } = await supabase
+      .from("guardas")
+      .select("nome")
+      .in("id", ids);
+
+    setEquipePlantao(
+      guardasEquipe?.map((g) => g.nome) || []
+    );
+  }
+}
 
   async function gerarPDF() {
     if (!dataPlantao) {
@@ -129,8 +234,14 @@ const { data: veiculos } = await supabase
     y += 8;
     pdf.text(`Turno: ${turno}`, 15, y);
     y += 8;
-    pdf.text(`Comandante: ${comandante || "-"}`, 15, y);
-    y += 12;
+    pdf.text(`Guarnição: ${guarnicaoPlantao || "-"}`, 15, y);
+y += 8;
+
+pdf.text(`Comandante: ${comandante || "-"}`, 15, y);
+y += 8;
+
+pdf.text(`Viatura: ${viaturaPlantao || "-"}`, 15, y);
+y += 12;
     pdf.setFontSize(11);
 
 pdf.text(
@@ -175,6 +286,16 @@ pdf.text(`Patrulhamentos registrados: ${patrulhamentos?.length || 0}`, 15, y);
 y += 12;
 
     y = tituloSecao(pdf, "1. EQUIPE ESCALADA", y);
+
+    if (equipePlantao.length > 0) {
+  equipePlantao.forEach((nome) => {
+    y = verificarPagina(pdf, y);
+    pdf.text(`• ${nome}`, 15, y);
+    y += 7;
+  });
+
+  y += 5;
+}
 
     if (!escalas || escalas.length === 0) {
       pdf.text("Nenhuma escala cadastrada para esta data.", 15, y);
@@ -370,7 +491,10 @@ y += 6;
                 type="date"
                 className="input"
                 value={dataPlantao}
-                onChange={(e) => setDataPlantao(e.target.value)}
+                onChange={(e) => {
+  setDataPlantao(e.target.value);
+  carregarPlantaoAutomatico(e.target.value);
+}}
               />
             </div>
 

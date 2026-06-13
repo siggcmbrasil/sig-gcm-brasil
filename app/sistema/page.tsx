@@ -3,6 +3,12 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import dynamic from "next/dynamic";
+
+const MapaOperacional = dynamic(
+  () => import("@/components/MapaOperacional"),
+  { ssr: false }
+);
 
 type Municipio = {
   id: number;
@@ -338,8 +344,20 @@ const aniversariantesHoje = guardas.filter((g) => {
   ].slice(0, 5);
 
   return (
-    <main className="min-h-screen bg-[#020b1c] text-white">
-      <div className="p-4 md:p-6 pb-24">
+    <main className="min-h-screen text-white relative overflow-hidden pb-6">
+
+  <div className="fixed inset-0 bg-[#020b1c]" />
+
+  <div
+    className="
+    fixed inset-0
+    bg-[radial-gradient(circle_at_top,#0f3a73,transparent_60%)]
+    opacity-40
+    "
+  />
+
+  <div className="relative z-10">
+      <div className="p-4 md:p-5 pb-6 space-y-4">
         <PainelTopo
   municipio={municipioAtivo}
   guarnicao={guarnicaoPlantaoHoje}
@@ -353,323 +371,106 @@ const aniversariantesHoje = guardas.filter((g) => {
   setMostrarMensagens={setMostrarMensagens}
 />
 
-<section className="mb-6">
-  <div className="painel-premium p-5 rounded-xl border border-green-800">
-    <h2 className="text-xl font-bold text-green-400 mb-3">
-      🚔 Guarnição de Serviço
-    </h2>
 
-    <div className="grid md:grid-cols-3 gap-4">
-      <div>
-        <p className="text-slate-400 text-sm">Guarnição</p>
-        <p className="font-bold text-lg">
-          {guarnicaoPlantaoHoje || "Não definida"}
-        </p>
-      </div>
-
-      <div>
-        <p className="text-slate-400 text-sm">Escala</p>
-        <p className="font-bold text-lg">
-          {modeloEscalaAtivo || "Não definida"}
-        </p>
-      </div>
-
-      <div>
-        <p className="text-slate-400 text-sm">Data</p>
-        <p className="font-bold text-lg">
-          {dataBR}
-        </p>
-      </div>
-    </div>
-  </div>
-</section>
 
         {carregando ? (
-          <div className="painel-premium p-10 text-center text-slate-300">
-            Carregando painel operacional...
-          </div>
-        ) : (
-          <>
-            {(ehDesenvolvedor || ehAdmin) && (
-<section className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 mb-5">
-              <CardComando
-                titulo="Ocorrências"
-                valor={String(ocorrenciasHoje)}
-                detalhe="Hoje"
-                icone="🚨"
-                cor="blue"
-              />
-
-              <CardComando
-                titulo="Chamados"
-                valor="0"
-                detalhe="Hoje"
-                icone="📞"
-                cor="gold"
-              />
-
-              <CardComando
-                titulo="Viaturas"
-                valor={String(viaturas.length)}
-                detalhe="Ativas"
-                icone="🚓"
-                cor="green"
-              />
-
-              <CardComando
-                titulo="Guardas"
-                valor={String(guardas.length)}
-                detalhe="Cadastrados"
-                icone="👥"
-                cor="purple"
-              />
-
-              <CardComando
-                titulo="Escalas"
-                valor={String(escalaHoje.length)}
-                detalhe="Hoje"
-                icone="📅"
-                cor="cyan"
-              />
-
-              <CardComando
-                titulo="Permutas"
-                valor={String(permutasPendentes)}
-                detalhe="Pendentes"
-                icone="🔁"
-                cor="indigo"
-              />
-            </section>
-            
-)}
-{(ehComandante || ehCmtGuarnicao) && (
-<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-
-  <CardComando
-    titulo="Ocorrências"
-    valor={String(ocorrenciasHoje)}
-    detalhe="Hoje"
-    icone="🚨"
-    cor="blue"
-  />
-
-  <CardComando
-    titulo="Plantão"
-    valor={guarnicaoPlantaoHoje}
-    detalhe="Guarnição"
-    icone="🚔"
-    cor="green"
-  />
-
-  <CardComando
-    titulo="Viaturas"
-    valor={String(viaturas.length)}
-    detalhe="Operacionais"
-    icone="🚓"
-    cor="cyan"
-  />
-
-  <CardComando
-    titulo="Permutas"
-    valor={String(permutasPendentes)}
-    detalhe="Pendentes"
-    icone="🔁"
-    cor="indigo"
-  />
-
-</section>
-)}
-{ehDiretor && (
-<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-
-  <CardComando
-    titulo="Ocorrências"
-    valor={String(ocorrencias.length)}
-    detalhe="Total"
-    icone="🚨"
-    cor="blue"
-  />
-
-  <CardComando
-    titulo="Guardas"
-    valor={String(guardas.length)}
-    detalhe="Cadastrados"
-    icone="👥"
-    cor="purple"
-  />
-
-  <CardComando
-    titulo="Viaturas"
-    valor={String(viaturas.length)}
-    detalhe="Ativas"
-    icone="🚓"
-    cor="green"
-  />
-
-  <CardComando
-    titulo="Relatórios"
-    valor="✓"
-    detalhe="Disponíveis"
-    icone="📊"
-    cor="gold"
-  />
-
-</section>
-)}
-{(ehPlantonista || ehConsulta) && (
-<section className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-
-  <CardComando
-    titulo="Chamados"
-    valor="0"
-    detalhe="Pendentes"
-    icone="📞"
-    cor="gold"
-  />
-
-  <CardComando
-    titulo="Ocorrências"
-    valor={String(ocorrenciasHoje)}
-    detalhe="Hoje"
-    icone="🚨"
-    cor="blue"
-  />
-
-  <CardComando
-    titulo="Plantão"
-    valor={guarnicaoPlantaoHoje}
-    detalhe="Atual"
-    icone="🚔"
-    cor="green"
-  />
-
-  <CardComando
-    titulo="Viaturas"
-    valor={String(viaturas.length)}
-    detalhe="Operacionais"
-    icone="🚓"
-    cor="cyan"
-  />
-
-</section>
-)}
-
-           <section className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
-<PainelOcorrenciasTipo ocorrencias={ocorrencias} />
-
-  <PainelGuarnicao
-    guarnicao={guarnicaoPlantaoHoje}
-    comandante={comandantePlantao?.nome || "Não informado"}
-    viatura={viaturaPlantao?.prefixo || "Não definida"}
-    membros={membrosGuarnicaoAtual.map((membro) => {
-      const guarda = guardas.find(
-        (g) => Number(g.id) === Number(membro.guarda_id)
-      );
-
-      return guarda?.nome || "Guarda não encontrado";
-    })}
-  />
-
-  <PainelAtividades atividades={ultimasAtividades} />
-</section>
-
-            <section className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4 mb-5">
-              <PainelMapa ocorrencias={ocorrencias} />
-
-              <PainelEscalaHoje escalaHoje={escalaHoje} />
-
-              <PainelViaturas
-                viaturas={viaturas}
-                viaturaPrincipal={viatura}
-              />
-
-              <PainelAlertas avisos={avisos} />
-            </section>
-
-<section className="mb-5">
-  <div className="painel-premium p-5">
-    <TituloPainel
-      icone="🎂"
-      titulo="Aniversariantes do Dia"
-    />
-
-    <div className="mt-4">
-      {aniversariantesHoje.length === 0 ? (
-        <p className="text-slate-400">
-          Nenhum aniversariante hoje.
-        </p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {aniversariantesHoje.map((guarda) => (
-            <div
-              key={guarda.id}
-              className="bg-slate-950/60 border border-yellow-500 rounded-xl p-4"
-            >
-              <h3 className="font-bold text-yellow-400">
-                🎉 {guarda.nome}
-              </h3>
-
-              <p className="text-sm text-slate-400">
-                Feliz aniversário!
-              </p>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+  <div className="painel-premium p-10 text-center text-slate-300">
+    Carregando painel operacional...
   </div>
-</section>
+) : (
+  <>
+    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-5">
+      <CardComando
+  titulo="Plantão Ativo"
+  valor={guarnicaoAtual?.nome?.replace("Guarnição ", "") || "Ativo"}
+  detalhe="Em andamento"
+  icone="✅"
+  cor="green"
+/>
+      <CardComando titulo="Ocorrências Pendentes" valor={String(ocorrenciasHoje)} detalhe="Aguardando atendimento" icone="🚨" cor="blue" />
+      <CardComando titulo="Chamados Abertos" valor="0" detalhe="Em atendimento" icone="📞" cor="cyan" />
+      <CardComando titulo="Viaturas em Serviço" valor={String(viaturas.length)} detalhe="Frota operacional" icone="🚓" cor="purple" />
+      <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
+    </section>
 
-            <section className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-5">
-              <PainelResumo
-                finalizadas={finalizadas}
-                abertas={abertas}
-                guardasServico={guardasServico}
-                guardasFolga={guardasFolga}
-              />
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5">
+      <div className="xl:col-span-7 xl:row-span-2">
+        <PainelMapa ocorrencias={ocorrencias} />
+      </div>
 
-              <Beneficio
-                icone="🛡️"
-                titulo="Transparência"
-                texto="Gestão clara, segura e responsável"
-              />
+      <div className="xl:col-span-3">
+        <PainelGuarnicao
+          guarnicao={guarnicaoPlantaoHoje}
+          comandante={comandantePlantao?.nome || "Não informado"}
+          viatura={viaturaPlantao?.prefixo || "Não definida"}
+          membros={membrosGuarnicaoAtual.map((membro) => {
+            const guarda = guardas.find(
+              (g) => Number(g.id) === Number(membro.guarda_id)
+            );
 
-              <Beneficio
-                icone="⚙️"
-                titulo="Tecnologia"
-                texto="Sistema moderno para serviço operacional"
-              />
-            </section>
+            return guarda?.nome || "Guarda não encontrado";
+          })}
+        />
+      </div>
 
-            {podeOperar && (
-              <section className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <AtalhoPremium
-                  href="/sistema/ocorrencias/nova"
-                  titulo="Nova Ocorrência"
-                  icone="🚨"
-                />
+      <div className="xl:col-span-2">
+        <div className="painel-premium p-5 h-full">
+          <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
 
-                <AtalhoPremium
-                  href="/sistema/chamados"
-                  titulo="Novo Chamado"
-                  icone="📞"
-                />
+          <div className="mt-4 space-y-4">
+            {aniversariantesHoje.length === 0 ? (
+              <p className="text-slate-400 text-sm">Nenhum aniversariante hoje.</p>
+            ) : (
+              aniversariantesHoje.slice(0, 3).map((guarda) => (
+                <div key={guarda.id} className="flex items-center gap-3">
+                  <div className="w-11 h-11 rounded-full bg-slate-800 border border-blue-500/40 flex items-center justify-center">
+                    👮
+                  </div>
 
-                <AtalhoPremium
-                  href="/sistema/patrulhamento"
-                  titulo="Patrulhamento"
-                  icone="🚔"
-                />
-
-                <AtalhoPremium
-                  href="/sistema/guarnicoes"
-                  titulo="Guarnições"
-                  icone="👮"
-                />
-              </section>
+                  <div>
+                    <p className="font-bold text-white text-sm">{guarda.nome}</p>
+                    <p className="text-xs text-slate-400">Aniversariante do dia</p>
+                  </div>
+                </div>
+              ))
             )}
-          </>
-        )}
+          </div>
+        </div>
+      </div>
+
+      <div className="xl:col-span-3">
+        <PainelAlertas avisos={avisos} />
+      </div>
+
+      <div className="xl:col-span-2">
+        <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
+      </div>
+    </section>
+
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      <div className="xl:col-span-5 painel-premium p-5">
+        <TituloPainel icone="⚡" titulo="Ações Rápidas" />
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+          <AtalhoPremium href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" icone="🚨" />
+          <AtalhoPremium href="/sistema/chamados" titulo="Novo Chamado" icone="📞" />
+          <AtalhoPremium href="/sistema/patrulhamento" titulo="Patrulhamento" icone="🚔" />
+          <AtalhoPremium href="/sistema/relatorios" titulo="Relatório" icone="📄" />
+          <AtalhoPremium href="/sistema/ia" titulo="IA Operacional" icone="🤖" />
+        </div>
+      </div>
+
+      <div className="xl:col-span-7">
+        <PainelResumo
+          finalizadas={finalizadas}
+          abertas={abertas}
+          guardasServico={guardasServico}
+          guardasFolga={guardasFolga}
+        />
+      </div>
+    </section>
+  </>
+)}
 
         {podeOperar && (
           <Link
@@ -680,172 +481,145 @@ const aniversariantesHoje = guardas.filter((g) => {
           </Link>
         )}
       </div>
-    </main>
+    </div>
+  </main>
+  );
+}
+
+function PainelUltimasOcorrencias({
+  ocorrencias,
+}: {
+  ocorrencias: Ocorrencia[];
+}) {
+  return (
+    <div className="painel-premium p-5 h-full">
+      <TituloPainel icone="📋" titulo="Últimas Ocorrências" />
+
+      <div className="mt-4 space-y-3">
+        {ocorrencias.length === 0 ? (
+          <p className="text-slate-400 text-sm">
+            Nenhuma ocorrência recente.
+          </p>
+        ) : (
+          ocorrencias.slice(0, 3).map((o) => (
+            <div
+              key={o.id}
+              className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex justify-between gap-3"
+            >
+              <div>
+                <p className="font-bold text-white text-sm">
+                  {o.tipo}
+                </p>
+
+                <p className="text-xs text-slate-400">
+                  {o.local}
+                </p>
+              </div>
+
+              <span className="text-blue-400 text-sm font-bold">
+                {o.hora || "--:--"}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+
+      <Link
+        href="/sistema/ocorrencias"
+        className="text-blue-400 text-sm font-bold mt-4 block"
+      >
+        Ver todas →
+      </Link>
+    </div>
   );
 }
 
 function PainelTopo({
   municipio,
-  guarnicao,
-  escala,
-  data,
-  hora,
   avisos,
   mostrarNotificacoes,
   setMostrarNotificacoes,
   mostrarMensagens,
   setMostrarMensagens,
-}: {
-  municipio: Municipio | null;
-  guarnicao: string;
-  escala: string;
-  data: string;
-  hora: string;
-  avisos: Aviso[];
-  mostrarNotificacoes: boolean;
-  setMostrarNotificacoes: React.Dispatch<React.SetStateAction<boolean>>;
-  mostrarMensagens: boolean;
-  setMostrarMensagens: React.Dispatch<React.SetStateAction<boolean>>;
-}) {
+}: any) {
   return (
-    <header className="painel-premium mb-5 p-5">
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-5">
-        <div className="flex items-center gap-4">
-          <img
-            src="/brasao-gcm-v2.png"
-            alt="SIG-GCM Brasil"
-            className="w-20 h-20 object-contain"
-          />
+    <header className="h-24 rounded-3xl border border-blue-500/20 bg-slate-950/60 backdrop-blur-xl px-8 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
+      <div className="flex items-center gap-4 min-w-[300px]">
+        <img
+          src="/brasao-gcm-v2.png"
+          alt="SIG-GCM Brasil"
+          className="w-16 h-16 rounded-2xl object-contain"
+        />
 
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black tracking-tight">
-              SIG-GCM BRASIL
-            </h1>
+        <div>
+          <h1 className="text-4xl font-black tracking-tight">
+            SIG-GCM BRASIL
+          </h1>
 
-            <p className="text-yellow-400 font-bold tracking-wide">
-              CENTRAL OPERACIONAL INTEGRADA
-            </p>
-          </div>
+          <p className="text-base text-slate-400">
+            Sistema Integrado de Gestão
+          </p>
+
+          <p className="text-sm text-white font-bold mt-1">
+            📍 {municipio ? `${municipio.nome} - ${municipio.estado}` : "Biritinga - BA"}
+          </p>
         </div>
+      </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-5 text-sm">
-          <InfoTopo
-            rotulo="Município"
-            valor={municipio ? `${municipio.nome} - ${municipio.estado}` : "Carregando"}
-            icone="🏛️"
-          />
+      <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[620px] shadow-[0_0_25px_rgba(0,80,255,.12)]">
+        <span className="text-slate-400">🔍</span>
 
-          <InfoTopo
-            rotulo="Plantão Atual"
-            valor={guarnicao}
-            icone="🟢"
-          />
+        <input
+          placeholder="Buscar no sistema..."
+          className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
+        />
 
-          <InfoTopo
-            rotulo="Escala"
-            valor={escala || "Não configurada"}
-            icone="📅"
-          />
+        <span className="text-xs text-slate-400 border border-slate-700 rounded-lg px-3 py-1">
+          Ctrl + K
+        </span>
+      </div>
 
-          <InfoTopo
-            rotulo="Sistema"
-            valor="ONLINE"
-            icone="🟢"
-            destaque
-          />
-        </div>
+      <div className="flex items-center gap-3 shrink-0">
+        <button
+          type="button"
+          onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)}
+          className="w-12 h-12 rounded-full border border-blue-500/20 bg-slate-950/40 flex items-center justify-center hover:bg-blue-500/10 transition relative"
+        >
+          🔔
 
-        <div className="flex items-center gap-4">
-          <div className="text-right">
-            <p className="text-slate-300 capitalize">{data}</p>
-            <p className="text-yellow-400 font-bold text-xl">{hora}</p>
+          {avisos.length > 0 && (
+            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+              {avisos.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMostrarMensagens(!mostrarMensagens)}
+          className="w-12 h-12 rounded-full border border-blue-500/20 bg-slate-950/40 flex items-center justify-center hover:bg-blue-500/10 transition"
+        >
+          ✉️
+        </button>
+
+        <div className="flex items-center gap-4 px-4 py-2 rounded-2xl border border-blue-500/20 bg-slate-950/40">
+          <div className="w-14 h-14 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-xl">
+            👤
           </div>
 
-          <div className="hidden md:flex gap-3 text-2xl relative">
-  <button
-  className="icone-topo relative"
-  onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)}
->
-  🔔
-
-  {avisos.length > 0 && (
-    <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-      {avisos.length}
-    </span>
-  )}
-</button>
-
-  <button
-  className="icone-topo"
-  onClick={() => setMostrarMensagens(!mostrarMensagens)}
->
-  ✉️
-</button>
-
-{mostrarMensagens && (
-  <div className="absolute right-0 top-12 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-xl p-4 z-50">
-    <h3 className="font-bold text-blue-400 mb-3">
-      ✉️ Mensagens
-    </h3>
-
-    <div className="space-y-3 text-sm">
-      <div className="border-b border-slate-700 pb-2">
-        <p className="font-bold">📭 Caixa de mensagens</p>
-        <p className="text-slate-400">
-          Nenhuma mensagem recebida no momento.
-        </p>
-      </div>
-
-      <div className="border-b border-slate-700 pb-2">
-        <p className="font-bold">🚧 Em desenvolvimento</p>
-        <p className="text-slate-400">
-          Em breve será possível enviar mensagens entre usuários e guarnições.
-        </p>
-      </div>
-    </div>
-  </div>
-)}
-
-  <button
-  className="icone-topo"
-  onClick={() => {
-    window.location.href = "/sistema/perfil";
-  }}
->
-  👤
-</button>
-
-{mostrarNotificacoes && (
-  <div className="absolute right-0 top-12 w-80 bg-slate-900 border border-slate-700 rounded-xl shadow-xl p-4 z-50">
-    <h3 className="font-bold text-yellow-400 mb-3">
-      🔔 Notificações
-    </h3>
-
-    {avisos.length === 0 ? (
-      <p className="text-slate-400">
-        Nenhuma notificação.
-      </p>
-    ) : (
-      <div className="space-y-3">
-        {avisos.slice(0, 5).map((aviso) => (
-          <div
-            key={aviso.id}
-            className="border-b border-slate-700 pb-2"
-          >
-            <p className="font-bold">
-              {aviso.titulo}
+          <div className="hidden md:block">
+            <p className="font-bold text-white text-lg">
+              CMT João Silva
             </p>
 
-            <p className="text-sm text-slate-400">
-              {aviso.descricao}
+            <p className="text-slate-400 text-sm">
+              Comandante
             </p>
           </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
-</div>
+
+          <span className="text-slate-400">
+            ⌄
+          </span>
         </div>
       </div>
     </header>
@@ -886,34 +660,75 @@ function CardComando({
   detalhe,
   icone,
   cor,
-}: {
-  titulo: string;
-  valor: string;
-  detalhe: string;
-  icone: string;
-  cor: "blue" | "gold" | "green" | "purple" | "cyan" | "indigo";
-}) {
+}: any) {
   const cores = {
-    blue: "from-blue-950 to-blue-800 border-blue-600 text-blue-300",
-    gold: "from-yellow-950 to-yellow-800 border-yellow-600 text-yellow-300",
-    green: "from-green-950 to-green-800 border-green-600 text-green-300",
-    purple: "from-purple-950 to-purple-800 border-purple-600 text-purple-300",
-    cyan: "from-cyan-950 to-cyan-800 border-cyan-600 text-cyan-300",
-    indigo: "from-indigo-950 to-indigo-800 border-indigo-600 text-indigo-300",
+    blue: {
+      titulo: "text-red-400",
+      glow: "shadow-red-500/20",
+      icone: "bg-red-500/15 border-red-500/30",
+    },
+
+    gold: {
+      titulo: "text-blue-400",
+      glow: "shadow-blue-500/20",
+      icone: "bg-blue-500/15 border-blue-500/30",
+    },
+
+    green: {
+      titulo: "text-green-400",
+      glow: "shadow-green-500/20",
+      icone: "bg-green-500/15 border-green-500/30",
+    },
+
+    purple: {
+      titulo: "text-purple-400",
+      glow: "shadow-purple-500/20",
+      icone: "bg-purple-500/15 border-purple-500/30",
+    },
+
+    cyan: {
+      titulo: "text-cyan-400",
+      glow: "shadow-cyan-500/20",
+      icone: "bg-cyan-500/15 border-cyan-500/30",
+    },
+
+    indigo: {
+      titulo: "text-yellow-400",
+      glow: "shadow-yellow-500/20",
+      icone: "bg-yellow-500/15 border-yellow-500/30",
+    },
   };
 
+  const estilo = cores[cor as keyof typeof cores];
+
   return (
-    <div
-      className={`rounded-2xl p-5 bg-linear-to-br ${cores[cor]} border shadow-xl min-h-36`}
-    >
-      <div className="flex justify-between items-start">
-        <p className="uppercase text-sm font-black">{titulo}</p>
-        <span className="text-3xl opacity-90">{icone}</span>
+    <div className="painel-premium relative p-5 min-h-[130px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+
+      <div className="absolute top-3 right-3">
+        <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
       </div>
 
-      <h2 className="text-5xl font-black text-white mt-3">{valor}</h2>
+      <div className="flex justify-between items-start">
+        <div
+          className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl border ${estilo.icone}`}
+        >
+          {icone}
+        </div>
+      </div>
 
-      <p className="font-bold mt-1">{detalhe}</p>
+      <p
+        className={`uppercase text-xs font-black tracking-wider mt-3 ${estilo.titulo}`}
+      >
+        {titulo}
+      </p>
+
+      <h2 className="text-3xl font-black text-white mt-1 leading-none">
+        {valor}
+      </h2>
+
+      <p className="text-sm text-slate-400 mt-3">
+        {detalhe}
+      </p>
     </div>
   );
 }
@@ -948,7 +763,7 @@ function PainelOcorrenciasTipo({
           <>
             <div className="mb-5">
               <p className="text-slate-400 text-sm">Total de ocorrências</p>
-              <h2 className="text-5xl font-black text-white">{total}</h2>
+              <h2 className="text-4xl font-black text-white">{total}</h2>
             </div>
 
             <div className="space-y-4">
@@ -999,94 +814,107 @@ function PainelGuarnicao({
       <TituloPainel icone="🚔" titulo="Guarnição de Serviço" />
 
       <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40">
-        <div className="absolute top-4 right-4 bg-green-900/70 border border-green-500 rounded-xl px-4 py-2 text-center">
-          <p className="text-green-400 font-black">● EM SERVIÇO</p>
-          <p className="text-xs text-white">07h às 07h</p>
+
+        <div
+  className="
+    absolute top-4 right-4
+    bg-green-500/15
+    border border-green-500/50
+    backdrop-blur-md
+    rounded-xl
+    px-4 py-2
+    text-center
+  "
+>
+          <p className="text-green-400 font-black text-lg">● EM SERVIÇO</p>
+          <p className="text-xs text-white">Plantão Ativo</p>
         </div>
 
-        <h2 className="text-4xl font-black text-green-400 mb-5 pr-36">
+        <h2 className="text-4xl font-black text-green-400 mb-5 pr-32 leading-none">
           {guarnicao}
         </h2>
 
-        <div className="space-y-2 text-base">
-          <p>
-            👮 <span className="text-slate-400">Comandante:</span>{" "}
-            <strong>{comandante}</strong>
-          </p>
+        <div className="grid md:grid-cols-3 gap-4 mb-5">
+          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+            <p className="text-slate-400 text-sm">👮 Comandante</p>
+            <p className="font-bold">
+              {comandante || "Não informado"}
+            </p>
+          </div>
 
-          <p>
-            🚓 <span className="text-slate-400">Viatura:</span>{" "}
-            <strong>{viatura}</strong>
-          </p>
+          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+            <p className="text-slate-400 text-sm">🚓 Viatura</p>
+            <p className="font-bold">
+              {viatura || "Não definida"}
+            </p>
+          </div>
 
-          <p>
-            👥 <span className="text-slate-400">Efetivo:</span>{" "}
-            <strong>{membros.length} membro(s)</strong>
-          </p>
+          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
+            <p className="text-slate-400 text-sm">👥 Efetivo</p>
+            <p className="font-bold">
+              {membros.length} integrante(s)
+            </p>
+          </div>
         </div>
 
-        <div className="border-t border-slate-700 mt-4 pt-4">
-          <h3 className="text-blue-400 text-lg font-black mb-2">
+        <div className="border-t border-slate-700 pt-4">
+          <h3 className="text-blue-400 text-lg font-black mb-3">
             👥 Equipe de Serviço
           </h3>
 
-          <ul className="space-y-1 list-disc list-inside text-slate-100">
-            {membros.length === 0 ? (
-              <li>Nenhum membro cadastrado.</li>
-            ) : (
-              membros.map((nome) => <li key={nome}>{nome}</li>)
-            )}
-          </ul>
+          {membros.length === 0 ? (
+            <div className="bg-slate-900/50 rounded-xl p-4 text-slate-400">
+              Nenhum integrante cadastrado.
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 gap-2">
+              {membros.map((nome) => (
+                <div
+                  key={nome}
+                  className="bg-slate-900/50 border border-slate-800 rounded-xl p-3"
+                >
+                  👮 {nome}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        <div className="border-t border-slate-700 mt-4 pt-4 space-y-2">
-          <p>
-            🕘 <span className="text-slate-400">Horário:</span>{" "}
-            <strong>07:00 às 07:00</strong>
-          </p>
-
-          <p className="text-blue-400 font-bold">
-            📅 Escala automática 24/96 • Rodízio por guarnição
+        <div className="border-t border-slate-700 mt-5 pt-4">
+          <p className="text-blue-400 font-bold text-center">
+            🛡️ Guarnição operacional destacada automaticamente pela escala ativa
           </p>
         </div>
+
       </div>
     </div>
   );
 }
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
-  const locais = ocorrencias.reduce((acc: Record<string, number>, item) => {
-    const local = item.bairro || item.local || "Local não informado";
-    acc[local] = (acc[local] || 0) + 1;
-    return acc;
-  }, {});
-
-  const lista = Object.entries(locais)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
   return (
-    <div className="painel-premium p-5 min-h-75">
-      <TituloPainel icone="🗺️" titulo="Mapa de Ocorrências" />
+    <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
+      <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
-      <div className="mt-4 space-y-3">
-        {lista.length === 0 ? (
-          <p className="text-slate-400">
-            Nenhuma ocorrência localizada.
-          </p>
-        ) : (
-          lista.map(([local, total]) => (
-            <div key={local} className="linha-painel">
-              <span>📍 {local}</span>
-              <strong>{total}</strong>
-            </div>
-          ))
-        )}
+      <div className="flex gap-3 text-xs mb-3 mt-2 text-slate-300">
+        <span>🔴 Ocorrências</span>
+        <span>🔵 Chamados</span>
+        <span>🟢 Viaturas</span>
+        <span>🟣 Patrulhamento</span>
       </div>
 
-      <Link href="/sistema/ocorrencias" className="botao-azul mt-5 block text-center">
-        Ver ocorrências
-      </Link>
+      <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700">
+  <MapaOperacional />
+
+  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
+    <Link
+      href="/sistema/locais"
+      className="bg-slate-900/90 border border-blue-500 rounded-xl px-6 py-3 font-bold text-white"
+    >
+      ⛶ Ver mapa expandido
+    </Link>
+  </div>
+</div>
     </div>
   );
 }
@@ -1154,7 +982,7 @@ function PainelAtividades({ atividades }: { atividades: Atividade[] }) {
       </div>
 
       <Link
-        href="/sistema/ocorrencias"
+        href="/sistema/relatorios"
         className="botao-azul mt-5 block text-center"
       >
         Ver todas as atividades
@@ -1206,21 +1034,22 @@ function PainelResumo({
   abertas,
   guardasServico,
   guardasFolga,
-}: {
-  finalizadas: number;
-  abertas: number;
-  guardasServico: number;
-  guardasFolga: number;
-}) {
+}: any) {
   return (
-    <div className="painel-premium p-5">
-      <TituloPainel icone="📊" titulo="Resumo Operacional" />
+    <div className="painel-premium p-5 h-full">
+      <TituloPainel icone="📊" titulo="Estatísticas do Dia" />
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <ResumoMini titulo="Finalizadas" valor={finalizadas} />
-        <ResumoMini titulo="Abertas" valor={abertas} />
-        <ResumoMini titulo="Em serviço" valor={guardasServico} />
-        <ResumoMini titulo="Folga" valor={guardasFolga} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
+        <ResumoMini titulo="Ocorrências" valor={abertas} />
+        <ResumoMini titulo="Chamados" valor={0} />
+        <ResumoMini titulo="Patrulhamentos" valor={guardasServico} />
+        <ResumoMini titulo="Averiguações" valor={finalizadas} />
+      </div>
+
+      <div className="h-24 mt-6 rounded-xl bg-slate-950/70 border border-slate-800 relative overflow-hidden">
+        <div className="absolute bottom-6 left-0 w-full h-[2px] bg-blue-500" />
+        <div className="absolute bottom-10 left-0 w-full h-[2px] bg-green-500" />
+        <div className="absolute bottom-16 left-0 w-full h-[2px] bg-purple-500" />
       </div>
     </div>
   );
@@ -1269,7 +1098,7 @@ function PainelAlertas({ avisos }: { avisos: Aviso[] }) {
 
 function TituloPainel({ icone, titulo }: { icone: string; titulo: string }) {
   return (
-    <h2 className="text-lg md:text-xl font-black uppercase tracking-wide text-slate-200 border-b border-slate-800 pb-3">
+    <h2 className="text-sm md:text-base font-black uppercase tracking-wide text-slate-200 border-b border-slate-800 pb-2">
       <span className="mr-2">{icone}</span>
       {titulo}
     </h2>
@@ -1348,22 +1177,19 @@ function Beneficio({
   );
 }
 
-function AtalhoPremium({
-  href,
-  titulo,
-  icone,
-}: {
-  href: string;
-  titulo: string;
-  icone: string;
-}) {
+function AtalhoPremium({ href, titulo, icone }: any) {
   return (
     <Link
       href={href}
-      className="painel-premium p-4 hover:border-blue-500 transition block"
+      className="
+        h-36 rounded-2xl border border-blue-500/30
+        bg-slate-950/70 hover:bg-blue-950/50
+        flex flex-col items-center justify-center gap-3
+        text-center font-bold transition
+      "
     >
-      <span className="text-2xl mr-2">{icone}</span>
-      <strong>{titulo}</strong>
+      <span className="text-5xl">{icone}</span>
+      <span>{titulo}</span>
     </Link>
   );
 }

@@ -15,10 +15,12 @@ type Perfil =
   | "CONSULTA";
 
 type UsuarioLogado = {
+  id: string;
   nome: string;
-  matricula?: string;
+  matricula: string;
   email: string;
   perfil: Perfil;
+  foto_url?: string;
 };
 
 export default function Sidebar() {
@@ -111,7 +113,10 @@ export default function Sidebar() {
 
       <aside
   className={`
-    bg-[#020b1c] border-r border-slate-800 text-white flex flex-col z-50
+    bg-slate-950/80 
+backdrop-blur-xl 
+border-r border-blue-900/40 
+shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
     fixed md:static top-0 left-0 h-full md:h-auto
     w-80 md:min-h-screen
     ${menuCompacto ? "md:w-20" : "md:w-72"}
@@ -146,9 +151,19 @@ export default function Sidebar() {
       menuCompacto ? "justify-center" : ""
     }`}
   >
-    <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-600 flex items-center justify-center overflow-hidden">
-      <span className="text-lg">👤</span>
+    <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-600 bg-slate-800">
+  {usuario?.foto_url ? (
+    <img
+      src={usuario.foto_url}
+      alt={usuario.nome}
+      className="w-full h-full object-cover"
+    />
+  ) : (
+    <div className="w-full h-full flex items-center justify-center">
+      👤
     </div>
+  )}
+</div>
 
     {!menuCompacto && (
       <div>

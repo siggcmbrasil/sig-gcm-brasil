@@ -36,23 +36,24 @@ console.log("ERROR:", error);
 
   const { data: usuarioSistema } = await supabase
     .from("usuarios")
-    .select("id, nome, email, perfil, status, municipio_id")
+    .select("id, nome, email, perfil, status, municipio_id, foto_url")
     .eq("email", data.user.email)
     .single();
 
   if (usuarioSistema?.perfil === "DESENVOLVEDOR") {
   localStorage.setItem(
-    "usuarioLogado",
-    JSON.stringify({
-      id: data.user.id,
-      nome: usuarioSistema.nome,
-      matricula: "",
-      email: data.user.email,
-      perfil: "DESENVOLVEDOR",
-      status: "Ativo",
-      municipio_id: usuarioSistema.municipio_id || 1,
-    })
-  );
+  "usuarioLogado",
+  JSON.stringify({
+    id: data.user.id,
+    nome: usuarioSistema.nome || data.user.email,
+    matricula: "",
+    email: data.user.email,
+    perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
+    status: usuarioSistema.status || "Ativo",
+    municipio_id: usuarioSistema.municipio_id || 1,
+    foto_url: usuarioSistema.foto_url || "",
+  })
+);
 
   router.push("/sistema");
   return;
@@ -80,7 +81,7 @@ if (!usuarioSistema) {
   localStorage.setItem(
     "usuarioLogado",
     JSON.stringify({
-      id: data.user.id,
+      id: usuarioSistema.id,
       nome: usuarioSistema.nome || data.user.email,
       matricula: "",
       email: data.user.email,

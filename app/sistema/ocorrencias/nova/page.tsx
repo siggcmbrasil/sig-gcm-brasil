@@ -40,6 +40,24 @@ type Guarnicao = {
   nome: string;
 };
 
+type ConfigEscalaOperacional = {
+  id: number;
+  data_base: string;
+  guarnicao_base_id: number;
+  ordem_guarnicoes: number[];
+};
+
+type GuarnicaoCompleta = {
+  id: number;
+  nome: string;
+  comandante_id: number | null;
+  viatura_id: number | null;
+};
+
+type MembroGuarnicao = {
+  guarda_id: number;
+};
+
 export default function NovaOcorrencia() {
   const router = useRouter();
   const [guardas, setGuardas] = useState<Guarda[]>([]);
@@ -56,7 +74,8 @@ export default function NovaOcorrencia() {
   const [salvando, setSalvando] = useState(false);
   const [municipioId, setMunicipioId] = useState<number>(1);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
-  const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [guarnicoes, setGuarnicoes] =
+  useState<GuarnicaoCompleta[]>([]);
   const [guarnicaoId, setGuarnicaoId] = useState("");
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
   const [viaturaId, setViaturaId] = useState("");
@@ -106,7 +125,7 @@ export default function NovaOcorrencia() {
   async function carregarGuarnicoes(municipio: number) {
   const { data, error } = await supabase
     .from("guarnicoes")
-    .select("id, nome")
+    .select("id, nome, comandante_id, viatura_id")
     .eq("municipio_id", municipio)
     .eq("ativa", true)
     .order("nome");
@@ -121,21 +140,21 @@ export default function NovaOcorrencia() {
 }
 
   async function carregarViaturas(municipio: number) {
-    const { data, error } = await supabase
-  .from("viaturas")
-  .select("id, prefixo, modelo, placa, status")
-  .eq("municipio_id", municipio)
-  .in("status", ["Operacional", "Reserva"])
-  .order("prefixo", { ascending: true });
+  const { data, error } = await supabase
+    .from("viaturas")
+    .select("id, prefixo, modelo, placa, status")
+    .eq("municipio_id", municipio)
+    .in("status", ["Operacional", "Reserva"])
+    .order("prefixo", { ascending: true });
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar viaturas.");
-      return;
-    }
-
-    setViaturas(data || []);
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar viaturas.");
+    return;
   }
+
+  setViaturas(data || []);
+}
 
   function selecionarGuarda(nome: string) {
     if (guardasSelecionados.includes(nome)) {
@@ -266,6 +285,32 @@ export default function NovaOcorrencia() {
     alert("Ocorrência salva com sucesso!");
     router.push("/sistema/ocorrencias");
   }
+async function carregarMembrosGuarnicao(
+  guarnicaoId: number
+) {
+  const { data: membros } = await supabase
+    .from("guarnicao_membros")
+    .select("guarda_id")
+    .eq("guarnicao_id", guarnicaoId);
+
+  if (!membros) return;
+
+  const ids = membros.map(
+    (m: MembroGuarnicao) => m.guarda_id
+  );
+
+  const { data: guardasData } = await supabase
+    .from("guardas")
+    .select("id,nome")
+    .in("id", ids);
+
+  if (!guardasData) return;
+
+  setGuardasSelecionados(
+    guardasData.map((g) => g.nome)
+  );
+}
+
 async function carregarSistema() {
   const { data } = await supabase
     .from("configuracoes_sistema")
@@ -274,6 +319,83 @@ async function carregarSistema() {
     .single();
 
   const id = data?.municipio_padrao_id || 1;
+
+  const { data: configEscala } = await supabase
+  .from("escala_operacional_config")
+  .select("*")
+  .eq("municipio_id", id)
+  .eq("ativo", true)
+  .single();
+
+const { data: guarnicoesData } = await supabase
+  .from("guarnicoes")
+  .select("id,nome,comandante_id,viatura_id")
+  .eq("municipio_id", id)
+  .eq("ativa", true);
+
+if (
+  configEscala &&
+  guarnicoesData &&
+  configEscala.ordem_guarnicoes?.length
+) {
+  const dataBase = new Date(
+    `${configEscala.data_base}T07:00:00`
+  );
+
+  const agora = new Date();
+
+  const diasPassados = Math.floor(
+    (agora.getTime() - dataBase.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  const ordem = configEscala.ordem_guarnicoes;
+
+  const indiceBase = ordem.findIndex(
+    (g: number) =>
+      g === configEscala.guarnicao_base_id
+  );
+
+  const indiceAtual =
+    ((indiceBase + diasPassados) %
+      ordem.length +
+      ordem.length) %
+    ordem.length;
+
+  const guarnicaoAtual =
+    guarnicoesData.find(
+      (g: any) =>
+        g.id === ordem[indiceAtual]
+    );
+
+  if (guarnicaoAtual) {
+  setGuarnicaoId(String(guarnicaoAtual.id));
+
+  if (guarnicaoAtual.viatura_id) {
+    const { data: viaturaAtual } = await supabase
+      .from("viaturas")
+      .select("prefixo")
+      .eq("id", guarnicaoAtual.viatura_id)
+      .single();
+
+    if (viaturaAtual) {
+      setViaturaEmpenhada(viaturaAtual.prefixo);
+    }
+
+    setViaturaId(String(guarnicaoAtual.viatura_id));
+  }
+
+  await carregarMembrosGuarnicao(
+    guarnicaoAtual.id
+  );
+
+  if (guarnicaoAtual.comandante_id) {
+    setGuardaResponsavelId(
+      String(guarnicaoAtual.comandante_id)
+    );
+  }
+}
+}
 
   setMunicipioId(id);
 

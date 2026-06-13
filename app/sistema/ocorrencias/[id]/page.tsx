@@ -278,19 +278,8 @@ y += 12;
       y += 12;
     }
 
-    pdf.setFontSize(14);
-    pdf.text("VIATURA EMPENHADA", 15, y);
-    y += 8;
-
-    pdf.setFontSize(12);
-    pdf.text(ocorrencia.viatura_empenhada || "Não informada", 15, y);
-    y += 14;
-
-    pdf.setFontSize(14);
-    pdf.text("EQUIPE EMPENHADA", 15, y);
-    y += 8;
-
-    pdf.setFontSize(12);
+    
+        pdf.setFontSize(12);
     const equipe = pdf.splitTextToSize(
       ocorrencia.equipe_empenhada || "Equipe não informada.",
       170

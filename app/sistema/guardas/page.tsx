@@ -58,17 +58,41 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
   async function salvarGuarda() {
+    let urlFoto = fotoUrl;
+
+if (foto) {
+  console.log("FOTO SELECIONADA:", foto);
+  const nomeArquivo = `${Date.now()}-${foto.name}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from("fotos-guardas")
+    .upload(nomeArquivo, foto);
+
+  if (uploadError) {
+    console.error(uploadError);
+    alert("Erro ao enviar foto.");
+    return;
+  }
+
+  const { data } = supabase.storage
+    .from("fotos-guardas")
+    .getPublicUrl(nomeArquivo);
+
+  urlFoto = data.publicUrl;
+  console.log("URL DA FOTO:", urlFoto);
+}
 if (editandoId) {
   const { error } = await supabase
     .from("guardas")
     .update({
-      matricula,
-      nome,
-      cargo,
-      telefone,
-      status,
-      data_nascimento: dataNascimento || null,
-    })
+  matricula,
+  nome,
+  cargo,
+  telefone,
+  status,
+  data_nascimento: dataNascimento || null,
+  foto_url: urlFoto,
+})
     .eq("id", editandoId);
 
   if (error) {
@@ -101,6 +125,7 @@ if (editandoId) {
   telefone,
   status,
   data_nascimento: dataNascimento || null,
+  foto_url: urlFoto,
 }
     ]);
 
@@ -112,12 +137,7 @@ if (editandoId) {
 
     alert("Guarda cadastrado com sucesso!");
 
-    setMatricula("");
-    setNome("");
-    setCargo("");
-    setTelefone("");
-    setStatus("Em serviço");
-    setDataNascimento("");
+    limparFormulario();
 
     carregarGuardas();
   }
@@ -129,6 +149,8 @@ function editarGuarda(guarda: Guarda) {
   setTelefone(guarda.telefone || "");
   setStatus(guarda.status);
   setDataNascimento(guarda.data_nascimento || "");
+  setFotoUrl(guarda.foto_url || "");
+  setFoto(null);
 }
 
   async function excluirGuarda(id: number) {
@@ -177,6 +199,8 @@ function limparFormulario() {
   setTelefone("");
   setStatus("Em serviço");
   setDataNascimento("");
+  setFoto(null);
+  setFotoUrl("");
 }
 
 function formatarData(data: string | null) {
@@ -394,15 +418,33 @@ function formatarData(data: string | null) {
                     </tr>
                   </thead>
 
-                  <tbody>
-                    {guardasFiltrados.map((guarda) => (
+                  
+                    <tbody>{guardasFiltrados.map((guarda) => (
                       <tr key={guarda.id} className="border-b border-slate-800">
                         <td className="py-4 text-blue-400 font-semibold">
   {guarda.matricula}
 </td>
 
-<td className="font-medium">
-  {guarda.nome}
+<td>
+  <div className="flex items-center gap-3">
+    <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-700 bg-slate-800">
+      {guarda.foto_url ? (
+        <img
+          src={guarda.foto_url}
+          alt={guarda.nome}
+          className="w-full h-full object-cover"
+        />
+      ) : (
+        <div className="w-full h-full flex items-center justify-center">
+          👮
+        </div>
+      )}
+    </div>
+
+    <span className="font-medium">
+      {guarda.nome}
+    </span>
+  </div>
 </td>
 
                         <td className="text-slate-400">{guarda.cargo}</td>
