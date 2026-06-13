@@ -33,6 +33,17 @@ type Viatura = {
   status: string;
 };
 
+type MembroGuarnicao = {
+  guarda_id: number;
+};
+
+type GuarnicaoCompleta = {
+  id: number;
+  nome: string;
+  comandante_id: number | null;
+  viatura_id: number | null;
+};
+
 export default function Patrulhamento() {
   const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
@@ -218,11 +229,96 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     carregarPatrulhamentos();
   }
 
+async function carregarPlantaoAutomatico() {
+  const { data: configSistema } = await supabase
+    .from("configuracoes_sistema")
+    .select("municipio_padrao_id")
+    .limit(1)
+    .single();
+
+  const municipioId = configSistema?.municipio_padrao_id || 1;
+
+  const { data: configEscala } = await supabase
+    .from("escala_operacional_config")
+    .select("*")
+    .eq("municipio_id", municipioId)
+    .eq("ativo", true)
+    .single();
+
+  const { data: guarnicoes } = await supabase
+    .from("guarnicoes")
+    .select("id, nome, comandante_id, viatura_id")
+    .eq("municipio_id", municipioId)
+    .eq("ativa", true);
+
+  if (!configEscala || !guarnicoes || !configEscala.ordem_guarnicoes?.length) {
+    return;
+  }
+
+  const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
+  const agora = new Date();
+
+  const diasPassados = Math.floor(
+    (agora.getTime() - dataBase.getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
+
+  const ordem = configEscala.ordem_guarnicoes;
+
+  const indiceBase = ordem.findIndex(
+    (id: number) => Number(id) === Number(configEscala.guarnicao_base_id)
+  );
+
+  if (indiceBase === -1) return;
+
+  const indiceAtual =
+    ((indiceBase + diasPassados) % ordem.length + ordem.length) %
+    ordem.length;
+
+  const guarnicaoAtual = guarnicoes.find(
+    (g: GuarnicaoCompleta) => Number(g.id) === Number(ordem[indiceAtual])
+  );
+
+  if (!guarnicaoAtual) return;
+
+  if (guarnicaoAtual.viatura_id) {
+    const { data: viaturaAtual } = await supabase
+      .from("viaturas")
+      .select("prefixo")
+      .eq("id", guarnicaoAtual.viatura_id)
+      .single();
+
+    if (viaturaAtual) {
+      setViatura(viaturaAtual.prefixo);
+    }
+  }
+
+  const { data: membros } = await supabase
+    .from("guarnicao_membros")
+    .select("guarda_id")
+    .eq("guarnicao_id", guarnicaoAtual.id);
+
+  if (!membros || membros.length === 0) return;
+
+  const ids = membros.map((m: MembroGuarnicao) => m.guarda_id);
+
+  const { data: guardasEquipe } = await supabase
+    .from("guardas")
+    .select("nome")
+    .in("id", ids);
+
+  if (guardasEquipe) {
+    setGuardasSelecionados(guardasEquipe.map((g) => g.nome));
+    setGuarda(guardasEquipe[0]?.nome || "");
+  }
+}
+
   useEffect(() => {
-    carregarPatrulhamentos();
-    carregarGuardas();
-    carregarViaturas();
-  }, []);
+  carregarPatrulhamentos();
+  carregarGuardas();
+  carregarViaturas();
+  carregarPlantaoAutomatico();
+}, []);
 
   const hoje = new Date().toISOString().split("T")[0];
 

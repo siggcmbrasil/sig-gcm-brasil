@@ -626,25 +626,25 @@ function PainelTopo({
           ✉️
         </button>
 
-        <div className="flex items-center gap-4 px-4 py-2 rounded-2xl border border-blue-500/20 bg-slate-950/40">
-          <div className="w-14 h-14 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-xl">
-            👤
-          </div>
+        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl border border-blue-500/20 bg-slate-950/40 min-w-[230px]">
+  <div className="w-12 h-12 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-xl shrink-0">
+    👤
+  </div>
 
-          <div className="hidden md:block">
-            <p className="font-bold text-white text-lg">
-              CMT João Silva
-            </p>
+  <div className="flex-1 min-w-0">
+    <p className="font-bold text-white text-base leading-tight truncate">
+      CMT João Silva
+    </p>
 
-            <p className="text-slate-400 text-sm">
-              Comandante
-            </p>
-          </div>
+    <p className="text-slate-400 text-xs">
+      Comandante
+    </p>
+  </div>
 
-          <span className="text-slate-400">
-            ⌄
-          </span>
-        </div>
+  <span className="text-slate-400 shrink-0">
+    ⌄
+  </span>
+</div>
       </div>
     </header>
   );
@@ -916,6 +916,8 @@ function PainelGuarnicao({
 }
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
+  console.log("PAINEL MAPA RECEBEU:", ocorrencias);
+
   return (
     <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
@@ -928,7 +930,10 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
 </div>
 
       <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
-  <MapaOperacional ocorrencias={ocorrencias} />
+  <MapaOperacional
+  key={ocorrencias.length}
+  ocorrencias={ocorrencias}
+/>
 
 
   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">

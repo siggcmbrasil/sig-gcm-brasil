@@ -1,50 +1,44 @@
 "use client";
 
-import {
-  MapContainer,
-  TileLayer,
-  Marker,
-  Popup,
-} from "react-leaflet";
-
+import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 
 type OcorrenciaMapa = {
   id: number;
-  protocolo: string;
+  protocolo?: string;
   tipo: string;
   local: string;
   status: string;
-  hora: string;
-  locais?: {
-    nome: string;
-    latitude: number | null;
-    longitude: number | null;
-  } | null;
+  hora?: string;
+  locais?: any;
 };
 
 const iconOcorrencia = L.divIcon({
   html: "🚨",
-  className: "",
-  iconSize: [30, 30],
+  className: "text-3xl",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
 const iconViatura = L.divIcon({
   html: "🚓",
-  className: "",
-  iconSize: [30, 30],
+  className: "text-3xl",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
 const iconChamado = L.divIcon({
   html: "📞",
-  className: "",
-  iconSize: [30, 30],
+  className: "text-3xl",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
 const iconBase = L.divIcon({
   html: "🏢",
-  className: "",
-  iconSize: [30, 30],
+  className: "text-3xl",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
 });
 
 export default function MapaOperacional({
@@ -52,12 +46,28 @@ export default function MapaOperacional({
 }: {
   ocorrencias?: OcorrenciaMapa[];
 }) {
-  const ocorrenciasComCoordenadas = ocorrencias.filter(
-    (o) => o.locais?.latitude && o.locais?.longitude
-  );
-console.log("OCORRENCIAS MAPA", ocorrencias);
+  const ocorrenciasComCoordenadas = ocorrencias
+    .map((o) => {
+      const localRelacionado = Array.isArray(o.locais) ? o.locais[0] : o.locais;
+
+      return {
+        ...o,
+        localRelacionado,
+      };
+    })
+    .filter(
+      (o) =>
+        o.localRelacionado &&
+        o.localRelacionado.latitude !== null &&
+        o.localRelacionado.longitude !== null
+    );
+
+  console.log("OCORRENCIAS RECEBIDAS NO MAPA:", ocorrencias);
+  console.log("OCORRENCIAS COM COORDENADAS:", ocorrenciasComCoordenadas);
+
   return (
     <MapContainer
+  key={ocorrencias.length}
       center={[-11.621296322631357, -38.80684199142887]}
       zoom={15}
       scrollWheelZoom={true}
@@ -69,8 +79,8 @@ console.log("OCORRENCIAS MAPA", ocorrencias);
       className="rounded-2xl z-0"
     >
       <TileLayer
-  url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-  attribution="&copy; OpenStreetMap &copy; CARTO"
+  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+  attribution="OpenStreetMap"
 />
 
       <Marker position={[-11.621296, -38.806841]} icon={iconBase}>
@@ -81,17 +91,17 @@ console.log("OCORRENCIAS MAPA", ocorrencias);
         <Marker
           key={o.id}
           position={[
-            Number(o.locais?.latitude),
-            Number(o.locais?.longitude),
+            Number(o.localRelacionado.latitude),
+            Number(o.localRelacionado.longitude),
           ]}
           icon={iconOcorrencia}
         >
           <Popup>
             <strong>🚨 {o.tipo}</strong>
             <br />
-            Protocolo: {o.protocolo}
+            Protocolo: {o.protocolo || "Sem protocolo"}
             <br />
-            Local: {o.locais?.nome || o.local}
+            Local: {o.localRelacionado.nome || o.local}
             <br />
             Status: {o.status}
             <br />
@@ -100,11 +110,11 @@ console.log("OCORRENCIAS MAPA", ocorrencias);
         </Marker>
       ))}
 
-      <Marker position={[-11.622000, -38.805000]} icon={iconViatura}>
+      <Marker position={[-11.622, -38.805]} icon={iconViatura}>
         <Popup>🚓 VTR-01 Patrulhamento</Popup>
       </Marker>
 
-      <Marker position={[-11.623000, -38.808000]} icon={iconChamado}>
+      <Marker position={[-11.623, -38.808]} icon={iconChamado}>
         <Popup>📞 Chamado Recebido</Popup>
       </Marker>
     </MapContainer>
