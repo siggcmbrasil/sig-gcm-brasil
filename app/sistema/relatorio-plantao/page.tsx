@@ -352,24 +352,60 @@ y += 12;
     y += 6;
     y = tituloSecao(pdf, "4. PATRULHAMENTOS / RONDAS", y);
 
-    if (!patrulhamentos || patrulhamentos.length === 0) {
-      pdf.text("Nenhum patrulhamento registrado no plantão.", 15, y);
-      y += 8;
-    } else {
-      patrulhamentos.forEach((item: Patrulhamento) => {
-        y = verificarPagina(pdf, y);
+if (!patrulhamentos || patrulhamentos.length === 0) {
+  pdf.text("Nenhum patrulhamento registrado no plantão.", 15, y);
+  y += 8;
+} else {
+  pdf.setFontSize(11);
+  pdf.text(
+    `Total de patrulhamentos: ${patrulhamentos.length}`,
+    15,
+    y
+  );
 
-        const texto = `${item.hora || "-"} | Local: ${item.local || "-"} | Viatura: ${item.viatura || "-"} | Guarda: ${item.guarda || "-"} | Equipe: ${item.equipe || "-"} | Obs: ${item.observacao || "-"}`;
-        const linhas = pdf.splitTextToSize(texto, 175);
+  y += 8;
 
-        pdf.text(linhas, 15, y);
-        y += linhas.length * 6 + 4;
-      });
-    }
+  patrulhamentos.forEach((item: Patrulhamento, index: number) => {
+    y = verificarPagina(pdf, y);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text(
+      `${index + 1}. ${item.local || "Local não informado"}`,
+      15,
+      y
+    );
 
     y += 6;
 
+    pdf.setFont("helvetica", "normal");
+
+    const detalhes = [
+      `Hora: ${item.hora || "-"}`,
+      `Viatura: ${item.viatura || "-"}`,
+      `Guarda: ${item.guarda || "-"}`,
+      `Equipe: ${item.equipe || "-"}`,
+      `Observação: ${item.observacao || "-"}`
+    ];
+
+    detalhes.forEach((linha) => {
+      y = verificarPagina(pdf, y);
+
+      const texto = pdf.splitTextToSize(
+        linha,
+        170
+      );
+
+      pdf.text(texto, 20, y);
+
+      y += texto.length * 5 + 1;
+    });
+
+    y += 4;
+  });
+}
+
 y += 6;
+
 y = tituloSecao(pdf, "5. PESSOAS ABORDADAS", y);
 
 if (!pessoas || pessoas.length === 0) {

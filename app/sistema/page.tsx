@@ -916,7 +916,7 @@ function PainelGuarnicao({
 }
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
-  console.log("PAINEL MAPA RECEBEU:", ocorrencias);
+  
 
   return (
     <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
@@ -930,11 +930,7 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
 </div>
 
       <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
-  <MapaOperacional
-  key={ocorrencias.length}
-  ocorrencias={ocorrencias}
-/>
-
+  <MapaOperacional ocorrencias={ocorrencias}/>
 
   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
     <Link

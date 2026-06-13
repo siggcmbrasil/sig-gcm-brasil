@@ -42,13 +42,17 @@ const iconBase = L.divIcon({
 });
 
 export default function MapaOperacional({
-  ocorrencias = [],
+  ocorrencias,
 }: {
-  ocorrencias?: OcorrenciaMapa[];
+  ocorrencias: OcorrenciaMapa[];
 }) {
-  const ocorrenciasComCoordenadas = ocorrencias
+  const listaOcorrencias = ocorrencias || [];
+
+  const ocorrenciasComCoordenadas = listaOcorrencias
     .map((o) => {
-      const localRelacionado = Array.isArray(o.locais) ? o.locais[0] : o.locais;
+      const localRelacionado = Array.isArray(o.locais)
+        ? o.locais[0]
+        : o.locais;
 
       return {
         ...o,
@@ -62,12 +66,11 @@ export default function MapaOperacional({
         o.localRelacionado.longitude !== null
     );
 
-  console.log("OCORRENCIAS RECEBIDAS NO MAPA:", ocorrencias);
+  console.log("OCORRENCIAS RECEBIDAS NO MAPA:", listaOcorrencias);
   console.log("OCORRENCIAS COM COORDENADAS:", ocorrenciasComCoordenadas);
 
   return (
     <MapContainer
-  key={ocorrencias.length}
       center={[-11.621296322631357, -38.80684199142887]}
       zoom={15}
       scrollWheelZoom={true}
@@ -79,9 +82,9 @@ export default function MapaOperacional({
       className="rounded-2xl z-0"
     >
       <TileLayer
-  url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-  attribution="OpenStreetMap"
-/>
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution="OpenStreetMap"
+      />
 
       <Marker position={[-11.621296, -38.806841]} icon={iconBase}>
         <Popup>🏢 Base GCM Biritinga</Popup>
