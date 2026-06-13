@@ -903,8 +903,9 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
         <span>🟣 Patrulhamento</span>
       </div>
 
-      <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700">
+      <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
   <MapaOperacional />
+
 
   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
     <Link

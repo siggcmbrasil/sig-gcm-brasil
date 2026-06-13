@@ -13,7 +13,12 @@ export default function MapaOperacional() {
       center={[-11.621296322631357, -38.80684199142887]}
       zoom={15}
       scrollWheelZoom={true}
-      className="w-full h-full rounded-2xl"
+      style={{
+  width: "100%",
+  height: "100%",
+  minHeight: "100%",
+}}
+className="rounded-2xl z-0"
     >
       <TileLayer
         attribution='&copy; OpenStreetMap'
