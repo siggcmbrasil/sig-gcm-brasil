@@ -28,6 +28,14 @@ type Ocorrencia = {
   data: string;
   hora: string;
   status: string;
+  local_id?: number;
+
+  locais?: {
+    id: number;
+    nome: string;
+    latitude: number;
+    longitude: number;
+  };
 };
 
 type Guarda = {
@@ -171,7 +179,23 @@ export default function Dashboard() {
 
     const { data: ocorrenciasData } = await supabase
       .from("ocorrencias")
-      .select("id, protocolo, tipo, local, bairro, data, hora, status")
+.select(`
+  id,
+  protocolo,
+  tipo,
+  local,
+  bairro,
+  data,
+  hora,
+  status,
+  local_id,
+  locais:local_id (
+  id,
+  nome,
+  latitude,
+  longitude
+)
+`)
       .eq("municipio_id", municipioId)
       .order("id", { ascending: false });
 
@@ -223,7 +247,7 @@ export default function Dashboard() {
     setMunicipioAtivo(municipioData || null);
     setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
     setConfigEscala((configEscalaData as ConfigEscalaOperacional) || null);
-    setOcorrencias(ocorrenciasData || []);
+    console.log("OCORRENCIAS:", ocorrenciasData);
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
     setAvisos(avisosData || []);
@@ -543,22 +567,22 @@ function PainelTopo({
   setMostrarMensagens,
 }: any) {
   return (
-    <header className="h-24 rounded-3xl border border-blue-500/20 bg-slate-950/60 backdrop-blur-xl px-8 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
+    <header className="h-24 rounded-3xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
       <div className="flex items-center gap-4 min-w-[300px]">
         <img
-          src="/brasao-gcm-v2.png"
-          alt="SIG-GCM Brasil"
-          className="w-16 h-16 rounded-2xl object-contain"
-        />
+  src="/brasao-gcm-v2.png"
+  alt="SIG"
+  className="w-16 h-16"
+/>
 
         <div>
-          <h1 className="text-4xl font-black tracking-tight">
-            SIG-GCM BRASIL
-          </h1>
+          <h1 className="text-4xl font-black text-white">
+  SIG-GCM BRASIL
+</h1>
 
-          <p className="text-base text-slate-400">
-            Sistema Integrado de Gestão
-          </p>
+<p className="text-slate-400">
+  Sistema Integrado de Gestão
+</p>
 
           <p className="text-sm text-white font-bold mt-1">
             📍 {municipio ? `${municipio.nome} - ${municipio.estado}` : "Biritinga - BA"}
@@ -830,7 +854,7 @@ function PainelGuarnicao({
           <p className="text-xs text-white">Plantão Ativo</p>
         </div>
 
-        <h2 className="text-4xl font-black text-green-400 mb-5 pr-32 leading-none">
+        <h2 className="text-3xl font-black text-green-400 mb-5 pr-32 leading-none">
           {guarnicao}
         </h2>
 
@@ -896,15 +920,15 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
     <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
-      <div className="flex gap-3 text-xs mb-3 mt-2 text-slate-300">
-        <span>🔴 Ocorrências</span>
-        <span>🔵 Chamados</span>
-        <span>🟢 Viaturas</span>
-        <span>🟣 Patrulhamento</span>
-      </div>
+     <div className="flex gap-4 text-xs font-semibold mb-2">
+  <span className="text-red-400">🔴 Ocorrências</span>
+  <span className="text-blue-400">🔵 Chamados</span>
+  <span className="text-green-400">🟢 Viaturas</span>
+  <span className="text-purple-400">🟣 Patrulhamento</span>
+</div>
 
       <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
-  <MapaOperacional />
+  <MapaOperacional ocorrencias={ocorrencias} />
 
 
   <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">

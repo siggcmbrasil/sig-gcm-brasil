@@ -217,7 +217,7 @@ pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
   align: "center",
 });
 
-    pdf.setFontSize(12);
+    pdf.setFontSize(11);
     pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
       align: "center",
     });
@@ -230,7 +230,7 @@ pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
 
     let y = 55;
 
-    pdf.setFontSize(12);
+    pdf.setFontSize(11);
     pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 15, y);
     y += 8;
     pdf.text(`Tipo: ${ocorrencia.tipo}`, 15, y);
@@ -279,7 +279,7 @@ y += 12;
     }
 
     
-        pdf.setFontSize(12);
+        pdf.setFontSize(11);
     const equipe = pdf.splitTextToSize(
       ocorrencia.equipe_empenhada || "Equipe não informada.",
       170
@@ -292,7 +292,7 @@ y += 12;
     pdf.text("DESCRIÇÃO DOS FATOS", 15, y);
     y += 8;
 
-    pdf.setFontSize(12);
+    pdf.setFontSize(11);
     const descricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
     pdf.text(descricao, 15, y);
     y += descricao.length * 7 + 10;

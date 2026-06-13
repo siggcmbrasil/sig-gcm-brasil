@@ -382,6 +382,17 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                       )}
                     </div>
 
+<button
+  type="button"
+  onClick={() =>
+    window.location.href =
+      `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+  }
+  className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold mb-2"
+>
+  Gerar Ocorrência
+</button>
+
                     <button
   type="button"
   onClick={() => excluirChamado(chamado.id)}
@@ -425,7 +436,17 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                         </td>
 
                         <td className="text-right">
-                          {podeEditar && (
+                          <button
+  type="button"
+  onClick={() =>
+    window.location.href =
+      `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+  }
+  className="bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold mr-2"
+>
+  Gerar Ocorrência
+</button>
+                          {podeEditar && (         
   <button
     type="button"
     onClick={() => excluirChamado(chamado.id)}

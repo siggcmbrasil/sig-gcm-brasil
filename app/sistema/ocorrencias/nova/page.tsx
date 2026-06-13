@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
 type Guarda = {
@@ -60,6 +60,8 @@ type MembroGuarnicao = {
 
 export default function NovaOcorrencia() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const chamadoId = searchParams.get("chamado");
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
   const [guardasSelecionados, setGuardasSelecionados] = useState<string[]>([]);
@@ -310,6 +312,40 @@ async function carregarMembrosGuarnicao(
     guardasData.map((g) => g.nome)
   );
 }
+async function carregarChamadoOrigem(id: string) {
+  const { data, error } = await supabase
+    .from("chamados")
+    .select("*")
+    .eq("id", id)
+    .single();
+
+  if (error || !data) {
+    console.error(error);
+    return;
+  }
+
+  setTipo(data.tipo || "");
+  setLocal(data.local || "");
+  setDescricao(
+    `Ocorrência gerada a partir do chamado ${data.protocolo}.
+
+Solicitante: ${data.solicitante || "-"}
+Telefone: ${data.telefone || "-"}
+Prioridade: ${data.prioridade || "-"}
+Observação: ${data.observacao || "-"}`
+  );
+
+  setEnvolvidos([
+    {
+      nome: data.solicitante || "",
+      documento: "",
+      telefone: data.telefone || "",
+      endereco: "",
+      tipo: "Solicitante",
+      observacao: data.observacao || "",
+    },
+  ]);
+}
 
 async function carregarSistema() {
   const { data } = await supabase
@@ -407,7 +443,11 @@ if (
 
   useEffect(() => {
   carregarSistema();
-}, []);
+
+  if (chamadoId) {
+    carregarChamadoOrigem(chamadoId);
+  }
+}, [chamadoId]);
 
   return (
     <div className="p-3 md:p-6 pb-24">
