@@ -92,7 +92,7 @@ export default function MapaOperacional({
         attribution="OpenStreetMap"
       />
 
-      <Marker position={[-11.621296, -38.806841]} icon={iconBase}>
+      <Marker position={[-11.620667881728922, -38.8051351858178]} icon={iconBase}>
         <Popup>🏢 Base GCM Biritinga</Popup>
       </Marker>
 
@@ -119,13 +119,6 @@ export default function MapaOperacional({
         </Marker>
       ))}
 
-      <Marker position={[-11.622, -38.805]} icon={iconViatura}>
-        <Popup>🚓 VTR-01 Patrulhamento</Popup>
-      </Marker>
-
-      <Marker position={[-11.623, -38.808]} icon={iconChamado}>
-        <Popup>📞 Chamado Recebido</Popup>
-      </Marker>
-    </MapContainer>
+          </MapContainer>
   );
 }

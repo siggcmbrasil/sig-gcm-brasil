@@ -70,6 +70,7 @@ export default function NovaOcorrencia() {
   const [status, setStatus] = useState("Aberta");
   const [bairro, setBairro] = useState("");
   const [local, setLocal] = useState("");
+  const [localId, setLocalId] = useState("");
   const [numero, setNumero] = useState("");
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
@@ -203,10 +204,10 @@ export default function NovaOcorrencia() {
   }
 
   async function salvarOcorrencia() {
-    if (!tipo || !local || !descricao) {
-      alert("Preencha tipo, local e descrição.");
-      return;
-    }
+    if (!tipo || !localId || !descricao) {
+  alert("Preencha tipo, local e descrição.");
+  return;
+}
 
     setSalvando(true);
 
@@ -266,6 +267,7 @@ export default function NovaOcorrencia() {
     hora,
     bairro,
     local,
+    local_id: localId ? Number(localId) : null,
     numero,
     envolvidos: JSON.stringify(envolvidosValidos),
     descricao,
@@ -461,12 +463,11 @@ if (
       <form className="card space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="label">Tipo de ocorrência</label>
             <select
-              className="input"
-              value={tipo}
-              onChange={(e) => setTipo(e.target.value)}
-            >
+  className="input"
+  value={tipo}
+  onChange={(e) => setTipo(e.target.value)}
+>
               <option value="">Selecione</option>
               <option value="Perturbação do sossego">Perturbação do sossego</option>
               <option value="Apoio ao cidadão">Apoio ao cidadão</option>
@@ -662,24 +663,32 @@ if (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Campo label="Bairro" valor={bairro} setValor={setBairro} placeholder="Ex: Centro" />
           <div>
-  <label className="label">Local</label>
-
   <select
-    className="input"
-    value={local}
-    onChange={(e) => setLocal(e.target.value)}
-  >
+  className="input"
+  value={localId}
+  onChange={(e) => {
+    const id = e.target.value;
+
+    setLocalId(id);
+
+    const localSelecionado = locais.find(
+      (l) => String(l.id) === id
+    );
+
+    setLocal(localSelecionado?.nome || "");
+  }}
+>
     <option value="">
       Selecione um local cadastrado
     </option>
 
     {locais.map((item) => (
       <option
-        key={item.id}
-        value={item.nome}
-      >
-        {item.nome} - {item.tipo}
-      </option>
+  key={item.id}
+  value={item.id}
+>
+  {item.nome} - {item.tipo}
+</option>
     ))}
   </select>
 </div>

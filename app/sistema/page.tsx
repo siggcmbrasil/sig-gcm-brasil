@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
+import TelaMobile from "@/components/TelaMobile";
 
 const MapaOperacional = dynamic(
   () => import("@/components/MapaOperacional"),
@@ -368,7 +369,13 @@ const aniversariantesHoje = guardas.filter((g) => {
   ].slice(0, 5);
 
   return (
-    <main className="min-h-screen text-white relative overflow-hidden pb-6">
+  <>
+    <div className="block md:hidden">
+      <TelaMobile />
+    </div>
+
+    <div className="hidden md:block">
+      <main className="min-h-screen text-white relative overflow-hidden pb-6">
 
   <div className="fixed inset-0 bg-[#020b1c]" />
 
@@ -446,31 +453,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
 </div>
 
-<div className="xl:col-span-2">
-  <div className="painel-premium p-4">
-    <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
-
-    <div className="mt-3 space-y-3">
-      {aniversariantesHoje.length === 0 ? (
-        <p className="text-slate-400 text-sm">Nenhum aniversariante hoje.</p>
-      ) : (
-        aniversariantesHoje.slice(0, 3).map((guarda) => (
-          <div key={guarda.id} className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full bg-slate-800 border border-blue-500/40 flex items-center justify-center">
-              👮
-            </div>
-
-            <div>
-              <p className="font-bold text-white text-sm">{guarda.nome}</p>
-              <p className="text-xs text-slate-400">Aniversariante do dia</p>
-            </div>
-          </div>
-        ))
-      )}
-    </div>
-  </div>
-</div>
-    </section>
+   </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-5">
       <div className="xl:col-span-5 painel-premium p-5">
@@ -506,9 +489,11 @@ const aniversariantesHoje = guardas.filter((g) => {
           </Link>
         )}
       </div>
+        </div>
+      </main>
     </div>
-  </main>
-  );
+  </>
+);
 }
 
 function PainelUltimasOcorrencias({
@@ -735,7 +720,7 @@ function CardComando({
   const estilo = cores[cor as keyof typeof cores];
 
   return (
-    <div className="painel-premium relative p-5 min-h-[130px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+    <div className="painel-premium relative p-4 min-h-[105px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
 
       <div className="absolute top-3 right-3">
         <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
@@ -743,7 +728,7 @@ function CardComando({
 
       <div className="flex justify-between items-start">
         <div
-          className={`w-16 h-16 rounded-2xl flex items-center justify-center text-3xl border ${estilo.icone}`}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${estilo.icone}`}
         >
           {icone}
         </div>
@@ -843,7 +828,7 @@ function PainelGuarnicao({
   membros: string[];
 }) {
   return (
-    <div className="painel-premium p-4 min-h-[220px] border border-yellow-600/70">
+    <div className="painel-premium p-3 min-h-[180px] border border-yellow-600/70">
       <TituloPainel icone="🚔" titulo="Guarnição de Serviço" />
 
       <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40">
@@ -912,31 +897,49 @@ function PainelGuarnicao({
 }
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
-  
-
   return (
-    <div className="painel-premium p-3 h-[70vh] relative overflow-hidden">
+    <div className="painel-premium p-3 h-[360px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
-     <div className="flex gap-4 text-xs font-semibold mb-2">
-  <span className="text-red-400">🔴 Ocorrências</span>
-  <span className="text-blue-400">🔵 Chamados</span>
-  <span className="text-green-400">🟢 Viaturas</span>
-  <span className="text-purple-400">🟣 Patrulhamento</span>
-</div>
+      <div className="flex flex-wrap gap-4 text-xs font-semibold mb-3">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-slate-400"></span>
+          Base GCM
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-red-500"></span>
+          Ocorrências
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-blue-500"></span>
+          Chamados
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-green-500"></span>
+          Viaturas
+        </div>
+
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-purple-500"></span>
+          Patrulhamento
+        </div>
+      </div>
 
       <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
-  <MapaOperacional ocorrencias={ocorrencias}/>
+        <MapaOperacional ocorrencias={ocorrencias} />
 
-  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
-    <Link
-      href="/sistema/locais"
-      className="bg-slate-900/90 border border-blue-500 rounded-xl px-6 py-3 font-bold text-white"
-    >
-      ⛶ Ver mapa expandido
-    </Link>
-  </div>
-</div>
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
+          <Link
+            href="/sistema/mapa-operacional"
+            className="bg-slate-900/90 border border-blue-500 rounded-xl px-6 py-3 font-bold text-white"
+          >
+            ⛶ Ver mapa expandido
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1204,13 +1207,13 @@ function AtalhoPremium({ href, titulo, icone }: any) {
     <Link
       href={href}
       className="
-        h-36 rounded-2xl border border-blue-500/30
+        h-24 rounded-2xl border border-blue-500/30
         bg-slate-950/70 hover:bg-blue-950/50
         flex flex-col items-center justify-center gap-3
         text-center font-bold transition
       "
     >
-      <span className="text-5xl">{icone}</span>
+      <span className="text-3xl">{icone}</span>
       <span>{titulo}</span>
     </Link>
   );

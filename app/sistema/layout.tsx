@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import ModalAniversariantes from "@/components/ModalAniversariantes";
 import { supabase } from "@/lib/supabase";
 
 type UsuarioLogado = {
@@ -95,6 +96,7 @@ setVerificando(false);
       </div>
 
       <div className="text-white">
+        <ModalAniversariantes />
         {children}
 
         <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">

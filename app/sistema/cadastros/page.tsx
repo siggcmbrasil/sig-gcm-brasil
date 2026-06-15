@@ -7,6 +7,7 @@ const cards = [
   { titulo: "Guardas", icone: "👮", href: "/sistema/guardas" },
   { titulo: "Viaturas", icone: "🚓", href: "/sistema/viatura" },
   { titulo: "Equipamentos", icone: "🦺", href: "/sistema/equipamentos" },
+  { titulo: "Aniversariantes", icone: "🎂", href: "/sistema/aniversariantes" },
 ];
 
 export default function CadastrosPage() {

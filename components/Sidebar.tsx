@@ -207,7 +207,7 @@ shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
               <p className="text-xs text-slate-400">
                   Sistema Integrado das Guardas Municipais
             </p>
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-slate-1000">
                   suporte@siggcmbrasil.com
             </p>
             </div>
