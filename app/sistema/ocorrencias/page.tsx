@@ -122,6 +122,25 @@ export default function Ocorrencias() {
     carregarOcorrencias(municipioId);
   }
 
+  async function alterarStatus(
+  id: number,
+  status: string
+) {
+  const { error } = await supabase
+    .from("ocorrencias")
+    .update({
+      status,
+    })
+    .eq("id", id);
+
+  if (error) {
+    alert("Erro ao atualizar status.");
+    return;
+  }
+
+  carregarOcorrencias(municipioId);
+}
+
   useEffect(() => {
   carregarSistema();
 }, []);
@@ -474,6 +493,34 @@ function nomeGuarda(id: number | null) {
     className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
   >
     Excluir
+  </button>
+)}
+
+{ocorrencia.status === "Aberta" && (
+  <button
+    onClick={() =>
+      alterarStatus(
+        ocorrencia.id,
+        "Em andamento"
+      )
+    }
+    className="bg-purple-700 hover:bg-purple-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Aceitar
+  </button>
+)}
+
+{ocorrencia.status !== "Finalizada" && (
+  <button
+    onClick={() =>
+      alterarStatus(
+        ocorrencia.id,
+        "Finalizada"
+      )
+    }
+    className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs"
+  >
+    Finalizar
   </button>
 )}
                         </div>

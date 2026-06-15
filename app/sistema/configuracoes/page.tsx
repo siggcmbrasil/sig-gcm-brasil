@@ -30,6 +30,14 @@ export default function Configuracoes() {
   const [carregando, setCarregando] = useState(true);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [municipioPadraoId, setMunicipioPadraoId] = useState("");
+  const [nomeGuarda, setNomeGuarda] = useState("");
+  const [comandante, setComandante] = useState("");
+  const [brasaoPrefeitura, setBrasaoPrefeitura] = useState("");
+  const [brasaoGcm, setBrasaoGcm] = useState("");
+const [novoMunicipio, setNovoMunicipio] = useState("");
+const [novoEstado, setNovoEstado] = useState("BA");
+const [arquivoPrefeitura, setArquivoPrefeitura] = useState<File | null>(null);
+const [arquivoGcm, setArquivoGcm] = useState<File | null>(null);
 
   async function carregarAvisos() {
     setCarregando(true);
@@ -137,6 +145,103 @@ async function salvarMunicipioPadrao() {
   carregarConfiguracoes();
 }
 
+async function salvarDadosInstitucionais() {
+  const { error } = await supabase
+    .from("municipios")
+    .update({
+      nome_guarda: nomeGuarda,
+      comandante: comandante,
+      brasao_prefeitura: brasaoPrefeitura,
+      brasao_gcm: brasaoGcm,
+    })
+    .eq("id", Number(municipioPadraoId));
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao salvar.");
+    return;
+  }
+
+  alert("Dados institucionais salvos com sucesso!");
+}
+
+async function criarMunicipioCompleto() {
+  if (!novoMunicipio || !nomeGuarda || !comandante) {
+    alert("Preencha município, nome da Guarda e comandante.");
+    return;
+  }
+
+  const { data: municipioCriado, error: erroMunicipio } = await supabase
+    .from("municipios")
+    .insert([
+      {
+        nome: novoMunicipio,
+        estado: novoEstado,
+        ativo: true,
+        nome_guarda: nomeGuarda,
+        comandante,
+      },
+    ])
+    .select()
+    .single();
+
+  if (erroMunicipio) {
+    console.error(erroMunicipio);
+    alert("Erro ao criar município.");
+    return;
+  }
+
+  let urlPrefeitura = "";
+  let urlGcm = "";
+
+  if (arquivoPrefeitura) {
+    const caminho = `${municipioCriado.id}/brasao-prefeitura.png`;
+
+    await supabase.storage
+      .from("brasoes")
+      .upload(caminho, arquivoPrefeitura, { upsert: true });
+
+    const { data } = supabase.storage
+      .from("brasoes")
+      .getPublicUrl(caminho);
+
+    urlPrefeitura = data.publicUrl;
+  }
+
+  if (arquivoGcm) {
+    const caminho = `${municipioCriado.id}/brasao-gcm.png`;
+
+    await supabase.storage
+      .from("brasoes")
+      .upload(caminho, arquivoGcm, { upsert: true });
+
+    const { data } = supabase.storage
+      .from("brasoes")
+      .getPublicUrl(caminho);
+
+    urlGcm = data.publicUrl;
+  }
+
+  await supabase
+    .from("municipios")
+    .update({
+      brasao_prefeitura: urlPrefeitura,
+      brasao_gcm: urlGcm,
+    })
+    .eq("id", municipioCriado.id);
+
+  alert("Município criado com sucesso!");
+
+  setNovoMunicipio("");
+  setNovoEstado("BA");
+  setNomeGuarda("");
+  setComandante("");
+  setArquivoPrefeitura(null);
+  setArquivoGcm(null);
+
+  carregarConfiguracoes();
+}
+
   useEffect(() => {
   carregarAvisos();
   carregarConfiguracoes();
@@ -156,6 +261,72 @@ async function salvarMunicipioPadrao() {
           Gerenciamento dos avisos operacionais do dashboard.
         </p>
       </header>
+
+      <section className="card mb-6 max-w-2xl">
+  <h2 className="text-xl font-bold mb-4">
+    Cadastrar Novo Município
+  </h2>
+
+  <div className="space-y-4">
+    <input
+      className="input"
+      placeholder="Nome do Município"
+      value={novoMunicipio}
+      onChange={(e) => setNovoMunicipio(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="Estado"
+      value={novoEstado}
+      onChange={(e) => setNovoEstado(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="Nome da Guarda"
+      value={nomeGuarda}
+      onChange={(e) => setNomeGuarda(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="Nome do Comandante"
+      value={comandante}
+      onChange={(e) => setComandante(e.target.value)}
+    />
+
+    <div>
+      <label className="label">Brasão da Prefeitura</label>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) =>
+          setArquivoPrefeitura(e.target.files?.[0] || null)
+        }
+      />
+    </div>
+
+    <div>
+      <label className="label">Brasão da GCM</label>
+      <input
+        type="file"
+        accept="image/*"
+        onChange={(e) =>
+          setArquivoGcm(e.target.files?.[0] || null)
+        }
+      />
+    </div>
+
+    <button
+      type="button"
+      onClick={criarMunicipioCompleto}
+      className="btn-primary w-full"
+    >
+      Cadastrar Município
+    </button>
+  </div>
+</section>
 
       <section className="card mb-6 max-w-2xl">
   <h2 className="text-xl font-bold mb-4">Município Padrão</h2>
@@ -181,6 +352,52 @@ async function salvarMunicipioPadrao() {
   >
     Salvar Município Padrão
   </button>
+</section>
+
+<section className="card mb-6 max-w-2xl">
+  <h2 className="text-xl font-bold mb-4">
+    Dados Institucionais
+  </h2>
+
+  <div className="space-y-4">
+
+    <input
+      className="input"
+      placeholder="Nome da Guarda"
+      value={nomeGuarda}
+      onChange={(e) => setNomeGuarda(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="Nome do Comandante"
+      value={comandante}
+      onChange={(e) => setComandante(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="/brasoes/brasao-prefeitura.png"
+      value={brasaoPrefeitura}
+      onChange={(e) => setBrasaoPrefeitura(e.target.value)}
+    />
+
+    <input
+      className="input"
+      placeholder="/brasoes/brasao-gcm.png"
+      value={brasaoGcm}
+      onChange={(e) => setBrasaoGcm(e.target.value)}
+    />
+
+    <button
+  type="button"
+  onClick={salvarDadosInstitucionais}
+  className="btn-primary w-full"
+>
+  Salvar Dados Institucionais
+</button>
+
+  </div>
 </section>
 
       <section className="grid grid-cols-3 gap-4">
@@ -215,6 +432,7 @@ async function salvarMunicipioPadrao() {
             >
               Salvar Aviso
             </button>
+            
           </div>
         </div>
 

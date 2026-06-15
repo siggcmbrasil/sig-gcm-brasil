@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import Link from "next/link";
+
 
 type Ocorrencia = {
   id: number;
@@ -125,6 +127,15 @@ export default function Relatorios() {
         <p className="text-slate-400 text-sm md:text-base">
           Resumo operacional integrado da GCM Biritinga.
         </p>
+
+        <div className="mt-4">
+  <Link
+    href="/sistema/relatorios/plantao"
+    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition"
+  >
+    📄 Relatório Geral do Plantão
+  </Link>
+</div>
       </header>
 
       {carregando ? (

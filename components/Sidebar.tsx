@@ -26,6 +26,7 @@ type UsuarioLogado = {
 export default function Sidebar() {
   const [aberto, setAberto] = useState(false);
   const [menuCompacto, setMenuCompacto] = useState(false);
+  const [menuAberto, setMenuAberto] = useState("operacional");
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
 
   useEffect(() => {
@@ -180,233 +181,17 @@ shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
 )}
 
         <nav className={`p-3 space-y-2 flex-1 overflow-y-auto ${menuCompacto ? "items-center" : ""}`}>
-  <Link
-  onClick={fecharMenu}
-  href="/sistema"
-  className="menu-item bg-blue-600"
-  title="Dashboard"
->
-  <span>🏠</span>
-  {!menuCompacto && <span>Dashboard</span>}
-</Link>
+  <ItemMenu href="/sistema" icone="🏠" titulo="Dashboard" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
-  <Divisor />
+  <ItemMenu href="/sistema/operacional" icone="🚔" titulo="Operacional" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
-  {podeVer(todos) && (
-    <Link
-  onClick={fecharMenu}
-  href="/sistema/ocorrencias"
-  className="menu-item"
-  title="Ocorrências"
->
-      <span>🚨</span>
-      {!menuCompacto && <span>Ocorrências</span>}
-    </Link>
-  )}
+  <ItemMenu href="/sistema/cadastros" icone="👥" titulo="Cadastros" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
-  {podeVer(operacionais) && (
-    <Link onClick={fecharMenu} href="/sistema/offline" className="menu-item" title="Ocorrências Offline">
-      <span>📴</span>
-      {!menuCompacto && <span>Ocorrências Offline</span>}
-    </Link>
-  )}
+  <ItemMenu href="/sistema/escalas-menu" icone="📅" titulo="Escalas" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
-  {podeVer(operacionais) && (
-    <Link
-  onClick={fecharMenu}
-  href="/sistema/chamados"
-  className="menu-item"
-  title="Chamados"
->
-      <span>📞</span>
-      {!menuCompacto && <span>Chamados</span>}
-    </Link>
-  )}
+  <ItemMenu href="/sistema/gestao" icone="📊" titulo="Gestão" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
-  {podeVer(operacionais) && (
-    <Link onClick={fecharMenu} href="/sistema/patrulhamento" className="menu-item" title="Patrulhamento">
-      <span>🚔</span>
-      {!menuCompacto && <span>Patrulhamento</span>}
-    </Link>
-  )}
-
-  <Link onClick={fecharMenu} href="/sistema/legislacao" className="menu-item" title="Legislação">
-    <span>⚖️</span>
-    {!menuCompacto && <span>Legislação</span>}
-  </Link>
-
-  <Divisor />
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/pessoas" className="menu-item" title="Pessoas">
-      <span>👤</span>
-      {!menuCompacto && <span>Pessoas</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/veiculos" className="menu-item" title="Veículos">
-      <span>🚗</span>
-      {!menuCompacto && <span>Veículos</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/locais" className="menu-item" title="Cadastro Territorial">
-      <span>📍</span>
-      {!menuCompacto && <span>Cadastro Territorial</span>}
-    </Link>
-  )}
-
-  {podeVer(operacionais) && (
-    <Link onClick={fecharMenu} href="/sistema/ia" className="menu-item" title="IA Operacional">
-      <span>🤖</span>
-      {!menuCompacto && <span>IA Operacional</span>}
-    </Link>
-  )}
-
-  <Link onClick={fecharMenu} href="/sistema/legislacao/ia" className="menu-item" title="IA Jurídica">
-    <span>🤖</span>
-    {!menuCompacto && <span>IA Jurídica</span>}
-  </Link>
-
-  {podeVer(gestao) && (
-    <Link onClick={fecharMenu} href="/sistema/equipamentos" className="menu-item" title="Equipamentos">
-      <span>🦺</span>
-      {!menuCompacto && <span>Equipamentos</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/viatura" className="menu-item" title="Viatura">
-      <span>🚓</span>
-      {!menuCompacto && <span>Viatura</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/relatorios" className="menu-item" title="Relatórios">
-      <span>📋</span>
-      {!menuCompacto && <span>Relatórios</span>}
-    </Link>
-  )}
-
-  <Divisor />
-
-  {podeVer(todos) && (
-  <Link
-    onClick={fecharMenu}
-    href="/sistema/banco-horas"
-    className="menu-item" title="Banco de Horas"
-  >
-    <span>⏱️</span>
-    {!menuCompacto && <span>Banco de Horas</span>}
-  </Link>
-)}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/guardas" className="menu-item" title="Guardas">
-      <span>👮</span>
-      {!menuCompacto && <span>Guardas</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/escalas" className="menu-item" title="Escalas">
-      <span>📅</span>
-      {!menuCompacto && <span>Escalas</span>}
-    </Link>
-  )}
-
-  {podeVer(gestao) && (
-    <Link onClick={fecharMenu} className="menu-item" href="/sistema/escala-mensal" title="Escala Mensal">
-      <span>📅</span>
-      {!menuCompacto && <span>Escala Mensal</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/escalas/modelos" className="menu-item" title="Modelos de Escala">
-      <span>⚙️</span>
-      {!menuCompacto && <span>Modelos de Escala</span>}
-    </Link>
-  )}
-
-  <Link onClick={fecharMenu} href="/sistema/escalas/configuracao" className="menu-item" title="Configuração da Escala">
-    <span>🧭</span>
-    {!menuCompacto && <span>Configuração da Escala</span>}
-  </Link>
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/escalas/permutas" className="menu-item" title="Permutas de Plantão">
-      <span>🔁</span>
-      {!menuCompacto && <span>Permutas de Plantão</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/guarnicoes" className="menu-item" title="">
-      <span>👥</span>
-      {!menuCompacto && <span>Guarnições</span>}
-    </Link>
-  )}
-
-  {podeVer(comando) && (
-    <Link onClick={fecharMenu} href="/sistema/estatisticas" className="menu-item" title="Estatísticas">
-      <span>📊</span>
-      {!menuCompacto && <span>Estatísticas</span>}
-    </Link>
-  )}
-
-  {podeVer(todos) && (
-    <Link onClick={fecharMenu} href="/sistema/historico" className="menu-item" title="Arquivo">
-      <span>🗂️</span>
-      {!menuCompacto && <span>Arquivo</span>}
-    </Link>
-  )}
-
-  {podeVer(["ADMIN", "DESENVOLVEDOR"]) && (
-    <Link onClick={fecharMenu} href="/sistema/usuarios" className="menu-item" title="Usuários">
-      <span>👤</span>
-      {!menuCompacto && <span>Usuários</span>}
-    </Link>
-  )}
-
-  {usuario?.perfil === "DESENVOLVEDOR" && (
-    <Link onClick={fecharMenu} href="/sistema/desenvolvedor" className="menu-item" title="Painel Desenvolvedor">
-      <span>🧠</span>
-      {!menuCompacto && <span>Painel Desenvolvedor</span>}
-    </Link>
-  )}
-
-  {usuario?.perfil === "DESENVOLVEDOR" && (
-  <Link
-    onClick={fecharMenu}
-    href="/sistema/municipios"
-    className="menu-item" title="Municípios"
-  >
-    <span>🏛️</span>
-    {!menuCompacto && <span>Municípios</span>}
-  </Link>
-)}
-  <Divisor />
-
-  <Link onClick={fecharMenu} href="/sistema/sobre" className="menu-item" title="Sobre o Sistema">
-    <span>ℹ️</span>
-    {!menuCompacto && <span>Sobre o Sistema</span>}
-  </Link>
-
-  <Link onClick={fecharMenu} href="/sistema/perfil" className="menu-item" title="Meu Perfil">
-    <span>👤</span>
-    {!menuCompacto && <span>Meu Perfil</span>}
-  </Link>
-
-  {podeVer(["ADMIN", "DESENVOLVEDOR"]) && (
-    <Link onClick={fecharMenu} href="/sistema/configuracoes" className="menu-item" title="Configurações">
-      <span>⚙️</span>
-      {!menuCompacto && <span>Configurações</span>}
-    </Link>
-  )}
+  <ItemMenu href="/sistema/administracao" icone="⚙️" titulo="Administração" fecharMenu={fecharMenu} compacto={menuCompacto} />
 </nav>
 
         <div className="p-4 border-t border-slate-800">
@@ -446,6 +231,61 @@ shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
   </button>
 </div>
     </>
+  );
+}
+
+function GrupoMenu({
+  titulo,
+  icone,
+  aberto,
+  onClick,
+  compacto,
+}: {
+  titulo: string;
+  icone: string;
+  aberto: boolean;
+  onClick: () => void;
+  compacto: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={titulo}
+      className="menu-item w-full flex items-center justify-between"
+    >
+      <span>
+        {icone} {!compacto && titulo}
+      </span>
+
+      {!compacto && <span>{aberto ? "▼" : "▶"}</span>}
+    </button>
+  );
+}
+
+function ItemMenu({
+  href,
+  icone,
+  titulo,
+  fecharMenu,
+  compacto,
+}: {
+  href: string;
+  icone: string;
+  titulo: string;
+  fecharMenu: () => void;
+  compacto: boolean;
+}) {
+  return (
+    <Link
+      onClick={fecharMenu}
+      href={href}
+      className="menu-item ml-3 text-sm"
+      title={titulo}
+    >
+      <span>{icone}</span>
+      {!compacto && <span>{titulo}</span>}
+    </Link>
   );
 }
 

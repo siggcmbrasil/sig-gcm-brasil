@@ -12,33 +12,39 @@ type OcorrenciaMapa = {
   hora?: string;
   locais?: any;
 };
-
-const iconOcorrencia = L.divIcon({
-  html: "🚨",
-  className: "text-3xl",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+const iconBase = L.divIcon({
+  html: `<span class="map-dot map-dot-gray"></span>`,
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
-const iconViatura = L.divIcon({
-  html: "🚓",
-  className: "text-3xl",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+const iconOcorrencia = L.divIcon({
+  html: `<span class="map-dot map-dot-red"></span>`,
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
 const iconChamado = L.divIcon({
-  html: "📞",
-  className: "text-3xl",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+  html: `<span class="map-dot map-dot-blue"></span>`,
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
-const iconBase = L.divIcon({
-  html: "🏢",
-  className: "text-3xl",
-  iconSize: [32, 32],
-  iconAnchor: [16, 16],
+const iconViatura = L.divIcon({
+  html: `<span class="map-dot map-dot-green"></span>`,
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
+});
+
+const iconPatrulhamento = L.divIcon({
+  html: `<span class="map-dot map-dot-purple"></span>`,
+  className: "",
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
 export default function MapaOperacional({

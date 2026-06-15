@@ -389,6 +389,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   data={dataBR}
   hora={horaBR}
   avisos={avisos}
+  usuarioLogado={usuarioLogado}
   mostrarNotificacoes={mostrarNotificacoes}
   setMostrarNotificacoes={setMostrarNotificacoes}
   mostrarMensagens={mostrarMensagens}
@@ -418,11 +419,11 @@ const aniversariantesHoje = guardas.filter((g) => {
     </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5">
-      <div className="xl:col-span-7 xl:row-span-2">
+      <div className="xl:col-span-9 xl:row-span-2">
         <PainelMapa ocorrencias={ocorrencias} />
       </div>
 
-      <div className="xl:col-span-3">
+      <div className="xl:col-span-2">
         <PainelGuarnicao
           guarnicao={guarnicaoPlantaoHoje}
           comandante={comandantePlantao?.nome || "Não informado"}
@@ -437,38 +438,38 @@ const aniversariantesHoje = guardas.filter((g) => {
         />
       </div>
 
-      <div className="xl:col-span-2">
-        <div className="painel-premium p-5 h-full">
-          <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
+      <div className="xl:col-span-9">
+  <PainelAlertas avisos={avisos} />
+</div>
 
-          <div className="mt-4 space-y-4">
-            {aniversariantesHoje.length === 0 ? (
-              <p className="text-slate-400 text-sm">Nenhum aniversariante hoje.</p>
-            ) : (
-              aniversariantesHoje.slice(0, 3).map((guarda) => (
-                <div key={guarda.id} className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-full bg-slate-800 border border-blue-500/40 flex items-center justify-center">
-                    👮
-                  </div>
+<div className="xl:col-span-2">
+  <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
+</div>
 
-                  <div>
-                    <p className="font-bold text-white text-sm">{guarda.nome}</p>
-                    <p className="text-xs text-slate-400">Aniversariante do dia</p>
-                  </div>
-                </div>
-              ))
-            )}
+<div className="xl:col-span-2">
+  <div className="painel-premium p-4">
+    <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
+
+    <div className="mt-3 space-y-3">
+      {aniversariantesHoje.length === 0 ? (
+        <p className="text-slate-400 text-sm">Nenhum aniversariante hoje.</p>
+      ) : (
+        aniversariantesHoje.slice(0, 3).map((guarda) => (
+          <div key={guarda.id} className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-slate-800 border border-blue-500/40 flex items-center justify-center">
+              👮
+            </div>
+
+            <div>
+              <p className="font-bold text-white text-sm">{guarda.nome}</p>
+              <p className="text-xs text-slate-400">Aniversariante do dia</p>
+            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="xl:col-span-3">
-        <PainelAlertas avisos={avisos} />
-      </div>
-
-      <div className="xl:col-span-2">
-        <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
-      </div>
+        ))
+      )}
+    </div>
+  </div>
+</div>
     </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-5">
@@ -561,6 +562,7 @@ function PainelUltimasOcorrencias({
 function PainelTopo({
   municipio,
   avisos,
+  usuarioLogado,
   mostrarNotificacoes,
   setMostrarNotificacoes,
   mostrarMensagens,
@@ -581,22 +583,22 @@ function PainelTopo({
 </h1>
 
 <p className="text-slate-400">
-  Sistema Integrado de Gestão
+  CENTRO OPERACIONAL
 </p>
 
           <p className="text-sm text-white font-bold mt-1">
-            📍 {municipio ? `${municipio.nome} - ${municipio.estado}` : "Biritinga - BA"}
+            📍 {municipio ? `${municipio.nome} - ${municipio.estado}` : "📍 Biritinga - BA"}
           </p>
         </div>
       </div>
 
-      <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[620px] shadow-[0_0_25px_rgba(0,80,255,.12)]">
+      <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[450px] shadow-[0_0_25px_rgba(0,80,255,.12)]">
         <span className="text-slate-400">🔍</span>
 
         <input
-          placeholder="Buscar no sistema..."
-          className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
-        />
+  placeholder="Buscar no sistema..."
+  className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
+/>
 
         <span className="text-xs text-slate-400 border border-slate-700 rounded-lg px-3 py-1">
           Ctrl + K
@@ -632,14 +634,21 @@ function PainelTopo({
   </div>
 
   <div className="flex-1 min-w-0">
-    <p className="font-bold text-white text-base leading-tight truncate">
-      CMT João Silva
-    </p>
+  <p className="font-bold text-white text-base leading-tight truncate">
+    {usuarioLogado?.nome || "Usuário"}
+  </p>
 
-    <p className="text-slate-400 text-xs">
-      Comandante
-    </p>
+  <p className="text-slate-400 text-xs">
+    {usuarioLogado?.perfil || "CONSULTA"}
+  </p>
+
+  <div className="flex items-center gap-1 mt-1">
+    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+    <span className="text-green-400 text-xs font-bold">
+      ONLINE
+    </span>
   </div>
+</div>
 
   <span className="text-slate-400 shrink-0">
     ⌄
@@ -834,31 +843,30 @@ function PainelGuarnicao({
   membros: string[];
 }) {
   return (
-    <div className="painel-premium p-6 min-h-[330px] border border-yellow-600/70">
+    <div className="painel-premium p-4 min-h-[220px] border border-yellow-600/70">
       <TituloPainel icone="🚔" titulo="Guarnição de Serviço" />
 
       <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40">
 
         <div
   className="
-    absolute top-4 right-4
+    absolute top-2 right-2
     bg-green-500/15
     border border-green-500/50
     backdrop-blur-md
     rounded-xl
-    px-4 py-2
+    px-2 py-1
     text-center
   "
 >
-          <p className="text-green-400 font-black text-lg">● EM SERVIÇO</p>
-          <p className="text-xs text-white">Plantão Ativo</p>
+          <p className="text-green-400 font-black text-sm">ATIVO</p>
         </div>
 
-        <h2 className="text-3xl font-black text-green-400 mb-5 pr-32 leading-none">
-          {guarnicao}
-        </h2>
+        <h2 className="text-3xl font-black text-green-400 mb-3">
+  {guarnicao}
+</h2>
 
-        <div className="grid md:grid-cols-3 gap-4 mb-5">
+        <div className="grid grid-cols-2 gap-2 mb-3">
           <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
             <p className="text-slate-400 text-sm">👮 Comandante</p>
             <p className="font-bold">
@@ -873,29 +881,23 @@ function PainelGuarnicao({
             </p>
           </div>
 
-          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
-            <p className="text-slate-400 text-sm">👥 Efetivo</p>
-            <p className="font-bold">
-              {membros.length} integrante(s)
-            </p>
           </div>
-        </div>
 
         <div className="border-t border-slate-700 pt-4">
-          <h3 className="text-blue-400 text-lg font-black mb-3">
-            👥 Equipe de Serviço
-          </h3>
+          <h3 className="text-blue-400 font-bold mb-2">
+  👥 Equipe
+</h3>
 
           {membros.length === 0 ? (
             <div className="bg-slate-900/50 rounded-xl p-4 text-slate-400">
               Nenhum integrante cadastrado.
             </div>
           ) : (
-            <div className="grid md:grid-cols-2 gap-2">
+            <div className="space-y-2">
               {membros.map((nome) => (
                 <div
                   key={nome}
-                  className="bg-slate-900/50 border border-slate-800 rounded-xl p-3"
+                  className="bg-slate-900/50 border border-slate-800 rounded-lg p-2 text-sm"
                 >
                   👮 {nome}
                 </div>
@@ -904,13 +906,7 @@ function PainelGuarnicao({
           )}
         </div>
 
-        <div className="border-t border-slate-700 mt-5 pt-4">
-          <p className="text-blue-400 font-bold text-center">
-            🛡️ Guarnição operacional destacada automaticamente pela escala ativa
-          </p>
-        </div>
-
-      </div>
+         </div>
     </div>
   );
 }
@@ -919,7 +915,7 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
   
 
   return (
-    <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
+    <div className="painel-premium p-3 h-[70vh] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
      <div className="flex gap-4 text-xs font-semibold mb-2">

@@ -15,6 +15,7 @@ type Patrulhamento = {
   latitude: string | null;
   longitude: string | null;
   observacao: string | null;
+  status: string | null;
 };
 
 type Guarda = {
@@ -70,6 +71,8 @@ export default function Patrulhamento() {
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
 const podeEditar = perfilUsuario !== "CONSULTA";
+
+
 
   async function carregarPatrulhamentos() {
     setCarregando(true);
@@ -182,6 +185,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
         latitude,
         longitude,
         observacao,
+        status: "EM_ANDAMENTO",
       },
     ]);
 
@@ -228,6 +232,23 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     carregarPatrulhamentos();
   }
+
+async function finalizarPatrulhamento(id: number) {
+  console.log("ID RECEBIDO:", id);
+
+  const { data, error } = await supabase
+    .from("patrulhamentos")
+    .update({
+      status: "FINALIZADO",
+    })
+    .eq("id", id)
+    .select();
+
+  console.log("RESULTADO:", data);
+  console.log("ERRO:", error);
+
+  carregarPatrulhamentos();
+}
 
 async function carregarPlantaoAutomatico() {
   const { data: configSistema } = await supabase
@@ -335,6 +356,22 @@ async function carregarPlantaoAutomatico() {
 
     return texto.includes(busca.toLowerCase());
   });
+
+  function StatusPatrulhamento({ status }: { status: string | null }) {
+  if (status === "FINALIZADO") {
+    return (
+      <span className="bg-green-700 text-green-100 px-3 py-2 rounded text-xs inline-block">
+        Finalizado
+      </span>
+    );
+  }
+
+  return (
+    <span className="bg-yellow-600 text-yellow-100 px-3 py-2 rounded text-xs inline-block">
+      Em andamento
+    </span>
+  );
+}
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -562,9 +599,7 @@ async function carregarPlantaoAutomatico() {
                         <h3 className="text-xl font-bold">{item.local}</h3>
                       </div>
 
-                      <span className="bg-green-700 text-green-100 px-3 py-2 rounded text-xs">
-                        Ronda
-                      </span>
+                      <StatusPatrulhamento status={item.status} />
                     </div>
 
                     <div className="text-slate-300 space-y-1">
@@ -604,6 +639,16 @@ async function carregarPlantaoAutomatico() {
                       )}
                     </div>
 
+                    {podeEditar && item.status !== "FINALIZADO" && (
+  <button
+    type="button"
+    onClick={() => finalizarPatrulhamento(item.id)}
+    className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold"
+  >
+    Finalizar Patrulhamento
+  </button>
+)}
+
                     {podeEditar && (
   <button
     type="button"
@@ -626,6 +671,7 @@ async function carregarPlantaoAutomatico() {
                       <th className="text-left py-3">Local</th>
                       <th className="text-left py-3">Viatura</th>
                       <th className="text-left py-3">Guarda</th>
+                      <th className="text-left py-3">Status</th>
                       <th className="text-right py-3">Ações</th>
                     </tr>
                   </thead>
@@ -645,17 +691,35 @@ async function carregarPlantaoAutomatico() {
 
                         <td>{item.guarda || "-"}</td>
 
+                        <td>
+  <StatusPatrulhamento status={item.status} />
+</td>
+
                         <td className="text-right">
-                          {podeEditar && (
-  <button
-    type="button"
-    onClick={() => excluirPatrulhamento(item.id)}
-    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-  >
-    Excluir
-  </button>
-)}
-                        </td>
+  <div className="flex justify-end gap-2">
+
+    {podeEditar && item.status !== "FINALIZADO" && (
+      <button
+        type="button"
+        onClick={() => finalizarPatrulhamento(item.id)}
+        className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs"
+      >
+        Finalizar
+      </button>
+    )}
+
+    {podeEditar && (
+      <button
+        type="button"
+        onClick={() => excluirPatrulhamento(item.id)}
+        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+      >
+        Excluir
+      </button>
+    )}
+
+  </div>
+</td>
                       </tr>
                     ))}
                   </tbody>
