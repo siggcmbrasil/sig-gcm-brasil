@@ -25,18 +25,12 @@ type Ocorrencia = {
   protocolo: string;
   tipo: string;
   local: string;
-  bairro: string | null;
-  data: string;
-  hora: string;
+  bairro?: string;
+  data?: string;
+  hora?: string;
   status: string;
   local_id?: number;
-
-  locais?: {
-    id: number;
-    nome: string;
-    latitude: number;
-    longitude: number;
-  };
+  locais?: any;
 };
 
 type Guarda = {
@@ -248,7 +242,11 @@ export default function Dashboard() {
     setMunicipioAtivo(municipioData || null);
     setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
     setConfigEscala((configEscalaData as ConfigEscalaOperacional) || null);
+    
     console.log("OCORRENCIAS:", ocorrenciasData);
+    
+    setOcorrencias((ocorrenciasData as Ocorrencia[]) || []);
+
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
     setAvisos(avisosData || []);

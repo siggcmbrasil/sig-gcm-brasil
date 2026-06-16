@@ -1,11 +1,11 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "br.com.gcm.biritinga",
+  appId: "com.siggcmbrasil.app",
   appName: "SIG-GCM Brasil",
-  webDir: "public",
+  webDir: "out",
   server: {
-    url: "https://sig-gcm-biritinga-7z5f.vercel.app",
+    url: "https://siggcmbrasil.com.br/login",
     cleartext: false,
   },
 };

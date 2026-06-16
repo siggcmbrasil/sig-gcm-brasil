@@ -10,8 +10,19 @@ type OcorrenciaMapa = {
   local: string;
   status: string;
   hora?: string;
+  data?: string;
   locais?: any;
 };
+
+type ViaturaMapa = {
+  id: number;
+  prefixo: string;
+  modelo?: string;
+  status?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
 const iconBase = L.divIcon({
   html: `<span class="map-dot map-dot-gray"></span>`,
   className: "",
@@ -19,61 +30,56 @@ const iconBase = L.divIcon({
   iconAnchor: [9, 9],
 });
 
-const iconOcorrencia = L.divIcon({
-  html: `<span class="map-dot map-dot-red"></span>`,
+const iconVermelho = L.divIcon({
+  html: `<div style="width:18px;height:18px;background:red;border:3px solid white;border-radius:50%;box-shadow:0 0 12px black;"></div>`,
   className: "",
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
 
-const iconChamado = L.divIcon({
-  html: `<span class="map-dot map-dot-blue"></span>`,
+const iconAmarelo = L.divIcon({
+  html: `<span class="map-dot map-dot-yellow"></span>`,
   className: "",
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
 
-const iconViatura = L.divIcon({
+const iconVerde = L.divIcon({
   html: `<span class="map-dot map-dot-green"></span>`,
   className: "",
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
 
-const iconPatrulhamento = L.divIcon({
-  html: `<span class="map-dot map-dot-purple"></span>`,
-  className: "",
-  iconSize: [18, 18],
-  iconAnchor: [9, 9],
-});
+function obterIconeOcorrencia(status: string) {
+  if (status === "Finalizada") return iconVerde;
+  if (status === "Em andamento") return iconAmarelo;
+  return iconVermelho;
+}
 
 export default function MapaOperacional({
   ocorrencias,
+  viaturas = [],
 }: {
   ocorrencias: OcorrenciaMapa[];
+  viaturas?: ViaturaMapa[];
 }) {
   const listaOcorrencias = ocorrencias || [];
 
-  const ocorrenciasComCoordenadas = listaOcorrencias
-    .map((o) => {
-      const localRelacionado = Array.isArray(o.locais)
-        ? o.locais[0]
-        : o.locais;
+  const ocorrenciasComCoordenadas = listaOcorrencias.map((o) => {
+    const localRelacionado = Array.isArray(o.locais)
+      ? o.locais[0]
+      : o.locais;
 
-      return {
-        ...o,
-        localRelacionado,
-      };
-    })
-    .filter(
-      (o) =>
-        o.localRelacionado &&
-        o.localRelacionado.latitude !== null &&
-        o.localRelacionado.longitude !== null
-    );
-
-  console.log("OCORRENCIAS RECEBIDAS NO MAPA:", listaOcorrencias);
-  console.log("OCORRENCIAS COM COORDENADAS:", ocorrenciasComCoordenadas);
+  
+    return {
+      ...o,
+      localRelacionado,
+    };
+  });
+  const viaturasComCoordenadas = viaturas.filter(
+  (v) => v.latitude && v.longitude
+);
 
   return (
     <MapContainer
@@ -92,33 +98,80 @@ export default function MapaOperacional({
         attribution="OpenStreetMap"
       />
 
-      <Marker position={[-11.620667881728922, -38.8051351858178]} icon={iconBase}>
-        <Popup>🏢 Base GCM Biritinga</Popup>
+      <Marker
+        position={[-11.620667881728922, -38.8051351858178]}
+        icon={iconBase}
+      >
+        <Popup>Base GCM Biritinga</Popup>
       </Marker>
 
-      {ocorrenciasComCoordenadas.map((o) => (
-        <Marker
-          key={o.id}
-          position={[
-            Number(o.localRelacionado.latitude),
-            Number(o.localRelacionado.longitude),
-          ]}
-          icon={iconOcorrencia}
-        >
-          <Popup>
-            <strong>🚨 {o.tipo}</strong>
-            <br />
-            Protocolo: {o.protocolo || "Sem protocolo"}
-            <br />
-            Local: {o.localRelacionado.nome || o.local}
-            <br />
-            Status: {o.status}
-            <br />
-            Hora: {o.hora || "--:--"}
-          </Popup>
-        </Marker>
-      ))}
+      {ocorrenciasComCoordenadas.map((o) => {
+        if (!o.localRelacionado) return null;
 
-          </MapContainer>
+        {viaturasComCoordenadas.map((v) => (
+  <Marker
+    key={`viatura-${v.id}`}
+    position={[
+      Number(v.latitude),
+      Number(v.longitude),
+    ]}
+    icon={iconVerde}
+  >
+    <Popup>
+      <div style={{ minWidth: "220px" }}>
+        <strong>🚓 {v.prefixo}</strong>
+
+        <hr style={{ margin: "8px 0" }} />
+
+        <div>Modelo: {v.modelo || "-"}</div>
+        <div>Status: {v.status || "-"}</div>
+      </div>
+    </Popup>
+  </Marker>
+))}
+        return (
+          <Marker
+            key={o.id}
+            position={[
+              Number(o.localRelacionado.latitude),
+              Number(o.localRelacionado.longitude),
+            ]}
+            icon={obterIconeOcorrencia(o.status)}
+          >
+            <Popup>
+  <div style={{ minWidth: "240px" }}>
+    <strong>🚨 {o.tipo}</strong>
+
+    <hr style={{ margin: "8px 0" }} />
+
+    <div>📄 {o.protocolo || "Sem protocolo"}</div>
+    <div>📍 {o.localRelacionado.nome || o.local}</div>
+    <div>📌 {o.status}</div>
+    <div>⏰ {o.hora || "--:--"}</div>
+
+    {o.data && <div>📅 {o.data}</div>}
+
+    <a
+      href={`/sistema/ocorrencias/${o.id}`}
+      style={{
+        display: "block",
+        marginTop: "10px",
+        background: "#2563eb",
+        color: "#fff",
+        textAlign: "center",
+        padding: "8px",
+        borderRadius: "8px",
+        textDecoration: "none",
+        fontWeight: "bold",
+      }}
+    >
+      Abrir Ocorrência
+    </a>
+  </div>
+</Popup>
+          </Marker>
+        );
+      })}
+    </MapContainer>
   );
 }

@@ -17,6 +17,7 @@ const modulos = [
   { titulo: "Relatórios", icone: "📊", href: "/sistema/relatorios", grupo: "Gestão", cor: "from-yellow-500 to-yellow-950" },
   { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios", grupo: "Gestão", cor: "from-emerald-500 to-emerald-950" },
   { titulo: "Perfil", icone: "👤", href: "/sistema/perfil", grupo: "Tudo", cor: "from-slate-600 to-slate-950" },
+  { titulo: "GPS", icone: "📍", href: "/sistema/localizacao", grupo: "Operacional", cor: "from-cyan-500 to-cyan-950"},
 ];
 
 const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];

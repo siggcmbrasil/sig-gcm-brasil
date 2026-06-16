@@ -11,22 +11,34 @@ const MapaOperacional = dynamic(
 
 export default function MapaOperacionalPage() {
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
+  const [viaturas, setViaturas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
 
   async function carregarDados() {
     setCarregando(true);
 
-    const { data, error } = await supabase
+   const { data, error } = await supabase
   .from("ocorrencias")
-  .select("*")
+  .select(`
+    *,
+    locais:local_id (
+      id,
+      nome,
+      latitude,
+      longitude
+    )
+  `)
   .order("id", { ascending: false });
 
+  const { data: viaturasData } = await supabase
+  .from("viaturas")
+  .select("*");
+
 console.log("ERRO MAPA:", error);
-console.log("DADOS MAPA:", data);
-
-setOcorrencias(data || []);
-
-console.log("DADOS DO MAPA OPERACIONAL:", data);
+console.log(
+  "PRIMEIRA OCORRENCIA:",
+  JSON.stringify(data?.[0], null, 2)
+);
 
     setOcorrencias(data || []);
     setCarregando(false);
@@ -66,7 +78,10 @@ console.log("DADOS DO MAPA OPERACIONAL:", data);
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 h-[calc(100vh-160px)]">
           <section className="xl:col-span-9 painel-premium p-3 min-h-[500px]">
-            <MapaOperacional ocorrencias={ocorrencias} />
+            <MapaOperacional
+  ocorrencias={ocorrencias}
+  viaturas={viaturas}
+/>
           </section>
 
           <aside className="xl:col-span-3 space-y-4 overflow-y-auto">
