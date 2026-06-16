@@ -387,7 +387,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   />
 
   <div className="relative z-10">
-      <div className="p-4 md:p-5 pb-6 space-y-4">
+      <div className="p-3 md:p-4 pb-4 space-y-3">
         <PainelTopo
   municipio={municipioAtivo}
   guarnicao={guarnicaoPlantaoHoje}
@@ -426,55 +426,55 @@ const aniversariantesHoje = guardas.filter((g) => {
       <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
     </section>
 
-    <section className="grid grid-cols-1 xl:grid-cols-12 gap-2 mb-2">
-      <div className="xl:col-span-8 xl:row-span-2">
-        <PainelMapa ocorrencias={ocorrencias} />
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
+  <div className="xl:col-span-8">
+    <PainelMapa ocorrencias={ocorrencias} />
+  </div>
+
+  <div className="xl:col-span-4 flex flex-col justify-between gap-3">
+    <PainelGuarnicao
+      guarnicao={guarnicaoPlantaoHoje}
+      comandante={comandantePlantao?.nome || "Não informado"}
+      viatura={viaturaPlantao?.prefixo || "Não definida"}
+      membros={membrosGuarnicaoAtual.map((membro) => {
+        const guarda = guardas.find(
+          (g) => Number(g.id) === Number(membro.guarda_id)
+        );
+
+        return guarda?.nome || "Guarda não encontrado";
+      })}
+    />
+
+    <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
+  </div>
+</section>
+
+<section className="grid grid-cols-1 xl:grid-cols-12 gap-3">
+  <div className="xl:col-span-4 space-y-3">
+    <PainelAlertas avisos={avisos} />
+
+    <div className="painel-premium p-3">
+      <TituloPainel icone="⚡" titulo="Ações Rápidas" />
+
+      <div className="grid grid-cols-5 gap-2 mt-3">
+        <AtalhoPremium href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" icone="🚨" />
+        <AtalhoPremium href="/sistema/chamados" titulo="Novo Chamado" icone="📞" />
+        <AtalhoPremium href="/sistema/patrulhamento" titulo="Patrulhamento" icone="🚔" />
+        <AtalhoPremium href="/sistema/relatorios" titulo="Relatório" icone="📄" />
+        <AtalhoPremium href="/sistema/ia" titulo="IA Operacional" icone="🤖" />
       </div>
+    </div>
+  </div>
 
-      <div className="xl:col-span-4 flex flex-col gap-3">
-  <PainelGuarnicao
-    guarnicao={guarnicaoPlantaoHoje}
-    comandante={comandantePlantao?.nome || "Não informado"}
-    viatura={viaturaPlantao?.prefixo || "Não definida"}
-    membros={membrosGuarnicaoAtual.map((membro) => {
-      const guarda = guardas.find(
-        (g) => Number(g.id) === Number(membro.guarda_id)
-      );
-
-      return guarda?.nome || "Guarda não encontrado";
-    })}
-  />
-
-  <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
-</div>
-      <div className="xl:col-span-8">
-  <PainelAlertas avisos={avisos} />
-</div>
-
-   </section>
-
-    <section className="grid grid-cols-1 xl:grid-cols-12 gap-2">
-      <div className="xl:col-span-5 painel-premium p-5">
-        <TituloPainel icone="⚡" titulo="Ações Rápidas" />
-
-        <div className="grid grid-cols-5 gap-3 mt-4">
-          <AtalhoPremium href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" icone="🚨" />
-          <AtalhoPremium href="/sistema/chamados" titulo="Novo Chamado" icone="📞" />
-          <AtalhoPremium href="/sistema/patrulhamento" titulo="Patrulhamento" icone="🚔" />
-          <AtalhoPremium href="/sistema/relatorios" titulo="Relatório" icone="📄" />
-          <AtalhoPremium href="/sistema/ia" titulo="IA Operacional" icone="🤖" />
-        </div>
-      </div>
-
-      <div className="xl:col-span-7">
-        <PainelResumo
-          finalizadas={finalizadas}
-          abertas={abertas}
-          guardasServico={guardasServico}
-          guardasFolga={guardasFolga}
-        />
-      </div>
-    </section>
+  <div className="xl:col-span-8">
+    <PainelResumo
+      finalizadas={finalizadas}
+      abertas={abertas}
+      guardasServico={guardasServico}
+      guardasFolga={guardasFolga}
+    />
+  </div>
+</section>
   </>
 )}
 
@@ -500,7 +500,7 @@ function PainelUltimasOcorrencias({
   ocorrencias: Ocorrencia[];
 }) {
   return (
-    <div className="painel-premium p-3 h-full">
+    <div className="painel-premium p-3 flex-1">
       <TituloPainel icone="📋" titulo="Últimas Ocorrências" />
 
       <div className="mt-4 space-y-3">
@@ -836,10 +836,10 @@ function PainelGuarnicao({
   membros: string[];
 }) {
   return (
-    <div className="painel-premium p-3 min-h-[180px] border border-yellow-600/70">
+    <div className="painel-premium p-3 h-full border border-yellow-600/70">
       <TituloPainel icone="🚔" titulo="Guarnição de Serviço" />
 
-      <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40">
+      <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40 h-full">
 
         <div
   className="
@@ -906,7 +906,7 @@ function PainelGuarnicao({
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
   return (
-    <div className="painel-premium p-3 h-[370px] relative overflow-hidden">
+    <div className="painel-premium p-3 h-[500px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
       <div className="flex flex-wrap gap-4 text-xs font-semibold mb-3">
@@ -1038,7 +1038,7 @@ function PainelViaturas({
       : [];
 
   return (
-    <div className="painel-premium p-5">
+    <div className="painel-premium p-3">
       <TituloPainel icone="🚓" titulo="Viaturas em Serviço" />
 
       <div className="mt-4 space-y-3">

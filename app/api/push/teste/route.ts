@@ -3,7 +3,7 @@ import webpush from "web-push";
 import { supabase } from "@/lib/supabase";
 
 webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT!,
+  process.env.VAPID_SUBJECT || "mailto:siggcmbrasil@gmail.com",
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
   process.env.VAPID_PRIVATE_KEY!
 );
