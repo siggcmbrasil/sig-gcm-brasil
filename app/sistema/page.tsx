@@ -554,16 +554,16 @@ function PainelTopo({
   setBusca,
 }: any) {
   return (
-    <header className="h-24 rounded-3xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
+    <header className="h-20 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
       <div className="flex items-center gap-4 min-w-[300px]">
         <img
   src="/brasao-gcm-v2.png"
   alt="SIG"
-  className="w-16 h-16"
+  className="w-12 h-12"
 />
 
         <div>
-          <h1 className="text-4xl font-black text-white">
+          <h1 className="text-3xl font-black text-white">
   SIG-GCM BRASIL
 </h1>
 

@@ -36,6 +36,11 @@ const cards = [
     icone: "📚",
     href: "/sistema/legislacao/ia",
   },
+  {
+  titulo: "Plano de Rondas",
+  icone: "🚔",
+  href: "/sistema/rondas",
+},
 ];
 
 export default function OperacionalPage() {

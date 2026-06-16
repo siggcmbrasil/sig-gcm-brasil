@@ -205,20 +205,27 @@ console.log("ERROR:", error);
     .eq("email", data.user.email)
     .single();
 
-  if (usuarioSistema?.perfil === "DESENVOLVEDOR") {
-  localStorage.setItem(
-  "usuarioLogado",
-  JSON.stringify({
-    id: data.user.id,
+    
+  if (usuarioSistema?.perfil?.toUpperCase() === "DESENVOLVEDOR") {
+  console.log("USUARIO SISTEMA:", usuarioSistema);
+
+  const dadosUsuario = {
+    id: usuarioSistema.id,
+    auth_id: data.user.id,
     nome: usuarioSistema.nome || data.user.email,
-    matricula: "",
     email: data.user.email,
     perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
     status: usuarioSistema.status || "Ativo",
     municipio_id: usuarioSistema.municipio_id || 1,
     foto_url: usuarioSistema.foto_url || "",
-  })
-);
+  };
+
+  console.log("SALVANDO LOCALSTORAGE:", dadosUsuario);
+
+  localStorage.setItem(
+    "usuarioLogado",
+    JSON.stringify(dadosUsuario)
+  );
 
   router.push("/sistema");
   return;
@@ -247,12 +254,13 @@ if (!usuarioSistema) {
     "usuarioLogado",
     JSON.stringify({
       id: usuarioSistema.id,
-      nome: usuarioSistema.nome || data.user.email,
-      matricula: "",
-      email: data.user.email,
-      perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
-      status: usuarioSistema.status || "Ativo",
-      municipio_id: usuarioSistema.municipio_id || 1,
+auth_id: data.user.id,
+nome: usuarioSistema.nome || data.user.email,
+email: data.user.email,
+perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
+status: usuarioSistema.status || "Ativo",
+municipio_id: usuarioSistema.municipio_id || 1,
+foto_url: usuarioSistema.foto_url || "",
     })
   );
 

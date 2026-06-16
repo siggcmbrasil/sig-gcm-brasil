@@ -39,15 +39,21 @@ export default function SistemaLayout({
   .single();
 
 const usuarioAtual = {
-  id: data.user.id,
+  id: usuarioSistema?.id,
+  auth_id: data.user.id,
   nome: usuarioSistema?.nome || data.user.email || "Usuário",
   matricula: usuarioSistema?.matricula || "",
   email: data.user.email || "",
   perfil: (usuarioSistema?.perfil || "GUARDA").toUpperCase(),
   status: usuarioSistema?.status || "Ativo",
+  municipio_id: usuarioSistema?.municipio_id || 1,
+  foto_url: usuarioSistema?.foto_url || "",
 };
 
-localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
+localStorage.setItem(
+  "usuarioLogado",
+  JSON.stringify(usuarioAtual)
+);
 setUsuario(usuarioAtual);
 setVerificando(false);
     }

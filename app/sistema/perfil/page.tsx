@@ -46,9 +46,9 @@ export default function PerfilPage() {
     const novaFotoUrl = data.publicUrl;
 
     const { error } = await supabase
-      .from("usuarios")
-      .update({ foto_url: novaFotoUrl })
-      .eq("email", usuario.email);
+  .from("usuarios")
+  .update({ foto_url: novaFotoUrl })
+  .eq("email", usuario.email);
 
     if (error) {
       console.error(error);
