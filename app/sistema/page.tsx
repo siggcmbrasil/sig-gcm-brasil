@@ -107,6 +107,7 @@ type Atividade = {
 export default function Dashboard() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [busca, setBusca] = useState("");
   const [viatura, setViatura] = useState<Viatura | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [permutas, setPermutas] = useState<Permuta[]>([]);
@@ -399,6 +400,8 @@ const aniversariantesHoje = guardas.filter((g) => {
   setMostrarNotificacoes={setMostrarNotificacoes}
   mostrarMensagens={mostrarMensagens}
   setMostrarMensagens={setMostrarMensagens}
+  busca={busca}
+  setBusca={setBusca}
 />
 
 
@@ -409,7 +412,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   </div>
 ) : (
   <>
-    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4 mb-5">
+    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-3">
       <CardComando
   titulo="Plantão Ativo"
   valor={guarnicaoAtual?.nome?.replace("Guarnição ", "") || "Ativo"}
@@ -423,12 +426,12 @@ const aniversariantesHoje = guardas.filter((g) => {
       <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
     </section>
 
-    <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-2 mb-2">
       <div className="xl:col-span-8 xl:row-span-2">
         <PainelMapa ocorrencias={ocorrencias} />
       </div>
 
-      <div className="xl:col-span-3 flex flex-col gap-3">
+      <div className="xl:col-span-4 flex flex-col gap-3">
   <PainelGuarnicao
     guarnicao={guarnicaoPlantaoHoje}
     comandante={comandantePlantao?.nome || "Não informado"}
@@ -450,7 +453,7 @@ const aniversariantesHoje = guardas.filter((g) => {
 
    </section>
 
-    <section className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-2">
       <div className="xl:col-span-5 painel-premium p-5">
         <TituloPainel icone="⚡" titulo="Ações Rápidas" />
 
@@ -497,7 +500,7 @@ function PainelUltimasOcorrencias({
   ocorrencias: Ocorrencia[];
 }) {
   return (
-    <div className="painel-premium p-5 h-full">
+    <div className="painel-premium p-3 h-full">
       <TituloPainel icone="📋" titulo="Últimas Ocorrências" />
 
       <div className="mt-4 space-y-3">
@@ -547,6 +550,8 @@ function PainelTopo({
   setMostrarNotificacoes,
   mostrarMensagens,
   setMostrarMensagens,
+  busca,
+  setBusca,
 }: any) {
   return (
     <header className="h-24 rounded-3xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
@@ -574,8 +579,16 @@ function PainelTopo({
 
       <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[450px] shadow-[0_0_25px_rgba(0,80,255,.12)]">
         <span className="text-slate-400">🔍</span>
+  
 
-        <input
+<input
+  value={busca}
+  onChange={(e) => setBusca(e.target.value)}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" && busca.trim()) {
+      window.location.href = `/sistema/busca?q=${encodeURIComponent(busca)}`;
+    }
+  }}
   placeholder="Buscar no sistema..."
   className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
 />
@@ -709,7 +722,7 @@ function CardComando({
   const estilo = cores[cor as keyof typeof cores];
 
   return (
-    <div className="painel-premium relative p-4 h-[105px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+    <div className="painel-premium relative p-4 h-[90px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
 
       <div className="absolute top-3 right-3">
         <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
@@ -893,7 +906,7 @@ function PainelGuarnicao({
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
   return (
-    <div className="painel-premium p-3 h-[420px] relative overflow-hidden">
+    <div className="painel-premium p-3 h-[370px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
       <div className="flex flex-wrap gap-4 text-xs font-semibold mb-3">
@@ -923,7 +936,7 @@ function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
         </div>
       </div>
 
-      <div className="absolute left-3 right-3 top-24 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
+      <div className="absolute left-3 right-3 top-20 bottom-3 rounded-2xl overflow-hidden border border-slate-700 z-0">
         <MapaOperacional ocorrencias={ocorrencias} />
 
         <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[999]">
@@ -976,7 +989,7 @@ function PainelEscalaHoje({ escalaHoje }: { escalaHoje: EscalaHoje[] }) {
 
 function PainelAtividades({ atividades }: { atividades: Atividade[] }) {
   return (
-    <div className="painel-premium p-5">
+    <div className="painel-premium p-3">
       <TituloPainel icone="📋" titulo="Atividades Recentes" />
 
       <div className="mt-4 space-y-3">

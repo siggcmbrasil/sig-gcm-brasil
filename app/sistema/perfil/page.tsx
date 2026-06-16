@@ -70,6 +70,67 @@ export default function PerfilPage() {
     alert("Foto atualizada com sucesso!");
   }
 
+async function ativarNotificacoes() {
+  if (!("serviceWorker" in navigator)) {
+    alert("Este navegador não suporta notificações.");
+    return;
+  }
+
+  const permissao = await Notification.requestPermission();
+
+  if (permissao !== "granted") {
+    alert("Permissão de notificação negada.");
+    return;
+  }
+
+  const registro = await navigator.serviceWorker.register("/sw.js");
+
+  await navigator.serviceWorker.ready;
+
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+  if (!publicKey) {
+    alert("Chave pública VAPID não configurada.");
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+
+  const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
+
+  await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...subscription.toJSON(),
+      municipio_id: usuario?.municipio_id || 1,
+      usuario_id: usuario?.id,
+      perfil: usuario?.perfil,
+    }),
+  });
+
+  alert("Notificações push ativadas com sucesso!");
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+
+  return Uint8Array.from(
+    [...rawData].map((char) => char.charCodeAt(0))
+  );
+}
+
   return (
     <main className="min-h-screen bg-[#020b1c] text-white p-6">
       <div className="max-w-4xl mx-auto">
@@ -137,6 +198,14 @@ export default function PerfilPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap gap-3">
+            <button
+  type="button"
+  onClick={ativarNotificacoes}
+  className="bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl font-bold"
+>
+  🔔 Ativar Notificações
+</button>
+
             <button className="bg-blue-600 px-5 py-3 rounded-xl font-bold">
               🔒 Alterar Senha
             </button>
@@ -145,7 +214,7 @@ export default function PerfilPage() {
               📝 Editar Dados
             </button>
 
-            <button
+             <button
               className="bg-red-600 px-5 py-3 rounded-xl font-bold"
               onClick={() => {
                 localStorage.removeItem("usuarioLogado");

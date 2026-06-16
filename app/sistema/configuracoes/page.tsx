@@ -165,6 +165,70 @@ async function salvarDadosInstitucionais() {
   alert("Dados institucionais salvos com sucesso!");
 }
 
+async function ativarNotificacoes() {
+  if (!("serviceWorker" in navigator)) {
+    alert("Este navegador não suporta notificações.");
+    return;
+  }
+
+  const permissao = await Notification.requestPermission();
+
+  if (permissao !== "granted") {
+    alert("Permissão de notificação negada.");
+    return;
+  }
+
+  const registro = await navigator.serviceWorker.register("/sw.js");
+
+await navigator.serviceWorker.ready;
+
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+  if (!publicKey) {
+    alert("Chave pública VAPID não configurada.");
+    return;
+  }
+
+  const registration = await navigator.serviceWorker.ready;
+
+const subscription = await registration.pushManager.subscribe({
+    userVisibleOnly: true,
+    applicationServerKey: urlBase64ToUint8Array(publicKey),
+  });
+
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
+
+  await fetch("/api/push/subscribe", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...subscription.toJSON(),
+      municipio_id: usuario.municipio_id || 1,
+      usuario_id: usuario.id,
+      perfil: usuario.perfil,
+    }),
+  });
+
+  alert("Notificações push ativadas com sucesso!");
+}
+
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = "=".repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+
+  const rawData = window.atob(base64);
+
+  return Uint8Array.from(
+    [...rawData].map((char) => char.charCodeAt(0))
+  );
+}
+
 async function criarMunicipioCompleto() {
   if (!novoMunicipio || !nomeGuarda || !comandante) {
     alert("Preencha município, nome da Guarda e comandante.");
@@ -318,7 +382,7 @@ async function criarMunicipioCompleto() {
       />
     </div>
 
-    <button
+        <button
       type="button"
       onClick={criarMunicipioCompleto}
       className="btn-primary w-full"

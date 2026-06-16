@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import Link from "next/link";
 
 type Guarda = {
   id: number;
@@ -385,6 +386,13 @@ function formatarData(data: string | null) {
                       </p>
                     </div>
 
+<Link
+  href={`/sistema/guardas/${guarda.id}`}
+  className="block w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold text-center mb-2"
+>
+  👮 Dossiê do Guarda
+</Link>
+
 <button
   type="button"
   onClick={() => editarGuarda(guarda)}
@@ -462,26 +470,33 @@ function formatarData(data: string | null) {
                         </td>
 
                         <td className="text-right">
-                          {podeEditar && (
-  <>
-    <button
-      type="button"
-      onClick={() => editarGuarda(guarda)}
-      className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
-    >
-      Editar
-    </button>
+  <Link
+    href={`/sistema/guardas/${guarda.id}`}
+    className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs mr-2 inline-block"
+  >
+    👮 Dossiê
+  </Link>
 
-    <button
-      type="button"
-      onClick={() => excluirGuarda(guarda.id)}
-      className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-    >
-      Excluir
-    </button>
-  </>
-)}
-                        </td>
+  {podeEditar && (
+    <>
+      <button
+        type="button"
+        onClick={() => editarGuarda(guarda)}
+        className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
+      >
+        Editar
+      </button>
+
+      <button
+        type="button"
+        onClick={() => excluirGuarda(guarda.id)}
+        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+      >
+        Excluir
+      </button>
+    </>
+  )}
+</td>
                       </tr>
                     ))}
                   </tbody>
