@@ -11,8 +11,9 @@ const MapaOperacional = dynamic(
 
 export default function MapaOperacionalPage() {
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
-  const [viaturas, setViaturas] = useState<any[]>([]);
-  const [carregando, setCarregando] = useState(true);
+const [viaturas, setViaturas] = useState<any[]>([]);
+const [localizacoes, setLocalizacoes] = useState<any[]>([]);
+const [carregando, setCarregando] = useState(true);
 
   async function carregarDados() {
     setCarregando(true);
@@ -34,14 +35,15 @@ export default function MapaOperacionalPage() {
   .from("viaturas")
   .select("*");
 
-console.log("ERRO MAPA:", error);
-console.log(
-  "PRIMEIRA OCORRENCIA:",
-  JSON.stringify(data?.[0], null, 2)
-);
+const { data: gpsData } = await supabase
+  .from("localizacoes_tempo_real")
+  .select("*")
+  .order("atualizado_em", { ascending: false });
 
-    setOcorrencias(data || []);
-    setCarregando(false);
+setOcorrencias(data || []);
+setViaturas(viaturasData || []);
+setLocalizacoes(gpsData || []);
+setCarregando(false);
   }
 
   useEffect(() => {
@@ -81,6 +83,7 @@ console.log(
             <MapaOperacional
   ocorrencias={ocorrencias}
   viaturas={viaturas}
+  localizacoes={localizacoes}
 />
           </section>
 

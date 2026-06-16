@@ -118,8 +118,8 @@ export default function Sidebar() {
 backdrop-blur-xl 
 border-r border-blue-900/40 
 shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
-    fixed md:static top-0 left-0 h-full md:h-auto
-    w-80 md:min-h-screen
+    fixed md:sticky top-0 left-0 h-screen
+w-80
     ${menuCompacto ? "md:w-20" : "md:w-72"}
     transition-all duration-300
     ${aberto ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
@@ -180,7 +180,7 @@ shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
   </div>
 )}
 
-        <nav className={`p-3 space-y-2 flex-1 overflow-y-auto ${menuCompacto ? "items-center" : ""}`}>
+        <nav className={`p-3 space-y-2 flex-1 overflow-y-auto min-h-0 ${menuCompacto ? "items-center" : ""}`}>
   <ItemMenu href="/sistema" icone="🏠" titulo="Dashboard" fecharMenu={fecharMenu} compacto={menuCompacto} />
 
   <ItemMenu href="/sistema/operacional" icone="🚔" titulo="Operacional" fecharMenu={fecharMenu} compacto={menuCompacto} />
@@ -194,7 +194,7 @@ shadow-[0_0_30px_rgba(0,80,255,0.15)] text-white flex flex-col z-50
   <ItemMenu href="/sistema/administracao" icone="⚙️" titulo="Administração" fecharMenu={fecharMenu} compacto={menuCompacto} />
 </nav>
 
-        <div className="p-4 border-t border-slate-800">
+        <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">
           <div className="flex gap-3 items-center mb-4">
             <img
               src="/brasao-gcm-v2.png"
