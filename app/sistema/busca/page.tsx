@@ -1,13 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 export default function BuscaPage() {
   const params = useSearchParams();
   const q = params.get("q") || "";
+  const router = useRouter();
+
+  const usuarioLogado =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
   const [resultados, setResultados] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -17,6 +23,23 @@ export default function BuscaPage() {
   }, [q]);
 
   async function buscar() {
+    if (
+      q.toLowerCase().includes("perfil") ||
+      q.toLowerCase().includes("minha foto") ||
+      q.toLowerCase().includes("minha conta")
+    ) {
+      router.push(`/sistema/guardas/${usuarioLogado.id}`);
+      return;
+    }
+
+    if (
+      q.toLowerCase().trim() ===
+      usuarioLogado?.nome?.toLowerCase().trim()
+    ) {
+      window.location.href = "/sistema/perfil";
+      return;
+    }
+
     setCarregando(true);
 
     const termo = `%${q}%`;

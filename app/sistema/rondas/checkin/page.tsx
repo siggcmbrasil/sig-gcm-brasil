@@ -28,19 +28,23 @@ export default function CheckinRondaPage() {
 
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const { error } = await supabase.from("checkins_ronda").insert({
-          ponto_id: Number(pontoId),
-          plano_id: ponto.plano_id,
-          usuario_id: usuario.id,
-          nome: usuario.nome,
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        });
+      const { error } = await supabase.from("checkins_ronda").insert({
+  ponto_id: Number(pontoId),
+  plano_id: Number(ponto.plano_id),
+  usuario_id:
+    usuario?.id && usuario.id.includes("-")
+      ? usuario.id
+      : null,
+  nome: usuario?.nome || "Usuário não identificado",
+  latitude: pos.coords.latitude,
+  longitude: pos.coords.longitude,
+});
 
         if (error) {
-          alert("Erro ao registrar check-in.");
-          return;
-        }
+  console.error("ERRO CHECK-IN:", error);
+  alert(error.message || "Erro ao registrar check-in.");
+  return;
+}
 
         alert("Check-in registrado com sucesso!");
       },
