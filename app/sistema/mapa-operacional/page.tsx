@@ -78,8 +78,8 @@ setCarregando(false);
       {carregando ? (
         <div className="card">Carregando mapa...</div>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 h-[calc(100vh-160px)]">
-          <section className="xl:col-span-9 painel-premium p-3 min-h-[500px]">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 min-h-[calc(100vh-160px)]">
+  <section className="xl:col-span-9 painel-premium p-3 h-[70vh] min-h-[420px]">
             <MapaOperacional
   ocorrencias={ocorrencias}
   viaturas={viaturas}
