@@ -3,112 +3,120 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-export default function LocalizacaoPage() {
-  const [rastreamentoId, setRastreamentoId] = useState<number | null>(null);
-  const [ativo, setAtivo] = useState(false);
+export default function PatrulhamentoGpsPage() {
+  const [tipo, setTipo] = useState("VIATURA");
+  const [observacao, setObservacao] = useState("");
 
-  async function salvarLocalizacao(latitude: number, longitude: number) {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-
-    await supabase.from("localizacoes_tempo_real").insert({
-      usuario_id: usuario.id,
-      nome: usuario.nome,
-      latitude,
-      longitude,
-      municipio_id: usuario.municipio_id,
-    });
-  }
-
-  function enviarUmaVez() {
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        await salvarLocalizacao(
-          pos.coords.latitude,
-          pos.coords.longitude
-        );
-
-        alert("Localização enviada com sucesso!");
-      },
-      () => alert("Não foi possível obter sua localização."),
-      { enableHighAccuracy: true }
-    );
-  }
-
-  function iniciarRastreamento() {
+  async function enviarLocalizacao() {
     if (!navigator.geolocation) {
       alert("GPS não suportado neste dispositivo.");
       return;
     }
 
-    const id = navigator.geolocation.watchPosition(
+    navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        await salvarLocalizacao(
-          pos.coords.latitude,
-          pos.coords.longitude
+        const usuario = JSON.parse(
+          localStorage.getItem("usuarioLogado") || "{}"
         );
+
+        const { error } = await supabase
+          .from("localizacoes_tempo_real")
+          .insert({
+            usuario_id: usuario.id,
+            nome: usuario.nome,
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+            municipio_id: usuario.municipio_id,
+            status: tipo,
+            observacao,
+          });
+
+        if (error) {
+          alert("Erro ao enviar localização.");
+          return;
+        }
+
+        alert("Localização enviada com sucesso!");
+        setObservacao("");
       },
-      () => alert("Erro ao rastrear localização."),
+      () => {
+        alert("Não foi possível obter sua localização.");
+      },
       {
         enableHighAccuracy: true,
-        maximumAge: 5000,
         timeout: 10000,
       }
     );
-
-    setRastreamentoId(id);
-    setAtivo(true);
-    alert("Rastreamento iniciado.");
   }
 
-  function pararRastreamento() {
-    if (rastreamentoId !== null) {
-      navigator.geolocation.clearWatch(rastreamentoId);
+  async function limparMeusPontos() {
+    const confirmar = confirm("Deseja excluir seus pontos de GPS de teste?");
+    if (!confirmar) return;
+
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+    const { error } = await supabase
+      .from("localizacoes_tempo_real")
+      .delete()
+      .eq("usuario_id", usuario.id);
+
+    if (error) {
+      alert("Erro ao excluir pontos.");
+      return;
     }
 
-    setRastreamentoId(null);
-    setAtivo(false);
-    alert("Rastreamento parado.");
+    alert("Pontos excluídos.");
   }
 
   return (
     <div className="min-h-screen bg-[#020b1c] text-white p-6">
       <h1 className="text-3xl font-black mb-2">
-        📍 GPS Operacional
+        🚔 Patrulhamento GPS
       </h1>
 
       <p className="text-slate-400 mb-6">
-        Envie sua localização ou ative o rastreamento em tempo real.
+        Registre sua localização durante patrulhamento a pé ou de viatura.
       </p>
 
-      <div className="space-y-4">
+      <div className="painel-premium p-5 space-y-5">
+        <div>
+          <label className="label">Tipo de patrulhamento</label>
+
+          <select
+            className="input"
+            value={tipo}
+            onChange={(e) => setTipo(e.target.value)}
+          >
+            <option value="VIATURA">🚓 Viatura</option>
+            <option value="A_PE">🚶 A pé</option>
+            <option value="MOTO">🏍️ Motocicleta</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="label">Observação</label>
+
+          <textarea
+            className="input h-28 resize-none"
+            value={observacao}
+            onChange={(e) => setObservacao(e.target.value)}
+            placeholder="Ex: ronda preventiva na Praça da Matriz."
+          />
+        </div>
+
         <button
-          onClick={enviarUmaVez}
-          className="w-full bg-blue-600 px-6 py-5 rounded-2xl font-black text-lg"
+          onClick={enviarLocalizacao}
+          className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-5 rounded-2xl font-black text-lg"
         >
-          📍 Enviar localização agora
+          📍 Enviar localização atual
         </button>
 
-        {!ativo ? (
-          <button
-            onClick={iniciarRastreamento}
-            className="w-full bg-green-700 px-6 py-5 rounded-2xl font-black text-lg"
-          >
-            🟢 Iniciar rastreamento
-          </button>
-        ) : (
-          <button
-            onClick={pararRastreamento}
-            className="w-full bg-red-700 px-6 py-5 rounded-2xl font-black text-lg"
-          >
-            🔴 Parar rastreamento
-          </button>
-        )}
-
-        {ativo && (
-          <div className="painel-premium p-4 text-center text-green-400 font-bold">
-            🟢 Rastreamento ativo
-          </div>
-        )}
+        <button
+          onClick={limparMeusPontos}
+          className="w-full bg-red-700 hover:bg-red-800 px-6 py-4 rounded-2xl font-black text-lg"
+        >
+          🗑️ Limpar meus pontos de teste
+        </button>
       </div>
     </div>
   );

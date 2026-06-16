@@ -423,32 +423,29 @@ const aniversariantesHoje = guardas.filter((g) => {
       <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
     </section>
 
-    <section className="grid grid-cols-1 xl:grid-cols-12 gap-5 mb-5">
-      <div className="xl:col-span-9 xl:row-span-2">
+    <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
+      <div className="xl:col-span-8 xl:row-span-2">
         <PainelMapa ocorrencias={ocorrencias} />
       </div>
 
-      <div className="xl:col-span-2">
-        <PainelGuarnicao
-          guarnicao={guarnicaoPlantaoHoje}
-          comandante={comandantePlantao?.nome || "Não informado"}
-          viatura={viaturaPlantao?.prefixo || "Não definida"}
-          membros={membrosGuarnicaoAtual.map((membro) => {
-            const guarda = guardas.find(
-              (g) => Number(g.id) === Number(membro.guarda_id)
-            );
+      <div className="xl:col-span-3 flex flex-col gap-3">
+  <PainelGuarnicao
+    guarnicao={guarnicaoPlantaoHoje}
+    comandante={comandantePlantao?.nome || "Não informado"}
+    viatura={viaturaPlantao?.prefixo || "Não definida"}
+    membros={membrosGuarnicaoAtual.map((membro) => {
+      const guarda = guardas.find(
+        (g) => Number(g.id) === Number(membro.guarda_id)
+      );
 
-            return guarda?.nome || "Guarda não encontrado";
-          })}
-        />
-      </div>
+      return guarda?.nome || "Guarda não encontrado";
+    })}
+  />
 
-      <div className="xl:col-span-9">
-  <PainelAlertas avisos={avisos} />
-</div>
-
-<div className="xl:col-span-2">
   <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
+</div>
+      <div className="xl:col-span-8">
+  <PainelAlertas avisos={avisos} />
 </div>
 
    </section>
@@ -457,7 +454,7 @@ const aniversariantesHoje = guardas.filter((g) => {
       <div className="xl:col-span-5 painel-premium p-5">
         <TituloPainel icone="⚡" titulo="Ações Rápidas" />
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mt-4">
+        <div className="grid grid-cols-5 gap-3 mt-4">
           <AtalhoPremium href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" icone="🚨" />
           <AtalhoPremium href="/sistema/chamados" titulo="Novo Chamado" icone="📞" />
           <AtalhoPremium href="/sistema/patrulhamento" titulo="Patrulhamento" icone="🚔" />
@@ -509,7 +506,7 @@ function PainelUltimasOcorrencias({
             Nenhuma ocorrência recente.
           </p>
         ) : (
-          ocorrencias.slice(0, 3).map((o) => (
+          ocorrencias.slice(0, 5).map((o) => (
             <div
               key={o.id}
               className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex justify-between gap-3"
@@ -680,37 +677,31 @@ function CardComando({
   const cores = {
     blue: {
       titulo: "text-red-400",
-      glow: "shadow-red-500/20",
       icone: "bg-red-500/15 border-red-500/30",
     },
 
     gold: {
       titulo: "text-blue-400",
-      glow: "shadow-blue-500/20",
       icone: "bg-blue-500/15 border-blue-500/30",
     },
 
     green: {
       titulo: "text-green-400",
-      glow: "shadow-green-500/20",
       icone: "bg-green-500/15 border-green-500/30",
     },
 
     purple: {
       titulo: "text-purple-400",
-      glow: "shadow-purple-500/20",
       icone: "bg-purple-500/15 border-purple-500/30",
     },
 
     cyan: {
       titulo: "text-cyan-400",
-      glow: "shadow-cyan-500/20",
       icone: "bg-cyan-500/15 border-cyan-500/30",
     },
 
     indigo: {
       titulo: "text-yellow-400",
-      glow: "shadow-yellow-500/20",
       icone: "bg-yellow-500/15 border-yellow-500/30",
     },
   };
@@ -718,33 +709,39 @@ function CardComando({
   const estilo = cores[cor as keyof typeof cores];
 
   return (
-    <div className="painel-premium relative p-4 min-h-[105px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+    <div className="painel-premium relative p-4 h-[105px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
 
       <div className="absolute top-3 right-3">
         <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
       </div>
 
-      <div className="flex justify-between items-start">
+      <div className="flex items-center gap-4 h-full">
+
         <div
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-2xl border ${estilo.icone}`}
+          className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center text-3xl border ${estilo.icone}`}
         >
           {icone}
         </div>
+
+        <div className="flex flex-col justify-center min-w-0">
+
+          <p
+            className={`uppercase text-[11px] font-black tracking-wider ${estilo.titulo}`}
+          >
+            {titulo}
+          </p>
+
+          <h2 className="text-3xl font-black text-white leading-none mt-1">
+            {valor}
+          </h2>
+
+          <p className="text-sm text-slate-400 mt-1">
+            {detalhe}
+          </p>
+
+        </div>
+
       </div>
-
-      <p
-        className={`uppercase text-xs font-black tracking-wider mt-3 ${estilo.titulo}`}
-      >
-        {titulo}
-      </p>
-
-      <h2 className="text-3xl font-black text-white mt-1 leading-none">
-        {valor}
-      </h2>
-
-      <p className="text-sm text-slate-400 mt-3">
-        {detalhe}
-      </p>
     </div>
   );
 }
@@ -896,7 +893,7 @@ function PainelGuarnicao({
 
 function PainelMapa({ ocorrencias }: { ocorrencias: Ocorrencia[] }) {
   return (
-    <div className="painel-premium p-3 h-[360px] relative overflow-hidden">
+    <div className="painel-premium p-3 h-[420px] relative overflow-hidden">
       <TituloPainel icone="🗺️" titulo="Mapa Operacional" />
 
       <div className="flex flex-wrap gap-4 text-xs font-semibold mb-3">

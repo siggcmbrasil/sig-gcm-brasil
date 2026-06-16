@@ -16,6 +16,11 @@ const cards = [
     icone: "🚔",
     href: "/sistema/patrulhamento",
   },
+{
+  titulo: "Patrulhamento GPS",
+  icone: "📍",
+  href: "/sistema/localizacao",
+},
   {
     titulo: "Legislação",
     icone: "⚖️",

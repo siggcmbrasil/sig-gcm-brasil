@@ -29,6 +29,8 @@ type LocalizacaoGPS = {
   latitude: number;
   longitude: number;
   atualizado_em: string;
+  status?: string;
+  observacao?: string;
 };
 
 const iconBase = L.divIcon({
@@ -65,6 +67,26 @@ const iconGPS = L.divIcon({
   iconSize: [32, 32],
   iconAnchor: [16, 16],
 });
+
+const iconPe = L.divIcon({
+  html: `<div style="font-size:28px">🚶</div>`,
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const iconMoto = L.divIcon({
+  html: `<div style="font-size:28px">🏍️</div>`,
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+function obterIconeGPS(status?: string) {
+  if (status === "A_PE") return iconPe;
+  if (status === "MOTO") return iconMoto;
+  return iconGPS;
+}
 
 function obterIconeOcorrencia(status: string) {
   if (status === "Finalizada") return iconVerde;
@@ -149,20 +171,38 @@ export default function MapaOperacional({
       ))}
 
       {localizacoes.map((loc) => (
-        <Marker
-          key={`gps-${loc.id}`}
-          position={[Number(loc.latitude), Number(loc.longitude)]}
-          icon={iconGPS}
-        >
-          <Popup>
-            <strong>🚓 {loc.nome}</strong>
-            <br />
-            GPS em tempo real
-            <br />
-            {new Date(loc.atualizado_em).toLocaleString("pt-BR")}
-          </Popup>
-        </Marker>
-      ))}
+  <Marker
+    key={`gps-${loc.id}`}
+    position={[Number(loc.latitude), Number(loc.longitude)]}
+    icon={obterIconeGPS(loc.status)}
+  >
+    <Popup>
+      <div style={{ minWidth: "230px" }}>
+        <strong>
+          {loc.status === "A_PE" ? "🚶" : loc.status === "MOTO" ? "🏍️" : "🚓"}{" "}
+          {loc.nome}
+        </strong>
+
+        <hr style={{ margin: "8px 0" }} />
+
+        <div>
+          Tipo:{" "}
+          {loc.status === "A_PE"
+            ? "Patrulhamento a pé"
+            : loc.status === "MOTO"
+            ? "Patrulhamento de moto"
+            : "Patrulhamento de viatura"}
+        </div>
+
+        {loc.observacao && <div>📝 {loc.observacao}</div>}
+
+        <div>
+          🕒 {new Date(loc.atualizado_em).toLocaleString("pt-BR")}
+        </div>
+      </div>
+    </Popup>
+  </Marker>
+))}
     </MapContainer>
   );
 }
