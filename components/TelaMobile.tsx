@@ -18,6 +18,7 @@ const modulos = [
   { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios", grupo: "Gestão", cor: "from-emerald-500 to-emerald-950" },
   { titulo: "Perfil", icone: "👤", href: "/sistema/perfil", grupo: "Tudo", cor: "from-slate-600 to-slate-950" },
   { titulo: "Operação", icone: "🚔", href: "/sistema/mobile/operacao", grupo: "Operacional", cor: "from-blue-700 to-slate-950" },
+  { titulo: "Ler QR", icone: "🔳", href: "/sistema/rondas/ler-qrcode", grupo: "Operacional", cor: "from-green-600 to-green-950" },
 ];
 
 const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
@@ -94,11 +95,11 @@ export default function TelaMobile() {
           </Link>
 
           <Link
-            href="/sistema/rondas"
-            className="bg-green-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
-          >
-            🔳 Check-in
-          </Link>
+  href="/sistema/rondas/ler-qrcode"
+  className="bg-green-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+>
+  🔳 Ler QR
+</Link>
 
         <Link
   href="/sistema/mobile/operacao"
