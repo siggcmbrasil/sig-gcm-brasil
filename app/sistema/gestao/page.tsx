@@ -1,11 +1,31 @@
 import Link from "next/link";
 
 const cards = [
-  { titulo: "Relatórios", icone: "📋", href: "/sistema/relatorios" },
-  { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios" },
-  { titulo: "Estatísticas", icone: "📊", href: "/sistema/estatisticas" },
-  { titulo: "Banco de Horas", icone: "⏱️", href: "/sistema/banco-horas" },
-  { titulo: "Arquivo", icone: "🗂️", href: "/sistema/historico" },
+  {
+    titulo: "Relatórios",
+    icone: "📋",
+    href: "/sistema/relatorios",
+  },
+  {
+    titulo: "Estatísticas",
+    icone: "📊",
+    href: "/sistema/estatisticas",
+  },
+  {
+    titulo: "Ofícios",
+    icone: "📄",
+    href: "/sistema/oficios",
+  },
+  {
+    titulo: "Dossiês",
+    icone: "👮",
+    href: "/sistema/guardas",
+  },
+  {
+    titulo: "Banco de Horas",
+    icone: "⏱️",
+    href: "/sistema/banco-horas",
+  },
 ];
 
 export default function GestaoPage() {
@@ -16,7 +36,7 @@ export default function GestaoPage() {
         Documentos, relatórios e controle administrativo-operacional.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-5">
         {cards.map((card) => (
           <Link
             key={card.href}

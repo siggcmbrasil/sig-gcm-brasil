@@ -8,9 +8,14 @@ import { supabase } from "@/lib/supabase";
 
 type UsuarioLogado = {
   id: string;
+  auth_id?: string;
   nome: string;
+  matricula?: string;
   email: string;
   perfil: string;
+  status?: string;
+  municipio_id?: number;
+  foto_url?: string;
 };
 
 export default function SistemaLayout({
@@ -75,31 +80,29 @@ setVerificando(false);
 
     <main className="flex-1 w-full">
 
-      <div className="border-b border-slate-800 px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between md:items-center gap-3">
-        <div>
-          <h1 className="font-bold text-white text-lg md:text-base">
-            Sistema Integrado GCM Brasil
-          </h1>
+      <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
+  <div>
+    <h1 className="text-white font-bold text-lg">
+      SIG-GCM APP
+    </h1>
 
-          <p className="text-sm md:text-xs text-slate-400">
-            Painel Operacional
-          </p>
-        </div>
+    <p className="text-xs text-slate-400">
+      Biritinga - BA
+    </p>
+  </div>
 
-        <div className="text-sm text-slate-300 md:text-right">
-          <p>
-            Usuário:
-            <span className="font-semibold text-white">
-              {" "}
-              {usuario?.email}
-            </span>
-          </p>
-
-          <p className="text-xs text-slate-500">
-            Perfil: {usuario?.perfil}
-          </p>
-        </div>
-      </div>
+  {usuario?.foto_url ? (
+  <img
+    src={usuario.foto_url}
+    alt="Usuário"
+    className="w-10 h-10 rounded-full object-cover border border-slate-700"
+  />
+) : (
+  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
+    👤
+  </div>
+)}
+</div>
 
       <div className="text-white">
         <ModalAniversariantes />

@@ -48,6 +48,26 @@ export default function RondasPage() {
     <div className="p-6 text-white space-y-6">
       <h1 className="text-3xl font-black">🚔 Plano de Rondas</h1>
 
+      <div className="bg-red-600 p-3 rounded-xl font-black">
+  TESTE RONDAS 123
+</div>
+
+      <div className="flex gap-3 mt-4 mb-6">
+  <Link
+    href="/sistema/rondas/relatorio"
+    className="bg-blue-700 hover:bg-blue-800 px-4 py-3 rounded-xl font-bold"
+  >
+    📋 Relatório de Rondas
+  </Link>
+
+  <Link
+    href="/sistema/rondas/ler-qrcode"
+    className="bg-green-700 hover:bg-green-800 px-4 py-3 rounded-xl font-bold"
+  >
+    🔳 Ler QR Code
+  </Link>
+</div>
+
       <div className="painel-premium p-6 space-y-4">
         <input
           className="input"

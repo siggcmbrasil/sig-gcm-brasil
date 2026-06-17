@@ -60,8 +60,6 @@ const [ano, setAno] = useState(String(new Date().getFullYear()));
 
   const hoje = new Date().toISOString().split("T")[0];
 
-  const ocorrenciasHoje = ocorrencias.filter((o) => o.data === hoje).length;
-  const patrulhamentosHoje = patrulhamentos.filter((p) => p.data === hoje).length;
   const abertas = ocorrencias.filter((o) => o.status === "Aberta").length;
   const finalizadas = ocorrencias.filter((o) => o.status === "Finalizada").length;
   const guardasServico = guardas.filter((g) => g.status === "Em serviço").length;
