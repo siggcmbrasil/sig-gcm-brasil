@@ -17,6 +17,7 @@ const modulos = [
   { titulo: "Relatórios", icone: "📊", href: "/sistema/relatorios", grupo: "Gestão", cor: "from-yellow-500 to-yellow-950" },
   { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios", grupo: "Gestão", cor: "from-emerald-500 to-emerald-950" },
   { titulo: "Perfil", icone: "👤", href: "/sistema/perfil", grupo: "Tudo", cor: "from-slate-600 to-slate-950" },
+  { titulo: "Operação", icone: "🚔", href: "/sistema/mobile/operacao", grupo: "Operacional", cor: "from-blue-700 to-slate-950" },
 ];
 
 const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
@@ -99,12 +100,12 @@ export default function TelaMobile() {
             🔳 Check-in
           </Link>
 
-          <Link
-            href="/sistema/localizacao"
-            className="bg-blue-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
-          >
-            🚔 Patrulha GPS
-          </Link>
+        <Link
+  href="/sistema/mobile/operacao"
+  className="bg-blue-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+>
+  🚔 Operação
+</Link>
 
           <Link
             href="/sistema/mapa-operacional"
