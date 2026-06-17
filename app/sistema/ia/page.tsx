@@ -2,26 +2,69 @@
 
 import { useState } from "react";
 
-declare global {
-  interface Window {
-    webkitSpeechRecognition: any;
-    SpeechRecognition: any;
-  }
-}
-
-export default function IAConsultaPage() {
-  const [pergunta, setPergunta] = useState("");
+export default function IAOperacionalPage() {
+  const [texto, setTexto] = useState("");
   const [resposta, setResposta] = useState("");
   const [carregando, setCarregando] = useState(false);
-  const [gravando, setGravando] = useState(false);
 
-  async function consultarIA(texto?: string) {
-    const perguntaFinal = texto || pergunta;
-
-    if (!perguntaFinal.trim()) return;
+  async function consultarIA(tipo: string) {
+    if (!texto.trim()) {
+      alert("Digite as informações da ocorrência.");
+      return;
+    }
 
     setCarregando(true);
     setResposta("");
+
+    let comando = "";
+
+    if (tipo === "relato") {
+      comando = `
+Você é uma IA Operacional da Guarda Civil Municipal.
+
+Transforme as informações abaixo em um relato profissional de ocorrência.
+
+Use linguagem formal, objetiva e adequada para relatório oficial.
+Organize o texto com:
+- Acionamento da guarnição
+- Deslocamento ao local
+- Situação encontrada
+- Providências adotadas
+- Encerramento
+
+Informações da ocorrência:
+${texto}
+`;
+    }
+
+    if (tipo === "melhorar") {
+      comando = `
+Melhore o texto abaixo para linguagem formal de ocorrência da Guarda Civil Municipal.
+Corrija erros, organize as frases e mantenha o sentido original.
+
+Texto:
+${texto}
+`;
+    }
+
+    if (tipo === "providencias") {
+      comando = `
+Com base nas informações abaixo, sugira providências operacionais adequadas para constar em uma ocorrência da Guarda Civil Municipal.
+
+Informações:
+${texto}
+`;
+    }
+
+    if (tipo === "natureza") {
+      comando = `
+Analise as informações abaixo e sugira a possível natureza/tipo da ocorrência.
+Responda de forma orientativa.
+
+Informações:
+${texto}
+`;
+    }
 
     try {
       const res = await fetch("/api/ia", {
@@ -30,12 +73,14 @@ export default function IAConsultaPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-  pergunta: perguntaFinal,
-  usuario: JSON.parse(localStorage.getItem("usuarioLogado") || "{}"),
-}),
+          pergunta: comando,
+          modo: "operacional",
+          usuario: JSON.parse(localStorage.getItem("usuarioLogado") || "{}"),
+        }),
       });
 
       const data = await res.json();
+
       setResposta(data.resposta || data.erro || "Sem resposta.");
     } catch {
       setResposta("Erro ao conectar com a IA.");
@@ -44,76 +89,88 @@ export default function IAConsultaPage() {
     }
   }
 
-  function gravarVoz() {
-    const SpeechRecognition =
-      window.SpeechRecognition || window.webkitSpeechRecognition;
-
-    if (!SpeechRecognition) {
-      alert("Seu navegador não suporta gravação por voz.");
-      return;
-    }
-
-    const recognition = new SpeechRecognition();
-    recognition.lang = "pt-BR";
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
-    setGravando(true);
-
-    recognition.start();
-
-    recognition.onresult = (event: any) => {
-      const textoFalado = event.results[0][0].transcript;
-      setPergunta((textoAtual) =>
-        textoAtual ? `${textoAtual} ${textoFalado}` : textoFalado
-      );
-    };
-
-    recognition.onerror = () => {
-      alert("Não foi possível captar o áudio.");
-      setGravando(false);
-    };
-
-    recognition.onend = () => {
-      setGravando(false);
-    };
-  }
-
-  function fazerRelatoOcorrencia() {
-    const comando = `
-Transforme as informações abaixo em um relato profissional de ocorrência da Guarda Civil Municipal.
-
-Use linguagem formal, objetiva e adequada para relatório oficial.
-Organize o texto com:
-- Data e horário, se informado
-- Local
-- Equipe ou guarnição, se informado
-- Fatos narrados
-- Providências adotadas
-- Encerramento
-
-Informações:
-${pergunta}
-    `;
-
-    consultarIA(comando);
-  }
-
   return (
-  <main className="min-h-screen bg-[#020b1c] text-white p-6">
-    <div className="painel-premium p-10 text-center">
-      <h1 className="text-4xl font-black text-yellow-400">
-        🤖 IA Operacional
-      </h1>
+    <main className="min-h-screen bg-[#020b1c] text-white p-6">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <section className="painel-premium p-6">
+          <h1 className="text-4xl font-black text-blue-400">
+            🤖 IA Operacional
+          </h1>
 
-      <p className="mt-4 text-xl text-slate-300">
-        Módulo em desenvolvimento
-      </p>
+          <p className="mt-3 text-slate-300">
+            Auxilia o guarda no preenchimento de ocorrências, relatos e providências.
+          </p>
+        </section>
 
-      <p className="mt-2 text-slate-500">
-        Em breve o SIG-GCM Brasil contará com consultas por inteligentes articial.
-      </p>
-    </div>
-  </main>
-);
+        <section className="painel-premium p-6 space-y-4">
+          <label className="block text-sm font-bold text-slate-300">
+            Informações da ocorrência
+          </label>
+
+          <textarea
+            value={texto}
+            onChange={(e) => setTexto(e.target.value)}
+            placeholder="Ex: Guarnição foi acionada para uma briga na Praça Municipal. Ao chegar, encontrou dois indivíduos discutindo. Foi feita abordagem, orientação e as partes foram liberadas..."
+            className="input h-52"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <button
+              onClick={() => consultarIA("relato")}
+              disabled={carregando}
+              className="btn-primary disabled:opacity-50"
+            >
+              🚨 Gerar Relato
+            </button>
+
+            <button
+              onClick={() => consultarIA("melhorar")}
+              disabled={carregando}
+              className="bg-green-700 hover:bg-green-800 px-4 py-3 rounded-xl font-bold disabled:opacity-50"
+            >
+              ✍️ Melhorar Texto
+            </button>
+
+            <button
+              onClick={() => consultarIA("providencias")}
+              disabled={carregando}
+              className="bg-purple-700 hover:bg-purple-800 px-4 py-3 rounded-xl font-bold disabled:opacity-50"
+            >
+              📋 Providências
+            </button>
+
+            <button
+              onClick={() => consultarIA("natureza")}
+              disabled={carregando}
+              className="bg-yellow-600 hover:bg-yellow-700 px-4 py-3 rounded-xl font-bold disabled:opacity-50"
+            >
+              🧠 Sugerir Natureza
+            </button>
+          </div>
+        </section>
+
+        {carregando && (
+          <section className="painel-premium p-6 text-center text-slate-300">
+            Gerando apoio operacional...
+          </section>
+        )}
+
+        {resposta && (
+          <section className="painel-premium p-6 border border-blue-500/30">
+            <h2 className="text-2xl font-black mb-4">
+              Resultado da IA
+            </h2>
+
+            <div className="whitespace-pre-wrap text-slate-200 leading-relaxed">
+              {resposta}
+            </div>
+
+            <p className="text-xs text-yellow-400 mt-5">
+              ⚠️ Texto gerado como apoio. O guarda responsável deve revisar antes de salvar na ocorrência.
+            </p>
+          </section>
+        )}
+      </div>
+    </main>
+  );
 }

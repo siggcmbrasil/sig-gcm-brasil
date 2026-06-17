@@ -374,14 +374,19 @@ function ItemMenu({
 }) {
   return (
     <Link
-      onClick={fecharMenu}
-      href={href}
-      className="menu-item ml-3 text-sm"
-      title={titulo}
-    >
-      <span>{icone}</span>
-      {!compacto && <span>{titulo}</span>}
-    </Link>
+  onClick={fecharMenu}
+  href={href}
+  className="menu-item ml-3 text-base font-semibold"
+  title={titulo}
+>
+  <span className="text-xl">{icone}</span>
+
+  {!compacto && (
+    <span className="ml-2">
+      {titulo}
+    </span>
+  )}
+</Link>
   );
 }
 

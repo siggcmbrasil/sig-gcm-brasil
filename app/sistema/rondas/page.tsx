@@ -89,32 +89,37 @@ export default function RondasPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {planos.map((plano) => (
-          <Link key={plano.id} href={`/sistema/rondas/${plano.id}`} className="painel-premium p-5 block hover:scale-105 transition">
-            <h2 className="text-xl font-black">🚔 {plano.nome}</h2>
+  {planos.map((plano) => (
+    <div
+      key={plano.id}
+      className="painel-premium p-5 hover:scale-105 transition"
+    >
+      <h2 className="text-xl font-black">
+        🚔 {plano.nome}
+      </h2>
 
-<p className="text-slate-400 mt-2">
-  {plano.descricao}
-</p>
+      <p className="text-slate-400 mt-2">
+        {plano.descricao}
+      </p>
 
-<div className="flex gap-2 mt-4">
-  <Link
-    href={`/sistema/rondas/${plano.id}`}
-    className="bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-lg font-bold text-sm"
-  >
-    📍 Pontos
-  </Link>
+      <div className="flex gap-2 mt-4">
+        <Link
+          href={`/sistema/rondas/${plano.id}`}
+          className="bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-lg font-bold text-sm"
+        >
+          📍 Pontos
+        </Link>
 
-  <Link
-    href={`/sistema/rondas/execucao/${plano.id}`}
-    className="bg-green-700 hover:bg-green-800 px-3 py-2 rounded-lg font-bold text-sm"
-  >
-    🚔 Executar
-  </Link>
-</div>
-          </Link>
-        ))}
+        <Link
+          href={`/sistema/rondas/execucao/${plano.id}`}
+          className="bg-green-700 hover:bg-green-800 px-3 py-2 rounded-lg font-bold text-sm"
+        >
+          🚔 Executar
+        </Link>
       </div>
+    </div>
+  ))}
+</div>
     </div>
   );
 }
