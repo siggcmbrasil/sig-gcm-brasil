@@ -41,33 +41,96 @@ export default function AppPage() {
 
 useEffect(() => {
   async function carregarGuarnicaoDia() {
-    const hoje = new Date().toISOString().split("T")[0];
-
     const usuarioSalvo = localStorage.getItem("usuarioLogado");
     const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+    const municipioId = usuario?.municipio_id || 1;
 
-    const { data, error } = await supabase
-      .from("escalas")
-      .select(`
-        *,
-        guarnicoes (
-          id,
-          nome,
-          viatura,
-          comandante,
-          integrantes
-        )
-      `)
-      .eq("data", hoje)
-      .eq("municipio_id", usuario?.municipio_id)
-      .maybeSingle();
+    const { data: configEscala } = await supabase
+      .from("escala_operacional_config")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .eq("ativo", true)
+      .order("id", { ascending: false })
+      .limit(1)
+      .single();
 
-    if (error) {
-      console.error("Erro ao buscar guarnição do dia:", error);
+    const { data: guarnicoes } = await supabase
+      .from("guarnicoes")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .eq("ativa", true)
+      .order("id");
+
+    const { data: membros } = await supabase
+      .from("guarnicao_membros")
+      .select("id, guarnicao_id, guarda_id");
+
+    const { data: guardas } = await supabase
+      .from("guardas")
+      .select("id, nome")
+      .eq("municipio_id", municipioId);
+
+    const { data: viaturas } = await supabase
+      .from("viaturas")
+      .select("*")
+      .eq("municipio_id", municipioId);
+
+    if (!configEscala || !configEscala.ordem_guarnicoes?.length) {
+      setGuarnicaoDia(null);
       return;
     }
 
-    setGuarnicaoDia(data);
+    const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
+    const agora = new Date();
+    const diferencaMs = agora.getTime() - dataBase.getTime();
+    const diasPassados = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
+    const ordem = configEscala.ordem_guarnicoes;
+
+    const indiceBase = ordem.findIndex(
+      (id: number) => Number(id) === Number(configEscala.guarnicao_base_id)
+    );
+
+    if (indiceBase === -1) {
+      setGuarnicaoDia(null);
+      return;
+    }
+
+    const indiceAtual =
+      ((indiceBase + diasPassados) % ordem.length + ordem.length) %
+      ordem.length;
+
+    const guarnicaoIdAtual = ordem[indiceAtual];
+
+    const guarnicaoAtual =
+      guarnicoes?.find((g) => Number(g.id) === Number(guarnicaoIdAtual)) || null;
+
+    if (!guarnicaoAtual) {
+      setGuarnicaoDia(null);
+      return;
+    }
+
+    const comandante = guardas?.find(
+      (g) => Number(g.id) === Number(guarnicaoAtual.comandante_id)
+    );
+
+    const viatura = viaturas?.find(
+      (v) => Number(v.id) === Number(guarnicaoAtual.viatura_id)
+    );
+
+    const membrosDaGuarnicao =
+      membros
+        ?.filter((m) => Number(m.guarnicao_id) === Number(guarnicaoAtual.id))
+        .map((m) => {
+          const guarda = guardas?.find((g) => Number(g.id) === Number(m.guarda_id));
+          return guarda?.nome || "Guarda não encontrado";
+        }) || [];
+
+    setGuarnicaoDia({
+      nome: guarnicaoAtual.nome,
+      comandante: comandante?.nome || "Não informado",
+      viatura: viatura?.prefixo || "Não definida",
+      membros: membrosDaGuarnicao,
+    });
   }
 
   carregarGuarnicaoDia();
@@ -118,18 +181,18 @@ useEffect(() => {
   {guarnicaoDia ? (
     <>
       <h2 className="text-2xl font-black text-white">
-        🚓 {guarnicaoDia.guarnicoes?.nome || "Guarnição"}
+        🚓 {guarnicaoDia.nome || "Guarnição"}
       </h2>
 
       <p className="text-slate-300 mt-2">
         Comandante:{" "}
         <span className="font-bold text-white">
-          {guarnicaoDia.guarnicoes?.comandante || "Não informado"}
+          {guarnicaoDia.comandante || "Não informado"}
         </span>
       </p>
 
       <p className="text-slate-400 text-sm mt-1">
-        Viatura: {guarnicaoDia.guarnicoes?.viatura || "Não informada"}
+        Viatura: {guarnicaoDia.viatura || "Não informada"}
       </p>
 
       <div className="mt-4 flex items-center justify-between">
