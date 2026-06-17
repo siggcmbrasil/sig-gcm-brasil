@@ -123,6 +123,32 @@ const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
   {}
 );
 
+
+const mesAnterior = Number(mes) === 1 ? 12 : Number(mes) - 1;
+const anoMesAnterior =
+  Number(mes) === 1 ? Number(ano) - 1 : Number(ano);
+
+const ocorrenciasPeriodoAnterior = ocorrencias.filter((o) => {
+  if (!o.data) return false;
+
+  const dataItem = new Date(`${o.data}T00:00:00`);
+
+  return (
+    dataItem.getMonth() + 1 === mesAnterior &&
+    dataItem.getFullYear() === anoMesAnterior
+  );
+});
+
+const variacaoOcorrencias =
+  ocorrenciasPeriodoAnterior.length > 0
+    ? Math.round(
+        ((ocorrenciasPeriodo.length -
+          ocorrenciasPeriodoAnterior.length) /
+          ocorrenciasPeriodoAnterior.length) *
+          100
+      )
+    : 0;
+
   return (
   <ProtecaoPerfil
   perfisPermitidos={[
@@ -179,6 +205,17 @@ const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
     placeholder="Ano"
   />
 </div>
+
+<div className="mt-4 flex gap-3">
+  <button
+    type="button"
+    onClick={() => window.print()}
+    className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-bold"
+  >
+    📄 Gerar PDF do Relatório
+  </button>
+</div>
+
       </header>
 
       {carregando ? (
@@ -261,6 +298,42 @@ const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
       ))}
   </div>
 </section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    📈 Comparativo com Período Anterior
+  </h2>
+
+  <div className="space-y-3">
+
+    <Linha
+      nome="Ocorrências no período"
+      valor={ocorrenciasPeriodo.length}
+    />
+
+    <Linha
+      nome="Período anterior"
+      valor={ocorrenciasPeriodoAnterior.length}
+    />
+
+    <div className="flex justify-between border-b border-slate-800 py-3">
+      <span className="text-slate-400">Variação</span>
+
+      <span
+        className={`font-bold ${
+          variacaoOcorrencias >= 0
+            ? "text-red-400"
+            : "text-green-400"
+        }`}
+      >
+        {variacaoOcorrencias > 0 ? "+" : ""}
+        {variacaoOcorrencias}%
+      </span>
+    </div>
+
+  </div>
+</section>
+
         </>
       )}
         </div>
