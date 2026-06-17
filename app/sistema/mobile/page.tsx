@@ -54,10 +54,10 @@ export default function AppPage() {
 
           <div>
             <h1 className="text-3xl font-black leading-none">
-              SIG-GCM <span className="text-blue-400">APP</span>
+              SIG-GCM
             </h1>
             <p className="text-slate-400 text-sm">
-              Sistema Integrado de Gestão
+              Biritinga - BA
             </p>
           </div>
         </div>

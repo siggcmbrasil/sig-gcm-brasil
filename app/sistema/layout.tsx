@@ -80,31 +80,7 @@ setVerificando(false);
 
     <main className="flex-1 w-full">
 
-      <div className="border-b border-slate-800 px-4 py-3 flex items-center justify-between">
-  <div>
-    <h1 className="text-white font-bold text-lg">
-      SIG-GCM APP
-    </h1>
-
-    <p className="text-xs text-slate-400">
-      Biritinga - BA
-    </p>
-  </div>
-
-  {usuario?.foto_url ? (
-  <img
-    src={usuario.foto_url}
-    alt="Usuário"
-    className="w-10 h-10 rounded-full object-cover border border-slate-700"
-  />
-) : (
-  <div className="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center">
-    👤
-  </div>
-)}
-</div>
-
-      <div className="text-white">
+       <div className="text-white">
         <ModalAniversariantes />
         {children}
 

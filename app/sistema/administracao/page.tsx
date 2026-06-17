@@ -6,7 +6,7 @@ const cards = [
   { titulo: "Municípios", icone: "🏛️", href: "/sistema/municipios" },
   { titulo: "Permissões", icone: "🔐", href: "/sistema/permissoes" },
   { titulo: "Avisos", icone: "📢", href: "/sistema/avisos" },
-  { titulo: "Painel Desenvolvedor", icone: "🧠", href: "/sistema/desenvolvedor" },
+  { titulo: "Dados Institucionais", icone: "🚔", href: "/sistema/configuracoes" },
 ];
 
 export default function AdministracaoPage() {

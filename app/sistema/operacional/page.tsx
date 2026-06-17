@@ -16,15 +16,20 @@ const cards = [
     icone: "🚔",
     href: "/sistema/patrulhamento",
   },
-{
-  titulo: "Patrulhamento GPS",
-  icone: "📍",
-  href: "/sistema/localizacao",
-},
   {
-    titulo: "Legislação",
-    icone: "⚖️",
-    href: "/sistema/legislacao",
+    titulo: "Mapa Operacional",
+    icone: "🗺️",
+    href: "/sistema/mapa-operacional",
+  },
+  {
+    titulo: "Patrulhamento GPS",
+    icone: "📍",
+    href: "/sistema/localizacao",
+  },
+  {
+    titulo: "Plano de Rondas",
+    icone: "🚓",
+    href: "/sistema/rondas",
   },
   {
     titulo: "IA Operacional",
@@ -32,15 +37,10 @@ const cards = [
     href: "/sistema/ia",
   },
   {
-    titulo: "IA Jurídica",
-    icone: "📚",
-    href: "/sistema/legislacao/ia",
+    titulo: "Legislação",
+    icone: "⚖️",
+    href: "/sistema/legislacao",
   },
-  {
-  titulo: "Plano de Rondas",
-  icone: "🚔",
-  href: "/sistema/rondas",
-},
 ];
 
 export default function OperacionalPage() {
@@ -50,7 +50,7 @@ export default function OperacionalPage() {
         🚔 Centro Operacional
       </h1>
 
-      <div className="grid md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
         {cards.map((card) => (
           <Link
             key={card.href}

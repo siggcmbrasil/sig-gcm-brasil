@@ -1,12 +1,36 @@
 import Link from "next/link";
 
 const cards = [
-  { titulo: "Escalas", icone: "📅", href: "/sistema/escalas" },
-  { titulo: "Escala Mensal", icone: "🗓️", href: "/sistema/escala-mensal" },
-  { titulo: "Modelos", icone: "⚙️", href: "/sistema/escalas/modelos" },
-  { titulo: "Configuração", icone: "🧭", href: "/sistema/escalas/configuracao" },
-  { titulo: "Permutas", icone: "🔁", href: "/sistema/escalas/permutas" },
-  { titulo: "Guarnições", icone: "👥", href: "/sistema/guarnicoes" },
+  {
+    titulo: "Escalas",
+    icone: "📅",
+    href: "/sistema/escalas",
+  },
+  {
+    titulo: "Escala Mensal",
+    icone: "🗓️",
+    href: "/sistema/escala-mensal",
+  },
+  {
+    titulo: "Permutas",
+    icone: "🔄",
+    href: "/sistema/escalas/permutas",
+  },
+  {
+    titulo: "Guarnições",
+    icone: "👥",
+    href: "/sistema/guarnicoes",
+  },
+  {
+    titulo: "Modelos",
+    icone: "⚙️",
+    href: "/sistema/escalas/modelos",
+  },
+  {
+    titulo: "Configuração",
+    icone: "🧭",
+    href: "/sistema/escalas/configuracao",
+  },
 ];
 
 export default function EscalasMenuPage() {
@@ -20,7 +44,7 @@ export default function EscalasMenuPage() {
         Gestão completa das escalas operacionais.
       </p>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
         {cards.map((card) => (
           <Link
             key={card.href}

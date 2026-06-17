@@ -22,6 +22,7 @@ type UsuarioLogado = {
   email: string;
   perfil: Perfil;
   foto_url?: string;
+  municipio_id?: number;
 };
 
 export default function Sidebar() {
@@ -30,6 +31,7 @@ export default function Sidebar() {
   const [menuAberto, setMenuAberto] = useState("operacional");
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [modulosPermitidos, setModulosPermitidos] = useState<string[]>([]);
+  const [brasaoMunicipio, setBrasaoMunicipio] = useState("");
 
   useEffect(() => {
   async function iniciar() {
@@ -39,6 +41,7 @@ export default function Sidebar() {
 
     const usuarioLogado = JSON.parse(dados);
     setUsuario(usuarioLogado);
+    carregarBrasaoMunicipio(usuarioLogado.municipio_id);
 
     const modulos = await buscarModulosPermitidos(usuarioLogado.perfil);
     setModulosPermitidos(modulos);
@@ -46,6 +49,25 @@ export default function Sidebar() {
 
   iniciar();
 }, []);
+
+async function carregarBrasaoMunicipio(municipioId?: number) {
+  if (!municipioId) return;
+
+  const { data, error } = await supabase
+    .from("municipios")
+    .select("brasao_gcm")
+    .eq("id", municipioId)
+    .single();
+
+  if (error) {
+    console.error("Erro ao carregar brasão:", error);
+    return;
+  }
+
+  if (data?.brasao_gcm) {
+    setBrasaoMunicipio(data.brasao_gcm);
+  }
+}
 
   async function sair() {
     await supabase.auth.signOut();
@@ -102,10 +124,10 @@ export default function Sidebar() {
       <div className="md:hidden bg-[#020b1c] border-b border-slate-800 p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <img
-            src="/brasao-gcm-v2.png"
-            alt="Brasão GCM Biritinga"
-            className="w-12 h-12 object-contain"
-          />
+  src={brasaoMunicipio || "/brasao-gcm-v2.png"}
+  alt="Brasão GCM"
+  className="w-20 h-20 object-contain mb-3"
+/>
 
           <div>
             <h1 className="font-bold text-white">SIG-GCM</h1>
@@ -165,35 +187,35 @@ w-80
 
 {usuario && (
   <div
-    className={`p-4 border-b border-slate-800 bg-slate-950/40 flex items-center gap-3 ${
-      menuCompacto ? "justify-center" : ""
+    className={`p-4 border-b border-slate-800 bg-slate-950/40 ${
+      menuCompacto ? "text-center" : ""
     }`}
   >
-    <div className="w-10 h-10 rounded-full overflow-hidden border border-slate-600 bg-slate-800">
-  {usuario?.foto_url ? (
-    <img
-      src={usuario.foto_url}
-      alt={usuario.nome}
-      className="w-full h-full object-cover"
-    />
-  ) : (
-    <div className="w-full h-full flex items-center justify-center">
-      👤
-    </div>
-  )}
-</div>
+    <div className="flex flex-col items-center">
 
-    {!menuCompacto && (
-      <div>
-        <p className="font-semibold text-sm">{usuario.nome}</p>
-        <p className="text-xs text-slate-400">
-          Matrícula: {usuario.matricula || "-"}
-        </p>
-        <p className="text-xs text-blue-400">
-          Perfil: {usuario.perfil}
-        </p>
-      </div>
-    )}
+      <img
+        src={brasaoMunicipio || "/brasao-gcm-v2.png"}
+        alt="Brasão GCM"
+        className="w-20 h-20 object-contain mb-3"
+      />
+
+      {!menuCompacto && (
+        <>
+          <p className="font-bold text-center">
+            {usuario.nome}
+          </p>
+
+          <p className="text-xs text-slate-400">
+            Matrícula: {usuario.matricula || "-"}
+          </p>
+
+          <p className="text-xs text-blue-400">
+            Perfil: {usuario.perfil}
+          </p>
+        </>
+      )}
+
+    </div>
   </div>
 )}
 
@@ -284,7 +306,7 @@ w-80
         <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">
           <div className="flex gap-3 items-center mb-4">
             <img
-              src="/brasao-gcm-v2.png"
+              src={brasaoMunicipio || "/brasao-gcm-v2.png"}
               alt="Brasão GCM Biritinga"
               className="w-12 h-12 object-contain"
             />
@@ -309,14 +331,6 @@ w-80
           </button>
         </div>
       </aside>
-      <div className="hidden md:flex justify-end p-2 border-b border-slate-800">
-  <button
-    onClick={() => setMenuCompacto(!menuCompacto)}
-    className="text-white text-xl hover:text-blue-400"
-  >
-    ☰
-  </button>
-</div>
     </>
   );
 }
