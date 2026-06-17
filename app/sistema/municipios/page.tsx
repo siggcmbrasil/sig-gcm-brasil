@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type Municipio = {
   id: number;
@@ -160,9 +160,7 @@ function editarMunicipio(municipio: Municipio) {
 }
 
   return (
-  <ProtecaoPerfil
-  perfisPermitidos={["DESENVOLVEDOR"]}
->
+  <ProtecaoModulo modulo="municipios">
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl font-bold">🏛️ Municípios</h1>
@@ -355,6 +353,6 @@ function editarMunicipio(municipio: Municipio) {
         </div>
       </section>
         </div>
-  </ProtecaoPerfil>
+  </ProtecaoModulo>
   );
 }

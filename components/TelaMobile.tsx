@@ -7,7 +7,8 @@ const modulos = [
   { titulo: "Ocorrência", icone: "🚨", href: "/sistema/ocorrencias/nova", grupo: "Operacional", cor: "from-red-600 to-red-950" },
   { titulo: "Expressa", icone: "⚡", href: "/sistema/ocorrencias/expressa", grupo: "Operacional", cor: "from-orange-500 to-orange-950" },
   { titulo: "Chamados", icone: "📞", href: "/sistema/chamados", grupo: "Operacional", cor: "from-green-500 to-green-950" },
-  { titulo: "Patrulha", icone: "🚔", href: "/sistema/patrulhamento", grupo: "Operacional", cor: "from-blue-500 to-blue-950" },
+  { titulo: "Patrulha GPS", icone: "🚔", href: "/sistema/localizacao", grupo: "Operacional", cor: "from-blue-500 to-blue-950" },
+  { titulo: "Rondas", icone: "🔳", href: "/sistema/rondas", grupo: "Operacional", cor: "from-indigo-500 to-indigo-950" },
   { titulo: "Mapa", icone: "🗺️", href: "/sistema/mapa-operacional", grupo: "Operacional", cor: "from-purple-500 to-purple-950" },
   { titulo: "IA", icone: "🤖", href: "/sistema/ia", grupo: "Operacional", cor: "from-cyan-500 to-cyan-950" },
   { titulo: "Guardas", icone: "👮", href: "/sistema/guardas", grupo: "Gestão", cor: "from-slate-500 to-slate-950" },
@@ -16,7 +17,6 @@ const modulos = [
   { titulo: "Relatórios", icone: "📊", href: "/sistema/relatorios", grupo: "Gestão", cor: "from-yellow-500 to-yellow-950" },
   { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios", grupo: "Gestão", cor: "from-emerald-500 to-emerald-950" },
   { titulo: "Perfil", icone: "👤", href: "/sistema/perfil", grupo: "Tudo", cor: "from-slate-600 to-slate-950" },
-  { titulo: "GPS", icone: "📍", href: "/sistema/localizacao", grupo: "Operacional", cor: "from-cyan-500 to-cyan-950" },
 ];
 
 const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
@@ -46,9 +46,7 @@ export default function TelaMobile() {
               <h1 className="text-2xl font-black leading-none">
                 SIG-GCM <span className="text-blue-400">APP</span>
               </h1>
-              <p className="text-slate-400 text-sm">
-                Biritinga - BA
-              </p>
+              <p className="text-slate-400 text-sm">Biritinga - BA</p>
             </div>
           </div>
 
@@ -61,25 +59,68 @@ export default function TelaMobile() {
         </div>
       </header>
 
-      <section className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border border-blue-500/30 p-4 shadow-lg">
+      <section className="mx-4 mt-4 rounded-3xl bg-gradient-to-br from-blue-950 via-slate-950 to-slate-900 border border-blue-500/40 p-5 shadow-2xl">
         <div className="flex justify-between items-start">
           <div>
             <p className="text-xs text-green-400 font-black uppercase">
-              Plantão Ativo
+              🟢 Plantão ativo
             </p>
 
-            <h2 className="text-3xl font-black text-white">
+            <h2 className="text-4xl font-black text-white leading-tight">
               Guarnição Bravo
             </h2>
 
-            <p className="text-slate-400 text-sm mt-1">
-              🚔 VTR-01 • 👮 2 guardas
-            </p>
+            <div className="mt-3 text-slate-300 text-sm space-y-1">
+              <p>🚓 VTR-01</p>
+              <p>👮 2 guardas em serviço</p>
+              <p>📍 Biritinga - BA</p>
+            </div>
           </div>
 
           <span className="bg-green-500/20 text-green-400 border border-green-500/40 rounded-full px-3 py-1 text-xs font-bold">
             ONLINE
           </span>
+        </div>
+      </section>
+
+      <section className="px-4 mt-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Link
+            href="/sistema/ocorrencias/expressa"
+            className="bg-red-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+          >
+            🚨 Ocorrência
+          </Link>
+
+          <Link
+            href="/sistema/rondas"
+            className="bg-green-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+          >
+            🔳 Check-in
+          </Link>
+
+          <Link
+            href="/sistema/localizacao"
+            className="bg-blue-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+          >
+            🚔 Patrulha GPS
+          </Link>
+
+          <Link
+            href="/sistema/mapa-operacional"
+            className="bg-purple-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+          >
+            🗺️ Mapa
+          </Link>
+        </div>
+      </section>
+
+      <section className="px-4 mt-4">
+        <div className="grid grid-cols-4 gap-2">
+          <MiniIndicador icone="🚨" valor="0" texto="Ocorr." />
+          <MiniIndicador icone="📞" valor="0" texto="Cham." />
+          <MiniIndicador icone="📍" valor="0" texto="Rondas" />
+          <MiniIndicador icone="🚓" valor="1" texto="VTR" />
         </div>
       </section>
 
@@ -117,7 +158,7 @@ export default function TelaMobile() {
           <Link
             key={modulo.titulo}
             href={modulo.href}
-            className="flex flex-col items-center text-center"
+            className="flex flex-col items-center text-center active:scale-95 transition"
           >
             <div
               className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${modulo.cor} border border-white/10 flex items-center justify-center text-4xl shadow-xl`}
@@ -144,9 +185,9 @@ export default function TelaMobile() {
             Ocorrência
           </Link>
 
-          <Link href="/sistema/mapa-operacional" className="flex flex-col items-center gap-1 text-slate-300">
-            <span className="text-2xl">📍</span>
-            Mapa
+          <Link href="/sistema/rondas" className="flex flex-col items-center gap-1 text-slate-300">
+            <span className="text-2xl">🔳</span>
+            Rondas
           </Link>
 
           <Link href="/sistema/ia" className="flex flex-col items-center gap-1 text-slate-300">
@@ -161,5 +202,23 @@ export default function TelaMobile() {
         </div>
       </nav>
     </main>
+  );
+}
+
+function MiniIndicador({
+  icone,
+  valor,
+  texto,
+}: {
+  icone: string;
+  valor: string;
+  texto: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-950 border border-slate-800 p-3 text-center">
+      <div className="text-xl">{icone}</div>
+      <div className="font-black text-lg">{valor}</div>
+      <div className="text-[10px] text-slate-400">{texto}</div>
+    </div>
   );
 }

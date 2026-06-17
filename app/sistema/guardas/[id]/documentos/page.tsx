@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { podeVerModulo } from "@/lib/permissoesModulo";
 
 export default function DocumentosGuardaPage() {
   const params = useParams();
@@ -14,10 +15,36 @@ export default function DocumentosGuardaPage() {
   const [observacao, setObservacao] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [documentos, setDocumentos] = useState<any[]>([]);
+  const [liberado, setLiberado] = useState(false);
 
   useEffect(() => {
+  async function iniciar() {
+    const dados = localStorage.getItem("usuarioLogado");
+
+    if (!dados) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const usuario = JSON.parse(dados);
+
+    const permitido = await podeVerModulo(
+      usuario.perfil,
+      "documentos"
+    );
+
+    if (!permitido) {
+      alert("Você não tem permissão para acessar documentos.");
+      window.location.href = "/sistema";
+      return;
+    }
+
+    setLiberado(true);
     carregarDocumentos();
-  }, []);
+  }
+
+  iniciar();
+}, []);
 
   async function carregarDocumentos() {
     const { data } = await supabase
@@ -109,6 +136,14 @@ export default function DocumentosGuardaPage() {
   }
 
   carregarDocumentos();
+}
+
+if (!liberado) {
+  return (
+    <div className="p-10 text-white">
+      Verificando permissão...
+    </div>
+  );
 }
 
   return (

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
+import { podeVerModulo } from "@/lib/permissoesModulo";
 
 type Guarda = {
   id: number;
@@ -22,6 +23,7 @@ export default function DossieGuardaPage() {
 
   const [guarda, setGuarda] = useState<Guarda | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [liberado, setLiberado] = useState(false);
 
   const [stats, setStats] = useState({
     documentos: 0,
@@ -32,9 +34,34 @@ export default function DossieGuardaPage() {
   });
 
   useEffect(() => {
+  async function iniciar() {
+    const dados = localStorage.getItem("usuarioLogado");
+
+    if (!dados) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const usuario = JSON.parse(dados);
+
+    const permitido = await podeVerModulo(
+      usuario.perfil,
+      "dossie_guarda"
+    );
+
+    if (!permitido) {
+      alert("Você não tem permissão para acessar o dossiê do guarda.");
+      window.location.href = "/sistema";
+      return;
+    }
+
+    setLiberado(true);
     carregarGuarda();
     carregarStats();
-  }, []);
+  }
+
+  iniciar();
+}, []);
 
   async function carregarGuarda() {
     const { data } = await supabase
@@ -76,6 +103,10 @@ export default function DossieGuardaPage() {
       advertencias: advertencias || 0,
     });
   }
+
+  if (!liberado) {
+  return <div className="p-6 text-white">Verificando permissão...</div>;
+}
 
   if (carregando) {
     return <div className="p-6 text-white">Carregando dossiê...</div>;

@@ -40,6 +40,30 @@ export default function BuscaPage() {
       return;
     }
 
+const termoLimpo = q.toLowerCase().trim();
+const nomeUsuario = usuarioLogado?.nome?.toLowerCase().trim();
+
+if (
+  termoLimpo.includes("perfil") ||
+  termoLimpo.includes("minha foto") ||
+  termoLimpo.includes("minha conta")
+) {
+  const { data: meuGuarda } = await supabase
+    .from("guardas")
+    .select("id")
+    .ilike("nome", `%${usuarioLogado.nome}%`)
+    .limit(1)
+    .single();
+
+  if (meuGuarda?.id) {
+    router.push(`/sistema/guardas/${meuGuarda.id}`);
+    return;
+  }
+
+  router.push("/sistema/perfil");
+  return;
+}
+
     setCarregando(true);
 
     const termo = `%${q}%`;
@@ -74,7 +98,7 @@ export default function BuscaPage() {
         icone: "👮",
         titulo: i.nome,
         detalhe: i.status,
-        href: "/sistema/guardas",
+        href: `/sistema/guardas/${i.id}`,
       })),
       ...(ocorrencias || []).map((i) => ({
         tipo: "Ocorrência",

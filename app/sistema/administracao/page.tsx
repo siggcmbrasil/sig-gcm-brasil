@@ -1,17 +1,18 @@
 import Link from "next/link";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   { titulo: "Usuários", icone: "👤", href: "/sistema/usuarios" },
   { titulo: "Municípios", icone: "🏛️", href: "/sistema/municipios" },
+  { titulo: "Permissões", icone: "🔐", href: "/sistema/permissoes" },
+  { titulo: "Avisos", icone: "📢", href: "/sistema/avisos" },
   { titulo: "Painel Desenvolvedor", icone: "🧠", href: "/sistema/desenvolvedor" },
-  { titulo: "Configurações", icone: "⚙️", href: "/sistema/configuracoes" },
-  { titulo: "Meu Perfil", icone: "👤", href: "/sistema/perfil" },
-  { titulo: "Sobre o Sistema", icone: "ℹ️", href: "/sistema/sobre" },
 ];
 
 export default function AdministracaoPage() {
   return (
-    <section className="p-6 text-white">
+    <ProtecaoModulo modulo="administracao">
+      <section className="p-6 text-white">
       <h1 className="text-3xl font-black mb-2">
         ⚙️ Administração
       </h1>
@@ -36,7 +37,8 @@ export default function AdministracaoPage() {
             </h2>
           </Link>
         ))}
-      </div>
+            </div>
     </section>
+    </ProtecaoModulo>
   );
 }

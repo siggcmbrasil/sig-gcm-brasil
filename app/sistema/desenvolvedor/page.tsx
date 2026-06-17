@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type ResumoSistema = {
   municipios: number;
@@ -63,9 +63,7 @@ export default function PainelDesenvolvedor() {
   }, []);
 
   return (
-    <ProtecaoPerfil
-  perfisPermitidos={["DESENVOLVEDOR"]}
->
+    <ProtecaoModulo modulo="usuarios">
       <div className="p-3 md:p-6 pb-24">
         <header className="mb-6 border-b border-slate-800 pb-5">
           <h1 className="text-3xl md:text-5xl font-bold">
@@ -93,7 +91,7 @@ export default function PainelDesenvolvedor() {
           </section>
         )}
       </div>
-    </ProtecaoPerfil>
+    </ProtecaoModulo>
   );
 }
 

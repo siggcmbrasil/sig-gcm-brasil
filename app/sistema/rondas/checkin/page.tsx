@@ -69,11 +69,15 @@ export default function CheckinRondaPage() {
       </p>
 
       <button
-        onClick={fazerCheckin}
-        className="bg-green-700 hover:bg-green-800 px-6 py-5 rounded-2xl font-black text-lg"
-      >
-        ✅ Fazer Check-in
-      </button>
+  type="button"
+  onClick={() => {
+    alert("Botão clicado");
+    fazerCheckin();
+  }}
+  className="bg-green-700 hover:bg-green-800 px-6 py-5 rounded-2xl font-black text-lg"
+>
+  ✅ Fazer Check-in
+</button>
     </div>
   );
 }   

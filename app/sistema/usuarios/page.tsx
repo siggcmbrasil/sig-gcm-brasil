@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 import CardIndicador from "@/components/CardIndicador";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type Usuario = {
   id: number;
@@ -239,9 +239,7 @@ if (!resposta.ok) {
   });
 
   return (
-  <ProtecaoPerfil
-  perfisPermitidos={["DESENVOLVEDOR"]}
->
+  <ProtecaoModulo modulo="usuarios">
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6">
   <div className="border-b border-slate-800 pb-5">
@@ -561,7 +559,7 @@ if (!resposta.ok) {
         </div>
       </section>
         </div>
-    </ProtecaoPerfil>
+    </ProtecaoModulo>
 );
 }
 

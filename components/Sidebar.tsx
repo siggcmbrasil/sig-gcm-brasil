@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { buscarModulosPermitidos, moduloLiberado } from "@/lib/permissoesMenu";
 
 type Perfil =
   | "DESENVOLVEDOR"
@@ -28,11 +29,23 @@ export default function Sidebar() {
   const [menuCompacto, setMenuCompacto] = useState(false);
   const [menuAberto, setMenuAberto] = useState("operacional");
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [modulosPermitidos, setModulosPermitidos] = useState<string[]>([]);
 
   useEffect(() => {
+  async function iniciar() {
     const dados = localStorage.getItem("usuarioLogado");
-    if (dados) setUsuario(JSON.parse(dados));
-  }, []);
+
+    if (!dados) return;
+
+    const usuarioLogado = JSON.parse(dados);
+    setUsuario(usuarioLogado);
+
+    const modulos = await buscarModulosPermitidos(usuarioLogado.perfil);
+    setModulosPermitidos(modulos);
+  }
+
+  iniciar();
+}, []);
 
   async function sair() {
     await supabase.auth.signOut();
@@ -79,6 +92,10 @@ export default function Sidebar() {
   ];
 
   const gestao: Perfil[] = ["ADMIN", "COMANDANTE", "DIRETOR"];
+
+  function podeVerModuloMenu(modulo: string) {
+  return moduloLiberado(modulosPermitidos, modulo);
+}
 
   return (
     <>
@@ -180,18 +197,88 @@ w-80
   </div>
 )}
 
-        <nav className={`p-3 space-y-2 flex-1 overflow-y-auto min-h-0 ${menuCompacto ? "items-center" : ""}`}>
-  <ItemMenu href="/sistema" icone="🏠" titulo="Dashboard" fecharMenu={fecharMenu} compacto={menuCompacto} />
+        <nav
+  className={`p-3 space-y-2 flex-1 overflow-y-auto min-h-0 ${
+    menuCompacto ? "items-center" : ""
+  }`}
+>
+  <ItemMenu
+    href="/sistema"
+    icone="🏠"
+    titulo="Dashboard"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
 
-  <ItemMenu href="/sistema/operacional" icone="🚔" titulo="Operacional" fecharMenu={fecharMenu} compacto={menuCompacto} />
+  {podeVerModuloMenu("ocorrencias") && (
+  <ItemMenu
+    href="/sistema/operacional"
+    icone="🚔"
+    titulo="Operacional"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
 
-  <ItemMenu href="/sistema/cadastros" icone="👥" titulo="Cadastros" fecharMenu={fecharMenu} compacto={menuCompacto} />
+{podeVerModuloMenu("guardas") && (
+  <ItemMenu
+    href="/sistema/cadastros"
+    icone="👥"
+    titulo="Cadastros"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
 
-  <ItemMenu href="/sistema/escalas-menu" icone="📅" titulo="Escalas" fecharMenu={fecharMenu} compacto={menuCompacto} />
+{podeVerModuloMenu("escalas") && (
+  <ItemMenu
+    href="/sistema/escalas-menu"
+    icone="📅"
+    titulo="Escalas"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
 
-  <ItemMenu href="/sistema/gestao" icone="📊" titulo="Gestão" fecharMenu={fecharMenu} compacto={menuCompacto} />
+{podeVerModuloMenu("relatorios") && (
+  <ItemMenu
+    href="/sistema/gestao"
+    icone="📊"
+    titulo="Gestão"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
 
-  <ItemMenu href="/sistema/administracao" icone="⚙️" titulo="Administração" fecharMenu={fecharMenu} compacto={menuCompacto} />
+{podeVerModuloMenu("ia") && (
+  <ItemMenu
+    href="/sistema/inteligencia"
+    icone="🤖"
+    titulo="Inteligência"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
+
+{podeVerModuloMenu("administracao") && (
+  <ItemMenu
+    href="/sistema/administracao"
+    icone="🛡️"
+    titulo="Administração"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
+
+{podeVerModuloMenu("configuracoes") && (
+  <ItemMenu
+    href="/sistema/configuracoes"
+    icone="⚙️"
+    titulo="Configurações"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+  />
+)}
 </nav>
 
         <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">

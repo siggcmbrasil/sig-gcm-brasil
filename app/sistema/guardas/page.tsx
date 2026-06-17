@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import Link from "next/link";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type Guarda = {
   id: number;
@@ -212,6 +213,7 @@ function formatarData(data: string | null) {
 }
 
   return (
+  <ProtecaoModulo modulo="guardas">
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">Guardas</h1>
@@ -506,8 +508,9 @@ function formatarData(data: string | null) {
           )}
         </div>
       </section>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }
 
 function Card({ titulo, valor }: { titulo: string; valor: number }) {

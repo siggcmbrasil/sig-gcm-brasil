@@ -9,6 +9,8 @@ type Ocorrencia = {
   data: string;
   status: string;
   tipo: string;
+  bairro?: string;
+  local?: string;
 };
 
 type Patrulhamento = {
@@ -26,13 +28,16 @@ export default function Estatisticas() {
   const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [tipoRelatorio, setTipoRelatorio] = useState<"mensal" | "trimestral" | "anual">("mensal");
+const [mes, setMes] = useState(String(new Date().getMonth() + 1).padStart(2, "0"));
+const [ano, setAno] = useState(String(new Date().getFullYear()));
 
   async function carregar() {
     setCarregando(true);
 
     const { data: ocorrenciasData } = await supabase
       .from("ocorrencias")
-      .select("id, data, status, tipo");
+      .select("id, data, status, tipo, bairro, local");
 
     const { data: patrulhamentosData } = await supabase
       .from("patrulhamentos")
@@ -61,6 +66,63 @@ export default function Estatisticas() {
   const finalizadas = ocorrencias.filter((o) => o.status === "Finalizada").length;
   const guardasServico = guardas.filter((g) => g.status === "Em serviço").length;
 
+function dentroDoPeriodo(data: string) {
+  if (!data) return false;
+
+  const dataItem = new Date(`${data}T00:00:00`);
+  const anoItem = dataItem.getFullYear();
+  const mesItem = dataItem.getMonth() + 1;
+
+  const anoSelecionado = Number(ano);
+  const mesSelecionado = Number(mes);
+
+  if (tipoRelatorio === "mensal") {
+    return anoItem === anoSelecionado && mesItem === mesSelecionado;
+  }
+
+  if (tipoRelatorio === "trimestral") {
+    const inicioTrimestre = Math.floor((mesSelecionado - 1) / 3) * 3 + 1;
+    const fimTrimestre = inicioTrimestre + 2;
+
+    return (
+      anoItem === anoSelecionado &&
+      mesItem >= inicioTrimestre &&
+      mesItem <= fimTrimestre
+    );
+  }
+
+  if (tipoRelatorio === "anual") {
+    return anoItem === anoSelecionado;
+  }
+
+  return false;
+}
+
+const ocorrenciasPeriodo = ocorrencias.filter((o) => dentroDoPeriodo(o.data));
+const patrulhamentosPeriodo = patrulhamentos.filter((p) => dentroDoPeriodo(p.data));
+
+const abertasPeriodo = ocorrenciasPeriodo.filter((o) => o.status === "Aberta").length;
+const finalizadasPeriodo = ocorrenciasPeriodo.filter((o) => o.status === "Finalizada").length;
+
+const tiposOcorrencia = ocorrenciasPeriodo.reduce(
+  (acc: Record<string, number>, item) => {
+    acc[item.tipo] = (acc[item.tipo] || 0) + 1;
+    return acc;
+  },
+  {}
+);
+
+const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
+  (acc: Record<string, number>, item) => {
+    const bairro = item.bairro || item.local || "Não informado";
+
+    acc[bairro] = (acc[bairro] || 0) + 1;
+
+    return acc;
+  },
+  {}
+);
+
   return (
   <ProtecaoPerfil
   perfisPermitidos={[
@@ -79,6 +141,44 @@ export default function Estatisticas() {
         <p className="text-slate-400 mt-2">
           Indicadores operacionais da Guarda Civil Municipal.
         </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-5">
+  <select
+    className="input"
+    value={tipoRelatorio}
+    onChange={(e) => setTipoRelatorio(e.target.value as any)}
+  >
+    <option value="mensal">Relatório Mensal</option>
+    <option value="trimestral">Relatório Trimestral</option>
+    <option value="anual">Relatório Anual</option>
+  </select>
+
+  <select
+    className="input"
+    value={mes}
+    onChange={(e) => setMes(e.target.value)}
+  >
+    <option value="01">Janeiro</option>
+    <option value="02">Fevereiro</option>
+    <option value="03">Março</option>
+    <option value="04">Abril</option>
+    <option value="05">Maio</option>
+    <option value="06">Junho</option>
+    <option value="07">Julho</option>
+    <option value="08">Agosto</option>
+    <option value="09">Setembro</option>
+    <option value="10">Outubro</option>
+    <option value="11">Novembro</option>
+    <option value="12">Dezembro</option>
+  </select>
+
+  <input
+    className="input"
+    value={ano}
+    onChange={(e) => setAno(e.target.value)}
+    placeholder="Ano"
+  />
+</div>
       </header>
 
       {carregando ? (
@@ -86,10 +186,10 @@ export default function Estatisticas() {
       ) : (
         <>
           <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            <Card titulo="Ocorrências Hoje" valor={ocorrenciasHoje} icone="🚨" />
-            <Card titulo="Rondas Hoje" valor={patrulhamentosHoje} icone="🚔" />
-            <Card titulo="Abertas" valor={abertas} icone="⚠️" />
-            <Card titulo="Finalizadas" valor={finalizadas} icone="✅" />
+            <Card titulo="Ocorrências no Período" valor={ocorrenciasPeriodo.length} icone="🚨" />
+<Card titulo="Rondas no Período" valor={patrulhamentosPeriodo.length} icone="🚔" />
+<Card titulo="Abertas no Período" valor={abertasPeriodo} icone="⚠️" />
+<Card titulo="Finalizadas no Período" valor={finalizadasPeriodo} icone="✅" />
           </section>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -116,6 +216,51 @@ export default function Estatisticas() {
               </div>
             </div>
           </section>
+          <section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    🚨 Ocorrências por Tipo
+  </h2>
+
+  <div className="space-y-3">
+    {Object.entries(tiposOcorrencia)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .map(([tipo, quantidade]) => (
+        <div
+          key={tipo}
+          className="flex justify-between border-b border-slate-800 pb-2"
+        >
+          <span>{tipo}</span>
+
+          <span className="font-bold text-blue-400">
+            {String(quantidade)}
+          </span>
+        </div>
+      ))}
+  </div>
+</section>
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    📍 Bairros Mais Atendidos
+  </h2>
+
+  <div className="space-y-3">
+    {Object.entries(bairrosMaisAtendidos)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 10)
+      .map(([bairro, quantidade]) => (
+        <div
+          key={bairro}
+          className="flex justify-between border-b border-slate-800 pb-2"
+        >
+          <span>{bairro}</span>
+
+          <span className="font-bold text-green-400">
+            {String(quantidade)}
+          </span>
+        </div>
+      ))}
+  </div>
+</section>
         </>
       )}
         </div>
