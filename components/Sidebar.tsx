@@ -291,31 +291,39 @@ w-80
 </nav>
 
         <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">
-          <div className="flex gap-3 items-center mb-4">
+          <div
+  className={`flex gap-3 items-center mb-4 ${
+    menuCompacto ? "justify-center" : ""
+  }`}
+>
             <img
               src={brasaoMunicipio || "/brasao-gcm-v2.png"}
               alt="Brasão GCM Biritinga"
               className="w-12 h-12 object-contain"
             />
 
-            <div>
-              <p className="font-semibold">SIG-GCM Brasil</p>
-              <p className="text-xs text-slate-400">
-                  Sistema Integrado das Guardas Municipais
-            </p>
-              <p className="text-xs text-slate-1000">
-                  suporte@siggcmbrasil.com
-            </p>
-            </div>
+            {!menuCompacto && (
+  <div>
+    <p className="font-semibold">SIG-GCM Brasil</p>
+
+    <p className="text-xs text-slate-400">
+      Sistema Integrado das Guardas Municipais
+    </p>
+
+    <p className="text-xs text-blue-400">
+      suporte@siggcmbrasil.com
+    </p>
+  </div>
+)}
           </div>
 
           <button
-            type="button"
-            onClick={sair}
-            className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
-          >
-            Sair do Sistema
-          </button>
+  type="button"
+  onClick={sair}
+  className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
+>
+  {menuCompacto ? "🚪" : "Sair do Sistema"}
+</button>
         </div>
       </aside>
     </>

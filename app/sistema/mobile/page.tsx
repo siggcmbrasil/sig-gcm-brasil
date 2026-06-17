@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 const modulos = [
   { titulo: "Nova Ocorrência", icone: "🚨", href: "/sistema/ocorrencias/nova", grupo: "Operacional", cor: "from-red-600 to-red-900" },
@@ -35,6 +36,42 @@ const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
 export default function AppPage() {
   const [aba, setAba] = useState("Tudo");
   const [busca, setBusca] = useState("");
+
+  const [guarnicaoDia, setGuarnicaoDia] = useState<any>(null);
+
+useEffect(() => {
+  async function carregarGuarnicaoDia() {
+    const hoje = new Date().toISOString().split("T")[0];
+
+    const usuarioSalvo = localStorage.getItem("usuarioLogado");
+    const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+
+    const { data, error } = await supabase
+      .from("escalas")
+      .select(`
+        *,
+        guarnicoes (
+          id,
+          nome,
+          viatura,
+          comandante,
+          integrantes
+        )
+      `)
+      .eq("data", hoje)
+      .eq("municipio_id", usuario?.municipio_id)
+      .maybeSingle();
+
+    if (error) {
+      console.error("Erro ao buscar guarnição do dia:", error);
+      return;
+    }
+
+    setGuarnicaoDia(data);
+  }
+
+  carregarGuarnicaoDia();
+}, []);
 
   const filtrados = modulos.filter((m) => {
     const passaAba = aba === "Tudo" || m.grupo === aba;
@@ -72,6 +109,45 @@ export default function AppPage() {
           <span>⋮</span>
         </div>
       </header>
+
+      <section className="mb-6 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border border-blue-500/30 p-5 shadow-[0_0_30px_rgba(59,130,246,0.20)]">
+  <p className="text-xs uppercase tracking-[0.25em] text-blue-400 font-bold mb-2">
+    Guarnição do Dia
+  </p>
+
+  {guarnicaoDia ? (
+    <>
+      <h2 className="text-2xl font-black text-white">
+        🚓 {guarnicaoDia.guarnicoes?.nome || "Guarnição"}
+      </h2>
+
+      <p className="text-slate-300 mt-2">
+        Comandante:{" "}
+        <span className="font-bold text-white">
+          {guarnicaoDia.guarnicoes?.comandante || "Não informado"}
+        </span>
+      </p>
+
+      <p className="text-slate-400 text-sm mt-1">
+        Viatura: {guarnicaoDia.guarnicoes?.viatura || "Não informada"}
+      </p>
+
+      <div className="mt-4 flex items-center justify-between">
+        <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
+          Em serviço
+        </span>
+
+        <span className="text-xs text-slate-500">
+          {new Date().toLocaleDateString("pt-BR")}
+        </span>
+      </div>
+    </>
+  ) : (
+    <p className="text-slate-400">
+      Nenhuma guarnição encontrada para hoje.
+    </p>
+  )}
+</section>
 
       <div className="flex justify-between border-b border-slate-800 mb-7">
         {abas.map((item) => (
