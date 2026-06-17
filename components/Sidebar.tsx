@@ -174,47 +174,34 @@ w-80
     </button>
   </div>
 
-  <div className="p-4 md:p-6 border-b border-slate-800 flex gap-4 items-center">
-  {!menuCompacto && (
-    <div>
-      <h1 className="text-lg font-bold">SIG-GCM Brasil</h1>
-      <p className="text-xs text-slate-400">
-        Sistema Integrado das Guardas Municipais
-      </p>
-    </div>
-  )}
-</div>
-
-{usuario && (
+  {usuario && (
   <div
-    className={`p-4 border-b border-slate-800 bg-slate-950/40 ${
+    className={`p-5 border-b border-slate-800 bg-slate-950/40 ${
       menuCompacto ? "text-center" : ""
     }`}
   >
     <div className="flex flex-col items-center">
-
       <img
         src={brasaoMunicipio || "/brasao-gcm-v2.png"}
         alt="Brasão GCM"
-        className="w-20 h-20 object-contain mb-3"
+        className={menuCompacto ? "w-12 h-12 object-contain" : "w-40 h-40 object-contain mb-4"}
       />
 
       {!menuCompacto && (
         <>
-          <p className="font-bold text-center">
+          <p className="font-black text-lg text-center">
             {usuario.nome}
           </p>
 
-          <p className="text-xs text-slate-400">
+          <p className="text-xs text-slate-400 mt-1">
             Matrícula: {usuario.matricula || "-"}
           </p>
 
-          <p className="text-xs text-blue-400">
+          <p className="text-xs text-blue-400 font-bold">
             Perfil: {usuario.perfil}
           </p>
         </>
       )}
-
     </div>
   </div>
 )}
