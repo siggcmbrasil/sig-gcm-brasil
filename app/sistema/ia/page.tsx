@@ -1,11 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 export default function IAOperacionalPage() {
   const [texto, setTexto] = useState("");
   const [resposta, setResposta] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [creditos, setCreditos] = useState<number | null>(null);
+
+  useEffect(() => {
+  carregarCreditos();
+}, []);
+
+async function carregarCreditos() {
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
+
+  const res = await fetch("/api/ia-creditos", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      municipio_id: usuario?.municipio_id,
+    }),
+  });
+
+  const data = await res.json();
+
+  setCreditos(data.saldo || 0);
+}
 
   async function consultarIA(tipo: string) {
     if (!texto.trim()) {
@@ -82,6 +107,10 @@ ${texto}
       const data = await res.json();
 
       setResposta(data.resposta || data.erro || "Sem resposta.");
+
+if (data.creditos_restantes !== undefined) {
+  setCreditos(data.creditos_restantes);
+}
     } catch {
       setResposta("Erro ao conectar com a IA.");
     } finally {
@@ -96,6 +125,16 @@ ${texto}
           <h1 className="text-4xl font-black text-blue-400">
             🤖 IA Operacional
           </h1>
+
+<div className="mt-4 inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
+  <span>🤖</span>
+  <span className="font-bold text-blue-300">
+    Créditos IA:
+  </span>
+  <span className="font-black text-white">
+    {creditos === null ? "Carregando..." : creditos}
+  </span>
+</div>
 
           <p className="mt-3 text-slate-300">
             Auxilia o guarda no preenchimento de ocorrências, relatos e providências.
