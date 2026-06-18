@@ -420,7 +420,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   icone="✅"
   cor="green"
 />
-      <CardComando titulo="Ocorrências Pendentes" valor={String(ocorrenciasHoje)} detalhe="Aguardando atendimento" icone="🚨" cor="blue" />
+      <CardComando titulo="Ocorrências Pendentes" valor={String(abertas)} detalhe="Aguardando atendimento" icone="🚨" cor="blue" />
       <CardComando titulo="Chamados Abertos" valor="0" detalhe="Em atendimento" icone="📞" cor="cyan" />
       <CardComando titulo="Viaturas em Serviço" valor={String(viaturas.length)} detalhe="Frota operacional" icone="🚓" cor="purple" />
       <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
@@ -454,15 +454,27 @@ const aniversariantesHoje = guardas.filter((g) => {
     <PainelAlertas avisos={avisos} />
 
     <div className="painel-premium p-3">
-      <TituloPainel icone="⚡" titulo="Ações Rápidas" />
+      <TituloPainel icone="📢" titulo="Mural Operacional" />
 
-      <div className="grid grid-cols-5 gap-2 mt-3">
-        <AtalhoPremium href="/sistema/ocorrencias/nova" titulo="Nova Ocorrência" icone="🚨" />
-        <AtalhoPremium href="/sistema/chamados" titulo="Novo Chamado" icone="📞" />
-        <AtalhoPremium href="/sistema/patrulhamento" titulo="Patrulhamento" icone="🚔" />
-        <AtalhoPremium href="/sistema/relatorios" titulo="Relatório" icone="📄" />
-        <AtalhoPremium href="/sistema/ia" titulo="IA Operacional" icone="🤖" />
-      </div>
+      <div className="space-y-3 mt-3">
+  <AlertaLinha
+    icone="📅"
+    titulo="Escala Operacional"
+    detalhe="Rodízio funcionando normalmente."
+  />
+
+  <AlertaLinha
+    icone="🚓"
+    titulo="Viaturas"
+    detalhe="Todas as viaturas disponíveis."
+  />
+
+  <AlertaLinha
+    icone="🛡️"
+    titulo="Sistema"
+    detalhe="Nenhum alerta crítico registrado."
+  />
+</div>
     </div>
   </div>
 
@@ -557,9 +569,9 @@ function PainelTopo({
     <header className="h-20 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
       <div className="flex items-center gap-4 min-w-[300px]">
         <img
-  src="/brasao-gcm-v2.png"
-  alt="SIG"
-  className="w-12 h-12"
+  src={municipio?.brasao || "/brasao-gcm-v2.png"}
+  alt="Brasão"
+  className="w-16 h-16 object-contain"
 />
 
         <div>

@@ -144,14 +144,14 @@ ${pergunta}
       creditos_restantes: saldoDepois,
       creditos_usados: custo,
     });
-  } catch (error) {
-    console.error("ERRO IA:", error);
+    } catch (error: any) {
+  console.error("ERRO IA:", error);
 
-    return NextResponse.json(
-      {
-        erro: "A IA demorou ou falhou. Tente novamente.",
-      },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json(
+    {
+      erro: "ERRO TESTE API NOVA",
+    },
+    { status: 500 }
+  );
+}
 }
