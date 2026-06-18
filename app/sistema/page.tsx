@@ -1084,17 +1084,13 @@ function PainelResumo({
     <div className="painel-premium p-5 h-full">
       <TituloPainel icone="📊" titulo="Estatísticas do Dia" />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-5">
-        <ResumoMini titulo="Ocorrências" valor={abertas} />
-        <ResumoMini titulo="Chamados" valor={0} />
-        <ResumoMini titulo="Patrulhamentos" valor={guardasServico} />
-        <ResumoMini titulo="Averiguações" valor={finalizadas} />
-      </div>
-
-      <div className="h-24 mt-6 rounded-xl bg-slate-950/70 border border-slate-800 relative overflow-hidden">
-        <div className="absolute bottom-6 left-0 w-full h-[2px] bg-blue-500" />
-        <div className="absolute bottom-10 left-0 w-full h-[2px] bg-green-500" />
-        <div className="absolute bottom-16 left-0 w-full h-[2px] bg-purple-500" />
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5">
+        <ResumoMini titulo="Ocorrências Pendentes" valor={abertas} icone="🚨" />
+        <ResumoMini titulo="Ocorrências Finalizadas" valor={finalizadas} icone="✅" />
+        <ResumoMini titulo="Guardas em Serviço" valor={guardasServico} icone="👮" />
+        <ResumoMini titulo="Guardas de Folga" valor={guardasFolga} icone="🏠" />
+        <ResumoMini titulo="Patrulhamentos" valor={16} icone="🚔" />
+        <ResumoMini titulo="Averiguações" valor={1} icone="🔍" />
       </div>
     </div>
   );
@@ -1171,11 +1167,23 @@ function Legenda({
   );
 }
 
-function ResumoMini({ titulo, valor }: { titulo: string; valor: number }) {
+function ResumoMini({
+  titulo,
+  valor,
+  icone,
+}: {
+  titulo: string;
+  valor: number;
+  icone: string;
+}) {
   return (
-    <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4">
-      <p className="text-slate-400 text-sm">{titulo}</p>
-      <h3 className="text-3xl font-black">{valor}</h3>
+    <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
+      <div className="text-3xl">{icone}</div>
+
+      <div>
+        <p className="text-slate-400 text-xs">{titulo}</p>
+        <h3 className="text-3xl font-black">{valor}</h3>
+      </div>
     </div>
   );
 }

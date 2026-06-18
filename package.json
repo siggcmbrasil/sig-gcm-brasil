@@ -20,7 +20,6 @@
     "@capacitor/android": "^8.4.0",
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
-    "@google/genai": "^2.8.0",
     "@supabase/supabase-js": "^2.106.2",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",

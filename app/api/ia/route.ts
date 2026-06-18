@@ -1,10 +1,5 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-
-const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY!,
-});
 
 export async function POST(req: Request) {
   try {
@@ -17,6 +12,15 @@ export async function POST(req: Request) {
       );
     }
 
+    const apiKey = process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { erro: "GEMINI_API_KEY não configurada." },
+        { status: 500 }
+      );
+    }
+
     const municipioId = usuario?.municipio_id || 1;
 
     let custo = 1;
@@ -25,47 +29,37 @@ export async function POST(req: Request) {
       case "operacional":
         custo = 2;
         break;
-
       case "juridica":
         custo = 3;
         break;
-
       case "relatorio":
         custo = 5;
         break;
-
       default:
         custo = 1;
     }
 
-    const { data: creditoAtual, error: erroCredito } =
-      await supabaseAdmin
-        .from("ia_creditos_municipio")
-        .select("*")
-        .eq("municipio_id", municipioId)
-        .single();
+    const { data: creditoAtual, error: erroCredito } = await supabaseAdmin
+      .from("ia_creditos_municipio")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .single();
 
     if (erroCredito || !creditoAtual) {
       return NextResponse.json(
-        {
-          erro: "Município sem configuração de créditos de IA.",
-        },
+        { erro: "Município sem configuração de créditos de IA." },
         { status: 400 }
       );
     }
 
     if (creditoAtual.saldo < custo) {
       return NextResponse.json(
-        {
-          erro: "Créditos de IA insuficientes.",
-        },
+        { erro: "Créditos de IA insuficientes." },
         { status: 400 }
       );
     }
 
-    const resposta = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `
+    const prompt = `
 Você é a IA do SIG-GCM Brasil.
 
 Modo da consulta:
@@ -113,8 +107,41 @@ Use como base:
 
 Pergunta:
 ${pergunta}
-`,
-    });
+`;
+
+    const geminiRes = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [{ text: prompt }],
+            },
+          ],
+        }),
+      }
+    );
+
+    const geminiData = await geminiRes.json();
+
+    if (!geminiRes.ok) {
+      return NextResponse.json(
+        {
+          erro:
+            geminiData?.error?.message ||
+            "Erro ao consultar a IA do Gemini.",
+        },
+        { status: 500 }
+      );
+    }
+
+    const textoResposta =
+      geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
+      "Não consegui gerar uma resposta.";
 
     const saldoAntes = creditoAtual.saldo;
     const saldoDepois = saldoAntes - custo;
@@ -127,31 +154,28 @@ ${pergunta}
       })
       .eq("municipio_id", municipioId);
 
-    await supabaseAdmin
-      .from("ia_creditos_historico")
-      .insert({
-        municipio_id: municipioId,
-        usuario_id: usuario?.id || null,
-        tipo_acao: modo || "geral",
-        creditos_usados: custo,
-        saldo_antes: saldoAntes,
-        saldo_depois: saldoDepois,
-      });
+    await supabaseAdmin.from("ia_creditos_historico").insert({
+      municipio_id: municipioId,
+      usuario_id: usuario?.id || null,
+      tipo_acao: modo || "geral",
+      creditos_usados: custo,
+      saldo_antes: saldoAntes,
+      saldo_depois: saldoDepois,
+    });
 
     return NextResponse.json({
-      resposta:
-        resposta.text || "Não consegui gerar uma resposta.",
+      resposta: textoResposta,
       creditos_restantes: saldoDepois,
       creditos_usados: custo,
     });
-    } catch (error: any) {
-  console.error("ERRO IA:", error);
+  } catch (error: any) {
+    console.error("ERRO IA:", error);
 
-  return NextResponse.json(
-    {
-      erro: String(error?.message || error),
-    },
-    { status: 500 }
-  );
-}
+    return NextResponse.json(
+      {
+        erro: String(error?.message || error),
+      },
+      { status: 500 }
+    );
+  }
 }
