@@ -149,7 +149,7 @@ ${pergunta}
 
   return NextResponse.json(
     {
-      erro: "ERRO TESTE API NOVA",
+      erro: String(error?.message || error),
     },
     { status: 500 }
   );
