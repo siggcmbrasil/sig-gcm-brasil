@@ -9,28 +9,40 @@ export default function IAOperacionalPage() {
   const [creditos, setCreditos] = useState<number | null>(null);
 
   useEffect(() => {
-  carregarCreditos();
-}, []);
+    carregarCreditos();
+  }, []);
 
-async function carregarCreditos() {
-  const usuario = JSON.parse(
-    localStorage.getItem("usuarioLogado") || "{}"
-  );
+  async function carregarCreditos() {
+    try {
+      const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
-  const res = await fetch("/api/ia-creditos", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      municipio_id: usuario?.municipio_id,
-    }),
-  });
+      const res = await fetch("/api/ia-creditos", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          municipio_id: usuario?.municipio_id || 1,
+        }),
+      });
 
-  const data = await res.json();
+      const textoResposta = await res.text();
 
-  setCreditos(data.saldo || 0);
-}
+      let data: any = {};
+      try {
+        data = JSON.parse(textoResposta);
+      } catch {
+        console.error("Resposta inválida de /api/ia-creditos:", textoResposta);
+        setCreditos(0);
+        return;
+      }
+
+      setCreditos(data.saldo ?? 0);
+    } catch (error) {
+      console.error("Erro ao carregar créditos:", error);
+      setCreditos(0);
+    }
+  }
 
   async function consultarIA(tipo: string) {
     if (!texto.trim()) {
@@ -104,13 +116,22 @@ ${texto}
         }),
       });
 
-      const data = await res.json();
+      const textoResposta = await res.text();
+
+      let data: any = {};
+      try {
+        data = JSON.parse(textoResposta);
+      } catch {
+        console.error("Resposta inválida de /api/ia:", textoResposta);
+        setResposta("Erro: a API da IA retornou uma resposta inválida.");
+        return;
+      }
 
       setResposta(data.resposta || data.erro || "Sem resposta.");
 
-if (data.creditos_restantes !== undefined) {
-  setCreditos(data.creditos_restantes);
-}
+      if (data.creditos_restantes !== undefined) {
+        setCreditos(data.creditos_restantes);
+      }
     } catch {
       setResposta("Erro ao conectar com a IA.");
     } finally {
@@ -126,15 +147,13 @@ if (data.creditos_restantes !== undefined) {
             🤖 IA Operacional
           </h1>
 
-<div className="mt-4 inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
-  <span>🤖</span>
-  <span className="font-bold text-blue-300">
-    Créditos IA:
-  </span>
-  <span className="font-black text-white">
-    {creditos === null ? "Carregando..." : creditos}
-  </span>
-</div>
+          <div className="mt-4 inline-flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-xl px-4 py-2">
+            <span>🤖</span>
+            <span className="font-bold text-blue-300">Créditos IA:</span>
+            <span className="font-black text-white">
+              {creditos === null ? "Carregando..." : creditos}
+            </span>
+          </div>
 
           <p className="mt-3 text-slate-300">
             Auxilia o guarda no preenchimento de ocorrências, relatos e providências.
@@ -196,9 +215,7 @@ if (data.creditos_restantes !== undefined) {
 
         {resposta && (
           <section className="painel-premium p-6 border border-blue-500/30">
-            <h2 className="text-2xl font-black mb-4">
-              Resultado da IA
-            </h2>
+            <h2 className="text-2xl font-black mb-4">Resultado da IA</h2>
 
             <div className="whitespace-pre-wrap text-slate-200 leading-relaxed">
               {resposta}
