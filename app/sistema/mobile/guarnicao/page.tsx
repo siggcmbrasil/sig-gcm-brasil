@@ -1,3 +1,5 @@
+"use client";
+
 export default function GuarnicaoPage() {
   return (
     <main className="min-h-screen bg-[#02060f] text-white p-5">
