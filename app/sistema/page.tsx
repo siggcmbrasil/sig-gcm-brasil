@@ -138,6 +138,7 @@ export default function Dashboard() {
   const [modeloEscalaAtivo, setModeloEscalaAtivo] = useState<string>("");
   const [configEscala, setConfigEscala] = useState<ConfigEscalaOperacional | null>(null);
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  const [rondas, setRondas] = useState<any[]>([]);
   const [agora, setAgora] = useState(new Date());
 
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
@@ -236,6 +237,13 @@ export default function Dashboard() {
     const { data: permutasData } = await supabase
       .from("permutas_plantao")
       .select("id, status");
+
+      const { data: rondasData } = await supabase
+  .from("planos_ronda")
+  .select("*")
+  .order("id", { ascending: false });
+
+setRondas(rondasData || []);
 
     const { data: guarnicoesData } = await supabase
       .from("guarnicoes")
@@ -412,6 +420,10 @@ const aniversariantesHoje = guardas.filter((g) => {
     })),
   ].slice(0, 5);
 
+  const rondasAtivas = rondas.filter((r) => r.status === "ATIVA").length;
+  const rondasAndamento = rondas.filter((r) => r.status === "EM_ANDAMENTO").length;
+  const rondasConcluidas = rondas.filter((r) => r.status === "CONCLUIDA").length;
+
   return (
   <>
     <div className="block md:hidden">
@@ -459,7 +471,7 @@ setMostrarPerfil={setMostrarPerfil}
   </div>
 ) : (
   <>
-    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3 mb-3">
+    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 mb-3">
       <CardComando
   titulo="Plantão Ativo"
   valor={guarnicaoAtual?.nome?.replace("Guarnição ", "") || "Ativo"}
@@ -493,12 +505,21 @@ setMostrarPerfil={setMostrarPerfil}
 />
 
 <CardComando
+  titulo="Rondas"
+  valor={String(rondasAndamento)}
+  detalhe={`${rondasConcluidas} concluídas • ${rondasAtivas} ativas`}
+  icone="🚔"
+  cor="cyan"
+/>
+
+<CardComando
   titulo="Sincronização"
   valor="Online"
   detalhe="Sistema atualizado"
   icone={<Cloud className="w-8 h-8" />}
   cor="gold"
 />
+
     </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
@@ -602,7 +623,7 @@ function PainelUltimasOcorrencias({
             Nenhuma ocorrência recente.
           </div>
         ) : (
-          ocorrencias.slice(0, 5).map((o) => (
+          ocorrencias.slice(0, 2).map((o) => (
             <div
               key={o.id}
               className="
@@ -1246,7 +1267,7 @@ function PainelAtividades({ atividades }: { atividades: Atividade[] }) {
     <div className="painel-premium p-4">
       <TituloPainel icone="📡" titulo="Atividade Operacional" />
 
-      <div className="mt-4 space-y-3">
+      <div className="mt-5 space-y-3">
         {atividades.length === 0 ? (
           <p className="text-slate-400">Nenhuma atividade recente.</p>
         ) : (
@@ -1323,49 +1344,29 @@ function PainelResumo({
   guardasFolga,
 }: any) {
   return (
-    <div className="painel-premium p-5 h-full">
+    <div className="painel-premium p-5 h-30">
       <TituloPainel icone="📊" titulo="Estatísticas do Dia" />
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-5">
+       
         <ResumoMini
-          titulo="Ocorrências Pendentes"
-          valor={abertas}
-          icone={<AlertTriangle className="w-9 h-9" />}
-          cor="yellow"
-        />
-
-        <ResumoMini
-          titulo="Ocorrências Finalizadas"
+          titulo="Finalizadas"
           valor={finalizadas}
-          icone={<CheckCircle className="w-9 h-9" />}
+          icone={<CheckCircle className="w-7 h-7" />}
           cor="green"
         />
-
-        <ResumoMini
-          titulo="Guardas em Serviço"
-          valor={guardasServico}
-          icone={<Shield className="w-9 h-9" />}
-          cor="blue"
-        />
-
-        <ResumoMini
-          titulo="Guardas de Folga"
-          valor={guardasFolga}
-          icone={<Home className="w-9 h-9" />}
-          cor="slate"
-        />
-
+        
         <ResumoMini
           titulo="Patrulhamentos"
           valor={16}
-          icone={<CarFront className="w-9 h-9" />}
+          icone={<CarFront className="w-7 h-7" />}
           cor="cyan"
         />
 
         <ResumoMini
           titulo="Averiguações"
           valor={1}
-          icone={<Search className="w-9 h-9" />}
+          icone={<Search className="w-7 h-7" />}
           cor="purple"
         />
       </div>

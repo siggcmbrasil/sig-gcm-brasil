@@ -5,245 +5,288 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 
-const modulos = [
-  { titulo: "Nova Ocorrência", icone: "🚨", href: "/sistema/ocorrencias/nova", grupo: "Operacional", cor: "from-red-600 to-red-900" },
-  { titulo: "Chamados", icone: "📞", href: "/sistema/chamados", grupo: "Operacional", cor: "from-green-500 to-emerald-900" },
-  { titulo: "Patrulhamento", icone: "🚔", href: "/sistema/patrulhamento", grupo: "Operacional", cor: "from-blue-500 to-blue-950" },
-  { titulo: "Mapa Operacional", icone: "📍", href: "/sistema/mapa-operacional", grupo: "Operacional", cor: "from-purple-500 to-purple-950" },
-
-  { titulo: "Minhas Ocorrências", icone: "📋", href: "/sistema/ocorrencias", grupo: "Operacional", cor: "from-orange-500 to-orange-900" },
-  { titulo: "Guardas", icone: "👥", href: "/sistema/guardas", grupo: "Gestão", cor: "from-teal-500 to-teal-900" },
-  { titulo: "Viaturas", icone: "🚓", href: "/sistema/viatura", grupo: "Gestão", cor: "from-blue-600 to-blue-950" },
-  { titulo: "Escalas", icone: "📅", href: "/sistema/escalas-menu", grupo: "Escalas", cor: "from-violet-500 to-violet-950" },
-
-  { titulo: "Relatórios", icone: "📊", href: "/sistema/relatorios", grupo: "Gestão", cor: "from-yellow-500 to-yellow-900" },
-  { titulo: "Indicadores", icone: "📈", href: "/sistema/estatisticas", grupo: "Gestão", cor: "from-cyan-500 to-cyan-900" },
-  { titulo: "Ofícios", icone: "📄", href: "/sistema/oficios", grupo: "Gestão", cor: "from-green-500 to-green-900" },
-  { titulo: "Fotos Operacionais", icone: "📷", href: "/sistema/ocorrencias", grupo: "Operacional", cor: "from-blue-500 to-blue-900" },
-
-  { titulo: "Comunicados", icone: "💬", href: "/sistema/gestao", grupo: "Gestão", cor: "from-purple-500 to-purple-950" },
-  { titulo: "Ocorrências Críticas", icone: "⚠️", href: "/sistema/ocorrencias", grupo: "Operacional", cor: "from-red-500 to-red-950" },
-  { titulo: "Identificação", icone: "🆔", href: "/sistema/pessoas", grupo: "Gestão", cor: "from-slate-600 to-slate-950" },
-  { titulo: "Consulta Rápida", icone: "🔍", href: "/sistema/cadastros", grupo: "Tudo", cor: "from-teal-500 to-teal-950" },
-
-  { titulo: "IA Operacional", icone: "🤖", href: "/sistema/ia", grupo: "Operacional", cor: "from-blue-500 to-blue-950" },
-  { titulo: "Manuais", icone: "📖", href: "/sistema/legislacao", grupo: "Gestão", cor: "from-purple-500 to-purple-950" },
-  { titulo: "Configurações", icone: "⚙️", href: "/sistema/configuracoes", grupo: "Gestão", cor: "from-orange-500 to-orange-900" },
-  { titulo: "Mais Módulos", icone: "⋯", href: "/sistema", grupo: "Tudo", cor: "from-slate-700 to-slate-950" },
-];
-
-const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
-
 export default function AppPage() {
-  const [aba, setAba] = useState("Tudo");
-  const [busca, setBusca] = useState("");
-
   const [guarnicaoDia, setGuarnicaoDia] = useState<any>(null);
+  const [usuario, setUsuario] = useState<any>(null);
+  const [online, setOnline] = useState(true);
 
-useEffect(() => {
-  async function carregarGuarnicaoDia() {
-    const usuarioSalvo = localStorage.getItem("usuarioLogado");
-    const usuario = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
-    const municipioId = usuario?.municipio_id || 1;
+  useEffect(() => {
+    async function carregarGuarnicaoDia() {
+      const usuarioSalvo = localStorage.getItem("usuarioLogado");
+      const usuarioLocal = usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+      setUsuario(usuarioLocal);
 
-    const { data: configEscala } = await supabase
-      .from("escala_operacional_config")
-      .select("*")
-      .eq("municipio_id", municipioId)
-      .eq("ativo", true)
-      .order("id", { ascending: false })
-      .limit(1)
-      .single();
+      const municipioId = usuarioLocal?.municipio_id || 1;
 
-    const { data: guarnicoes } = await supabase
-      .from("guarnicoes")
-      .select("*")
-      .eq("municipio_id", municipioId)
-      .eq("ativa", true)
-      .order("id");
+      const { data: configEscala } = await supabase
+        .from("escala_operacional_config")
+        .select("*")
+        .eq("municipio_id", municipioId)
+        .eq("ativo", true)
+        .order("id", { ascending: false })
+        .limit(1)
+        .single();
 
-    const { data: membros } = await supabase
-      .from("guarnicao_membros")
-      .select("id, guarnicao_id, guarda_id");
+      const { data: guarnicoes } = await supabase
+        .from("guarnicoes")
+        .select("*")
+        .eq("municipio_id", municipioId)
+        .eq("ativa", true)
+        .order("id");
 
-    const { data: guardas } = await supabase
-      .from("guardas")
-      .select("id, nome")
-      .eq("municipio_id", municipioId);
+      const { data: membros } = await supabase
+        .from("guarnicao_membros")
+        .select("id, guarnicao_id, guarda_id");
 
-    const { data: viaturas } = await supabase
-      .from("viaturas")
-      .select("*")
-      .eq("municipio_id", municipioId);
+      const { data: guardas } = await supabase
+        .from("guardas")
+        .select("id, nome")
+        .eq("municipio_id", municipioId);
 
-    if (!configEscala || !configEscala.ordem_guarnicoes?.length) {
-      setGuarnicaoDia(null);
-      return;
+      const { data: viaturas } = await supabase
+        .from("viaturas")
+        .select("*")
+        .eq("municipio_id", municipioId);
+
+      if (!configEscala || !configEscala.ordem_guarnicoes?.length) {
+        setGuarnicaoDia(null);
+        return;
+      }
+
+      const guarnicaoAtual = calcularGuarnicaoDia(
+        configEscala,
+        guarnicoes || []
+      );
+
+      if (!guarnicaoAtual) {
+        setGuarnicaoDia(null);
+        return;
+      }
+
+      const comandante = guardas?.find(
+        (g) => Number(g.id) === Number(guarnicaoAtual.comandante_id)
+      );
+
+      const viatura = viaturas?.find(
+        (v) => Number(v.id) === Number(guarnicaoAtual.viatura_id)
+      );
+
+      const membrosDaGuarnicao =
+        membros
+          ?.filter((m) => Number(m.guarnicao_id) === Number(guarnicaoAtual.id))
+          .map((m) => {
+            const guarda = guardas?.find(
+              (g) => Number(g.id) === Number(m.guarda_id)
+            );
+            return guarda?.nome || "Guarda não encontrado";
+          }) || [];
+
+      setGuarnicaoDia({
+        nome: guarnicaoAtual.nome,
+        comandante: comandante?.nome || "Não informado",
+        viatura: viatura?.prefixo || "VTR-01",
+        membros: membrosDaGuarnicao,
+      });
     }
 
-    const guarnicaoAtual = calcularGuarnicaoDia(
-  configEscala,
-  guarnicoes || []
-);
+    carregarGuarnicaoDia();
+  }, []);
 
-    if (!guarnicaoAtual) {
-      setGuarnicaoDia(null);
-      return;
-    }
+  useEffect(() => {
+  setOnline(navigator.onLine);
 
-    const comandante = guardas?.find(
-      (g) => Number(g.id) === Number(guarnicaoAtual.comandante_id)
-    );
+  const ficouOnline = () => setOnline(true);
+  const ficouOffline = () => setOnline(false);
 
-    const viatura = viaturas?.find(
-      (v) => Number(v.id) === Number(guarnicaoAtual.viatura_id)
-    );
+  window.addEventListener("online", ficouOnline);
+  window.addEventListener("offline", ficouOffline);
 
-    const membrosDaGuarnicao =
-      membros
-        ?.filter((m) => Number(m.guarnicao_id) === Number(guarnicaoAtual.id))
-        .map((m) => {
-          const guarda = guardas?.find((g) => Number(g.id) === Number(m.guarda_id));
-          return guarda?.nome || "Guarda não encontrado";
-        }) || [];
-
-    setGuarnicaoDia({
-      nome: guarnicaoAtual.nome,
-      comandante: comandante?.nome || "Não informado",
-      viatura: viatura?.prefixo || "Não definida",
-      membros: membrosDaGuarnicao,
-    });
-  }
-
-  carregarGuarnicaoDia();
+  return () => {
+    window.removeEventListener("online", ficouOnline);
+    window.removeEventListener("offline", ficouOffline);
+  };
 }, []);
 
-  const filtrados = modulos.filter((m) => {
-    const passaAba = aba === "Tudo" || m.grupo === aba;
-    const passaBusca = m.titulo.toLowerCase().includes(busca.toLowerCase());
-    return passaAba && passaBusca;
-  });
-
   return (
-    <main className="min-h-screen bg-[#02050c] text-white px-5 pt-5 pb-28">
-      <header className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <img
-            src="/brasao-gcm-v2.png"
-            alt="SIG-GCM"
-            className="w-16 h-16 object-contain"
-          />
+    <main className="min-h-screen bg-[#02050c] text-white pb-24">
+      <header className="px-5 pt-5 pb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button className="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl">
+              ☰
+            </button>
 
-          <div>
-            <h1 className="text-3xl font-black leading-none">
-              SIG-GCM
-            </h1>
-            <p className="text-slate-400 text-sm">
-              Biritinga - BA
-            </p>
+            <div>
+              <h1 className="text-xl font-black">
+                Olá, {usuario?.nome || "Guarda"}
+              </h1>
+              <p className="text-slate-400 text-sm">
+                Bom dia! Seja bem-vindo.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-4 text-3xl">
-          <span className="relative">
-            🔔
-            <b className="absolute -top-2 -right-2 bg-red-600 text-white text-xs w-6 h-6 rounded-full flex items-center justify-center">
-              3
-            </b>
-          </span>
-          <span>⋮</span>
+          <span
+  className={`px-3 py-2 rounded-2xl text-xs font-black border ${
+    online
+      ? "bg-green-500/20 text-green-400 border-green-500/40"
+      : "bg-red-500/20 text-red-400 border-red-500/40"
+  }`}
+>
+  {online ? "🟢 ONLINE" : "🔴 OFFLINE"}
+</span>
         </div>
       </header>
 
-      <section className="mb-6 rounded-3xl bg-gradient-to-br from-slate-900 to-slate-950 border border-blue-500/30 p-5 shadow-[0_0_30px_rgba(59,130,246,0.20)]">
-  <p className="text-xs uppercase tracking-[0.25em] text-blue-400 font-bold mb-2">
-    Guarnição do Dia
-  </p>
+      <section className="mx-5 rounded-3xl bg-slate-900/90 border border-slate-800 p-5 shadow-xl">
+        <p className="text-slate-400 text-sm mb-2">👮 Guarnição do dia</p>
 
-  {guarnicaoDia ? (
-    <>
-      <h2 className="text-2xl font-black text-white">
-        🚓 {guarnicaoDia.nome || "Guarnição"}
-      </h2>
+        {guarnicaoDia ? (
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-black">
+                {guarnicaoDia.viatura} / {guarnicaoDia.nome}
+              </h2>
 
-      <p className="text-slate-300 mt-2">
-        Comandante:{" "}
-        <span className="font-bold text-white">
-          {guarnicaoDia.comandante || "Não informado"}
-        </span>
-      </p>
-
-      <p className="text-slate-400 text-sm mt-1">
-        Viatura: {guarnicaoDia.viatura || "Não informada"}
-      </p>
-
-      <div className="mt-4 flex items-center justify-between">
-        <span className="text-xs px-3 py-1 rounded-full bg-green-500/20 text-green-400 border border-green-500/30">
-          Em serviço
-        </span>
-
-        <span className="text-xs text-slate-500">
-          {new Date().toLocaleDateString("pt-BR")}
-        </span>
-      </div>
-    </>
-  ) : (
-    <p className="text-slate-400">
-      Nenhuma guarnição encontrada para hoje.
-    </p>
-  )}
-</section>
-
-      <div className="flex justify-between border-b border-slate-800 mb-7">
-        {abas.map((item) => (
-          <button
-            key={item}
-            onClick={() => setAba(item)}
-            className={`pb-3 text-lg font-bold ${
-              aba === item
-                ? "text-blue-400 border-b-4 border-blue-500"
-                : "text-slate-300"
-            }`}
-          >
-            {item}
-          </button>
-        ))}
-      </div>
-
-      <section className="grid grid-cols-4 gap-x-4 gap-y-8">
-        {filtrados.map((modulo) => (
-          <Link
-            key={modulo.titulo}
-            href={modulo.href}
-            className="flex flex-col items-center text-center"
-          >
-            <div
-              className={`w-20 h-20 rounded-3xl bg-gradient-to-br ${modulo.cor} border border-white/10 shadow-[0_0_25px_rgba(59,130,246,0.25)] flex items-center justify-center text-4xl active:scale-95 transition`}
-            >
-              {modulo.icone}
+              <div className="flex flex-wrap items-center gap-3 mt-3 text-sm text-slate-400">
+                <span>🕒 Início: 07:00</span>
+                <span className="text-green-400">● Em andamento</span>
+              </div>
             </div>
 
-            <p className="mt-2 text-sm font-semibold leading-tight">
-              {modulo.titulo}
-            </p>
-          </Link>
-        ))}
+            <span className="text-slate-500 text-2xl">›</span>
+          </div>
+        ) : (
+          <p className="text-slate-400">Nenhuma guarnição encontrada.</p>
+        )}
       </section>
 
-      <div className="fixed bottom-5 left-5 right-5">
-        <div className="h-16 rounded-full bg-slate-950/95 border border-slate-700 flex items-center px-5 shadow-2xl">
-          <span className="text-3xl text-slate-400 mr-3">🔍</span>
-
-          <input
-            value={busca}
-            onChange={(e) => setBusca(e.target.value)}
-            placeholder="Pesquisar módulos"
-            className="bg-transparent outline-none flex-1 text-lg text-white placeholder:text-slate-500"
-          />
-
-          <span className="text-2xl text-slate-400">☷</span>
+      <section className="px-5 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-black">Atalhos rápidos</h2>
+          <span className="text-blue-400 text-sm">Ver todos</span>
         </div>
-      </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Atalho href="/sistema/ocorrencias/nova" icone="📄" texto="Ocorrências" />
+          <Atalho href="/sistema/escalas-menu" icone="📅" texto="Escalas" />
+          <Atalho href="/sistema/relatorios" icone="📊" texto="Relatórios" />
+          <Atalho href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
+          <Atalho href="/sistema/viaturas" icone="🚓" texto="Viaturas" />
+          <Atalho href="/sistema/mobile/operacao" icone="🚔" texto="Operação" />
+        </div>
+      </section>
+
+      <section className="px-5 mt-7">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-black">Resumo do dia</h2>
+          <span className="text-slate-500 text-xs">Atualizado agora</span>
+        </div>
+
+        <div className="grid grid-cols-3 gap-3">
+          <Resumo titulo="Ocorrências" valor="0" detalhe="+0 hoje" />
+          <Resumo titulo="Chamados" valor="0" detalhe="+0 hoje" />
+          <Resumo titulo="Relatórios" valor="0" detalhe="+0 hoje" />
+        </div>
+      </section>
+
+      <section className="px-5 mt-7">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-black">Avisos importantes</h2>
+          <span className="text-blue-400 text-sm">Ver todos</span>
+        </div>
+
+        <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4 flex items-center gap-3">
+          <span className="text-yellow-400 text-2xl">⚠️</span>
+          <p className="text-sm text-slate-300">
+            Reunião de alinhamento hoje às 14:00.
+          </p>
+        </div>
+      </section>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800 px-3 py-2">
+        <div className="grid grid-cols-5 text-center text-xs">
+          <Menu href="/sistema/mobile" icone="🏠" texto="Início" ativo />
+          <Menu href="/sistema/ocorrencias/nova" icone="📄" texto="Ocorrências" />
+          <Menu href="/sistema/patrulhamento" icone="➕" texto="" destaque />
+          <Menu href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
+          <Menu href="/sistema/perfil" icone="☷" texto="Mais" />
+        </div>
+      </nav>
     </main>
+  );
+}
+
+function Atalho({
+  href,
+  icone,
+  texto,
+}: {
+  href: string;
+  icone: string;
+  texto: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-2xl bg-slate-900 border border-slate-800 p-3 min-h-24 flex flex-col items-center justify-center gap-2 text-center active:scale-95 transition"
+    >
+      <div className="w-11 h-11 rounded-2xl bg-blue-600/20 text-2xl flex items-center justify-center">
+        {icone}
+      </div>
+      <span className="text-xs font-semibold">{texto}</span>
+    </Link>
+  );
+}
+
+function Resumo({
+  titulo,
+  valor,
+  detalhe,
+}: {
+  titulo: string;
+  valor: string;
+  detalhe: string;
+}) {
+  return (
+    <div className="rounded-2xl bg-slate-900 border border-slate-800 p-4">
+      <p className="text-slate-400 text-xs">{titulo}</p>
+      <h3 className="text-2xl font-black mt-1">{valor}</h3>
+      <p className="text-blue-400 text-xs mt-1">{detalhe}</p>
+    </div>
+  );
+}
+
+function Menu({
+  href,
+  icone,
+  texto,
+  ativo,
+  destaque,
+}: {
+  href: string;
+  icone: string;
+  texto: string;
+  ativo?: boolean;
+  destaque?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col items-center gap-1 ${
+        ativo ? "text-blue-400" : "text-slate-400"
+      }`}
+    >
+      <span
+        className={
+          destaque
+            ? "w-14 h-14 -mt-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl shadow-xl"
+            : "text-2xl"
+        }
+      >
+        {icone}
+      </span>
+      {texto && <span>{texto}</span>}
+    </Link>
   );
 }

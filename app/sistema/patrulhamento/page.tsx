@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
+import { obterLocalizacao } from "@/lib/gps";
 
 type Patrulhamento = {
   id: number;
@@ -60,6 +61,10 @@ export default function Patrulhamento() {
   const [observacao, setObservacao] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
+  
+  const [rastreamentoAtivo, setRastreamentoAtivo] = useState(false);
+  const [patrulhamentoAtivoId, setPatrulhamentoAtivoId] = useState<number | null>(null);
+  
 
   const [carregando, setCarregando] = useState(true);
   const [capturandoGps, setCapturandoGps] = useState(false);
@@ -135,31 +140,23 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setGuardasSelecionados([...guardasSelecionados, nome]);
   }
 
-  function obterLocalizacao() {
-    if (!navigator.geolocation) {
-      alert("GPS não suportado neste dispositivo.");
-      return;
-    }
-
+  async function capturarGps() {
+  try {
     setCapturandoGps(true);
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setLatitude(position.coords.latitude.toString());
-        setLongitude(position.coords.longitude.toString());
-        setCapturandoGps(false);
-        alert("GPS capturado com sucesso.");
-      },
-      () => {
-        setCapturandoGps(false);
-        alert("Não foi possível obter a localização.");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-      }
-    );
+    const localizacao = await obterLocalizacao();
+
+    setLatitude(localizacao.latitude.toString());
+    setLongitude(localizacao.longitude.toString());
+
+    alert("GPS capturado com sucesso.");
+  } catch (error) {
+    console.error(error);
+    alert("Não foi possível obter a localização.");
+  } finally {
+    setCapturandoGps(false);
   }
+}
 
   async function salvarPatrulhamento() {
   if (!podeEditar) {
@@ -174,26 +171,39 @@ const podeEditar = perfilUsuario !== "CONSULTA";
       return;
     }
 
-    const { error } = await supabase.from("patrulhamentos").insert([
-      {
-        data,
-        hora,
-        local,
-        guarda: guardaPrincipal,
-        equipe,
-        viatura,
-        latitude,
-        longitude,
-        observacao,
-        status: "EM_ANDAMENTO",
-      },
-    ]);
+   const { data: novoPatrulhamento, error } = await supabase
+  .from("patrulhamentos")
+  .insert([
+    {
+      data,
+      hora,
+      local,
+      guarda: guardaPrincipal,
+      equipe,
+      viatura,
+      latitude,
+      longitude,
+      observacao,
+      status: "EM_ANDAMENTO",
+    },
+  ])
+  .select()
+  .single();
 
     if (error) {
       console.error(error);
       alert("Erro ao salvar patrulhamento.");
       return;
     }
+
+    if (novoPatrulhamento?.id) {
+  setPatrulhamentoAtivoId(novoPatrulhamento.id);
+
+  await salvarPontoGps(
+    novoPatrulhamento.id,
+    "MANUAL"
+  );
+}
 
     alert("Patrulhamento registrado com sucesso!");
 
@@ -209,6 +219,20 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     carregarPatrulhamentos();
   }
+
+  async function salvarPontoGps(
+  patrulhamentoId: number,
+  tipo: "MANUAL" | "AUTOMATICO" = "AUTOMATICO"
+) {
+  const localizacao = await obterLocalizacao();
+
+  await supabase.from("gps_patrulhamento").insert({
+    patrulhamento_id: patrulhamentoId,
+    latitude: localizacao.latitude,
+    longitude: localizacao.longitude,
+    tipo,
+  });
+}
 
   async function excluirPatrulhamento(id: number) {
   if (!podeEditar) {
@@ -234,19 +258,24 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
 async function finalizarPatrulhamento(id: number) {
-  console.log("ID RECEBIDO:", id);
+  setRastreamentoAtivo(false);
 
-  const { data, error } = await supabase
+  const { error } = await supabase
     .from("patrulhamentos")
     .update({
       status: "FINALIZADO",
     })
-    .eq("id", id)
-    .select();
+    .eq("id", id);
 
-  console.log("RESULTADO:", data);
-  console.log("ERRO:", error);
+  if (error) {
+    console.error(error);
+    alert("Erro ao finalizar patrulhamento.");
+    return;
+  }
 
+  setPatrulhamentoAtivoId(null);
+
+  alert("Patrulhamento finalizado com sucesso.");
   carregarPatrulhamentos();
 }
 
@@ -340,6 +369,19 @@ async function carregarPlantaoAutomatico() {
   carregarViaturas();
   carregarPlantaoAutomatico();
 }, []);
+
+useEffect(() => {
+  if (!rastreamentoAtivo || !patrulhamentoAtivoId) return;
+
+  const intervalo = setInterval(async () => {
+    await salvarPontoGps(
+      patrulhamentoAtivoId,
+      "AUTOMATICO"
+    );
+  }, 30000);
+
+  return () => clearInterval(intervalo);
+}, [rastreamentoAtivo, patrulhamentoAtivoId]);
 
   const hoje = new Date().toISOString().split("T")[0];
 
@@ -527,12 +569,30 @@ async function carregarPlantaoAutomatico() {
             <div>
               <button
                 type="button"
-                onClick={obterLocalizacao}
+                onClick={capturarGps}
                 disabled={capturandoGps}
                 className="btn-secondary w-full text-lg disabled:opacity-50"
               >
                 {capturandoGps ? "Capturando GPS..." : "📍 Capturar GPS"}
               </button>
+
+              <button
+  type="button"
+  onClick={() => setRastreamentoAtivo(true)}
+  disabled={!patrulhamentoAtivoId || rastreamentoAtivo}
+  className="btn-primary w-full mt-2 disabled:opacity-50"
+>
+  {rastreamentoAtivo ? "🛰️ Rastreamento Ativo" : "🟢 Iniciar Rastreamento"}
+</button>
+
+<button
+  type="button"
+  onClick={() => setRastreamentoAtivo(false)}
+  disabled={!rastreamentoAtivo}
+  className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold w-full mt-2"
+>
+  🔴 Parar Rastreamento
+</button>
 
               {latitude && longitude && (
                 <div className="mt-3 rounded-xl border border-green-700 bg-green-950/40 p-3 text-sm text-green-300">
@@ -707,6 +767,13 @@ async function carregarPlantaoAutomatico() {
         Finalizar
       </button>
     )}
+
+    <a
+  href={`/sistema/patrulhamento/${item.id}`}
+  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
+>
+  Ver Rota
+</a>
 
     {podeEditar && (
       <button

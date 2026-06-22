@@ -42,6 +42,44 @@ export default function ExecucaoRondaPage() {
     setCarregando(false);
   }
 
+  async function iniciarRonda() {
+    const { error } = await supabase
+      .from("planos_ronda")
+      .update({
+        status: "EM_ANDAMENTO",
+        data_inicio: new Date().toISOString(),
+        data_fim: null,
+      })
+      .eq("id", Number(id));
+
+    if (error) {
+      alert("Erro ao iniciar ronda.");
+      return;
+    }
+
+    carregar();
+  }
+
+  async function encerrarRonda() {
+    const confirmar = confirm("Deseja encerrar esta ronda?");
+    if (!confirmar) return;
+
+    const { error } = await supabase
+      .from("planos_ronda")
+      .update({
+        status: "CONCLUIDA",
+        data_fim: new Date().toISOString(),
+      })
+      .eq("id", Number(id));
+
+    if (error) {
+      alert("Erro ao encerrar ronda.");
+      return;
+    }
+
+    carregar();
+  }
+
   const pontosVisitados = pontos.filter((ponto) =>
     checkins.some((checkin) => Number(checkin.ponto_id) === Number(ponto.id))
   );
@@ -49,6 +87,8 @@ export default function ExecucaoRondaPage() {
   const total = pontos.length;
   const concluidos = pontosVisitados.length;
   const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+
+  const statusRonda = plano?.status || "ATIVA";
 
   if (carregando) {
     return <div className="p-6 text-white">Carregando execução...</div>;
@@ -61,24 +101,88 @@ export default function ExecucaoRondaPage() {
       </Link>
 
       <div className="painel-premium p-6">
-        <h1 className="text-3xl font-black">
-          🚔 {plano?.nome || "Execução da Ronda"}
-        </h1>
+        <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-black">
+              🚔 {plano?.nome || "Execução da Ronda"}
+            </h1>
 
-        <Link
-  href="/sistema/rondas/ler-qrcode"
-  className="mt-5 block bg-green-700 hover:bg-green-800 text-center px-5 py-4 rounded-2xl font-black"
->
-  🔳 Ler QR Code da Ronda
-</Link>
+            <p className="text-slate-400 mt-2">
+              {plano?.descricao || "Acompanhamento dos pontos visitados"}
+            </p>
 
-        <p className="text-slate-400 mt-2">
-          {plano?.descricao || "Acompanhamento dos pontos visitados"}
-        </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span
+                className={`px-3 py-1 rounded-full text-xs font-bold ${
+                  statusRonda === "CONCLUIDA"
+                    ? "bg-green-700 text-white"
+                    : statusRonda === "EM_ANDAMENTO"
+                    ? "bg-blue-700 text-white"
+                    : "bg-slate-700 text-white"
+                }`}
+              >
+                {statusRonda === "CONCLUIDA"
+                  ? "✅ CONCLUÍDA"
+                  : statusRonda === "EM_ANDAMENTO"
+                  ? "🟢 EM ANDAMENTO"
+                  : "⚪ ATIVA"}
+              </span>
+
+              {plano?.data_inicio && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300">
+                  Início: {new Date(plano.data_inicio).toLocaleString("pt-BR")}
+                </span>
+              )}
+
+              {plano?.data_fim && (
+                <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300">
+                  Fim: {new Date(plano.data_fim).toLocaleString("pt-BR")}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 min-w-[220px]">
+            {statusRonda !== "EM_ANDAMENTO" && statusRonda !== "CONCLUIDA" && (
+              <button
+                type="button"
+                onClick={iniciarRonda}
+                className="bg-blue-700 hover:bg-blue-800 text-center px-5 py-3 rounded-2xl font-black"
+              >
+                ▶️ Iniciar Ronda
+              </button>
+            )}
+
+            {statusRonda === "EM_ANDAMENTO" && (
+              <button
+                type="button"
+                onClick={encerrarRonda}
+                className="bg-red-700 hover:bg-red-800 text-center px-5 py-3 rounded-2xl font-black"
+              >
+                ✅ Encerrar Ronda
+              </button>
+            )}
+
+            <Link
+              href="/sistema/rondas/ler-qrcode"
+              className="bg-green-700 hover:bg-green-800 text-center px-5 py-3 rounded-2xl font-black"
+            >
+              🔳 Ler QR Code
+            </Link>
+
+            <Link
+              href={`/sistema/rondas/execucao/${id}/relatorio`}
+              className="bg-purple-700 hover:bg-purple-800 text-center px-5 py-3 rounded-2xl font-black"
+            >
+              📋 Ver Relatório
+            </Link>
+          </div>
+        </div>
 
         <div className="mt-5">
           <div className="flex justify-between mb-2">
             <span className="font-bold">Progresso</span>
+
             <span className="text-blue-400 font-black">
               {concluidos}/{total} • {percentual}%
             </span>
@@ -141,6 +245,20 @@ export default function ExecucaoRondaPage() {
                           <p className="text-slate-400 text-sm">
                             📍 {checkin.latitude}, {checkin.longitude}
                           </p>
+
+                          {checkin.observacao && (
+                            <p className="text-slate-300 text-sm mt-1">
+                              📝 {checkin.observacao}
+                            </p>
+                          )}
+
+                          {checkin.foto_url && (
+                            <img
+                              src={checkin.foto_url}
+                              alt="Foto do check-in"
+                              className="mt-3 w-full max-w-sm rounded-xl border border-slate-700"
+                            />
+                          )}
                         </>
                       )}
                     </div>
