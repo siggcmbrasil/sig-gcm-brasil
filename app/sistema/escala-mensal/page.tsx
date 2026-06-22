@@ -79,8 +79,9 @@ export default function EscalaMensalPage() {
 
     const { data: escalaData, error: escalaError } = await supabase
       .from("escala_mensal")
-      .select("*")
-      .order("data_servico", { ascending: true });
+.select("*")
+.eq("municipio_id", Number(municipioId))
+.order("data_servico", { ascending: true });
 
     if (escalaError) {
       console.error(escalaError);
@@ -89,9 +90,9 @@ export default function EscalaMensalPage() {
 
     const { data: guardasData, error: guardasError } = await supabase
       .from("guardas")
-      .select("id, nome, matricula, status")
-      .order("nome", { ascending: true });
-
+.select("id, nome, matricula, status")
+.eq("municipio_id", Number(municipioId))
+.order("nome", { ascending: true });
     if (guardasError) {
       console.error(guardasError);
       alert("Erro ao carregar guardas.");
@@ -99,12 +100,14 @@ export default function EscalaMensalPage() {
 
     const { data: guarnicoesData, error: guarnicoesError } = await supabase
   .from("guarnicoes")
-  .select("id, nome, ativa")
-  .order("nome", { ascending: true });
+.select("id, nome, ativa")
+.eq("municipio_id", Number(municipioId))
+.order("nome", { ascending: true });
 
     const { data: membrosData } = await supabase
   .from("guarnicao_membros")
-  .select("*");
+.select("*")
+.eq("municipio_id", Number(municipioId));
 
     
     if (guarnicoesError) {
@@ -178,7 +181,8 @@ export default function EscalaMensalPage() {
     const { error } = await supabase
       .from("escala_mensal")
       .delete()
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", Number(municipioId));
 
     if (error) {
       console.error(error);

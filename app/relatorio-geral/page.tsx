@@ -10,7 +10,20 @@ export default function RelatorioGeralPlantao() {
   const [dados, setDados] = useState<any>(null);
   const [carregando, setCarregando] = useState(false);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const municipioId = usuarioLogado.municipio_id;
+
   async function gerarRelatorio() {
+
+if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const [
@@ -20,11 +33,26 @@ export default function RelatorioGeralPlantao() {
       pessoas,
       veiculos,
     ] = await Promise.all([
-      supabase.from("ocorrencias").select("*").order("criado_em", { ascending: true }),
-      supabase.from("patrulhamentos").select("*").order("criado_em", { ascending: true }),
-      supabase.from("chamados").select("*").order("criado_em", { ascending: true }),
-      supabase.from("pessoas_abordadas").select("*").order("criado_em", { ascending: true }),
-      supabase.from("veiculos_abordados").select("*").order("criado_em", { ascending: true }),
+      supabase
+  .from("ocorrencias")
+  .select("*")
+  .eq("municipio_id", municipioId).order("criado_em", { ascending: true }),
+      supabase
+  .from("patrulhamentos")
+  .select("*")
+  .eq("municipio_id", municipioId).order("criado_em", { ascending: true }),
+      supabase
+  .from("chamados")
+  .select("*")
+  .eq("municipio_id", municipioId).order("criado_em", { ascending: true }),
+      supabase
+  .from("pessoas_abordadas")
+  .select("*")
+  .eq("municipio_id", municipioId).order("criado_em", { ascending: true }),
+      supabase
+  .from("veiculos_abordados")
+  .select("*")
+  .eq("municipio_id", municipioId).order("criado_em", { ascending: true }),
     ]);
 
     if (ocorrencias.error) alert("Erro ocorrências: " + ocorrencias.error.message);

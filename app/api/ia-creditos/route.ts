@@ -5,7 +5,17 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    const municipioId = body?.municipio_id || 1;
+    const municipioId = Number(body?.municipio_id);
+
+if (!municipioId) {
+  return NextResponse.json(
+    {
+      saldo: 0,
+      erro: "Município inválido.",
+    },
+    { status: 400 }
+  );
+}
 
     const { data, error } = await supabaseAdmin
       .from("ia_creditos_municipio")

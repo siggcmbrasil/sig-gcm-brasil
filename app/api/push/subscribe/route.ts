@@ -13,9 +13,16 @@ export async function POST(req: Request) {
       perfil,
     } = body;
 
+if (!endpoint || !keys?.p256dh || !keys?.auth || !municipio_id || !usuario_id) {
+  return NextResponse.json(
+    { erro: "Dados de inscrição incompletos." },
+    { status: 400 }
+  );
+}
+
     const { error } = await supabase
       .from("push_subscriptions")
-      .insert({
+      .upsert({
         endpoint,
         p256dh: keys.p256dh,
         auth: keys.auth,
@@ -23,6 +30,7 @@ export async function POST(req: Request) {
         usuario_id,
         perfil,
         ativo: true,
+atualizado_em: new Date().toISOString(),
       });
 
     if (error) {

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import TelaMobile from "@/components/TelaMobile";
+
 import {
   Shield,
   CarFront,
@@ -124,6 +125,7 @@ type Atividade = {
 export default function Dashboard() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [fraseDoDia, setFraseDoDia] = useState<any>(null);
   const [busca, setBusca] = useState("");
   const [viatura, setViatura] = useState<Viatura | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -143,6 +145,8 @@ export default function Dashboard() {
 
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
+
+  const [indiceMensagem, setIndiceMensagem] = useState(0);
   
   const usuarioLogado =
     typeof window !== "undefined"
@@ -159,17 +163,35 @@ export default function Dashboard() {
   const ehCmtGuarnicao = perfilUsuario === "CMT_GUARNICAO";
   const podeOperar = perfilUsuario !== "CONSULTA";
 
-  async function carregarDashboard() {
-    setCarregando(true);
 
-    const { data: configData } = await supabase
-      .from("configuracoes_sistema")
-      .select("municipio_padrao_id")
-      .order("id", { ascending: true })
-      .limit(1)
-      .single();
+  async function carregarMensagemDoDia() {
+  const hoje = new Date();
 
-    const municipioId = configData?.municipio_padrao_id || 1;
+  const inicioAno = new Date(
+    hoje.getFullYear(),
+    0,
+    0
+  );
+
+  const diff = hoje.getTime() - inicioAno.getTime();
+
+  const diaAno = Math.floor(
+    diff / (1000 * 60 * 60 * 24)
+  );
+
+  const { data } = await supabase
+    .from("mensagens_dia")
+    .select("*")
+    .eq("dia", diaAno)
+    .single();
+
+  setFraseDoDia(data);
+}
+
+async function carregarDashboard() {
+  setCarregando(true);
+
+const municipioId = usuarioLogado.municipio_id;
 
     const { data: municipioData } = await supabase
       .from("municipios")
@@ -194,27 +216,27 @@ export default function Dashboard() {
       .limit(1)
       .single();
 
-    const { data: ocorrenciasData } = await supabase
-      .from("ocorrencias")
-.select(`
-  id,
-  protocolo,
-  tipo,
-  local,
-  bairro,
-  data,
-  hora,
-  status,
-  local_id,
-  locais:local_id (
-  id,
-  nome,
-  latitude,
-  longitude
-)
-`)
-      .eq("municipio_id", municipioId)
-      .order("id", { ascending: false });
+const { data: ocorrenciasData } = await supabase
+  .from("ocorrencias")
+  .select(`
+    id,
+    protocolo,
+    tipo,
+    local,
+    bairro,
+    data,
+    hora,
+    status,
+    local_id,
+    locais:local_id (
+      id,
+      nome,
+      latitude,
+      longitude
+    )
+  `)
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     const { data: guardasData } = await supabase
       .from("guardas")
@@ -311,6 +333,7 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
 
   useEffect(() => {
   carregarDashboard();
+  carregarMensagemDoDia();
 
   const timer = setInterval(() => {
     setAgora(new Date());
@@ -446,6 +469,7 @@ const aniversariantesHoje = guardas.filter((g) => {
   <div className="relative z-0">
       <div className="p-3 md:p-4 pb-4 space-y-3">
         <PainelTopo
+  fraseDoDia={fraseDoDia}
   municipio={municipioAtivo}
   guarnicao={guarnicaoPlantaoHoje}
   escala={modeloEscalaAtivo}
@@ -697,6 +721,7 @@ function PainelUltimasOcorrencias({
 function PainelTopo({
   municipio,
   avisos,
+  fraseDoDia,
   usuarioLogado,
   mostrarNotificacoes,
   setMostrarNotificacoes,
@@ -715,7 +740,7 @@ hora,
   }
 
   return (
-    <header className="h-20 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)] relative z-[9999] overflow-visible">
+    <header className="min-h-28 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)] relative z-[9999] overflow-visible">
       <div className="flex items-center gap-5 min-w-[350px]">
         <img
           src={municipio?.brasao || "/brasao-gcm-v2.png"}
@@ -756,6 +781,15 @@ hora,
           className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
         />
       </div>
+
+      <div className="absolute left-1/2 -translate-x-1/2 bottom-2 w-[450px] overflow-hidden">
+  <div className="animate-marquee whitespace-nowrap">
+    <span className="text-yellow-400 font-bold text-sm">
+      💬 {fraseDoDia?.texto || "Carregando..."}
+📖 {fraseDoDia?.referencia || ""}
+    </span>
+  </div>
+</div>
 
       <div className="flex items-center gap-3 shrink-0 relative">
         <button

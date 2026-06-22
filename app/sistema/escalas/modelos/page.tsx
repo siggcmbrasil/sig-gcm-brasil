@@ -29,17 +29,28 @@ export default function ModelosEscalaPage() {
   const [horaFim, setHoraFim] = useState("07:00");
   const [permitePermuta, setPermitePermuta] = useState(true);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   useEffect(() => {
     carregarModelos();
   }, []);
 
   async function carregarModelos() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("escala_modelos")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("escala_modelos")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -59,18 +70,19 @@ export default function ModelosEscalaPage() {
     }
 
     const { error } = await supabase.from("escala_modelos").insert([
-      {
-        nome,
-        descricao,
-        tipo,
-        horas_trabalho: Number(horasTrabalho),
-        horas_descanso: Number(horasDescanso),
-        hora_inicio: horaInicio,
-        hora_fim: horaFim,
-        permite_permuta: permitePermuta,
-        ativo: true,
-      },
-    ]);
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    nome,
+    descricao,
+    tipo,
+    horas_trabalho: Number(horasTrabalho),
+    horas_descanso: Number(horasDescanso),
+    hora_inicio: horaInicio,
+    hora_fim: horaFim,
+    permite_permuta: permitePermuta,
+    ativo: true,
+  },
+]);
 
     if (error) {
       console.error(error);
@@ -96,7 +108,8 @@ export default function ModelosEscalaPage() {
     const { error } = await supabase
       .from("escala_modelos")
       .update({ ativo: !modelo.ativo })
-      .eq("id", modelo.id);
+.eq("id", modelo.id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);

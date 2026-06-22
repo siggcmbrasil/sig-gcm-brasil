@@ -56,9 +56,9 @@ export default function PatrulhamentoGpsPage() {
     const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
     const { error } = await supabase
-      .from("localizacoes_tempo_real")
-      .delete()
-      .eq("usuario_id", usuario.id);
+  .from("localizacoes_tempo_real")
+  .delete()
+  .eq("usuario_id", usuario.id);
 
     if (error) {
       alert("Erro ao excluir pontos.");
@@ -75,7 +75,7 @@ export default function PatrulhamentoGpsPage() {
       </h1>
 
       <p className="text-slate-400 mb-6">
-        Registre sua localização durante patrulhamento a pé ou de viatura.
+        Registre sua localização durante patrulhamento do seu município.
       </p>
 
       <div className="painel-premium p-5 space-y-5">

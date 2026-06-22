@@ -23,6 +23,12 @@ export default function BuscaPage() {
   }, [q]);
 
   async function buscar() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     if (
       q.toLowerCase().includes("perfil") ||
       q.toLowerCase().includes("minha foto") ||
@@ -49,11 +55,12 @@ if (
   termoLimpo.includes("minha conta")
 ) {
   const { data: meuGuarda } = await supabase
-    .from("guardas")
-    .select("id")
-    .ilike("nome", `%${usuarioLogado.nome}%`)
-    .limit(1)
-    .single();
+  .from("guardas")
+  .select("id")
+  .ilike("nome", `%${usuarioLogado.nome}%`)
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .limit(1)
+  .single();
 
   if (meuGuarda?.id) {
     router.push(`/sistema/guardas/${meuGuarda.id}`);
@@ -71,26 +78,30 @@ if (
     const { data: guardas } = await supabase
       .from("guardas")
       .select("id, nome, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .ilike("nome", termo)
       .limit(5);
 
     const { data: ocorrencias } = await supabase
       .from("ocorrencias")
       .select("id, protocolo, tipo, local, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .or(`tipo.ilike.${termo},local.ilike.${termo},protocolo.ilike.${termo}`)
       .limit(5);
 
     const { data: viaturas } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, status")
-      .or(`prefixo.ilike.${termo},modelo.ilike.${termo}`)
-      .limit(5);
+  .from("viaturas")
+  .select("id, prefixo, modelo, status")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .or(`prefixo.ilike.${termo},modelo.ilike.${termo}`)
+  .limit(5);
 
-    const { data: locais } = await supabase
-      .from("locais")
-      .select("id, nome, tipo")
-      .ilike("nome", termo)
-      .limit(5);
+   const { data: locais } = await supabase
+  .from("locais")
+  .select("id, nome, tipo")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .ilike("nome", termo)
+  .limit(5);
 
     setResultados([
       ...(guardas || []).map((i) => ({

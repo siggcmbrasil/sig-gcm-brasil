@@ -83,9 +83,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("patrulhamentos")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("patrulhamentos")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -102,6 +103,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     const { data, error } = await supabase
       .from("guardas")
       .select("id, matricula, nome, cargo, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .order("nome", { ascending: true });
 
     if (error) {
@@ -174,19 +176,20 @@ const podeEditar = perfilUsuario !== "CONSULTA";
    const { data: novoPatrulhamento, error } = await supabase
   .from("patrulhamentos")
   .insert([
-    {
-      data,
-      hora,
-      local,
-      guarda: guardaPrincipal,
-      equipe,
-      viatura,
-      latitude,
-      longitude,
-      observacao,
-      status: "EM_ANDAMENTO",
-    },
-  ])
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    data,
+    hora,
+    local,
+    guarda: guardaPrincipal,
+    equipe,
+    viatura,
+    latitude,
+    longitude,
+    observacao,
+    status: "EM_ANDAMENTO",
+  },
+])
   .select()
   .single();
 
@@ -286,8 +289,7 @@ async function carregarPlantaoAutomatico() {
     .limit(1)
     .single();
 
-  const municipioId = configSistema?.municipio_padrao_id || 1;
-
+const municipioId = usuarioLogado.municipio_id;
   const { data: configEscala } = await supabase
     .from("escala_operacional_config")
     .select("*")
@@ -334,8 +336,9 @@ async function carregarPlantaoAutomatico() {
   if (guarnicaoAtual.viatura_id) {
     const { data: viaturaAtual } = await supabase
       .from("viaturas")
-      .select("prefixo")
-      .eq("id", guarnicaoAtual.viatura_id)
+.select("id, prefixo, modelo, placa, status")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.in("status", ["Operacional", "Reserva"])
       .single();
 
     if (viaturaAtual) {
@@ -355,6 +358,7 @@ async function carregarPlantaoAutomatico() {
   const { data: guardasEquipe } = await supabase
     .from("guardas")
     .select("nome")
+    .eq("municipio_id", usuarioLogado.municipio_id)
     .in("id", ids);
 
   if (guardasEquipe) {

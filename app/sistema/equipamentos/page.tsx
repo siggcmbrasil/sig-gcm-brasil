@@ -41,12 +41,19 @@ export default function Equipamentos() {
   const [carregando, setCarregando] = useState(true);
 
   async function carregarEquipamentos() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("equipamentos")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("equipamentos")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -59,10 +66,22 @@ export default function Equipamentos() {
     setCarregando(false);
   }
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarGuardas() {
+
+    if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     const { data, error } = await supabase
       .from("guardas")
       .select("id, nome, matricula, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .order("nome", { ascending: true });
 
     if (error) {
@@ -74,24 +93,31 @@ export default function Equipamentos() {
   }
 
   async function salvarEquipamento() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     if (!tipo || !patrimonio) {
       alert("Preencha tipo e patrimônio.");
       return;
     }
 
     const { error } = await supabase.from("equipamentos").insert([
-      {
-        patrimonio,
-        tipo,
-        marca,
-        modelo,
-        numero_serie: numeroSerie,
-        validade,
-        status,
-        responsavel,
-        observacao,
-      },
-    ]);
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    patrimonio,
+    tipo,
+    marca,
+    modelo,
+    numero_serie: numeroSerie,
+    validade,
+    status,
+    responsavel,
+    observacao,
+  },
+]);
 
     if (error) {
       console.error(error);
@@ -115,6 +141,12 @@ export default function Equipamentos() {
   }
 
   async function excluirEquipamento(id: number) {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     const confirmar = confirm("Deseja excluir este equipamento?");
 
     if (!confirmar) return;
@@ -122,7 +154,8 @@ export default function Equipamentos() {
     const { error } = await supabase
       .from("equipamentos")
       .delete()
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);

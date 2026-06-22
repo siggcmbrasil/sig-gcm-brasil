@@ -50,10 +50,15 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   async function carregarGuardas() {
     setCarregando(true);
 
-    const { data, error } = await supabase
-      .from("guardas")
-      .select("*")
-      .order("id", { ascending: false });
+    const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const { data, error } = await supabase
+  .from("guardas")
+  .select("*")
+  .eq("municipio_id", usuario.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);

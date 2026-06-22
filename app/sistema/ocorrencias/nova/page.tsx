@@ -378,6 +378,12 @@ const hora = agora.toLocaleTimeString("pt-BR", {
     alert("Ocorrência salva com sucesso!");
     router.push("/sistema/ocorrencias");
   }
+
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
 async function carregarMembrosGuarnicao(
   guarnicaoId: number
 ) {
@@ -395,6 +401,7 @@ async function carregarMembrosGuarnicao(
   const { data: guardasData } = await supabase
     .from("guardas")
     .select("id,nome")
+    .eq("municipio_id", usuarioLogado.municipio_id)
     .in("id", ids);
 
   if (!guardasData) return;
@@ -445,7 +452,11 @@ async function carregarSistema() {
     .limit(1)
     .single();
 
-  const id = data?.municipio_padrao_id || 1;
+  const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const id = usuarioLogado.municipio_id;
 
   const { data: configEscala } = await supabase
   .from("escala_operacional_config")

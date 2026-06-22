@@ -18,6 +18,12 @@ const [carregando, setCarregando] = useState(true);
   async function carregarDados() {
     setCarregando(true);
 
+    const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const municipioId = usuarioLogado.municipio_id;
+
    const { data, error } = await supabase
   .from("ocorrencias")
   .select(`
@@ -29,15 +35,18 @@ const [carregando, setCarregando] = useState(true);
       longitude
     )
   `)
+  .eq("municipio_id", municipioId)
   .order("id", { ascending: false });
 
-  const { data: viaturasData } = await supabase
+const { data: viaturasData } = await supabase
   .from("viaturas")
-  .select("*");
+  .select("*")
+  .eq("municipio_id", municipioId);
 
 const { data: gpsData } = await supabase
   .from("localizacoes_tempo_real")
   .select("*")
+  .eq("municipio_id", municipioId)
   .order("atualizado_em", { ascending: false });
 
 setOcorrencias(data || []);

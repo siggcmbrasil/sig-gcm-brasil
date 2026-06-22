@@ -43,7 +43,16 @@ export default function BancoHorasPage() {
       .limit(1)
       .single();
 
-    const id = data?.municipio_padrao_id || 1;
+   const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const id = usuarioLogado.municipio_id;
+
+if (!id) {
+  alert("Município não identificado.");
+  return;
+}
 
     setMunicipioId(id);
     carregarGuardas(id);
@@ -140,10 +149,11 @@ export default function BancoHorasPage() {
 
     if (!confirmar) return;
 
-    const { error } = await supabase
-      .from("banco_horas")
-      .delete()
-      .eq("id", id);
+   const { error } = await supabase
+  .from("banco_horas")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", municipioId);
 
     if (error) {
       alert("Erro ao excluir lançamento.");

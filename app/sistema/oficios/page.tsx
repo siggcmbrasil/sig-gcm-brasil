@@ -20,9 +20,10 @@ export default function OficiosPage() {
 
   async function carregarOficios() {
     const { data } = await supabase
-      .from("oficios")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("oficios")
+  .select("*")
+  .eq("municipio_id", usuario.municipio_id)
+  .order("id", { ascending: false });
 
     setOficios(data || []);
   }
@@ -39,9 +40,10 @@ export default function OficiosPage() {
   if (!confirmar) return;
 
   await supabase
-    .from("oficios")
-    .delete()
-    .eq("id", id);
+  .from("oficios")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuario.municipio_id);
 
   carregarOficios();
 }
@@ -78,7 +80,8 @@ const numero =
       assunto,
       texto,
     })
-    .eq("id", editandoId);
+    .eq("id", editandoId)
+.eq("municipio_id", usuario.municipio_id);
 
   if (error) {
     alert("Erro ao atualizar ofício.");
@@ -132,9 +135,10 @@ carregarOficios();
   status: string
 ) {
   await supabase
-    .from("oficios")
-    .update({ status })
-    .eq("id", id);
+  .from("oficios")
+  .update({ status })
+  .eq("id", id)
+  .eq("municipio_id", usuario.municipio_id);
 
   carregarOficios();
 }

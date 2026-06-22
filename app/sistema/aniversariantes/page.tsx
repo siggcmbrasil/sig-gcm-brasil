@@ -17,14 +17,24 @@ export default function AniversariantesPage() {
     carregar();
   }, []);
 
-  async function carregar() {
-    const { data } = await supabase
-      .from("guardas")
-      .select("id, nome, data_nascimento, foto_url")
-      .order("nome");
+ async function carregar() {
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
 
-    setGuardas(data || []);
-  }
+  if (!usuario.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
+  const { data } = await supabase
+    .from("guardas")
+    .select("id, nome, data_nascimento, foto_url")
+    .eq("municipio_id", usuario.municipio_id)
+    .order("nome");
+
+  setGuardas(data || []);
+}
 
   const hoje = new Date();
   const dia = String(hoje.getDate()).padStart(2, "0");

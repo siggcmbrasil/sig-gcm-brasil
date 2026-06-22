@@ -129,7 +129,11 @@ export default function Ocorrencias() {
       .limit(1)
       .single();
 
-    const id = data?.municipio_padrao_id || 1;
+    const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const id = usuarioLogado.municipio_id;
 
     setMunicipioId(id);
     carregarOcorrencias(id);

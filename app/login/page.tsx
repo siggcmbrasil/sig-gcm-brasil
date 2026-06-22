@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { getMensagemDoDia } from "@/lib/mensagensLogin";
 
 export default function Login() {
   const router = useRouter();
@@ -10,171 +11,36 @@ export default function Login() {
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
-  const mensagens = [
-  {
-    motivacional: "A disciplina de hoje constrói a segurança de amanhã.",
-    versiculo: "Sede fortes e corajosos. Não temais, porque o Senhor vosso Deus é convosco.",
-    referencia: "Josué 1:9",
-  },
-  {
-    motivacional: "Servir e proteger é uma missão de honra.",
-    versiculo: "O Senhor é a minha força e o meu escudo.",
-    referencia: "Salmos 28:7",
-  },
-  {
-    motivacional: "Grandes resultados são construídos um plantão de cada vez.",
-    versiculo: "Tudo posso naquele que me fortalece.",
-    referencia: "Filipenses 4:13",
-  },
-  {
-    motivacional: "Quem protege vidas deixa um legado.",
-    versiculo: "Entrega o teu caminho ao Senhor; confia nele.",
-    referencia: "Salmos 37:5",
-  },
-  {
-    motivacional: "A verdadeira liderança inspira pelo exemplo.",
-    versiculo: "Não temas, porque eu sou contigo.",
-    referencia: "Isaías 41:10",
-  },
-  {
-    motivacional: "A coragem não é ausência de medo, mas a decisão de seguir em frente.",
-    versiculo: "Se Deus é por nós, quem será contra nós?",
-    referencia: "Romanos 8:31",
-  },
-  {
-    motivacional: "Cada cidadão protegido é uma vitória silenciosa.",
-    versiculo: "Confia no Senhor de todo o teu coração.",
-    referencia: "Provérbios 3:5",
-  },
-  {
-    motivacional: "A excelência é construída nos detalhes.",
-    versiculo: "O Senhor guardará a tua saída e a tua entrada.",
-    referencia: "Salmos 121:8",
-  },
-  {
-    motivacional: "Honra, disciplina e respeito são marcas dos grandes profissionais.",
-    versiculo: "Tudo tem o seu tempo determinado.",
-    referencia: "Eclesiastes 3:1",
-  },
-  {
-    motivacional: "Nenhum esforço feito com propósito é em vão.",
-    versiculo: "Os que esperam no Senhor renovarão as suas forças.",
-    referencia: "Isaías 40:31",
-  },
-  {
-    motivacional: "A segurança da cidade começa com o compromisso de cada agente.",
-    versiculo: "O Senhor pelejará por vós.",
-    referencia: "Êxodo 14:14",
-  },
-  {
-    motivacional: "Quem serve com dedicação transforma realidades.",
-    versiculo: "Bem-aventurados os pacificadores.",
-    referencia: "Mateus 5:9",
-  },
-  {
-    motivacional: "Grandes missões exigem grandes responsabilidades.",
-    versiculo: "Tudo quanto fizerdes, fazei-o de coração.",
-    referencia: "Colossenses 3:23",
-  },
-  {
-    motivacional: "Persistência vence obstáculos que parecem impossíveis.",
-    versiculo: "Posso todas as coisas naquele que me fortalece.",
-    referencia: "Filipenses 4:13",
-  },
-  {
-    motivacional: "O exemplo arrasta mais que as palavras.",
-    versiculo: "O Senhor é meu pastor e nada me faltará.",
-    referencia: "Salmos 23:1",
-  },
-  {
-    motivacional: "Quem se prepara hoje lidera amanhã.",
-    versiculo: "Buscai primeiro o Reino de Deus.",
-    referencia: "Mateus 6:33",
-  },
-  {
-    motivacional: "A rotina de excelência gera resultados extraordinários.",
-    versiculo: "A minha graça te basta.",
-    referencia: "2 Coríntios 12:9",
-  },
-  {
-    motivacional: "O profissionalismo fortalece a instituição.",
-    versiculo: "Seja forte e corajoso.",
-    referencia: "Josué 1:9",
-  },
-  {
-    motivacional: "O sucesso é a soma de pequenas ações diárias.",
-    versiculo: "O choro pode durar uma noite, mas a alegria vem pela manhã.",
-    referencia: "Salmos 30:5",
-  },
-  {
-    motivacional: "Cada plantão é uma oportunidade de fazer a diferença.",
-    versiculo: "Lançando sobre Ele toda a vossa ansiedade.",
-    referencia: "1 Pedro 5:7",
-  },
+  
+const [municipioLogin, setMunicipioLogin] = useState<any>(null);
 
-  {
-    motivacional: "Protegemos pessoas, patrimônios e sonhos.",
-    versiculo: "O Senhor é bom, uma fortaleza no dia da angústia.",
-    referencia: "Naum 1:7",
-  },
-  {
-    motivacional: "A união da equipe multiplica resultados.",
-    versiculo: "Onde estiverem dois ou três reunidos em meu nome.",
-    referencia: "Mateus 18:20",
-  },
-  {
-    motivacional: "O respeito é conquistado pela conduta.",
-    versiculo: "Andai em amor.",
-    referencia: "Efésios 5:2",
-  },
-  {
-    motivacional: "Toda missão cumprida fortalece a sociedade.",
-    versiculo: "Aquele que começou boa obra em vós a aperfeiçoará.",
-    referencia: "Filipenses 1:6",
-  },
-  {
-    motivacional: "Nenhum desafio é maior que uma equipe preparada.",
-    versiculo: "O Senhor firma os passos do homem.",
-    referencia: "Salmos 37:23",
-  },
+const fraseDoDia = getMensagemDoDia();
 
-  /* Continue até 50 */
+useEffect(() => {
+  async function carregarMunicipioLogin() {
+    const { data: config } = await supabase
+      .from("configuracoes_sistema")
+      .select("municipio_padrao_id")
+      .limit(1)
+      .single();
 
-  {
-    motivacional: "O compromisso com a população é a essência da Guarda Municipal.",
-    versiculo: "A paz de Deus guardará os vossos corações.",
-    referencia: "Filipenses 4:7",
-  },
-  {
-    motivacional: "A dedicação diária constrói uma instituição forte.",
-    versiculo: "O Senhor é a minha luz e a minha salvação.",
-    referencia: "Salmos 27:1",
-  },
-  {
-    motivacional: "Cada turno concluído é uma missão honrada.",
-    versiculo: "Entrega as tuas obras ao Senhor.",
-    referencia: "Provérbios 16:3",
-  },
-  {
-    motivacional: "A verdadeira força está no caráter.",
-    versiculo: "Em paz me deito e logo adormeço.",
-    referencia: "Salmos 4:8",
-  },
-  {
-    motivacional: "Servir à comunidade é um privilégio e uma responsabilidade.",
-    versiculo: "O Senhor te abençoe e te guarde.",
-    referencia: "Números 6:24",
+    let municipio = null;
+
+if (config?.municipio_padrao_id) {
+  const { data } = await supabase
+    .from("municipios")
+    .select("nome, estado, brasao, bandeira_municipio, bandeira_estado")
+    .eq("id", config.municipio_padrao_id)
+    .single();
+
+  municipio = data;
+}
+
+    setMunicipioLogin(municipio);
   }
-];
 
-const hoje = new Date();
-
-const indice =
-  hoje.getFullYear() +
-  hoje.getMonth() +
-  hoje.getDate();
-
-const fraseDoDia = mensagens[indice % mensagens.length];
+  carregarMunicipioLogin();
+}, []);
 
   async function entrar() {
   if (!email || !senha) {
@@ -216,7 +82,7 @@ console.log("ERROR:", error);
     email: data.user.email,
     perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
     status: usuarioSistema.status || "Ativo",
-    municipio_id: usuarioSistema.municipio_id || 1,
+    municipio_id: usuarioSistema.municipio_id,
     foto_url: usuarioSistema.foto_url || "",
   };
 
@@ -433,20 +299,17 @@ foto_url: usuarioSistema.foto_url || "",
   </div>
 </div>
 
-              <div className="mt-8 grid grid-cols-3 gap-3">
+             <div className="mt-8 grid grid-cols-3 gap-3">
+  <BandeiraImagem src="/bandeira-brasil.png" titulo="Brasil" />
+
   <BandeiraImagem
-    src="/bandeira-brasil.png"
-    titulo="Brasil"
+    src={municipioLogin?.bandeira_estado || "/bandeira-bahia.png"}
+    titulo={municipioLogin?.estado || "Estado"}
   />
 
   <BandeiraImagem
-    src="/bandeira-bahia.png"
-    titulo="Bahia"
-  />
-
-  <BandeiraImagem
-    src="/brasao-biritinga.png"
-    titulo="Biritinga"
+    src={municipioLogin?.bandeira_municipio || "/bandeira-biritinga.png"}
+    titulo={municipioLogin?.nome || "Município"}
   />
 </div>
 

@@ -63,7 +63,7 @@ export default function PainelDesenvolvedor() {
   }, []);
 
   return (
-    <ProtecaoModulo modulo="usuarios">
+    <ProtecaoModulo modulo="desenvolvedor">
       <div className="p-3 md:p-6 pb-24">
         <header className="mb-6 border-b border-slate-800 pb-5">
           <h1 className="text-3xl md:text-5xl font-bold">

@@ -41,23 +41,31 @@ export default function Guarnicoes() {
   const [membros, setMembros] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarDados() {
     setCarregando(true);
 
     const { data: guarnicoesData } = await supabase
-      .from("guarnicoes")
-      .select("*")
-      .order("id");
+  .from("guarnicoes")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id");
 
     const { data: guardasData } = await supabase
       .from("guardas")
       .select("id, nome, matricula, cargo, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .order("nome");
 
     const { data: viaturasData } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, status")
-      .order("prefixo");
+  .from("viaturas")
+  .select("id, prefixo, modelo, status")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("prefixo");
 
     const { data: membrosData, error: membrosError } = await supabase
   .from("guarnicao_membros")
@@ -66,14 +74,16 @@ export default function Guarnicoes() {
     guarnicao_id,
     guarda_id,
     funcao,
-    guardas (
+    guardas!inner (
       id,
       nome,
       matricula,
       cargo,
-      status
+      status,
+      municipio_id
     )
-  `);
+  `)
+  .eq("guardas.municipio_id", usuarioLogado.municipio_id);
 
     if (membrosError) {
       console.error(membrosError);
@@ -98,7 +108,8 @@ export default function Guarnicoes() {
     const { error } = await supabase
       .from("guarnicoes")
       .update({ [campo]: valorFinal })
-      .eq("id", id);
+      .eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);

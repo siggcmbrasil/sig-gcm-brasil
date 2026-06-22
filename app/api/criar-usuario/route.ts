@@ -6,18 +6,37 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     const {
-      nome,
-      matricula,
-      telefone,
-      email,
-      cpf,
-      cargo,
-      perfil,
-      status,
-      observacao,
-      municipio_id,
-      senha,
-    } = body;
+  nome,
+  matricula,
+  telefone,
+  email,
+  cpf,
+  cargo,
+  perfil,
+  status,
+  observacao,
+  municipio_id,
+  senha,
+  perfil_logado,
+  municipio_logado,
+} = body;
+
+const perfilLogado = String(perfil_logado || "").toUpperCase();
+const perfilNovo = String(perfil || "").toUpperCase();
+
+if (!perfilLogado) {
+  return NextResponse.json(
+    { error: "Perfil do usuário logado não informado." },
+    { status: 403 }
+  );
+}
+
+if (perfilNovo === "DESENVOLVEDOR" && perfilLogado !== "DESENVOLVEDOR") {
+  return NextResponse.json(
+    { error: "Somente DESENVOLVEDOR pode criar outro DESENVOLVEDOR." },
+    { status: 403 }
+  );
+}
 
     if (!nome || !email || !senha || !perfil) {
       return NextResponse.json(
@@ -25,6 +44,16 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    if (
+  perfilLogado !== "DESENVOLVEDOR" &&
+  Number(municipio_id) !== Number(municipio_logado)
+) {
+  return NextResponse.json(
+    { error: "Você não pode criar usuários em outro município." },
+    { status: 403 }
+  );
+}
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -55,7 +84,7 @@ export async function POST(req: Request) {
           email,
           cpf,
           cargo,
-          perfil,
+          perfil: perfilNovo,
           status: status || "Ativo",
           observacao,
           municipio_id: municipio_id || null,

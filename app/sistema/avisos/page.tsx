@@ -17,18 +17,29 @@ export default function AvisosPage() {
   const [descricao, setDescricao] = useState("");
   const [carregando, setCarregando] = useState(true);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   useEffect(() => {
     carregarAvisos();
   }, []);
 
   async function carregarAvisos() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const { data, error } = await supabase
       .from("avisos")
-      .select("*")
-      .order("id", { ascending: false });
-
+.select("*")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.order("id", { ascending: false });
     if (error) {
       alert("Erro ao carregar avisos.");
       setCarregando(false);
@@ -47,9 +58,10 @@ export default function AvisosPage() {
 
     const { error } = await supabase.from("avisos").insert([
       {
-        titulo,
-        descricao,
-      },
+  municipio_id: usuarioLogado.municipio_id,
+  titulo,
+  descricao,
+},
     ]);
 
     if (error) {
@@ -72,7 +84,8 @@ export default function AvisosPage() {
     const { error } = await supabase
       .from("avisos")
       .delete()
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       alert("Erro ao excluir aviso.");

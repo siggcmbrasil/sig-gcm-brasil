@@ -52,14 +52,16 @@ export default function PermutasPage() {
   async function carregarSistema() {
     setCarregando(true);
 
-    const { data } = await supabase
-      .from("configuracoes_sistema")
-      .select("municipio_padrao_id")
-      .limit(1)
-      .single();
+    const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
 
-    const id = data?.municipio_padrao_id || 1;
+const id = usuarioLogado.municipio_id;
 
+if (!id) {
+  alert("Município não identificado.");
+  return;
+}
     setMunicipioId(id);
     await Promise.all([carregarGuardas(id), carregarPermutas(id)]);
     setCarregando(false);
@@ -200,9 +202,10 @@ export default function PermutasPage() {
     }
 
     const { error } = await supabase
-      .from("permutas_plantao")
-      .update(atualizacao)
-      .eq("id", id);
+  .from("permutas_plantao")
+  .update(atualizacao)
+  .eq("id", id)
+  .eq("municipio_id", municipioId);
 
     if (error) {
       alert("Erro ao atualizar solicitação.");
@@ -217,7 +220,11 @@ export default function PermutasPage() {
     const confirmar = confirm("Deseja realmente excluir esta solicitação?");
     if (!confirmar) return;
 
-    const { error } = await supabase.from("permutas_plantao").delete().eq("id", id);
+    const { error } = await supabase
+  .from("permutas_plantao")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", municipioId);
 
     if (error) {
       alert("Erro ao excluir solicitação.");

@@ -19,6 +19,11 @@ export default function RelatorioPlantaoPage() {
   setCarregando(true);
 
   const dataInicio = data;
+  const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const municipioId = usuario.municipio_id;
 
   const proximoDia = new Date(`${data}T00:00:00`);
   proximoDia.setDate(proximoDia.getDate() + 1);
@@ -26,15 +31,17 @@ export default function RelatorioPlantaoPage() {
 
   const { data: ocorr } = await supabase
     .from("ocorrencias")
-    .select("*")
-    .or(
+.select("*")
+.eq("municipio_id", municipioId)
+.or(
       `and(data.eq.${dataInicio},hora.gte.07:00),and(data.eq.${dataFim},hora.lte.07:00)`
     );
 
   const { data: patr } = await supabase
     .from("patrulhamentos")
-    .select("*")
-    .or(
+.select("*")
+.eq("municipio_id", municipioId)
+.or(
       `and(data.eq.${dataInicio},hora.gte.07:00),and(data.eq.${dataFim},hora.lte.07:00)`
     );
 
@@ -43,8 +50,9 @@ export default function RelatorioPlantaoPage() {
 
   const { data: cham } = await supabase
     .from("chamados")
-    .select("*")
-    .gte("criado_em", inicio)
+.select("*")
+.eq("municipio_id", municipioId)
+.gte("criado_em", inicio)
     .lte("criado_em", fim);
 
   setOcorrencias(ocorr || []);
@@ -73,7 +81,7 @@ const usuario = JSON.parse(
   const { data: municipioInfo } = await supabase
   .from("municipios")
   .select("*")
-  .eq("id", 1)
+  .eq("id", usuario.municipio_id)
   .single();
 
 const brasaoMunicipio = municipioInfo?.brasao_prefeitura || "";

@@ -44,9 +44,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("veiculos_abordados")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("veiculos_abordados")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -71,6 +72,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     const { error } = await supabase.from("veiculos_abordados").insert([
       {
+        municipio_id: usuarioLogado.municipio_id,
         placa,
         modelo,
         cor,
@@ -115,9 +117,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     if (!confirmar) return;
 
     const { error } = await supabase
-      .from("veiculos_abordados")
-      .delete()
-      .eq("id", id);
+  .from("veiculos_abordados")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);
@@ -158,7 +161,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
         </h1>
 
         <p className="text-slate-400 text-sm md:text-base">
-          Registro de veículos fiscalizados pela GCM Biritinga.
+          Registro de veículos fiscalizados pela Guarda Municipal.
         </p>
       </header>
 

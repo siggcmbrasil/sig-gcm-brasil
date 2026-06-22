@@ -50,7 +50,7 @@ export default function Cadastro() {
   cargo,
   perfil: "CONSULTA",
   status: "Pendente",
-  municipio_id: 1,
+  municipio_id: null,
 },
       ]);
 

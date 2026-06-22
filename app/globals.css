@@ -377,3 +377,13 @@ body {
 .map-dot-purple {
   background: #8b5cf6;
 }
+
+@keyframes marquee {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
+
+.animate-marquee {
+  display: inline-block;
+  animation: marquee 35s linear infinite;
+}

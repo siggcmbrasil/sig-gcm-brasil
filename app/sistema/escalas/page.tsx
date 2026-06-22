@@ -47,23 +47,36 @@ export default function Escalas() {
 
   const [carregando, setCarregando] = useState(true);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarDados() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const { data: escalasData } = await supabase
       .from("escalas_servico")
-      .select("*")
-      .order("data_servico", { ascending: false });
-
+.select("*")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.order("data_servico", { ascending: false });
     const { data: guardasData } = await supabase
       .from("guardas")
-      .select("id, nome, matricula, status")
-      .order("nome", { ascending: true });
+.select("id, nome, matricula, status")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.order("nome", { ascending: true });
 
     const { data: viaturasData } = await supabase
       .from("viaturas")
-      .select("id, prefixo, modelo, status")
-      .order("prefixo", { ascending: true });
+.select("id, prefixo, modelo, status")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.order("prefixo", { ascending: true });
 
     setEscalas(escalasData || []);
     setGuardas(guardasData || []);
@@ -79,23 +92,33 @@ export default function Escalas() {
   }
 
   async function salvarEscala() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     if (!dataServico || !turno || !guardaNome) {
       alert("Preencha data, turno e guarda.");
       return;
     }
 
-    const { error } = await supabase.from("escalas_servico").insert([
-      {
-        data_servico: dataServico,
-        turno,
-        guarda_nome: guardaNome,
-        matricula,
-        equipe,
-        viatura,
-        funcao,
-        observacao,
-      },
-    ]);
+    const { error } = await supabase
+  .from("escalas_servico")
+  .insert([
+    {
+      municipio_id: usuarioLogado.municipio_id,
+
+      data_servico: dataServico,
+      turno,
+      guarda_nome: guardaNome,
+      matricula,
+      equipe,
+      viatura,
+      funcao,
+      observacao,
+    },
+  ]);
 
     if (error) {
       console.error(error);
@@ -118,6 +141,12 @@ export default function Escalas() {
   }
 
   async function excluirEscala(id: number) {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     const confirmar = confirm("Deseja excluir esta escala?");
 
     if (!confirmar) return;
@@ -125,7 +154,8 @@ export default function Escalas() {
     const { error } = await supabase
       .from("escalas_servico")
       .delete()
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);

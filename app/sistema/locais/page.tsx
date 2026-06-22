@@ -43,11 +43,17 @@ export default function LocaisPage() {
   const [nivelAtencao, setNivelAtencao] = useState("Baixo");
   const [editando, setEditando] = useState<number | null>(null);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarLocais() {
     const { data, error } = await supabase
-      .from("locais")
-      .select("id,nome,tipo,endereco,referencia,nivel_atencao")
-      .order("nome", { ascending: true });
+  .from("locais")
+  .select("id,nome,tipo,endereco,referencia,nivel_atencao")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("nome", { ascending: true });
 
     if (error) {
       alert("Erro ao carregar locais.");
@@ -78,16 +84,21 @@ export default function LocaisPage() {
     }
 
     const dados = {
-      nome,
-      tipo,
-      endereco,
-      referencia,
-      nivel_atencao: nivelAtencao,
-      ativo: true,
-    };
+  municipio_id: usuarioLogado.municipio_id,
+  nome,
+  tipo,
+  endereco,
+  referencia,
+  nivel_atencao: nivelAtencao,
+  ativo: true,
+};
 
     if (editando) {
-      await supabase.from("locais").update(dados).eq("id", editando);
+      await supabase
+  .from("locais")
+  .update(dados)
+  .eq("id", editando)
+  .eq("municipio_id", usuarioLogado.municipio_id);
     } else {
       await supabase.from("locais").insert([dados]);
     }
@@ -108,7 +119,11 @@ export default function LocaisPage() {
   async function excluir(id: number) {
     if (!confirm("Deseja excluir este local?")) return;
 
-    await supabase.from("locais").delete().eq("id", id);
+    await supabase
+  .from("locais")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
     carregarLocais();
   }
 

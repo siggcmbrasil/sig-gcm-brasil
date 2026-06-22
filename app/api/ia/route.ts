@@ -21,7 +21,14 @@ export async function POST(req: Request) {
       );
     }
 
-    const municipioId = usuario?.municipio_id || 1;
+    if (!usuario?.id || !usuario?.municipio_id) {
+  return NextResponse.json(
+    { erro: "Usuário inválido para consulta de IA." },
+    { status: 401 }
+  );
+}
+
+const municipioId = Number(usuario.municipio_id);
 
     let custo = 1;
 
@@ -152,7 +159,8 @@ ${pergunta}
         saldo: saldoDepois,
         atualizado_em: new Date().toISOString(),
       })
-      .eq("municipio_id", municipioId);
+      .eq("municipio_id", municipioId)
+.eq("saldo", saldoAntes);
 
     await supabaseAdmin.from("ia_creditos_historico").insert({
       municipio_id: municipioId,

@@ -48,18 +48,30 @@ export default function Relatorios() {
   async function carregarDados() {
     setCarregando(true);
 
+const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const municipioId = usuarioLogado.municipio_id;
+console.log("MUNICIPIO LOGADO:", municipioId);
+
     const { data: ocorrenciasData } = await supabase
-      .from("ocorrencias")
-      .select("id, protocolo, tipo, bairro, data, status")
-      .order("id", { ascending: false });
+  .from("ocorrencias")
+  .select("id, protocolo, tipo, bairro, data, status")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: false });
 
-    const { data: chamadosData } = await supabase
-      .from("chamados")
-      .select("id, status, prioridade");
+  console.log("OCORRENCIAS RELATORIO:", ocorrenciasData);
 
-    const { data: patrulhamentosData } = await supabase
-      .from("patrulhamentos")
-      .select("id, data");
+const { data: chamadosData } = await supabase
+  .from("chamados")
+  .select("id, status, prioridade")
+  .eq("municipio_id", municipioId);
+
+const { data: patrulhamentosData } = await supabase
+  .from("patrulhamentos")
+  .select("id, data")
+  .eq("municipio_id", municipioId);
 
     const { data: pessoasData } = await supabase
       .from("pessoas_abordadas")

@@ -20,8 +20,8 @@ export default function Viatura() {
   const [viatura, setViatura] = useState<Viatura | null>(null);
   const [carregando, setCarregando] = useState(true);
 
-  const [prefixo, setPrefixo] = useState("VTR-01");
-  const [modelo, setModelo] = useState("Renault Duster");
+  const [prefixo, setPrefixo] = useState("");
+const [modelo, setModelo] = useState("");
   const [placa, setPlaca] = useState("");
   const [status, setStatus] = useState("Operacional");
   const [combustivel, setCombustivel] = useState("");
@@ -41,11 +41,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("viaturas")
-      .select("*")
-      .order("id", { ascending: true })
-      .limit(1)
-      .single();
+  .from("viaturas")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: true })
+  .limit(1)
+  .single();
 
     if (error && error.code !== "PGRST116") {
       console.error(error);
@@ -92,7 +93,8 @@ const podeEditar = perfilUsuario !== "CONSULTA";
           ultima_manutencao: ultimaManutencao || null,
           observacoes,
         })
-        .eq("id", viatura.id);
+        .eq("id", viatura.id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
       if (error) {
         console.error(error);
@@ -107,6 +109,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
     const { error } = await supabase.from("viaturas").insert([
       {
+        municipio_id: usuarioLogado.municipio_id,
         prefixo,
         modelo,
         placa,
@@ -137,12 +140,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-2xl md:text-3xl font-bold">Viatura</h1>
         <p className="text-slate-400 text-sm md:text-base">
-          Controle da viatura operacional da GCM Biritinga.
-        </p>
+  Controle das viaturas operacionais do município.
+</p>
       </header>
 
       <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Prefixo" valor={prefixo || "VTR-01"} />
+        <Card titulo="Prefixo" valor={prefixo || "-"} />
         <Card titulo="Status" valor={status || "-"} destaque={status === "Operacional"} />
         <Card titulo="Combustível" valor={combustivel || "-"} />
         <Card titulo="Quilometragem" valor={quilometragem || "-"} />
@@ -151,18 +154,29 @@ const podeEditar = perfilUsuario !== "CONSULTA";
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="card">
           <h2 className="text-xl md:text-2xl font-bold mb-4">
-            VTR-01
-          </h2>
+  {viatura ? viatura.prefixo : "Nenhuma viatura cadastrada"}
+</h2>
 
           <div className="flex justify-center mb-6">
-            <Image
-              src="/viatura-gcm.png"
-              alt="Viatura GCM Biritinga"
-              width={420}
-              height={260}
-              className="rounded-xl object-contain w-full h-auto max-w-sm"
-              priority
-            />
+            {viatura ? (
+  <Image
+    src="/viatura-gcm.png"
+    alt="Viatura"
+    width={420}
+    height={260}
+    className="rounded-xl object-contain w-full h-auto max-w-sm"
+    priority
+  />
+) : (
+  <div className="h-56 flex items-center justify-center border border-slate-700 rounded-xl bg-slate-900">
+    <div className="text-center">
+      <p className="text-5xl mb-2">🚓</p>
+      <p className="text-slate-400">
+        Nenhuma viatura cadastrada
+      </p>
+    </div>
+  </div>
+)}
           </div>
 
           {carregando ? (

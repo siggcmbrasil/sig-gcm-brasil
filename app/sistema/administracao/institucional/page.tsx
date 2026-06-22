@@ -41,8 +41,18 @@ export default function InstitucionalPage() {
       .single();
 
     setMunicipios(municipiosData || []);
-    setMunicipioPadraoId(configData?.municipio_padrao_id?.toString() || "");
+
+  setMunicipioPadraoId(
+    configData?.municipio_padrao_id?.toString() || ""
+  );
+
+  if (configData?.municipio_padrao_id) {
+    carregarDadosMunicipio(
+      configData.municipio_padrao_id
+    );
   }
+}
+
 
   async function salvarMunicipioPadrao() {
     if (!municipioPadraoId) {
@@ -66,6 +76,12 @@ export default function InstitucionalPage() {
   }
 
   async function salvarDadosInstitucionais() {
+
+if (!municipioPadraoId) {
+  alert("Selecione um município.");
+  return;
+}
+
     const { error } = await supabase
       .from("municipios")
       .update({
@@ -86,6 +102,17 @@ export default function InstitucionalPage() {
   }
 
   async function criarMunicipioCompleto() {
+
+if (!novoMunicipio.trim()) {
+  alert("Informe o município.");
+  return;
+}
+
+if (!nomeGuarda.trim()) {
+  alert("Informe o nome da Guarda.");
+  return;
+}
+
     if (!novoMunicipio || !nomeGuarda || !comandante) {
       alert("Preencha município, nome da Guarda e comandante.");
       return;
@@ -156,6 +183,26 @@ export default function InstitucionalPage() {
     carregarConfiguracoes();
   }
 
+  async function carregarDadosMunicipio(id: number) {
+  const { data, error } = await supabase
+    .from("municipios")
+    .select(`
+      nome_guarda,
+      comandante,
+      brasao_prefeitura,
+      brasao_gcm
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error || !data) return;
+
+  setNomeGuarda(data.nome_guarda || "");
+  setComandante(data.comandante || "");
+  setBrasaoPrefeitura(data.brasao_prefeitura || "");
+  setBrasaoGcm(data.brasao_gcm || "");
+}
+
   useEffect(() => {
     carregarConfiguracoes();
   }, []);
@@ -203,7 +250,13 @@ export default function InstitucionalPage() {
                 Município Padrão
               </h2>
 
-              <select className="input" value={municipioPadraoId} onChange={(e) => setMunicipioPadraoId(e.target.value)}>
+              <select className="input" value={municipioPadraoId} onChange={(e) => {
+  setMunicipioPadraoId(e.target.value);
+
+  if (e.target.value) {
+    carregarDadosMunicipio(Number(e.target.value));
+  }
+}}>
                 <option value="">Selecione o município</option>
                 {municipios.map((m) => (
                   <option key={m.id} value={m.id}>

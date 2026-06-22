@@ -13,11 +13,17 @@ export default function PatrulhamentosGuardaPage() {
     carregar();
   }, []);
 
+const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregar() {
     const { data: guardaData } = await supabase
       .from("guardas")
       .select("*")
       .eq("id", id)
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .single();
 
     setGuarda(guardaData);

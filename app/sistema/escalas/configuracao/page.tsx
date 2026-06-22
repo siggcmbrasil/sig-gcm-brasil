@@ -38,11 +38,26 @@ export default function ConfiguracaoEscalaPage() {
   const [horarioFim, setHorarioFim] = useState("07:00");
   const [quantidadeGrupos, setQuantidadeGrupos] = useState("5");
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   useEffect(() => {
     carregarDados();
   }, []);
 
   async function carregarDados() {
+
+    if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
+setMunicipioId(
+  String(usuarioLogado.municipio_id)
+);
+
     const { data: municipiosData } = await supabase
       .from("municipios")
       .select("id, nome, estado")
@@ -50,14 +65,19 @@ export default function ConfiguracaoEscalaPage() {
       .order("nome");
 
     const { data: modelosData } = await supabase
-      .from("modelos_escala")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("modelos_escala")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
-    const { data: gruposData } = await supabase
-      .from("grupos_escala")
-      .select("*")
-      .order("ordem", { ascending: true });
+    const modelosIds =
+  (modelosData || []).map((m) => m.id);
+
+const { data: gruposData } = await supabase
+  .from("grupos_escala")
+  .select("*")
+  .in("modelo_id", modelosIds)
+  .order("ordem", { ascending: true });
 
     setMunicipios(municipiosData || []);
     setModelos((modelosData as ModeloEscala[]) || []);
@@ -65,7 +85,7 @@ export default function ConfiguracaoEscalaPage() {
   }
 
   async function salvarModelo() {
-    if (!municipioId || !nomeModelo || !tipo || !quantidadeGrupos) {
+    if (!usuarioLogado.municipio_id || !nomeModelo || !tipo || !quantidadeGrupos) {
       alert("Preencha município, nome, tipo e quantidade de grupos.");
       return;
     }
@@ -81,7 +101,7 @@ export default function ConfiguracaoEscalaPage() {
       .from("modelos_escala")
       .insert([
         {
-          municipio_id: Number(municipioId),
+          municipio_id: usuarioLogado.municipio_id,
           nome: nomeModelo,
           tipo,
           horario_inicio: horarioInicio,
@@ -120,7 +140,6 @@ export default function ConfiguracaoEscalaPage() {
 
     alert("Modelo de escala criado com sucesso!");
 
-    setMunicipioId("");
     setNomeModelo("");
     setTipo("Plantão");
     setHorarioInicio("07:00");
@@ -175,23 +194,8 @@ export default function ConfiguracaoEscalaPage() {
           <h2 className="text-xl font-bold mb-4">Novo Modelo de Escala</h2>
 
           <div className="space-y-4">
-            <div>
-              <label className="label">Município</label>
-              <select
-                className="input"
-                value={municipioId}
-                onChange={(e) => setMunicipioId(e.target.value)}
-              >
-                <option value="">Selecione</option>
-                {municipios.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome} - {m.estado}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
+           
+                       <div>
               <label className="label">Nome da escala</label>
               <input
                 className="input"

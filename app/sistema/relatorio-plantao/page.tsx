@@ -63,6 +63,11 @@ const [viaturaPlantao, setViaturaPlantao] =
 const [equipePlantao, setEquipePlantao] =
   useState<string[]>([]);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarPlantaoAutomatico(dataSelecionada: string) {
   if (!dataSelecionada) return;
 
@@ -72,7 +77,7 @@ const [equipePlantao, setEquipePlantao] =
     .limit(1)
     .single();
 
-  const municipioId = configSistema?.municipio_padrao_id || 1;
+  const municipioId = usuarioLogado.municipio_id;
 
   const { data: configEscala } = await supabase
     .from("escala_operacional_config")
@@ -124,6 +129,7 @@ const [equipePlantao, setEquipePlantao] =
       .from("guardas")
       .select("nome")
       .eq("id", guarnicaoAtual.comandante_id)
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .single();
 
     setComandante(guarda?.nome || "");
@@ -152,6 +158,7 @@ const [equipePlantao, setEquipePlantao] =
     const { data: guardasEquipe } = await supabase
       .from("guardas")
       .select("nome")
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .in("id", ids);
 
     setEquipePlantao(

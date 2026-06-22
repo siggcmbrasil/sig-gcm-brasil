@@ -39,13 +39,19 @@ const [editandoId, setEditandoId] = useState<number | null>(null);
 
 const [carregando, setCarregando] = useState(true);
 
+const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
 async function carregarUsuarios() {
   setCarregando(true);
 
   const { data, error } = await supabase
-    .from("usuarios")
-    .select("*")
-    .order("id", { ascending: false });
+  .from("usuarios")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -119,7 +125,8 @@ function editarUsuario(usuario: Usuario) {
         observacao,
         municipio_id: municipioId ? Number(municipioId) : null,
       })
-      .eq("id", editandoId);
+      .eq("id", editandoId)
+      .eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);
@@ -162,20 +169,23 @@ function editarUsuario(usuario: Usuario) {
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
-    nome,
-    matricula,
-    telefone,
-    email,
-    cpf,
-    cargo,
-    senha,
-    perfil,
-    status,
-    observacao,
-    municipio_id: municipioId
-      ? Number(municipioId)
-      : null,
-  }),
+  nome,
+  matricula,
+  telefone,
+  email,
+  cpf,
+  cargo,
+  senha,
+  perfil,
+  status,
+  observacao,
+  municipio_id: municipioId
+    ? Number(municipioId)
+    : null,
+
+  perfil_logado: usuarioLogado.perfil,
+  municipio_logado: usuarioLogado.municipio_id,
+}),
 });
 
 const resultado = await resposta.json();
@@ -209,8 +219,8 @@ if (!resposta.ok) {
     const { error } = await supabase
       .from("usuarios")
       .delete()
-      .eq("id", id);
-
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
     if (error) {
       console.error(error);
       alert("Erro ao excluir usuário.");
@@ -346,7 +356,7 @@ if (!resposta.ok) {
 </div>
 
           <div>
-  <           label className="label">Município</label>
+  <label className="label">Município</label>
 
             <select
               className="input"

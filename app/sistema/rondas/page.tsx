@@ -13,44 +13,75 @@ export default function RondasPage() {
     carregarPlanos();
   }, []);
 
+  const usuarioLogado = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const municipioId = usuarioLogado.municipio_id;
+
   async function carregarPlanos() {
     const { data } = await supabase
-      .from("planos_ronda")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("planos_ronda")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: false });
 
     setPlanos(data || []);
   }
 
   async function salvarPlano() {
-    if (!nome.trim()) {
-      alert("Informe o nome do plano.");
-      return;
-    }
-
-    const { error } = await supabase.from("planos_ronda").insert({
-      nome,
-      descricao,
-      ativo: true,
-    });
-
-    if (error) {
-      alert("Erro ao salvar plano.");
-      return;
-    }
-
-    setNome("");
-    setDescricao("");
-    carregarPlanos();
+  if (!nome.trim()) {
+    alert("Informe o nome do plano.");
+    return;
   }
+
+  const usuarioLogado = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
+
+  const municipioId = usuarioLogado?.municipio_id || 1;
+
+  const { error } = await supabase.from("planos_ronda").insert({
+    municipio_id: municipioId,
+    nome: nome.trim(),
+    descricao: descricao.trim(),
+    ativo: true,
+  });
+
+  if (error) {
+    console.error("ERRO SUPABASE:", error);
+    alert(error.message);
+    return;
+  }
+
+  setNome("");
+  setDescricao("");
+  carregarPlanos();
+}
+
+  async function excluirPlano(id: number) {
+  const confirmar = confirm("Deseja realmente excluir este plano de ronda?");
+
+  if (!confirmar) return;
+
+  const { error } = await supabase
+    .from("planos_ronda")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao excluir plano.");
+    return;
+  }
+
+  alert("Plano excluído com sucesso.");
+  carregarPlanos();
+}
 
   return (
     <div className="p-6 text-white space-y-6">
       <h1 className="text-3xl font-black">🚔 Plano de Rondas</h1>
-
-      <div className="bg-red-600 p-3 rounded-xl font-black">
-  TESTE RONDAS 123
-</div>
 
       <div className="flex gap-3 mt-4 mb-6">
   <Link
@@ -116,6 +147,15 @@ export default function RondasPage() {
         >
           🚔 Executar
         </Link>
+
+<button
+  type="button"
+  onClick={() => excluirPlano(plano.id)}
+  className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg font-bold text-sm"
+>
+  🗑️ Excluir
+</button>
+
       </div>
     </div>
   ))}

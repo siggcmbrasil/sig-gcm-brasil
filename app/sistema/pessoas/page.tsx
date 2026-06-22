@@ -44,9 +44,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("pessoas_abordadas")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("pessoas_abordadas")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -66,18 +67,19 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     }
 
     const { error } = await supabase.from("pessoas_abordadas").insert([
-      {
-        nome,
-        documento,
-        nascimento: nascimento || null,
-        endereco,
-        local,
-        data,
-        hora,
-        guarda,
-        observacao,
-      },
-    ]);
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    nome,
+    documento,
+    nascimento: nascimento || null,
+    endereco,
+    local,
+    data,
+    hora,
+    guarda,
+    observacao,
+  },
+]);
 
     if (error) {
       console.error(error);
@@ -110,9 +112,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     if (!confirmar) return;
 
     const { error } = await supabase
-      .from("pessoas_abordadas")
-      .delete()
-      .eq("id", id);
+  .from("pessoas_abordadas")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);
@@ -152,7 +155,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
         </h1>
 
         <p className="text-slate-400 text-sm md:text-base">
-          Registro de abordagens realizadas pela GCM Biritinga.
+          Registro de abordagens realizadas pela Guarda Municipal.
         </p>
       </header>
 

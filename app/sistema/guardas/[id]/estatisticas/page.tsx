@@ -18,6 +18,11 @@ export default function EstatisticasGuardaPage() {
     carregarEstatisticas();
   }, []);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarEstatisticas() {
     const { count: documentos } = await supabase
       .from("documentos_guardas")
@@ -33,6 +38,7 @@ export default function EstatisticasGuardaPage() {
       .from("guardas")
       .select("nome")
       .eq("id", Number(id))
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .single();
 
     let patrulhamentos = 0;

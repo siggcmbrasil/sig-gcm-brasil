@@ -138,9 +138,6 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
     <main className="min-h-screen bg-[#02060f] text-white px-4 pt-4 pb-28">
       <header className="flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
-          <button className="w-11 h-11 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl">
-            ☰
-          </button>
 
           <div>
             <h1 className="text-lg font-black">
@@ -202,7 +199,7 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
           <Atalho href="/sistema/escalas-menu" icone="📅" texto="Escalas" />
           <Atalho href="/sistema/relatorios" icone="📊" texto="Relatórios" />
           <Atalho href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
-          <Atalho href="/sistema/viaturas" icone="🚓" texto="Viaturas" />
+          <Atalho href="/sistema/viatura" icone="🚓" texto="Viaturas" />
           <Atalho href="/sistema/mobile/operacao" icone="📢" texto="Comunicações" />
         </div>
       </section>
@@ -268,11 +265,7 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
   destaque
 />
 
-<Menu
-  href="/sistema/mobile/patrulhamento"
-  icone="📍"
-  texto="GPS"
-/>
+<Menu href="/sistema/patrulhamento" icone="📍" texto="GPS" />
 
 <Menu
   href="/sistema/mobile/mais"

@@ -36,13 +36,25 @@ export default function Abastecimentos() {
 
   const [carregando, setCarregando] = useState(true);
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   async function carregarAbastecimentos() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("abastecimentos")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("abastecimentos")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -57,9 +69,10 @@ export default function Abastecimentos() {
 
   async function carregarViaturas() {
     const { data, error } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, status")
-      .order("prefixo", { ascending: true });
+  .from("viaturas")
+  .select("id, prefixo, modelo, status")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("prefixo", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -77,16 +90,17 @@ export default function Abastecimentos() {
     }
 
     const { error } = await supabase.from("abastecimentos").insert([
-      {
-        viatura,
-        data,
-        km,
-        litros,
-        valor,
-        posto,
-        observacao,
-      },
-    ]);
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    viatura,
+    data,
+    km,
+    litros,
+    valor,
+    posto,
+    observacao,
+  },
+]);
 
     if (error) {
       console.error(error);
@@ -113,9 +127,10 @@ export default function Abastecimentos() {
     if (!confirmar) return;
 
     const { error } = await supabase
-      .from("abastecimentos")
-      .delete()
-      .eq("id", id);
+  .from("abastecimentos")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);

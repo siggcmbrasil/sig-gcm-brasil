@@ -39,12 +39,19 @@ const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarChamados() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
     setCarregando(true);
 
     const { data, error } = await supabase
-      .from("chamados")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("chamados")
+  .select("*")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -58,6 +65,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
   async function salvarChamado() {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
   if (!podeEditar) {
     alert("Você não possui permissão para registrar chamados.");
     return;
@@ -70,17 +83,18 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     const protocolo = "CH-" + Date.now();
 
     const { error } = await supabase.from("chamados").insert([
-      {
-        protocolo,
-        solicitante,
-        telefone,
-        tipo,
-        local,
-        prioridade,
-        status,
-        observacao,
-      },
-    ]);
+  {
+    municipio_id: usuarioLogado.municipio_id,
+    protocolo,
+    solicitante,
+    telefone,
+    tipo,
+    local,
+    prioridade,
+    status,
+    observacao,
+  },
+]);
 
     if (error) {
       console.error(error);
@@ -102,6 +116,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
   async function excluirChamado(id: number) {
+
+if (!usuarioLogado.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
   if (!podeEditar) {
     alert("Você não possui permissão para excluir chamados.");
     return;
@@ -111,9 +131,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     if (!confirmar) return;
 
     const { error } = await supabase
-      .from("chamados")
-      .delete()
-      .eq("id", id);
+  .from("chamados")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);
