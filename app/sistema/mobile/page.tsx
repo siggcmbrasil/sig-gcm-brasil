@@ -9,6 +9,9 @@ export default function AppPage() {
   const [guarnicaoDia, setGuarnicaoDia] = useState<any>(null);
   const [usuario, setUsuario] = useState<any>(null);
   const [online, setOnline] = useState(true);
+  const [totalOcorrencias, setTotalOcorrencias] = useState(0);
+const [totalChamados, setTotalChamados] = useState(0);
+const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
 
   useEffect(() => {
     async function carregarGuarnicaoDia() {
@@ -107,6 +110,29 @@ export default function AppPage() {
     };
   }, []);
 
+  async function carregarResumoDia() {
+  const hoje = new Date().toISOString().split("T")[0];
+
+  const { count: ocorrencias } = await supabase
+    .from("ocorrencias")
+    .select("*", { count: "exact", head: true })
+    .gte("data", hoje);
+
+  const { count: chamados } = await supabase
+    .from("chamados")
+    .select("*", { count: "exact", head: true })
+    .gte("criado_em", hoje);
+
+  const { count: patrulhamentos } = await supabase
+    .from("patrulhamentos")
+    .select("*", { count: "exact", head: true })
+    .gte("data", hoje);
+
+  setTotalOcorrencias(ocorrencias || 0);
+  setTotalChamados(chamados || 0);
+  setTotalPatrulhamentos(patrulhamentos || 0);
+}
+
   return (
     <main className="min-h-screen bg-[#02060f] text-white px-4 pt-4 pb-28">
       <header className="flex items-center justify-between mb-5">
@@ -136,11 +162,15 @@ export default function AppPage() {
         </span>
       </header>
 
-      <section className="rounded-3xl bg-slate-900 border border-slate-800 p-4 mb-6 shadow-xl">
+      <Link
+  href="/sistema/mobile/guarnicao"
+  className="block rounded-3xl bg-slate-900 border border-slate-800 p-4 mb-6 shadow-xl"
+>
         <div className="flex items-center justify-between mb-2">
           <p className="text-slate-300 text-sm">👮 Guarnição do dia</p>
           <span className="text-slate-500 text-xl">›</span>
         </div>
+        
 
         {guarnicaoDia ? (
           <>
@@ -156,7 +186,7 @@ export default function AppPage() {
         ) : (
           <p className="text-slate-400">Nenhuma guarnição encontrada.</p>
         )}
-      </section>
+      </Link>
 
       <section className="mb-7">
         <div className="flex items-center justify-between mb-4">
@@ -183,9 +213,23 @@ export default function AppPage() {
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <Resumo titulo="Ocorrências" valor="0" detalhe="+0 hoje" />
-          <Resumo titulo="Atendimentos" valor="0" detalhe="+0 hoje" />
-          <Resumo titulo="Relatórios" valor="0" detalhe="+0 hoje" />
+          <Resumo
+  titulo="Ocorrências"
+  valor={String(totalOcorrencias)}
+  detalhe="Hoje"
+/>
+
+<Resumo
+  titulo="Chamados"
+  valor={String(totalChamados)}
+  detalhe="Hoje"
+/>
+
+<Resumo
+  titulo="Patrulhas"
+  valor={String(totalPatrulhamentos)}
+  detalhe="Hoje"
+/>
         </div>
       </section>
 
@@ -212,7 +256,7 @@ export default function AppPage() {
           <Menu href="/sistema/ocorrencias/nova" icone="📄" texto="Ocorrências" />
           <Menu href="/sistema/ocorrencias/nova" icone="+" texto="" destaque />
           <Menu href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
-          <Menu href="/sistema/perfil" icone="☰" texto="Mais" />
+          <Menu href="/sistema/mobile/mais" icone="☰" texto="Mais" />
         </div>
       </nav>
     </main>
