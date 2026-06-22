@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 
 const modulos = [
   { titulo: "Nova Ocorrência", icone: "🚨", href: "/sistema/ocorrencias/nova", grupo: "Operacional", cor: "from-red-600 to-red-900" },
@@ -80,29 +81,10 @@ useEffect(() => {
       return;
     }
 
-    const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
-    const agora = new Date();
-    const diferencaMs = agora.getTime() - dataBase.getTime();
-    const diasPassados = Math.floor(diferencaMs / (1000 * 60 * 60 * 24));
-    const ordem = configEscala.ordem_guarnicoes;
-
-    const indiceBase = ordem.findIndex(
-      (id: number) => Number(id) === Number(configEscala.guarnicao_base_id)
-    );
-
-    if (indiceBase === -1) {
-      setGuarnicaoDia(null);
-      return;
-    }
-
-    const indiceAtual =
-      ((indiceBase + diasPassados) % ordem.length + ordem.length) %
-      ordem.length;
-
-    const guarnicaoIdAtual = ordem[indiceAtual];
-
-    const guarnicaoAtual =
-      guarnicoes?.find((g) => Number(g.id) === Number(guarnicaoIdAtual)) || null;
+    const guarnicaoAtual = calcularGuarnicaoDia(
+  configEscala,
+  guarnicoes || []
+);
 
     if (!guarnicaoAtual) {
       setGuarnicaoDia(null);

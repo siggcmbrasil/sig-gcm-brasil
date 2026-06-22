@@ -13,6 +13,7 @@ type Ocorrencia = {
   data: string;
   hora: string;
   status: string;
+  armas_objetos?: string | any[];
 };
 
 type Chamado = {
@@ -204,6 +205,26 @@ const { data: veiculos } = await supabase
       .order("turno", { ascending: true });
 
     setGerando(false);
+
+    const objetosPlantao: any[] = [];
+
+ocorrencias?.forEach((oc: any) => {
+  try {
+    const objetos =
+      typeof oc.armas_objetos === "string"
+        ? JSON.parse(oc.armas_objetos || "[]")
+        : oc.armas_objetos || [];
+
+    objetos.forEach((objeto: any) => {
+      objetosPlantao.push({
+        ...objeto,
+        protocolo: oc.protocolo,
+      });
+    });
+  } catch {
+    // ignora registros antigos
+  }
+});
 
     const pdf = new jsPDF();
     let y = 15;
@@ -446,8 +467,30 @@ if (!veiculos || veiculos.length === 0) {
 }
 
 y += 6;
+y = tituloSecao(pdf, "7. OBJETOS REGISTRADOS", y);
 
-    y = tituloSecao(pdf, "7. OBSERVAÇÕES DO PLANTÃO", y);
+if (objetosPlantao.length === 0) {
+  pdf.text("Nenhum objeto registrado nas ocorrências do plantão.", 15, y);
+  y += 8;
+} else {
+  objetosPlantao.forEach((item: any, index: number) => {
+    y = verificarPagina(pdf, y);
+
+    const texto = `${index + 1}. ${item.categoria || "Objeto"} | ${
+      item.descricao || "-"
+    } | Quantidade: ${item.quantidade || "-"} | Ocorrência: ${
+      item.protocolo || "-"
+    }`;
+
+    const linhas = pdf.splitTextToSize(texto, 175);
+    pdf.text(linhas, 15, y);
+    y += linhas.length * 6 + 4;
+  });
+}
+
+
+
+    y = tituloSecao(pdf, "8. OBSERVAÇÕES DO PLANTÃO", y);
 
     const obs = pdf.splitTextToSize(
       observacoes || "Sem observações adicionais.",

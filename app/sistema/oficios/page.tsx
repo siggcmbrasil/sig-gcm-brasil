@@ -54,16 +54,19 @@ export default function OficiosPage() {
 
     const ano = new Date().getFullYear();
 
+const municipioId = usuario.municipio_id || 1;
+
 const { count } = await supabase
   .from("oficios")
   .select("*", {
     count: "exact",
     head: true,
-  });
+  })
+  .eq("municipio_id", municipioId);
 
 const numero =
   numeroEditavel ||
-  `OF-${ano}-${String((count || 0) + 1).padStart(3, "0")}`;
+  `OF-${String((count || 0) + 1).padStart(3, "0")}/${ano}`;
 
   if (editandoId) {
   const { error } = await supabase
@@ -96,7 +99,7 @@ const numero =
 
     const { error } = await supabase.from("oficios").insert([
       {
-        municipio_id: usuario.municipio_id || 1,
+        municipio_id: municipioId,
         numero,
         tipo: "Ofício",
         destinatario,

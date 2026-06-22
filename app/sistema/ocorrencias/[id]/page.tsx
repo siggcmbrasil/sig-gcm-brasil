@@ -28,6 +28,8 @@ type Ocorrencia = {
   local: string;
   numero: string | null;
   envolvidos: string | null;
+  veiculos_envolvidos?: string | any[];
+  armas_objetos?: string | any[];
   descricao: string;
   foto_url: string | null;
   fotos_urls: string | null;
@@ -130,6 +132,40 @@ export default function VisualizarOcorrencia() {
     }
   }
 
+  function obterVeiculosEnvolvidos(): any[] {
+  if (!ocorrencia?.veiculos_envolvidos) return [];
+
+  try {
+    if (typeof ocorrencia.veiculos_envolvidos === "string") {
+      const dados = JSON.parse(ocorrencia.veiculos_envolvidos);
+      return Array.isArray(dados) ? dados : [];
+    }
+
+    return Array.isArray(ocorrencia.veiculos_envolvidos)
+      ? ocorrencia.veiculos_envolvidos
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+function obterObjetosEnvolvidos(): any[] {
+  if (!ocorrencia?.armas_objetos) return [];
+
+  try {
+    if (typeof ocorrencia.armas_objetos === "string") {
+      const dados = JSON.parse(ocorrencia.armas_objetos);
+      return Array.isArray(dados) ? dados : [];
+    }
+
+    return Array.isArray(ocorrencia.armas_objetos)
+      ? ocorrencia.armas_objetos
+      : [];
+  } catch {
+    return [];
+  }
+}
+
   function obterFotos(): string[] {
     if (!ocorrencia) return [];
 
@@ -169,7 +205,10 @@ export default function VisualizarOcorrencia() {
     if (!ocorrencia) return;
 
     const pdf = new jsPDF();
+
     const envolvidos = obterEnvolvidos();
+    const veiculosEnvolvidos = obterVeiculosEnvolvidos();
+    const objetosEnvolvidos = obterObjetosEnvolvidos();
     const fotos = obterFotos();
 
     let brasaoBase64 = "";
@@ -328,6 +367,144 @@ y += 12;
       });
     }
 
+    if (veiculosEnvolvidos.length > 0) {
+  if (y > 220) {
+    pdf.addPage();
+    y = 20;
+  }
+
+  pdf.setFontSize(14);
+  pdf.text("VEÍCULOS ENVOLVIDOS", 15, y);
+  y += 10;
+
+  pdf.setFontSize(11);
+
+  veiculosEnvolvidos.forEach((veiculo: any, index: number) => {
+    if (y > 230) {
+      pdf.addPage();
+      y = 20;
+    }
+
+    pdf.text(`${index + 1}. Veículo`, 15, y);
+    y += 7;
+    pdf.text(`Placa: ${veiculo.placa || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Marca: ${veiculo.marca || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Modelo: ${veiculo.modelo || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Ano: ${veiculo.ano || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Cor: ${veiculo.cor || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Renavam: ${veiculo.renavam || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Condutor: ${veiculo.condutor || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Documento Condutor: ${veiculo.documento_condutor || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Proprietário: ${veiculo.proprietario || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`CPF Proprietário: ${veiculo.cpf_proprietario || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Situação: ${veiculo.situacao || "-"}`, 20, y);
+    y += 7;
+    pdf.text(`Consulta: ${veiculo.situacao_consulta || "-"}`, 20, y);
+    y += 7;
+
+    if (veiculo.observacao) {
+      const obs = pdf.splitTextToSize(
+        `Observação: ${veiculo.observacao}`,
+        165
+      );
+      pdf.text(obs, 20, y);
+      y += obs.length * 7;
+    }
+
+    y += 8;
+  });
+}
+
+if (objetosEnvolvidos.length > 0) {
+  if (y > 220) {
+    pdf.addPage();
+    y = 20;
+  }
+
+  pdf.setFontSize(14);
+  pdf.text("OBJETOS ENVOLVIDOS", 15, y);
+  y += 10;
+
+  pdf.setFontSize(11);
+
+  objetosEnvolvidos.forEach((item: any, index: number) => {
+    if (y > 230) {
+      pdf.addPage();
+      y = 20;
+    }
+
+    pdf.text(`${index + 1}. Item`, 15, y);
+    y += 7;
+
+    pdf.text(`Categoria: ${item.categoria || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Descrição: ${item.descricao || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Marca: ${item.marca || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Modelo: ${item.modelo || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Calibre: ${item.calibre || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Numeração: ${item.numeracao || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(`Quantidade: ${item.quantidade || "-"}`, 20, y);
+    y += 7;
+
+    pdf.text(
+      `Peso: ${item.peso || "-"} ${item.unidade_peso || ""}`,
+      20,
+      y
+    );
+    y += 7;
+
+    pdf.text(
+      `Valor Estimado: ${item.valor_estimado || "-"}`,
+      20,
+      y
+    );
+    y += 7;
+
+    pdf.text(
+      `Procedência: ${item.procedencia || "-"}`,
+      20,
+      y
+    );
+    y += 7;
+
+    pdf.text(`Situação: ${item.situacao || "-"}`, 20, y);
+    y += 7;
+
+    if (item.observacao) {
+      const obs = pdf.splitTextToSize(
+        `Observação: ${item.observacao}`,
+        165
+      );
+
+      pdf.text(obs, 20, y);
+      y += obs.length * 7;
+    }
+
+    y += 10;
+  });
+}
+
     pdf.line(15, 265, 90, 265);
     pdf.text("Guarda Responsável", 15, 273);
 
@@ -386,8 +563,10 @@ y += 12;
     return <div className="p-6 text-slate-400">Ocorrência não encontrada.</div>;
   }
 
-  const envolvidos = obterEnvolvidos();
-  const fotos = obterFotos();
+const envolvidos = obterEnvolvidos();
+const veiculosEnvolvidos = obterVeiculosEnvolvidos();
+const objetosEnvolvidos = obterObjetosEnvolvidos();
+const fotos = obterFotos();
 
 function nomeMunicipio(id: number | null) {
   if (!id) return "-";
@@ -448,8 +627,52 @@ function nomeGuarda(id: number | null) {
         </div>
       </header>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+
+  <div className="card rounded-2xl shadow-lg p-4">
+    <p className="text-xs text-slate-400 uppercase">
+      Protocolo
+    </p>
+
+    <p className="text-xl font-bold mt-2">
+      {ocorrencia.protocolo}
+    </p>
+  </div>
+
+  <div className="card rounded-2xl shadow-lg p-4">
+    <p className="text-xs text-slate-400 uppercase">
+      Status
+    </p>
+
+    <p className="text-xl font-bold mt-2">
+      {ocorrencia.status}
+    </p>
+  </div>
+
+  <div className="card rounded-2xl shadow-lg p-4">
+    <p className="text-xs text-slate-400 uppercase">
+      Data
+    </p>
+
+    <p className="text-xl font-bold mt-2">
+      {ocorrencia.data}
+    </p>
+  </div>
+
+  <div className="card rounded-2xl shadow-lg p-4">
+    <p className="text-xs text-slate-400 uppercase">
+      Local
+    </p>
+
+    <p className="text-lg font-bold mt-2 truncate">
+      {ocorrencia.local}
+    </p>
+  </div>
+
+</div>
+
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="card space-y-4">
+        <div className="card rounded-2xl shadow-lg space-y-4">
           <h2 className="text-xl font-bold">Dados principais</h2>
           <Linha nome="Protocolo" valor={ocorrencia.protocolo} />
           <Linha nome="Tipo" valor={ocorrencia.tipo} />
@@ -458,7 +681,7 @@ function nomeGuarda(id: number | null) {
           <Linha nome="Hora" valor={ocorrencia.hora} />
         </div>
 
-        <div className="card space-y-4">
+        <div className="card rounded-2xl shadow-lg space-y-4">
           <h2 className="text-xl font-bold">Localização</h2>
           <Linha nome="Bairro" valor={ocorrencia.bairro || "-"} />
           <Linha nome="Local" valor={ocorrencia.local} />
@@ -475,7 +698,7 @@ function nomeGuarda(id: number | null) {
           )}
         </div>
 
-        <div className="card space-y-4">
+        <div className="card rounded-2xl shadow-lg space-y-4">
           <h2 className="text-xl font-bold">Equipe Empenhada</h2>
           <Linha nome="Viatura" valor={ocorrencia.viatura_empenhada || "-"} />
           <Linha nome="Município" valor={nomeMunicipio(ocorrencia.municipio_id)}/>
@@ -490,7 +713,7 @@ function nomeGuarda(id: number | null) {
           </div>
         </div>
 
-        <div className="card space-y-4">
+        <div className="card rounded-2xl shadow-lg space-y-4">
           <h2 className="text-xl font-bold">Descrição</h2>
           <p className="text-slate-300 leading-relaxed">
             {ocorrencia.descricao}
@@ -507,7 +730,7 @@ function nomeGuarda(id: number | null) {
               {envolvidos.map((pessoa, index) => (
                 <div
                   key={index}
-                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
+                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5"
                 >
                   <h3 className="font-bold text-lg">
                     {pessoa.nome || `Envolvido ${index + 1}`}
@@ -530,6 +753,136 @@ function nomeGuarda(id: number | null) {
         </div>
 
         <div className="card space-y-4 md:col-span-2">
+  <h2 className="text-xl font-bold">
+    🚗 Veículos Envolvidos
+  </h2>
+
+  {veiculosEnvolvidos.length === 0 ? (
+    <p className="text-slate-400">Nenhum veículo cadastrado.</p>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {veiculosEnvolvidos.map((veiculo: any, index: number) => (
+        <div
+          key={index}
+          className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5"
+        >
+          <h3 className="font-bold text-lg">
+            Veículo {index + 1}
+          </h3>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+
+          <Linha nome="Placa" valor={veiculo.placa || "-"} />
+          {veiculo.marca && (
+          <Linha nome="Marca" valor={veiculo.marca || "-"} />
+          )}
+          {veiculo.modelo && (
+          <Linha nome="Modelo" valor={veiculo.modelo} />
+          )}
+          {veiculo.ano && (
+          <Linha nome="Ano" valor={veiculo.ano || "-"} />
+          )}
+          {veiculo.cor && (
+          <Linha nome="Cor" valor={veiculo.cor || "-"} />
+          )}
+          {veiculo.renavam && (
+          <Linha nome="Renavam" valor={veiculo.renavam} />
+          )}
+          {veiculo.condutor && (
+          <Linha nome="Condutor" valor={veiculo.condutor || "-"} />
+          )}
+          {veiculo.documento_condutor && (
+          <Linha nome="Documento do Condutor" valor={veiculo.documento_condutor || "-"} />
+          )}
+          {veiculo.proprietario && (
+          <Linha nome="Proprietário" valor={veiculo.proprietario || "-"} />
+          )}
+          {veiculo.cpf_proprietario && (
+          <Linha nome="CPF Proprietário" valor={veiculo.cpf_proprietario || "-"}/>
+          )}
+          {veiculo.situacao && (
+          <Linha nome="Situação" valor={veiculo.situacao || "-"} />
+          )}
+          {veiculo.situacao_consulta && (
+          <Linha nome="Situação da Consulta" valor={veiculo.situacao_consulta || "-"} />
+          )}
+
+          </div>
+
+          {veiculo.observacao && (
+            <p className="text-slate-300 pt-2">
+              {veiculo.observacao}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+<div className="card space-y-4 md:col-span-2">
+  <h2 className="text-xl font-bold">
+    📦 Objetos Envolvidos
+  </h2>
+
+  {objetosEnvolvidos.length === 0 ? (
+    <p className="text-slate-400">
+      Nenhum objeto cadastrado.
+    </p>
+  ) : (
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      {objetosEnvolvidos.map((item: any, index: number) => (
+        <div
+          key={index}
+          className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
+        >
+          <h3 className="font-bold text-lg">
+            Item {index + 1}
+          </h3>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+
+          <Linha nome="Categoria" valor={item.categoria || "-"} />
+
+          <Linha nome="Descrição" valor={item.descricao || "-"} />
+          {item.marca && (
+          <Linha nome="Marca" valor={item.marca || "-"} />
+          )}
+          {item.modelo && (
+          <Linha nome="Modelo" valor={item.modelo || "-"} />
+          )}
+          {item.calibre && (
+          <Linha nome="Calibre" valor={item.calibre || "-"} />
+          )}
+          {item.numeracao && (
+          <Linha nome="Numeração" valor={item.numeracao || "-"} />
+          )}
+          <Linha nome="Quantidade" valor={item.quantidade || "-"} />
+          {item.peso && (
+          <Linha nome="Peso" valor={`${item.peso || "-"} ${item.unidade_peso || ""}`} />
+          )}
+          {item.valor_estimado && (
+          <Linha nome="Valor Estimado" valor={item.valor_estimado || "-"} />
+          )}
+          {item.procedencia && (
+          <Linha nome="Procedência" valor={item.procedencia || "-"} />
+          )}
+          <Linha nome="Situação" valor={item.situacao || "-"} />
+
+          </div>
+
+          {item.observacao && (
+            <p className="text-slate-300 pt-2">
+              {item.observacao}
+            </p>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+</div>
+
+        <div className="card space-y-4 md:col-span-2">
           <h2 className="text-xl font-bold">
             Fotos da Ocorrência
           </h2>
@@ -541,19 +894,21 @@ function nomeGuarda(id: number | null) {
               {fotos.map((foto, index) => (
                 <div
                   key={foto}
-                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-3"
+                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 shadow-lg"
                 >
-                  <p className="text-slate-400 text-sm mb-2">
+                  <p className="text-slate-400 text-xs uppercase tracking-wider mb-3">
                     Foto {index + 1}
                   </p>
 
-                  <Image
-                    src={foto}
-                    alt={`Foto ${index + 1} da ocorrência`}
-                    width={900}
-                    height={600}
-                    className="rounded-xl object-contain w-full h-auto max-w-sm"
-                  />
+                  <div className="w-full h-80 overflow-hidden rounded-xl border border-slate-700">
+  <Image
+    src={foto}
+    alt={`Foto ${index + 1} da ocorrência`}
+    width={900}
+    height={600}
+    className="w-full h-full object-cover"
+  />
+</div>
                 </div>
               ))}
             </div>
@@ -564,11 +919,22 @@ function nomeGuarda(id: number | null) {
   );
 }
 
-function Linha({ nome, valor }: { nome: string; valor: string }) {
+function Linha({
+  nome,
+  valor,
+}: {
+  nome: string;
+  valor: string;
+}) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
-      <span className="text-slate-400">{nome}</span>
-      <span className="text-right">{valor}</span>
+    <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-3">
+      <p className="text-xs uppercase tracking-wide text-slate-400">
+        {nome}
+      </p>
+
+      <p className="text-white font-semibold mt-1 break-words">
+        {valor}
+      </p>
     </div>
   );
 }

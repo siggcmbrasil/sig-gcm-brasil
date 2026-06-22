@@ -1,9 +1,24 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { buscarModulosPermitidos, moduloLiberado } from "@/lib/permissoesMenu";
+import {
+  LayoutDashboard,
+  Shield,
+  Users,
+  CalendarDays,
+  BarChart3,
+  Bot,
+  Settings,
+  LogOut,
+  CarFront,
+  Menu,
+} from "lucide-react";
+
+import type { LucideIcon } from "lucide-react";
 
 type Perfil =
   | "DESENVOLVEDOR"
@@ -26,6 +41,7 @@ type UsuarioLogado = {
 };
 
 export default function Sidebar() {
+  const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
   const [menuCompacto, setMenuCompacto] = useState(false);
   const [menuAberto, setMenuAberto] = useState("operacional");
@@ -170,7 +186,7 @@ w-80
       onClick={() => setMenuCompacto(!menuCompacto)}
       className="text-white text-xl hover:text-blue-400"
     >
-      ☰
+      <Menu className="w-6 h-6" />
     </button>
   </div>
 
@@ -207,85 +223,93 @@ w-80
 )}
 
         <nav
-  className={`p-3 space-y-2 flex-1 overflow-y-auto min-h-0 ${
+  className={`p-0 space-y-0 flex-1 overflow-y-auto min-h-0 ${
     menuCompacto ? "items-center" : ""
   }`}
 >
   <ItemMenu
-    href="/sistema"
-    icone="🏠"
-    titulo="Dashboard"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-  />
+  href="/sistema"
+  icone={LayoutDashboard}
+  titulo="Dashboard"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname === "/sistema"}
+/>
 
-  {podeVerModuloMenu("ocorrencias") && (
+{podeVerModuloMenu("ocorrencias") && (
   <ItemMenu
     href="/sistema/operacional"
-    icone="🚔"
+    icone={CarFront}
     titulo="Operacional"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/operacional")}
   />
 )}
 
 {podeVerModuloMenu("guardas") && (
   <ItemMenu
     href="/sistema/cadastros"
-    icone="👥"
+    icone={Users}
     titulo="Cadastros"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/cadastros")}
   />
 )}
 
 {podeVerModuloMenu("escalas") && (
   <ItemMenu
     href="/sistema/escalas-menu"
-    icone="📅"
+    icone={CalendarDays}
     titulo="Escalas"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/escalas-menu")}
   />
 )}
 
 {podeVerModuloMenu("relatorios") && (
   <ItemMenu
     href="/sistema/gestao"
-    icone="📊"
+    icone={BarChart3}
     titulo="Gestão"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/gestao")}
   />
 )}
 
 {podeVerModuloMenu("ia") && (
   <ItemMenu
     href="/sistema/inteligencia"
-    icone="🤖"
+    icone={Bot}
     titulo="Inteligência"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/inteligencia")}
   />
 )}
 
 {podeVerModuloMenu("administracao") && (
   <ItemMenu
     href="/sistema/administracao"
-    icone="🛡️"
+    icone={Shield}
     titulo="Administração"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/administracao")}
   />
 )}
 
 {podeVerModuloMenu("configuracoes") && (
   <ItemMenu
     href="/sistema/configuracoes"
-    icone="⚙️"
+    icone={Settings}
     titulo="Configurações"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/configuracoes")}
   />
 )}
 </nav>
@@ -322,7 +346,11 @@ w-80
   onClick={sair}
   className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
 >
-  {menuCompacto ? "🚪" : "Sair do Sistema"}
+  {menuCompacto ? (
+  <LogOut className="w-5 h-5 mx-auto" />
+) : (
+  "Sair do Sistema"
+)}
 </button>
         </div>
       </aside>
@@ -361,32 +389,47 @@ function GrupoMenu({
 
 function ItemMenu({
   href,
-  icone,
+  icone: Icone,
   titulo,
   fecharMenu,
   compacto,
+  ativo,
 }: {
   href: string;
-  icone: string;
+  icone: LucideIcon;
   titulo: string;
   fecharMenu: () => void;
   compacto: boolean;
+  ativo: boolean;
 }) {
   return (
     <Link
-  onClick={fecharMenu}
-  href={href}
-  className="menu-item ml-3 text-base font-semibold"
-  title={titulo}
->
-  <span className="text-xl">{icone}</span>
+      onClick={fecharMenu}
+      href={href}
+      className={`
+        w-full
+        flex items-center gap-4
+        px-5 py-5
+        text-2xl font-bold
+        border-b border-slate-800
+        transition-all duration-200
+        ${
+          ativo
+            ? "bg-blue-700/40 text-white border-l-4 border-l-cyan-400"
+            : "text-slate-200 hover:bg-blue-700/40 hover:text-white"
+        }
+        ${compacto ? "justify-center px-0" : ""}
+      `}
+      title={titulo}
+    >
+      <Icone
+        className={`w-15 h-15 shrink-0 ${
+          ativo ? "text-cyan-300" : "text-blue-400"
+        }`}
+      />
 
-  {!compacto && (
-    <span className="ml-2">
-      {titulo}
-    </span>
-  )}
-</Link>
+      {!compacto && <span>{titulo}</span>}
+    </Link>
   );
 }
 

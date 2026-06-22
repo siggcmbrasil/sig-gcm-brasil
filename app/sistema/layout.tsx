@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import ModalAniversariantes from "@/components/ModalAniversariantes";
 import { supabase } from "@/lib/supabase";
+import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
 
 type UsuarioLogado = {
   id: string;
@@ -68,6 +69,7 @@ setVerificando(false);
 
   if (verificando) {
     return (
+      
       <div className="min-h-screen bg-[#061426] flex items-center justify-center text-white text-xl">
         Carregando sistema...
       </div>
@@ -75,6 +77,9 @@ setVerificando(false);
   }
 
   return (
+<>
+    <RegistrarServiceWorker />
+    
   <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
     <Sidebar />
 
@@ -95,6 +100,7 @@ setVerificando(false);
       </div>
 
     </main>
-  </div>
-);
+      </div>
+  </>
+  );
 }

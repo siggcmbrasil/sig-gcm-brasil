@@ -19,6 +19,11 @@ export default function OfflinePage() {
   const [local, setLocal] = useState("");
   const [pendentes, setPendentes] = useState<OcorrenciaOffline[]>([]);
 
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
   useEffect(() => {
     setOnline(navigator.onLine);
     carregarPendentes();
@@ -55,9 +60,11 @@ export default function OfflinePage() {
     if (navigator.onLine) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
+  municipio_id: usuario?.municipio_id || 1,
   protocolo: `OFF-${Date.now()}`,
   tipo: nova.titulo,
   local: nova.local,
+  descricao: nova.descricao,
   data: new Date(nova.data).toISOString().split("T")[0],
   hora: new Date(nova.data).toLocaleTimeString("pt-BR", {
     hour: "2-digit",
@@ -90,9 +97,11 @@ export default function OfflinePage() {
     for (const item of pendentes) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
+  municipio_id: usuario?.municipio_id || 1,
   protocolo: `OFF-${Date.now()}`,
   tipo: item.titulo,
   local: item.local,
+  descricao: item.descricao,
   data: new Date(item.data).toISOString().split("T")[0],
   hora: new Date(item.data).toLocaleTimeString("pt-BR", {
     hour: "2-digit",

@@ -5,6 +5,23 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import dynamic from "next/dynamic";
 import TelaMobile from "@/components/TelaMobile";
+import {
+  Shield,
+  CarFront,
+  PhoneCall,
+  Cloud,
+  AlertTriangle,
+CheckCircle,
+Home,
+Search,
+Bell,
+Mail,
+User,
+ChevronDown,
+Settings,
+LogOut,
+MapPin,
+} from "lucide-react";
 
 const MapaOperacional = dynamic(
   () => import("@/components/MapaOperacional"),
@@ -113,13 +130,16 @@ export default function Dashboard() {
   const [permutas, setPermutas] = useState<Permuta[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
+  const [guarnicoesPlantao, setGuarnicoesPlantao] = useState<any[]>([]);
   const [membrosGuarnicao, setMembrosGuarnicao] = useState<MembroGuarnicao[]>([]);
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
   const [escalaHoje, setEscalaHoje] = useState<EscalaHoje[]>([]);
   const [municipioAtivo, setMunicipioAtivo] = useState<Municipio | null>(null);
   const [modeloEscalaAtivo, setModeloEscalaAtivo] = useState<string>("");
   const [configEscala, setConfigEscala] = useState<ConfigEscalaOperacional | null>(null);
- 
+  const [mostrarPerfil, setMostrarPerfil] = useState(false);
+  const [agora, setAgora] = useState(new Date());
+
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
   
@@ -224,6 +244,28 @@ export default function Dashboard() {
       .eq("ativa", true)
       .order("id");
 
+      const hojePlantao = new Date().toLocaleDateString("en-CA", {
+  timeZone: "America/Bahia",
+});
+
+const { data: guarnicoesPlantaoData } = await supabase
+  .from("guarnicoes_plantao")
+  .select(`
+    id,
+    tipo,
+    observacao,
+    guarnicoes:guarnicao_id (
+      id,
+      nome,
+      comandante_id,
+      viatura_id
+    )
+  `)
+  .eq("municipio_id", municipioId)
+  .eq("data_plantao", hojePlantao);
+
+setGuarnicoesPlantao(guarnicoesPlantaoData || []);
+
     const { data: membrosGuarnicaoData } = await supabase
       .from("guarnicao_membros")
       .select("id, guarnicao_id, guarda_id");
@@ -260,21 +302,24 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    carregarDashboard();
-  }, []);
+  carregarDashboard();
+
+  const timer = setInterval(() => {
+    setAgora(new Date());
+  }, 1000);
+
+  return () => clearInterval(timer);
+}, []);
 
   const hoje = new Date().toISOString().split("T")[0];
 
-  const dataBR = new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
+  const dataBR = agora.toLocaleDateString("pt-BR", {
+  day: "2-digit",
+  month: "long",
+  year: "numeric",
+});
 
-  const horaBR = new Date().toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const horaBR = agora.toLocaleTimeString("pt-BR");
 
   const ocorrenciasHoje = ocorrencias.filter((o) => o.data === hoje).length;
   const abertas = ocorrencias.filter((o) => o.status === "Aberta").length;
@@ -386,7 +431,7 @@ const aniversariantesHoje = guardas.filter((g) => {
     "
   />
 
-  <div className="relative z-10">
+  <div className="relative z-0">
       <div className="p-3 md:p-4 pb-4 space-y-3">
         <PainelTopo
   municipio={municipioAtivo}
@@ -402,6 +447,8 @@ const aniversariantesHoje = guardas.filter((g) => {
   setMostrarMensagens={setMostrarMensagens}
   busca={busca}
   setBusca={setBusca}
+  mostrarPerfil={mostrarPerfil}
+setMostrarPerfil={setMostrarPerfil}
 />
 
 
@@ -417,13 +464,41 @@ const aniversariantesHoje = guardas.filter((g) => {
   titulo="Plantão Ativo"
   valor={guarnicaoAtual?.nome?.replace("Guarnição ", "") || "Ativo"}
   detalhe="Em andamento"
-  icone="✅"
+  icone={<Shield className="w-8 h-8" />}
   cor="green"
 />
-      <CardComando titulo="Ocorrências Pendentes" valor={String(abertas)} detalhe="Aguardando atendimento" icone="🚨" cor="blue" />
-      <CardComando titulo="Chamados Abertos" valor="0" detalhe="Em atendimento" icone="📞" cor="cyan" />
-      <CardComando titulo="Viaturas em Serviço" valor={String(viaturas.length)} detalhe="Frota operacional" icone="🚓" cor="purple" />
-      <CardComando titulo="Sincronização" valor="Online" detalhe="Sistema atualizado" icone="☁️" cor="gold" />
+
+<CardComando
+  titulo="Ocorrências Pendentes"
+  valor={String(abertas)}
+  detalhe="Aguardando atendimento"
+  icone={<AlertTriangle className="w-8 h-8" />}
+  cor="blue"
+/>
+
+<CardComando
+  titulo="Chamados Abertos"
+  valor="0"
+  detalhe="Em atendimento"
+  icone={<PhoneCall className="w-8 h-8" />}
+  cor="cyan"
+/>
+
+<CardComando
+  titulo="Viaturas em Serviço"
+  valor={String(viaturas.length)}
+  detalhe="Frota operacional"
+  icone={<CarFront className="w-8 h-8" />}
+  cor="purple"
+/>
+
+<CardComando
+  titulo="Sincronização"
+  valor="Online"
+  detalhe="Sistema atualizado"
+  icone={<Cloud className="w-8 h-8" />}
+  cor="gold"
+/>
     </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
@@ -445,47 +520,50 @@ const aniversariantesHoje = guardas.filter((g) => {
       })}
     />
 
+    <PainelGuarnicoesPlantao
+  guarnicoes={guarnicoesPlantao}
+/>
+
     <PainelUltimasOcorrencias ocorrencias={ocorrencias} />
   </div>
 </section>
 
-<section className="grid grid-cols-1 xl:grid-cols-12 gap-3">
+<section className="grid grid-cols-1 xl:grid-cols-12 gap-3 min-h-[260px]">
   <div className="xl:col-span-4 space-y-3">
     <PainelAlertas avisos={avisos} />
 
     <div className="painel-premium p-3">
-      <TituloPainel icone="📢" titulo="Mural Operacional" />
+      <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
 
       <div className="space-y-3 mt-3">
-  <AlertaLinha
-    icone="📅"
-    titulo="Escala Operacional"
-    detalhe="Rodízio funcionando normalmente."
-  />
-
-  <AlertaLinha
-    icone="🚓"
-    titulo="Viaturas"
-    detalhe="Todas as viaturas disponíveis."
-  />
-
-  <AlertaLinha
-    icone="🛡️"
-    titulo="Sistema"
-    detalhe="Nenhum alerta crítico registrado."
-  />
-</div>
+        {aniversariantesHoje.length === 0 ? (
+          <p className="text-slate-400 text-sm">
+            Nenhum aniversariante hoje.
+          </p>
+        ) : (
+          aniversariantesHoje.map((guarda) => (
+            <div
+              key={guarda.id}
+              className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
+            >
+              <p className="font-bold">🎂 {guarda.nome}</p>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   </div>
 
-  <div className="xl:col-span-8">
-    <PainelResumo
-      finalizadas={finalizadas}
-      abertas={abertas}
-      guardasServico={guardasServico}
-      guardasFolga={guardasFolga}
-    />
-  </div>
+  <div className="xl:col-span-8 space-y-3">
+  <PainelResumo
+    finalizadas={finalizadas}
+    abertas={abertas}
+    guardasServico={guardasServico}
+    guardasFolga={guardasFolga}
+  />
+
+  <PainelAtividades atividades={ultimasAtividades} />
+</div>
 </section>
   </>
 )}
@@ -512,33 +590,64 @@ function PainelUltimasOcorrencias({
   ocorrencias: Ocorrencia[];
 }) {
   return (
-    <div className="painel-premium p-3 flex-1">
-      <TituloPainel icone="📋" titulo="Últimas Ocorrências" />
+    <div className="painel-premium p-4 flex-1">
+      <TituloPainel
+        icone="🚨"
+        titulo="Últimas Ocorrências"
+      />
 
       <div className="mt-4 space-y-3">
         {ocorrencias.length === 0 ? (
-          <p className="text-slate-400 text-sm">
+          <div className="bg-slate-950/50 border border-slate-800 rounded-2xl p-4 text-center text-slate-400">
             Nenhuma ocorrência recente.
-          </p>
+          </div>
         ) : (
           ocorrencias.slice(0, 5).map((o) => (
             <div
               key={o.id}
-              className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 flex justify-between gap-3"
+              className="
+                bg-slate-950/60
+                border border-slate-800
+                rounded-2xl
+                p-4
+                hover:border-blue-500/50
+                transition-all
+              "
             >
-              <div>
-                <p className="font-bold text-white text-sm">
-                  {o.tipo}
-                </p>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="font-black text-lg text-white">
+                    🚨 {o.tipo}
+                  </h3>
 
-                <p className="text-xs text-slate-400">
-                  {o.local}
-                </p>
+                  <p className="text-slate-400 text-sm mt-1">
+                    📍 {o.local}
+                  </p>
+                </div>
+
+                <span className="text-cyan-400 font-bold">
+                  {o.hora || "--:--"}
+                </span>
               </div>
 
-              <span className="text-blue-400 text-sm font-bold">
-                {o.hora || "--:--"}
-              </span>
+              <div className="mt-3 flex justify-between items-center">
+                <span
+                  className={`
+                    px-3 py-1 rounded-full text-xs font-black
+                    ${
+                      o.status === "Finalizada"
+                        ? "bg-green-500/15 text-green-400 border border-green-500/30"
+                        : "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30"
+                    }
+                  `}
+                >
+                  {o.status}
+                </span>
+
+                <span className="text-slate-500 text-xs">
+                  #{o.protocolo || o.id}
+                </span>
+              </div>
             </div>
           ))
         )}
@@ -546,9 +655,19 @@ function PainelUltimasOcorrencias({
 
       <Link
         href="/sistema/ocorrencias"
-        className="text-blue-400 text-sm font-bold mt-4 block"
+        className="
+          mt-4 block text-center
+          bg-blue-600/20
+          border border-blue-500/30
+          rounded-xl
+          py-3
+          font-bold
+          text-blue-400
+          hover:bg-blue-600/30
+          transition
+        "
       >
-        Ver todas →
+        Ver todas as ocorrências
       </Link>
     </div>
   );
@@ -562,62 +681,72 @@ function PainelTopo({
   setMostrarNotificacoes,
   mostrarMensagens,
   setMostrarMensagens,
+  mostrarPerfil,
+  setMostrarPerfil,
   busca,
   setBusca,
+  data,
+hora,
 }: any) {
+  function sairSistema() {
+    localStorage.removeItem("usuarioLogado");
+    window.location.href = "/login";
+  }
+
   return (
-    <header className="h-20 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)]">
-      <div className="flex items-center gap-4 min-w-[300px]">
+    <header className="h-20 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)] relative z-[9999] overflow-visible">
+      <div className="flex items-center gap-5 min-w-[350px]">
         <img
-  src={municipio?.brasao || "/brasao-gcm-v2.png"}
-  alt="Brasão"
-  className="w-16 h-16 object-contain"
-/>
+          src={municipio?.brasao || "/brasao-gcm-v2.png"}
+          alt="Brasão"
+          className="w-16 h-16 object-contain"
+        />
 
         <div>
           <h1 className="text-3xl font-black text-white">
-  SIG-GCM BRASIL
-</h1>
+            SIG-GCM BRASIL
+          </h1>
 
-<p className="text-slate-400">
-  CENTRO OPERACIONAL
+          <p className="text-xs text-cyan-400 font-semibold mt-1">
+  📅 {data} • ⏰ {hora}
 </p>
 
-          <p className="text-sm text-white font-bold mt-1">
-            📍 {municipio ? `${municipio.nome} - ${municipio.estado}` : "📍 Biritinga - BA"}
+                    <p className="text-sm text-white font-bold mt-1">
+            <span className="flex items-center gap-1">
+  <MapPin className="w-4 h-4 text-blue-400" />
+  {municipio ? `${municipio.nome} - ${municipio.estado}` : "Biritinga - BA"}
+</span>
           </p>
         </div>
       </div>
 
-      <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[450px] shadow-[0_0_25px_rgba(0,80,255,.12)]">
-        <span className="text-slate-400">🔍</span>
-  
+      <div className="hidden xl:flex items-center bg-slate-950/90 border border-blue-500/20 rounded-2xl px-5 h-14 w-[450px]">
+        <Bell className="w-6 h-6 text-cyan-300" />
 
-<input
-  value={busca}
-  onChange={(e) => setBusca(e.target.value)}
-  onKeyDown={(e) => {
-    if (e.key === "Enter" && busca.trim()) {
-      window.location.href = `/sistema/busca?q=${encodeURIComponent(busca)}`;
-    }
-  }}
-  placeholder="Buscar no sistema..."
-  className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
-/>
-
-        <span className="text-xs text-slate-400 border border-slate-700 rounded-lg px-3 py-1">
-          Ctrl + K
-        </span>
+        <input
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && busca.trim()) {
+              window.location.href = `/sistema/busca?q=${encodeURIComponent(busca)}`;
+            }
+          }}
+          placeholder="Buscar no sistema..."
+          className="bg-transparent outline-none ml-3 flex-1 text-white placeholder:text-slate-500"
+        />
       </div>
 
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex items-center gap-3 shrink-0 relative">
         <button
           type="button"
-          onClick={() => setMostrarNotificacoes(!mostrarNotificacoes)}
-          className="w-12 h-12 rounded-full border border-blue-500/20 bg-slate-950/40 flex items-center justify-center hover:bg-blue-500/10 transition relative"
+          onClick={() => {
+            setMostrarNotificacoes(!mostrarNotificacoes);
+            setMostrarMensagens(false);
+            setMostrarPerfil(false);
+          }}
+          className="w-12 h-12 rounded-full border border-cyan-400/40 bg-slate-950/60 flex items-center justify-center hover:bg-blue-500/10 transition relative"
         >
           🔔
-
           {avisos.length > 0 && (
             <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
               {avisos.length}
@@ -627,38 +756,147 @@ function PainelTopo({
 
         <button
           type="button"
-          onClick={() => setMostrarMensagens(!mostrarMensagens)}
-          className="w-12 h-12 rounded-full border border-blue-500/20 bg-slate-950/40 flex items-center justify-center hover:bg-blue-500/10 transition"
+          onClick={() => {
+            setMostrarMensagens(!mostrarMensagens);
+            setMostrarNotificacoes(false);
+            setMostrarPerfil(false);
+          }}
+          className="w-12 h-12 rounded-full border border-blue-500/30 bg-[#071a35]/60 flex items-center justify-center hover:bg-blue-500/10 transition"
         >
-          ✉️
+          <Mail className="w-6 h-6 text-blue-300" />
         </button>
 
-        <div className="flex items-center gap-3 px-3 py-2 rounded-2xl border border-blue-500/20 bg-slate-950/40 min-w-[230px]">
-  <div className="w-12 h-12 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-xl shrink-0">
-    👤
-  </div>
+        <button
+          type="button"
+          onClick={() => {
+            setMostrarPerfil(!mostrarPerfil);
+            setMostrarNotificacoes(false);
+            setMostrarMensagens(false);
+          }}
+          className="flex items-center gap-3 px-3 py-2 rounded-2xl border border-blue-500/30 bg-slate-950/60 min-w-[230px] hover:bg-blue-500/10 transition"
+        >
+          <div className="w-12 h-12 rounded-full bg-slate-800 border border-blue-500/30 flex items-center justify-center text-xl shrink-0 overflow-hidden">
+            {usuarioLogado?.foto_url ? (
+              <img
+                src={usuarioLogado.foto_url}
+                alt={usuarioLogado?.nome}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <User className="w-6 h-6 text-slate-300" />
+            )}
+          </div>
 
-  <div className="flex-1 min-w-0">
-  <p className="font-bold text-white text-base leading-tight truncate">
-    {usuarioLogado?.nome || "Usuário"}
-  </p>
+          <div className="flex-1 min-w-0 text-left">
+            <p className="font-bold text-white text-base leading-tight truncate">
+              {usuarioLogado?.nome || "Usuário"}
+            </p>
 
-  <p className="text-slate-400 text-xs">
-    {usuarioLogado?.perfil || "CONSULTA"}
-  </p>
+            <p className="text-slate-400 text-xs">
+              {usuarioLogado?.perfil || "CONSULTA"}
+            </p>
 
-  <div className="flex items-center gap-1 mt-1">
-    <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-    <span className="text-green-400 text-xs font-bold">
-      ONLINE
-    </span>
-  </div>
-</div>
+            <div className="flex items-center gap-1 mt-1">
+              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+              <span className="text-green-400 text-xs font-bold">
+                ONLINE
+              </span>
+            </div>
+          </div>
 
-  <span className="text-slate-400 shrink-0">
-    ⌄
-  </span>
-</div>
+          <span className="text-slate-400">
+            <ChevronDown className="w-5 h-5" />
+          </span>
+        </button>
+
+        {mostrarNotificacoes && (
+          <div className="absolute right-72 top-16 w-80 rounded-2xl border border-blue-500/30 bg-slate-950 shadow-2xl p-4 z-50">
+            <h3 className="font-black text-white mb-3">
+              🔔 Notificações
+            </h3>
+
+            {avisos.length === 0 ? (
+              <p className="text-slate-400 text-sm">
+                Nenhuma notificação no momento.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {avisos.slice(0, 5).map((aviso: any) => (
+                  <div
+                    key={aviso.id}
+                    className="border-b border-slate-800 pb-2"
+                  >
+                    <p className="font-bold text-white text-sm">
+                      {aviso.titulo}
+                    </p>
+                    <p className="text-slate-400 text-xs">
+                      {aviso.descricao}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {mostrarMensagens && (
+          <div className="absolute right-56 top-16 w-80 rounded-2xl border border-blue-500/30 bg-slate-950 shadow-2xl p-4 z-50">
+            <h3 className="font-black text-white mb-3">
+              ✉️ Mensagens
+            </h3>
+
+            <p className="text-slate-400 text-sm">
+              Nenhuma mensagem interna no momento.
+            </p>
+          </div>
+        )}
+
+        {mostrarPerfil && (
+          <div className="absolute right-0 top-16 w-72 rounded-2xl border border-blue-500/30 bg-slate-950 shadow-2xl p-4 z-50">
+            <div className="border-b border-slate-800 pb-3 mb-3">
+              <p className="font-black text-white">
+                {usuarioLogado?.nome || "Usuário"}
+              </p>
+              <p className="text-slate-400 text-sm">
+                {usuarioLogado?.email || "Sem e-mail"}
+              </p>
+              <p className="text-blue-400 text-xs font-bold mt-1">
+                {usuarioLogado?.perfil || "CONSULTA"}
+              </p>
+            </div>
+
+            <Link
+              href="/sistema/perfil"
+              className="block px-3 py-2 rounded-xl hover:bg-blue-500/10 text-slate-200 font-bold"
+            >
+              <span className="flex items-center gap-2">
+  <User className="w-5 h-5" />
+  Meu Perfil
+</span>
+            </Link>
+
+            <Link
+              href="/sistema/configuracoes"
+              className="block px-3 py-2 rounded-xl hover:bg-blue-500/10 text-slate-200 font-bold"
+            >
+              <span className="flex items-center gap-2">
+  <Settings className="w-5 h-5" />
+  Configurações
+</span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={sairSistema}
+              className="w-full text-left px-3 py-2 rounded-xl hover:bg-red-500/10 text-red-400 font-bold mt-2"
+            >
+              <span className="flex items-center gap-2">
+  <LogOut className="w-5 h-5" />
+  Sair do sistema
+</span>
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );
@@ -672,7 +910,7 @@ function InfoTopo({
 }: {
   rotulo: string;
   valor: string;
-  icone: string;
+  icone: React.ReactNode;
   destaque?: boolean;
 }) {
   return (
@@ -734,7 +972,7 @@ function CardComando({
   const estilo = cores[cor as keyof typeof cores];
 
   return (
-    <div className="painel-premium relative p-4 h-[90px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+    <div className="painel-premium relative p-4 h-[110px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
 
       <div className="absolute top-3 right-3">
         <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
@@ -848,70 +1086,74 @@ function PainelGuarnicao({
   membros: string[];
 }) {
   return (
-    <div className="painel-premium p-3 h-full border border-yellow-600/70">
-      <TituloPainel icone="🚔" titulo="Guarnição de Serviço" />
+    <div className="painel-premium p-4 h-full border border-cyan-500/40 relative overflow-hidden">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,#0ea5e9,transparent_35%)] opacity-20" />
 
-      <div className="border border-blue-600 rounded-2xl p-5 mt-4 relative bg-slate-950/40 h-full">
+      <div className="relative z-10">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <h2 className="text-lg font-black uppercase tracking-wide text-white">
+            🚔 Guarnição de Serviço
+          </h2>
 
-        <div
-  className="
-    absolute top-2 right-2
-    bg-green-500/15
-    border border-green-500/50
-    backdrop-blur-md
-    rounded-xl
-    px-2 py-1
-    text-center
-  "
->
-          <p className="text-green-400 font-black text-sm">ATIVO</p>
+          <span className="bg-green-500/15 border border-green-500/50 text-green-400 rounded-xl px-3 py-1 text-sm font-black animate-pulse">
+            ATIVO
+          </span>
         </div>
 
-        <h2 className="text-3xl font-black text-green-400 mb-3">
-  {guarnicao}
-</h2>
+        <div className="mt-5">
+          <p className="text-slate-400 text-sm font-bold uppercase">
+            Plantão atual
+          </p>
 
-        <div className="grid grid-cols-2 gap-2 mb-3">
-          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
-            <p className="text-slate-400 text-sm">👮 Comandante</p>
-            <p className="font-bold">
+          <h1 className="text-4xl font-black text-cyan-300 mt-1">
+            {guarnicao}
+          </h1>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <div className="bg-slate-950/70 border border-blue-500/30 rounded-2xl p-4">
+            <p className="text-slate-400 text-sm font-bold">
+              👮 Comandante
+            </p>
+            <p className="text-white font-black text-lg mt-1">
               {comandante || "Não informado"}
             </p>
           </div>
 
-          <div className="bg-slate-900/60 rounded-xl p-3 border border-slate-700">
-            <p className="text-slate-400 text-sm">🚓 Viatura</p>
-            <p className="font-bold">
+          <div className="bg-slate-950/70 border border-blue-500/30 rounded-2xl p-4">
+            <p className="text-slate-400 text-sm font-bold">
+              🚓 Viatura
+            </p>
+            <p className="text-white font-black text-lg mt-1">
               {viatura || "Não definida"}
             </p>
           </div>
+        </div>
 
-          </div>
-
-        <div className="border-t border-slate-700 pt-4">
-          <h3 className="text-blue-400 font-bold mb-2">
-  👥 Equipe
-</h3>
+        <div className="mt-5">
+          <h3 className="text-blue-400 font-black uppercase text-sm mb-3">
+            👥 Equipe em serviço
+          </h3>
 
           {membros.length === 0 ? (
-            <div className="bg-slate-900/50 rounded-xl p-4 text-slate-400">
+            <div className="bg-slate-950/60 rounded-xl p-4 text-slate-400 border border-slate-800">
               Nenhum integrante cadastrado.
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2">
               {membros.map((nome) => (
                 <div
                   key={nome}
-                  className="bg-slate-900/50 border border-slate-800 rounded-lg p-2 text-sm"
+                  className="bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-sm font-bold flex items-center gap-2"
                 >
-                  👮 {nome}
+                  <span className="text-blue-400">👮</span>
+                  {nome}
                 </div>
               ))}
             </div>
           )}
         </div>
-
-         </div>
+      </div>
     </div>
   );
 }
@@ -1001,8 +1243,8 @@ function PainelEscalaHoje({ escalaHoje }: { escalaHoje: EscalaHoje[] }) {
 
 function PainelAtividades({ atividades }: { atividades: Atividade[] }) {
   return (
-    <div className="painel-premium p-3">
-      <TituloPainel icone="📋" titulo="Atividades Recentes" />
+    <div className="painel-premium p-4">
+      <TituloPainel icone="📡" titulo="Atividade Operacional" />
 
       <div className="mt-4 space-y-3">
         {atividades.length === 0 ? (
@@ -1085,12 +1327,47 @@ function PainelResumo({
       <TituloPainel icone="📊" titulo="Estatísticas do Dia" />
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mt-5">
-        <ResumoMini titulo="Ocorrências Pendentes" valor={abertas} icone="🚨" />
-        <ResumoMini titulo="Ocorrências Finalizadas" valor={finalizadas} icone="✅" />
-        <ResumoMini titulo="Guardas em Serviço" valor={guardasServico} icone="👮" />
-        <ResumoMini titulo="Guardas de Folga" valor={guardasFolga} icone="🏠" />
-        <ResumoMini titulo="Patrulhamentos" valor={16} icone="🚔" />
-        <ResumoMini titulo="Averiguações" valor={1} icone="🔍" />
+        <ResumoMini
+          titulo="Ocorrências Pendentes"
+          valor={abertas}
+          icone={<AlertTriangle className="w-9 h-9" />}
+          cor="yellow"
+        />
+
+        <ResumoMini
+          titulo="Ocorrências Finalizadas"
+          valor={finalizadas}
+          icone={<CheckCircle className="w-9 h-9" />}
+          cor="green"
+        />
+
+        <ResumoMini
+          titulo="Guardas em Serviço"
+          valor={guardasServico}
+          icone={<Shield className="w-9 h-9" />}
+          cor="blue"
+        />
+
+        <ResumoMini
+          titulo="Guardas de Folga"
+          valor={guardasFolga}
+          icone={<Home className="w-9 h-9" />}
+          cor="slate"
+        />
+
+        <ResumoMini
+          titulo="Patrulhamentos"
+          valor={16}
+          icone={<CarFront className="w-9 h-9" />}
+          cor="cyan"
+        />
+
+        <ResumoMini
+          titulo="Averiguações"
+          valor={1}
+          icone={<Search className="w-9 h-9" />}
+          cor="purple"
+        />
       </div>
     </div>
   );
@@ -1099,7 +1376,10 @@ function PainelResumo({
 function PainelAlertas({ avisos }: { avisos: Aviso[] }) {
   return (
     <div className="painel-premium p-5">
-      <TituloPainel icone="🔔" titulo="Alertas e Comunicados" />
+      <TituloPainel
+        icone="📢"
+        titulo="Mural Operacional"
+      />
 
       <div className="mt-4 space-y-3">
         {avisos.length === 0 ? (
@@ -1107,26 +1387,26 @@ function PainelAlertas({ avisos }: { avisos: Aviso[] }) {
             <AlertaLinha
               icone="ℹ️"
               titulo="Sistema operacional"
-              detalhe="Nenhum aviso crítico cadastrado"
+              detalhe="Nenhum aviso cadastrado."
             />
 
             <AlertaLinha
               icone="🛡️"
               titulo="Segurança ativa"
-              detalhe="Painel em funcionamento normal"
+              detalhe="Painel funcionando normalmente."
             />
 
             <AlertaLinha
               icone="📅"
               titulo="Escala automática"
-              detalhe="Rodízio operacional ativo"
+              detalhe="Rodízio operacional ativo."
             />
           </>
         ) : (
-          avisos.slice(0, 4).map((aviso) => (
+          avisos.slice(0, 5).map((aviso) => (
             <AlertaLinha
               key={aviso.id}
-              icone="🔔"
+              icone="📢"
               titulo={aviso.titulo}
               detalhe={aviso.descricao}
             />
@@ -1171,19 +1451,39 @@ function ResumoMini({
   titulo,
   valor,
   icone,
+  cor,
 }: {
   titulo: string;
   valor: number;
-  icone: string;
+  icone: React.ReactNode;
+  cor: "yellow" | "green" | "blue" | "slate" | "cyan" | "purple";
 }) {
-  return (
-    <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4 flex items-center gap-3">
-      <div className="text-3xl">{icone}</div>
+  const cores = {
+    yellow: "text-yellow-400 bg-yellow-500/10 border-yellow-500/30",
+    green: "text-green-400 bg-green-500/10 border-green-500/30",
+    blue: "text-blue-400 bg-blue-500/10 border-blue-500/30",
+    slate: "text-slate-300 bg-slate-500/10 border-slate-500/30",
+    cyan: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
+    purple: "text-purple-400 bg-purple-500/10 border-purple-500/30",
+  };
 
-      <div>
-        <p className="text-slate-400 text-xs">{titulo}</p>
-        <h3 className="text-3xl font-black">{valor}</h3>
+  return (
+    <div className="bg-slate-950/70 border border-slate-800 rounded-2xl p-5 hover:border-blue-500/40 transition-all">
+      <div className="flex items-center justify-between">
+        <div
+          className={`w-14 h-14 rounded-2xl border flex items-center justify-center ${cores[cor]}`}
+        >
+          {icone}
+        </div>
+
+        <h3 className="text-4xl font-black text-white">
+          {valor}
+        </h3>
       </div>
+
+      <p className="mt-4 text-sm font-bold uppercase tracking-wide text-slate-400">
+        {titulo}
+      </p>
     </div>
   );
 }
@@ -1244,5 +1544,49 @@ function AtalhoPremium({ href, titulo, icone }: any) {
       <span className="text-3xl">{icone}</span>
       <span>{titulo}</span>
     </Link>
+  );
+}
+
+function PainelGuarnicoesPlantao({
+  guarnicoes,
+}: {
+  guarnicoes: any[];
+}) {
+  return (
+    <div className="painel-premium p-4">
+      <TituloPainel
+        icone="🚔"
+        titulo="Guarnições Ativas"
+      />
+
+      <div className="space-y-2 mt-4">
+        {guarnicoes.length === 0 ? (
+          <p className="text-slate-400 text-sm">
+            Nenhuma guarnição ativa.
+          </p>
+        ) : (
+          guarnicoes.map((item: any) => (
+  <div
+    key={item.id}
+    className="bg-slate-950/60 border border-slate-800 rounded-xl p-3"
+  >
+    <p className="font-bold text-cyan-400">
+      {item.guarnicoes?.nome || "Guarnição não encontrada"}
+    </p>
+
+    <p className="text-xs text-slate-400 mt-1">
+      Tipo: {item.tipo || "ORDINARIA"}
+    </p>
+
+    {item.observacao && (
+      <p className="text-xs text-slate-500 mt-1">
+        {item.observacao}
+      </p>
+    )}
+  </div>
+))
+        )}
+      </div>
+    </div>
   );
 }

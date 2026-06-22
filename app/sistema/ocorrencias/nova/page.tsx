@@ -35,6 +35,38 @@ type Envolvido = {
   observacao: string;
 };
 
+type VeiculoEnvolvido = {
+  placa: string;
+  marca: string;
+  modelo: string;
+  cor: string;
+  ano: string;
+  renavam: string;
+  proprietario: string;
+  cpf_proprietario: string;
+  condutor: string;
+  documento_condutor: string;
+  situacao: string;
+  observacao: string;
+  situacao_consulta: string;
+};
+
+type ObjetoEnvolvido = {
+  categoria: string;
+  descricao: string;
+  marca: string;
+  modelo: string;
+  calibre: string;
+  numeracao: string;
+  quantidade: string;
+  peso: string;
+  unidade_peso: string;
+  valor_estimado: string;
+  procedencia: string;
+  situacao: string;
+  observacao: string;
+};
+
 type Guarnicao = {
   id: number;
   nome: string;
@@ -68,6 +100,7 @@ export default function NovaOcorrencia() {
   const [tipo, setTipo] = useState("");
   const [guardaResponsavelId, setGuardaResponsavelId] = useState("");
   const [status, setStatus] = useState("Aberta");
+  const [prioridade, setPrioridade] = useState("MEDIA");
   const [bairro, setBairro] = useState("");
   const [local, setLocal] = useState("");
   const [localId, setLocalId] = useState("");
@@ -77,11 +110,33 @@ export default function NovaOcorrencia() {
   const [salvando, setSalvando] = useState(false);
   const [municipioId, setMunicipioId] = useState<number>(1);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
-  const [guarnicoes, setGuarnicoes] =
-  useState<GuarnicaoCompleta[]>([]);
+  const [guarnicoes, setGuarnicoes] = useState<GuarnicaoCompleta[]>([]);
   const [guarnicaoId, setGuarnicaoId] = useState("");
   const [viaturaEmpenhada, setViaturaEmpenhada] = useState("");
   const [viaturaId, setViaturaId] = useState("");
+  const [abrirVeiculos, setAbrirVeiculos] = useState(true);
+  const [historicoVeiculo, setHistoricoVeiculo] = useState<any[]>([]);
+  const [historicoEnvolvido, setHistoricoEnvolvido] = useState<any[]>([]);
+  const [abrirObjetos, setAbrirObjetos] = useState(true);
+  const [gerandoNarrativa, setGerandoNarrativa] = useState(false);
+  const [objetosEnvolvidos, setObjetosEnvolvidos] =
+  useState<ObjetoEnvolvido[]>([
+    {
+  categoria: "",
+  descricao: "",
+  marca: "",
+  modelo: "",
+  calibre: "",
+  numeracao: "",
+  quantidade: "1",
+  situacao: "",
+  observacao: "",
+  peso: "",
+unidade_peso: "g",
+valor_estimado: "",
+procedencia: "",
+},
+  ]);
   const [envolvidos, setEnvolvidos] = useState<Envolvido[]>([
     
     {
@@ -92,7 +147,29 @@ export default function NovaOcorrencia() {
       tipo: "Vítima",
       observacao: "",
     },
+    
   ]);
+
+  const [mostrarVeiculos, setMostrarVeiculos] = useState(false);
+const [mostrarObjetos, setMostrarObjetos] = useState(false);
+
+const [veiculosEnvolvidos, setVeiculosEnvolvidos] = useState<VeiculoEnvolvido[]>([
+  {
+    placa: "",
+    marca: "",
+    modelo: "",
+    cor: "",
+    ano: "",
+    renavam: "",
+    proprietario: "",
+    cpf_proprietario: "",
+    condutor: "",
+    documento_condutor: "",
+    situacao: "",
+    observacao: "",
+    situacao_consulta: "",
+  },
+]);
   async function carregarLocais(municipio: number) {
   const { data, error } = await supabase
   .from("locais")
@@ -203,7 +280,9 @@ export default function NovaOcorrencia() {
     setEnvolvidos(envolvidos.filter((_, i) => i !== index));
   }
 
-  async function salvarOcorrencia() {
+  async function salvarOcorrencia(
+  statusPersonalizado?: string
+) {
     if (!tipo || !localId || !descricao) {
   alert("Preencha tipo, local e descrição.");
   return;
@@ -211,10 +290,17 @@ export default function NovaOcorrencia() {
 
     setSalvando(true);
 
-    const agora = new Date();
-    const protocolo = "OC-" + Date.now();
-    const data = agora.toISOString().split("T")[0];
-    const hora = agora.toTimeString().slice(0, 8);
+   const agora = new Date();
+const protocolo = "OC-" + Date.now();
+
+const data = agora.toLocaleDateString("en-CA", {
+  timeZone: "America/Bahia",
+});
+
+const hora = agora.toLocaleTimeString("pt-BR", {
+  timeZone: "America/Bahia",
+  hour12: false,
+});
 
     const fotosUrls: string[] = [];
 
@@ -262,7 +348,8 @@ export default function NovaOcorrencia() {
   : null,
     protocolo,
     tipo,
-    status,
+    status: statusPersonalizado || status,
+    prioridade,
     data,
     hora,
     bairro,
@@ -270,6 +357,8 @@ export default function NovaOcorrencia() {
     local_id: localId ? Number(localId) : null,
     numero,
     envolvidos: JSON.stringify(envolvidosValidos),
+    veiculos_envolvidos: JSON.stringify(veiculosEnvolvidos),
+    armas_objetos: JSON.stringify(objetosEnvolvidos),
     descricao,
     foto_url: fotosUrls[0] || "",
     fotos_urls: JSON.stringify(fotosUrls),
@@ -451,6 +540,229 @@ if (
   }
 }, [chamadoId]);
 
+function adicionarVeiculo() {
+  setVeiculosEnvolvidos([
+    ...veiculosEnvolvidos,
+    {
+      placa: "",
+      marca: "",
+      modelo: "",
+      cor: "",
+      ano: "",
+      renavam: "",
+      proprietario: "",
+      cpf_proprietario: "",
+      condutor: "",
+      documento_condutor: "",
+      situacao: "",
+      observacao: "",
+      situacao_consulta: "",
+    },
+  ]);
+}
+
+function removerVeiculo(index: number) {
+  if (veiculosEnvolvidos.length === 1) {
+    alert("É necessário manter pelo menos um veículo.");
+    return;
+  }
+
+  setVeiculosEnvolvidos(
+    veiculosEnvolvidos.filter((_, i) => i !== index)
+  );
+}
+
+function atualizarVeiculo(
+  index: number,
+  campo: keyof VeiculoEnvolvido,
+  valor: string
+) {
+  const lista = [...veiculosEnvolvidos];
+  lista[index][campo] = valor;
+  setVeiculosEnvolvidos(lista);
+}
+
+function adicionarObjeto() {
+  setObjetosEnvolvidos([
+    ...objetosEnvolvidos,
+    {
+  categoria: "",
+  descricao: "",
+  marca: "",
+  modelo: "",
+  calibre: "",
+  numeracao: "",
+  quantidade: "1",
+  situacao: "",
+  observacao: "",
+  peso: "",
+unidade_peso: "g",
+valor_estimado: "",
+procedencia: "",
+},
+  ]);
+}
+
+function removerObjeto(index: number) {
+  if (objetosEnvolvidos.length === 1) {
+    alert("É necessário manter pelo menos um item.");
+    return;
+  }
+
+  setObjetosEnvolvidos(
+    objetosEnvolvidos.filter((_, i) => i !== index)
+  );
+}
+
+function atualizarObjeto(
+  index: number,
+  campo: keyof ObjetoEnvolvido,
+  valor: string
+) {
+  const lista = [...objetosEnvolvidos];
+  lista[index][campo] = valor;
+  setObjetosEnvolvidos(lista);
+}
+
+async function gerarNarrativaIA() {
+  if (!tipo) {
+    alert("Selecione o tipo da ocorrência antes de gerar a narrativa.");
+    return;
+  }
+
+  setGerandoNarrativa(true);
+
+  try {
+    const resposta = `
+Durante o serviço de patrulhamento, a equipe da Guarda Civil Municipal foi acionada para atendimento de ocorrência do tipo ${tipo}.
+
+A ocorrência foi registrada no local ${local || "não informado"}, bairro ${bairro || "não informado"}, número ${numero || "S/N"}.
+
+A guarnição empenhada foi ${guarnicaoId ? "a guarnição selecionada" : "não informada"}, com apoio da viatura ${viaturaEmpenhada || "não informada"}.
+
+No local, a equipe realizou a verificação da situação, identificou os envolvidos relacionados ao fato e adotou as providências cabíveis, conforme os dados registrados nesta ocorrência.
+
+Após a averiguação, a situação foi registrada no sistema SIG-GCM Brasil para acompanhamento, controle operacional e emissão do relatório oficial.
+`;
+
+    setDescricao(resposta.trim());
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao gerar narrativa.");
+  } finally {
+    setGerandoNarrativa(false);
+  }
+}
+
+async function consultarHistoricoVeiculo(placa: string) {
+  if (!placa || placa.length < 7) {
+    setHistoricoVeiculo([]);
+    return;
+  }
+
+  const { data, error } = await supabase
+    .from("ocorrencias")
+    .select("id, protocolo, data, status, veiculos_envolvidos")
+    .order("data", { ascending: false });
+
+  if (error || !data) return;
+
+  const resultados = data.filter((oc) => {
+    try {
+      const veiculos = JSON.parse(
+        oc.veiculos_envolvidos || "[]"
+      );
+
+      return veiculos.some(
+        (v: any) =>
+          v.placa?.toUpperCase() === placa.toUpperCase()
+      );
+    } catch {
+      return false;
+    }
+  });
+
+  setHistoricoVeiculo(resultados);
+}
+
+async function consultarHistoricoEnvolvido(valor: string) {
+  if (!valor || valor.length < 3) {
+    setHistoricoEnvolvido([]);
+    return;
+  }
+
+  const busca = valor.toUpperCase();
+
+  const { data, error } = await supabase
+    .from("ocorrencias")
+    .select("id, protocolo, data, status, envolvidos")
+    .order("data", { ascending: false });
+
+  if (error || !data) return;
+
+  const resultados = data.filter((oc) => {
+    try {
+      const pessoas = JSON.parse(oc.envolvidos || "[]");
+
+      return pessoas.some((p: any) => {
+        const nome = String(p.nome || "").toUpperCase();
+        const documento = String(p.documento || "").toUpperCase();
+
+        return nome.includes(busca) || documento.includes(busca);
+      });
+    } catch {
+      return false;
+    }
+  });
+
+  setHistoricoEnvolvido(resultados);
+}
+
+function gerarNarrativaAutomatica() {
+  if (!tipo) {
+    alert("Selecione o tipo da ocorrência.");
+    return;
+  }
+
+  setGerandoNarrativa(true);
+
+  const envolvidosTexto = envolvidos
+    .filter((p) => p.nome || p.documento || p.tipo)
+    .map((p) => `${p.tipo}: ${p.nome || "não informado"}${p.documento ? `, documento ${p.documento}` : ""}`)
+    .join("; ");
+
+  const veiculosTexto = veiculosEnvolvidos
+    .filter((v) => v.placa || v.modelo || v.condutor)
+    .map((v) => `${v.placa ? `placa ${v.placa}` : "veículo sem placa"}${v.marca ? `, marca ${v.marca}` : ""}${v.modelo ? `, modelo ${v.modelo}` : ""}${v.cor ? `, cor ${v.cor}` : ""}${v.condutor ? `, conduzido por ${v.condutor}` : ""}`)
+    .join("; ");
+
+  const objetosTexto = objetosEnvolvidos
+    .filter((o) => o.categoria || o.descricao || o.quantidade)
+    .map((o) => `${o.categoria || "objeto"}${o.descricao ? `: ${o.descricao}` : ""}${o.quantidade ? `, quantidade ${o.quantidade}` : ""}${o.peso ? `, peso ${o.peso} ${o.unidade_peso}` : ""}`)
+    .join("; ");
+
+  const texto = `Durante o serviço operacional, a equipe da Guarda Civil Municipal registrou ocorrência do tipo ${tipo}, no local ${local || "não informado"}, bairro ${bairro || "não informado"}, número ${numero || "S/N"}.
+
+A guarnição empenhada realizou a averiguação da situação, adotando as providências cabíveis conforme os dados coletados no local.
+
+${envolvidosTexto ? `Envolvidos identificados: ${envolvidosTexto}.` : ""}
+
+${veiculosTexto ? `Veículos relacionados à ocorrência: ${veiculosTexto}.` : ""}
+
+${objetosTexto ? `Objetos relacionados à ocorrência: ${objetosTexto}.` : ""}
+
+Após o atendimento, a ocorrência foi registrada no SIG-GCM Brasil para controle operacional, acompanhamento administrativo e emissão do relatório oficial.`;
+
+  setDescricao(texto.trim());
+  setGerandoNarrativa(false);
+}
+
+function removerFoto(index: number) {
+  setFotos(
+    fotos.filter((_, i) => i !== index)
+  );
+}
+
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
@@ -461,8 +773,54 @@ if (
       </header>
 
       <form className="card space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <h2 className="text-2xl font-bold">
+  Dados da Ocorrência
+</h2>
+
+<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+  <button
+    type="button"
+    onClick={() => {
+      setMostrarVeiculos(false);
+      setMostrarObjetos(false);
+    }}
+    className={`p-3 rounded-xl border font-semibold ${
+      !mostrarVeiculos && !mostrarObjetos
+        ? "bg-blue-600 border-blue-500"
+        : "bg-slate-900 border-slate-700"
+    }`}
+  >
+    Ocorrência Comum
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setMostrarVeiculos(!mostrarVeiculos)}
+    className={`p-3 rounded-xl border font-semibold ${
+      mostrarVeiculos
+        ? "bg-green-600 border-green-500"
+        : "bg-slate-900 border-slate-700"
+    }`}
+  >
+    🚗 Veículos {mostrarVeiculos ? "✓" : ""}
+  </button>
+
+  <button
+    type="button"
+    onClick={() => setMostrarObjetos(!mostrarObjetos)}
+    className={`p-3 rounded-xl border font-semibold ${
+      mostrarObjetos
+        ? "bg-red-600 border-red-500"
+        : "bg-slate-900 border-slate-700"
+    }`}
+  >
+    📦 Objetos {mostrarObjetos ? "✓" : ""}
+  </button>
+</div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
+            <label className="label">Tipo da ocorrência</label>
             <select
   className="input"
   value={tipo}
@@ -500,14 +858,33 @@ if (
               value={status}
               onChange={(e) => setStatus(e.target.value)}
             >
+              <option value="RASCUNHO">📝 Rascunho</option>
               <option value="Aberta">Aberta</option>
               <option value="Em andamento">Em andamento</option>
               <option value="Finalizada">Finalizada</option>
             </select>
           </div>
-        </div>
 
+<div>
+  <label className="label">Prioridade</label>
+
+  <select
+    className="input"
+    value={prioridade}
+    onChange={(e) => setPrioridade(e.target.value)}
+  >
+    <option value="BAIXA">🟢 Baixa</option>
+    <option value="MEDIA">🟡 Média</option>
+    <option value="ALTA">🔴 Alta</option>
+  </select>
+</div>
+
+        </div>
         <div className="border-t border-slate-800 pt-6">
+  <h2 className="text-2xl font-bold mb-4">
+    Equipe Operacional
+  </h2>
+
   <label className="label">Guarnição empenhada</label>
 
   <select
@@ -525,57 +902,48 @@ if (
   </select>
 </div>
 
-<div className="mt-4">
-  <label className="label">Viatura empenhada</label>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+  <div>
+    <label className="label">Guarda responsável</label>
 
-  <div className="mt-4">
-  <label className="label">Guarda responsável</label>
+    <select
+      className="input"
+      value={guardaResponsavelId}
+      onChange={(e) => setGuardaResponsavelId(e.target.value)}
+    >
+      <option value="">Selecione o guarda responsável</option>
 
-  <select
-    className="input"
-    value={guardaResponsavelId}
-    onChange={(e) => setGuardaResponsavelId(e.target.value)}
-  >
-    <option value="">Selecione o guarda responsável</option>
+      {guardas.map((guarda) => (
+        <option key={guarda.id} value={guarda.id}>
+          {guarda.nome} • {guarda.matricula}
+        </option>
+      ))}
+    </select>
+  </div>
 
-    {guardas.map((guarda) => (
-      <option key={guarda.id} value={guarda.id}>
-        {guarda.nome} • {guarda.matricula}
-      </option>
-    ))}
-  </select>
-</div>
+  <div>
+    <label className="label">Viatura empenhada</label>
 
-  <select
-    className="input"
-    value={viaturaId}
-    onChange={(e) => {
-      const id = e.target.value;
+    <select
+      className="input"
+      value={viaturaId}
+      onChange={(e) => {
+        const id = e.target.value;
+        setViaturaId(id);
 
-      setViaturaId(id);
+        const viatura = viaturas.find((v) => String(v.id) === id);
+        setViaturaEmpenhada(viatura?.prefixo || "");
+      }}
+    >
+      <option value="">Selecione a viatura</option>
 
-      const viatura = viaturas.find(
-        (v) => String(v.id) === id
-      );
-
-      setViaturaEmpenhada(
-        viatura?.prefixo || ""
-      );
-    }}
-  >
-    <option value="">
-      Selecione a viatura
-    </option>
-
-    {viaturas.map((viatura) => (
-      <option
-        key={viatura.id}
-        value={viatura.id}
-      >
-        {viatura.prefixo} - {viatura.modelo}
-      </option>
-    ))}
-  </select>
+      {viaturas.map((viatura) => (
+        <option key={viatura.id} value={viatura.id}>
+          {viatura.prefixo} - {viatura.modelo}
+        </option>
+      ))}
+    </select>
+  </div>
 </div>
 
         <div className="border-t border-slate-800 pt-6 space-y-4">
@@ -623,7 +991,7 @@ if (
     );
 
     if (!guarda) return null;
-
+    
     return (
       <div
         key={guarda.id}
@@ -698,7 +1066,9 @@ if (
         <div className="border-t border-slate-800 pt-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
             <div>
-              <h2 className="text-2xl font-bold">Envolvidos</h2>
+              <h2 className="text-2xl font-bold">
+  Envolvidos ({envolvidos.length})
+</h2>
               <p className="text-slate-400 text-sm">
                 Cadastre uma ou mais pessoas relacionadas à ocorrência.
               </p>
@@ -731,74 +1101,647 @@ if (
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <Campo
-                    label="Nome completo"
-                    valor={pessoa.nome}
-                    setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
-                    placeholder="Nome do envolvido"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+  <div className="md:col-span-4">
+    <Campo
+      label="Nome completo"
+      valor={pessoa.nome}
+      setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
+      placeholder="Nome do envolvido"
+    />
+  </div>
 
-                  <Campo
-                    label="Documento"
-                    valor={pessoa.documento}
-                    setValor={(valor) => atualizarEnvolvido(index, "documento", valor)}
-                    placeholder="RG, CPF ou outro"
-                  />
+  <div className="md:col-span-2">
+    <Campo
+  label="Documento"
+  valor={pessoa.documento}
+  setValor={(valor) => {
+    atualizarEnvolvido(index, "documento", valor);
+    consultarHistoricoEnvolvido(valor);
+  }}
+  placeholder="RG, CPF ou outro"
+/>
 
-                  <Campo
-                    label="Telefone"
-                    valor={pessoa.telefone}
-                    setValor={(valor) => atualizarEnvolvido(index, "telefone", valor)}
-                    placeholder="(75) 99999-9999"
-                  />
+{historicoEnvolvido.length > 0 && pessoa.documento && (
+  <div className="md:col-span-12 bg-purple-950/30 border border-purple-700 rounded-xl p-4">
+    <p className="font-bold text-purple-400">
+      👤 Histórico encontrado para este envolvido
+    </p>
 
-                  <div>
-                    <label className="label">Tipo de envolvimento</label>
-                    <select
-                      className="input"
-                      value={pessoa.tipo}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "tipo", e.target.value)
-                      }
-                    >
-                      <option value="Vítima">Vítima</option>
-                      <option value="Autor">Autor</option>
-                      <option value="Testemunha">Testemunha</option>
-                      <option value="Solicitante">Solicitante</option>
-                      <option value="Condutor">Condutor</option>
-                      <option value="Outro">Outro</option>
-                    </select>
-                  </div>
+    <p className="text-sm text-slate-300 mt-1">
+      {historicoEnvolvido.length} ocorrência(s) relacionada(s).
+    </p>
 
-                  <div className="md:col-span-2">
-                    <Campo
-                      label="Endereço"
-                      valor={pessoa.endereco}
-                      setValor={(valor) => atualizarEnvolvido(index, "endereco", valor)}
-                      placeholder="Endereço do envolvido"
-                    />
-                  </div>
+    <div className="mt-3 space-y-2">
+      {historicoEnvolvido.slice(0, 3).map((oc) => (
+        <div
+          key={oc.id}
+          className="bg-slate-950/50 border border-slate-700 rounded-lg p-3 text-sm"
+        >
+          <p className="font-semibold">{oc.protocolo}</p>
+          <p className="text-slate-400">
+            Data: {oc.data} • Status: {oc.status}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
-                  <div className="md:col-span-2">
-                    <label className="label">Observação</label>
-                    <textarea
-                      className="input h-24 resize-none"
-                      value={pessoa.observacao}
-                      onChange={(e) =>
-                        atualizarEnvolvido(index, "observacao", e.target.value)
-                      }
-                      placeholder="Informações adicionais sobre este envolvido"
-                    />
-                  </div>
-                </div>
+  </div>
+
+  <div className="md:col-span-2">
+    <Campo
+      label="Telefone"
+      valor={pessoa.telefone}
+      setValor={(valor) => atualizarEnvolvido(index, "telefone", valor)}
+      placeholder="(75) 99999-9999"
+    />
+  </div>
+
+  <div className="md:col-span-2">
+    <label className="label">Tipo</label>
+    <select
+      className="input"
+      value={pessoa.tipo}
+      onChange={(e) =>
+        atualizarEnvolvido(index, "tipo", e.target.value)
+      }
+    >
+      <option value="Vítima">Vítima</option>
+      <option value="Autor">Autor</option>
+      <option value="Testemunha">Testemunha</option>
+      <option value="Solicitante">Solicitante</option>
+      <option value="Condutor">Condutor</option>
+      <option value="Outro">Outro</option>
+    </select>
+  </div>
+
+  <div className="md:col-span-6">
+    <Campo
+      label="Endereço"
+      valor={pessoa.endereco}
+      setValor={(valor) => atualizarEnvolvido(index, "endereco", valor)}
+      placeholder="Endereço do envolvido"
+    />
+  </div>
+
+  <div className="md:col-span-6">
+    <label className="label">Observação</label>
+    <textarea
+      className="input h-24 resize-none"
+      value={pessoa.observacao}
+      onChange={(e) =>
+        atualizarEnvolvido(index, "observacao", e.target.value)
+      }
+      placeholder="Informações adicionais sobre este envolvido"
+    />
+  </div>
+</div>
               </div>
             ))}
           </div>
         </div>
 
+        {mostrarVeiculos && (
+  <div className="border-t border-slate-800 pt-6">
+    <div className="flex justify-between items-center mb-4">
+      <button
+  type="button"
+  onClick={() => setAbrirVeiculos(!abrirVeiculos)}
+  className="w-full flex justify-between items-center text-2xl font-bold"
+>
+  <span>
+    🚗 Veículos Envolvidos ({veiculosEnvolvidos.length})
+  </span>
+
+  <span>
+    {abrirVeiculos ? "▼" : "▶"}
+  </span>
+</button>
+
+      <button
+        type="button"
+        onClick={adicionarVeiculo}
+        className="px-4 py-2 rounded-xl border border-blue-600 text-blue-400 hover:bg-blue-950/40 font-semibold"
+      >
+        + Adicionar outro veículo
+      </button>
+    </div>
+
+    {abrirVeiculos && (
+  <div className="space-y-5">
+    {veiculosEnvolvidos.map((veiculo, index) => (
+        <div
+          key={index}
+          className="border border-slate-700 rounded-2xl p-5 bg-slate-950/30"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">
+              🚘 Veículo {index + 1}
+            </h3>
+
+            {veiculosEnvolvidos.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removerVeiculo(index)}
+                className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-2">
+              <label className="label">Placa</label>
+              <input
+                className="input"
+                placeholder="ABC1D23"
+                value={veiculo.placa}
+                onChange={(e) => {
+  const placa = e.target.value
+    .toUpperCase()
+    .slice(0, 8);
+
+  atualizarVeiculo(
+    index,
+    "placa",
+    placa
+  );
+
+  consultarHistoricoVeiculo(placa);
+}}
+              />
+            </div>
+
+            {historicoVeiculo.length > 0 && (
+  <div className="md:col-span-12 bg-yellow-950/30 border border-yellow-700 rounded-xl p-4">
+    <p className="font-bold text-yellow-400">
+      🚗 Histórico encontrado para esta placa
+    </p>
+
+    <p className="text-sm text-slate-300 mt-1">
+      {historicoVeiculo.length} ocorrência(s) relacionada(s).
+    </p>
+
+    <div className="mt-3 space-y-2">
+      {historicoVeiculo.slice(0, 3).map((oc) => (
+        <div
+          key={oc.id}
+          className="bg-slate-950/50 border border-slate-700 rounded-lg p-3 text-sm"
+        >
+          <p className="font-semibold">{oc.protocolo}</p>
+          <p className="text-slate-400">
+            Data: {oc.data} • Status: {oc.status}
+          </p>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+            <div className="md:col-span-3">
+              <label className="label">Marca</label>
+              <input
+                className="input"
+                placeholder="Ex: Fiat"
+                value={veiculo.marca}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "marca", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Modelo</label>
+              <input
+                className="input"
+                placeholder="Ex: Uno"
+                value={veiculo.modelo}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "modelo", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-1">
+              <label className="label">Ano</label>
+              <input
+                className="input"
+                placeholder="2024"
+                maxLength={4}
+                value={veiculo.ano}
+                onChange={(e) =>
+                  atualizarVeiculo(
+                    index,
+                    "ano",
+                    e.target.value.replace(/\D/g, "").slice(0, 4)
+                  )
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Cor</label>
+              <select
+                className="input"
+                value={veiculo.cor}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "cor", e.target.value)
+                }
+              >
+                <option value="">Selecione</option>
+                <option value="Branco">Branco</option>
+                <option value="Preto">Preto</option>
+                <option value="Prata">Prata</option>
+                <option value="Cinza">Cinza</option>
+                <option value="Vermelho">Vermelho</option>
+                <option value="Azul">Azul</option>
+                <option value="Verde">Verde</option>
+                <option value="Amarelo">Amarelo</option>
+                <option value="Marrom">Marrom</option>
+                <option value="Outro">Outro</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Renavam</label>
+              <input
+                className="input"
+                placeholder="00000000000"
+                value={veiculo.renavam}
+                onChange={(e) =>
+                  atualizarVeiculo(
+                    index,
+                    "renavam",
+                    e.target.value.replace(/\D/g, "").slice(0, 11)
+                  )
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Condutor</label>
+              <input
+                className="input"
+                placeholder="Nome do condutor"
+                value={veiculo.condutor}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "condutor", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+  <label className="label">Documento do Condutor</label>
+  <input
+    className="input"
+    placeholder="RG, CPF ou CNH"
+    value={veiculo.documento_condutor || ""}
+    onChange={(e) =>
+      atualizarVeiculo(
+        index,
+        "documento_condutor",
+        e.target.value
+      )
+    }
+  />
+</div>
+
+            <div className="md:col-span-3">
+              <label className="label">Proprietário</label>
+              <input
+                className="input"
+                placeholder="Nome do proprietário"
+                value={veiculo.proprietario}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "proprietario", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">CPF do Proprietário</label>
+              <input
+                className="input"
+                placeholder="000.000.000-00"
+                value={veiculo.cpf_proprietario}
+                onChange={(e) => {
+                  let v = e.target.value.replace(/\D/g, "").slice(0, 11);
+                  v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                  v = v.replace(/(\d{3})(\d)/, "$1.$2");
+                  v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+
+                  atualizarVeiculo(index, "cpf_proprietario", v);
+                }}
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Situação do Veículo</label>
+              <select
+                className="input"
+                value={veiculo.situacao}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "situacao", e.target.value)
+                }
+              >
+
+                <option value="">Selecione</option>
+                <option value="ABORDADO">Abordado</option>
+                <option value="ACIDENTE">Acidente</option>
+                <option value="APREENDIDO">Apreendido</option>
+                <option value="RECUPERADO">Recuperado</option>
+                <option value="ABANDONADO">Abandonado</option>
+                <option value="FURTO_ROUBO">Furto/Roubo</option>
+              </select>
+            </div>
+
+<div className="md:col-span-3">
+  <label className="label">Situação da Consulta</label>
+
+  <select
+    className="input"
+    value={veiculo.situacao_consulta || ""}
+    onChange={(e) =>
+      atualizarVeiculo(index, "situacao_consulta", e.target.value)
+    }
+  >
+    <option value="">Sem Consulta</option>
+    <option value="REGULAR">Regular</option>
+    <option value="RESTRICAO_ADMINISTRATIVA">
+      Restrição Administrativa
+    </option>
+    <option value="FURTO_ROUBO">Furto/Roubo</option>
+    <option value="LICENCIAMENTO_ATRASADO">
+      Licenciamento Atrasado
+    </option>
+    <option value="SUSPEITA_CLONAGEM">
+      Suspeita de Clonagem
+    </option>
+  </select>
+</div>
+
+            <div className="md:col-span-6">
+              <label className="label">Observações do Veículo</label>
+              <textarea
+                className="input h-24 resize-none"
+                placeholder="Detalhes do veículo, danos, remoção, abordagem, apreensão ou outras observações."
+                value={veiculo.observacao}
+                onChange={(e) =>
+                  atualizarVeiculo(index, "observacao", e.target.value)
+                }
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+        </div>
+  )}
+</div>
+)}
+
+{mostrarObjetos && (
+  <div className="border-t border-slate-800 pt-6">
+    <div className="flex justify-between items-center mb-4">
+      <button
+  type="button"
+  onClick={() => setAbrirObjetos(!abrirObjetos)}
+  className="w-full flex justify-between items-center text-2xl font-bold"
+>
+  <span>📦 Objetos Envolvidos ({objetosEnvolvidos.length})</span>
+  <span>{abrirObjetos ? "▼" : "▶"}</span>
+</button>
+
+      <button
+        type="button"
+        onClick={adicionarObjeto}
+        className="px-4 py-2 rounded-xl border border-red-600 text-red-400 hover:bg-red-950/40 font-semibold"
+      >
+        + Adicionar item
+      </button>
+    </div>
+
+    {abrirObjetos && (
+  <div className="space-y-5">
+    {objetosEnvolvidos.map((item, index) => (
+        <div
+          key={index}
+          className="border border-slate-700 rounded-2xl p-5 bg-slate-950/30"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xl font-bold">
+              Item {index + 1}
+            </h3>
+
+            {objetosEnvolvidos.length > 1 && (
+              <button
+                type="button"
+                onClick={() => removerObjeto(index)}
+                className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm"
+              >
+                Remover
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-3">
+              <label className="label">Categoria</label>
+              <select
+                className="input"
+                value={item.categoria}
+                onChange={(e) =>
+                  atualizarObjeto(index, "categoria", e.target.value)
+                }
+              >
+                <option value="">Selecione</option>
+
+<option value="CELULAR">📱 Celular</option>
+<option value="DINHEIRO">💰 Dinheiro</option>
+<option value="DOCUMENTO">📄 Documento</option>
+<option value="BICICLETA">🚲 Bicicleta</option>
+<option value="ARMA_BRANCA">🔪 Arma Branca</option>
+<option value="ARMA_FOGO">🔫 Arma de Fogo</option>
+<option value="ENTORPECENTE">🌿 Entorpecente</option>
+<option value="FERRAMENTA">🛠 Ferramenta</option>
+<option value="PRODUTO">📦 Produto</option>
+<option value="PECA_VEICULAR">🚗 Peça Veicular</option>
+<option value="OUTRO">📋 Outro</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Marca</label>
+              <input
+                className="input"
+                value={item.marca}
+                onChange={(e) =>
+                  atualizarObjeto(index, "marca", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Modelo</label>
+              <input
+                className="input"
+                value={item.modelo}
+                onChange={(e) =>
+                  atualizarObjeto(index, "modelo", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Calibre</label>
+              <input
+                className="input"
+                placeholder="Ex: .38, 9mm"
+                value={item.calibre}
+                onChange={(e) =>
+                  atualizarObjeto(index, "calibre", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="label">Numeração</label>
+              <input
+                className="input"
+                value={item.numeracao}
+                onChange={(e) =>
+                  atualizarObjeto(index, "numeracao", e.target.value)
+                }
+              />
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="label">Quantidade</label>
+              <input
+                className="input"
+                value={item.quantidade}
+                onChange={(e) =>
+                  atualizarObjeto(
+                    index,
+                    "quantidade",
+                    e.target.value.replace(/\D/g, "")
+                  )
+                }
+              />
+            </div>
+
+            <div className="md:col-span-2">
+  <label className="label">Peso</label>
+  <input
+    className="input"
+    value={item.peso}
+    onChange={(e) =>
+      atualizarObjeto(index, "peso", e.target.value)
+    }
+  />
+</div>
+
+<div className="md:col-span-2">
+  <label className="label">Unidade</label>
+
+  <select
+    className="input"
+    value={item.unidade_peso}
+    onChange={(e) =>
+      atualizarObjeto(index, "unidade_peso", e.target.value)
+    }
+  >
+    <option value="g">Gramas</option>
+    <option value="kg">Quilos</option>
+    <option value="mg">Miligramas</option>
+    <option value="un">Unidades</option>
+  </select>
+</div>
+
+<div className="md:col-span-3">
+  <label className="label">Valor Estimado</label>
+
+  <input
+    className="input"
+    placeholder="R$ 0,00"
+    value={item.valor_estimado}
+    onChange={(e) =>
+      atualizarObjeto(index, "valor_estimado", e.target.value)
+    }
+  />
+</div>
+
+<div className="md:col-span-3">
+  <label className="label">Procedência</label>
+
+  <select
+    className="input"
+    value={item.procedencia}
+    onChange={(e) =>
+      atualizarObjeto(index, "procedencia", e.target.value)
+    }
+  >
+    <option value="">Selecione</option>
+    <option value="APREENDIDO">Apreendido</option>
+    <option value="ENCONTRADO">Encontrado</option>
+    <option value="ENTREGUE">Entregue</option>
+    <option value="RECOLHIDO">Recolhido</option>
+    <option value="RECUPERADO">Recuperado</option>
+  </select>
+</div>
+
+            <div className="md:col-span-4">
+              <label className="label">Situação</label>
+              <select
+                className="input"
+                value={item.situacao}
+                onChange={(e) =>
+                  atualizarObjeto(index, "situacao", e.target.value)
+                }
+              >
+                <option value="">Selecione</option>
+                <option value="APREENDIDO">Apreendido</option>
+                <option value="ENTREGUE">Entregue</option>
+                <option value="ENCAMINHADO">Encaminhado</option>
+                <option value="ENCONTRADO">Encontrado</option>
+                <option value="RECOLHIDO">Recolhido</option>
+              </select>
+            </div>
+
+            <div className="md:col-span-12">
+              <label className="label">Observação</label>
+              <textarea
+                className="input h-24 resize-none"
+                value={item.observacao}
+                onChange={(e) =>
+                  atualizarObjeto(index, "observacao", e.target.value)
+                }
+              />
+            </div>
+          </div>
+        </div>
+      ))}
+        </div>
+  )}
+</div>
+)}
+
+<div className="flex justify-end">
+  <button
+    type="button"
+    onClick={gerarNarrativaIA}
+    disabled={gerandoNarrativa}
+    className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 font-semibold disabled:opacity-50"
+  >
+    {gerandoNarrativa ? "Gerando narrativa..." : "✨ Gerar Narrativa"}
+  </button>
+</div>
+
         <div>
-          <label className="label">Descrição da ocorrência</label>
+
+         <label className="label">Descrição da ocorrência</label>
           <textarea
             className="input h-36 resize-none"
             placeholder="Descreva o que aconteceu..."
@@ -808,21 +1751,53 @@ if (
         </div>
 
         <div>
-          <label className="label">Fotos da ocorrência</label>
-          <input
-            type="file"
-            accept="image/*"
-            multiple
-            className="input"
-            onChange={(e) => setFotos(Array.from(e.target.files || []))}
-          />
+  <label className="label">Fotos da ocorrência</label>
 
-          {fotos.length > 0 && (
-            <p className="text-sm text-green-400 mt-2">
-              {fotos.length} foto(s) selecionada(s).
-            </p>
-          )}
-        </div>
+  <input
+    type="file"
+    accept="image/*"
+    multiple
+    className="input"
+    onChange={(e) => setFotos(Array.from(e.target.files || []))}
+  />
+
+  {fotos.length > 0 && (
+    <div className="mt-4">
+      <p className="text-sm text-green-400 mb-3">
+        {fotos.length} foto(s) selecionada(s)
+      </p>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {fotos.map((foto, index) => (
+          <div
+            key={index}
+            className="border border-slate-700 rounded-xl overflow-hidden"
+          >
+<div className="flex justify-end p-2">
+  <button
+    type="button"
+    onClick={() => removerFoto(index)}
+    className="bg-red-700 hover:bg-red-800 w-8 h-8 rounded-lg flex items-center justify-center"
+  >
+    ❌
+  </button>
+</div>
+
+            <img
+              src={URL.createObjectURL(foto)}
+              alt={`Foto ${index + 1}`}
+              className="w-full h-40 object-cover"
+            />
+
+            <div className="p-2 text-xs text-slate-400 truncate">
+              {foto.name}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+</div>
 
         <div className="flex flex-col md:flex-row justify-end gap-3 border-t border-slate-800 pt-6">
           <button
@@ -834,8 +1809,20 @@ if (
           </button>
 
           <button
+  type="button"
+  onClick={() => {
+    setStatus("RASCUNHO");
+    salvarOcorrencia("RASCUNHO");
+  }}
+  disabled={salvando}
+  className="px-5 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 font-semibold disabled:opacity-50"
+>
+  💾 Salvar Rascunho
+</button>
+
+          <button
             type="button"
-            onClick={salvarOcorrencia}
+            onClick={() => salvarOcorrencia()}
             disabled={salvando}
             className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold disabled:opacity-50"
           >

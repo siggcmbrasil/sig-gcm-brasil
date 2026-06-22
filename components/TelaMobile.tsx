@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 
 const modulos = [
   { titulo: "Ocorrência", icone: "🚨", href: "/sistema/ocorrencias/nova", grupo: "Operacional", cor: "from-red-600 to-red-950" },
+  { titulo: "Offline", icone: "📴", href: "/sistema/offline", grupo: "Operacional", cor: "from-slate-600 to-slate-950", },
   { titulo: "Expressa", icone: "⚡", href: "/sistema/ocorrencias/expressa", grupo: "Operacional", cor: "from-orange-500 to-orange-950" },
   { titulo: "Chamados", icone: "📞", href: "/sistema/chamados", grupo: "Operacional", cor: "from-green-500 to-green-950" },
   { titulo: "Patrulha GPS", icone: "🚔", href: "/sistema/localizacao", grupo: "Operacional", cor: "from-blue-500 to-blue-950" },
@@ -26,6 +29,79 @@ const abas = ["Tudo", "Operacional", "Gestão", "Escalas"];
 export default function TelaMobile() {
   const [aba, setAba] = useState("Tudo");
   const [busca, setBusca] = useState("");
+  const [guarnicaoDia, setGuarnicaoDia] = useState<any>(null);
+
+useEffect(() => {
+  async function carregarGuarnicaoDia() {
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    const municipioId = usuario?.municipio_id || 1;
+
+    const { data: configEscala } = await supabase
+      .from("escala_operacional_config")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .eq("ativo", true)
+      .order("id", { ascending: false })
+      .limit(1)
+      .single();
+
+    const { data: guarnicoes } = await supabase
+      .from("guarnicoes")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .eq("ativa", true)
+      .order("id");
+
+    const { data: membros } = await supabase
+      .from("guarnicao_membros")
+      .select("id, guarnicao_id, guarda_id");
+
+    const { data: guardas } = await supabase
+      .from("guardas")
+      .select("id, nome")
+      .eq("municipio_id", municipioId);
+
+    const { data: viaturas } = await supabase
+      .from("viaturas")
+      .select("*")
+      .eq("municipio_id", municipioId);
+
+    const guarnicaoAtual = calcularGuarnicaoDia(
+      configEscala,
+      guarnicoes || []
+    );
+
+    if (!guarnicaoAtual) {
+      setGuarnicaoDia(null);
+      return;
+    }
+
+    const comandante = guardas?.find(
+      (g) => Number(g.id) === Number(guarnicaoAtual.comandante_id)
+    );
+
+    const viatura = viaturas?.find(
+      (v) => Number(v.id) === Number(guarnicaoAtual.viatura_id)
+    );
+
+    const membrosDaGuarnicao =
+      membros
+        ?.filter((m) => Number(m.guarnicao_id) === Number(guarnicaoAtual.id))
+        .map((m) => {
+          const guarda = guardas?.find((g) => Number(g.id) === Number(m.guarda_id));
+          return guarda?.nome || "Guarda não encontrado";
+        }) || [];
+
+    setGuarnicaoDia({
+      nome: guarnicaoAtual.nome,
+      comandante: comandante?.nome || "Não informado",
+      viatura: viatura?.prefixo || "Não definida",
+      membros: membrosDaGuarnicao,
+    });
+  }
+
+  carregarGuarnicaoDia();
+}, []);
 
   const filtrados = modulos.filter((m) => {
     const passaAba = aba === "Tudo" || m.grupo === aba;
@@ -69,14 +145,14 @@ export default function TelaMobile() {
             </p>
 
             <h2 className="text-4xl font-black text-white leading-tight">
-              Guarnição Bravo
-            </h2>
+  {guarnicaoDia?.nome || "Escala não configurada"}
+</h2>
 
-            <div className="mt-3 text-slate-300 text-sm space-y-1">
-              <p>🚓 VTR-01</p>
-              <p>👮 2 guardas em serviço</p>
-              <p>📍 Biritinga - BA</p>
-            </div>
+<div className="mt-3 text-slate-300 text-sm space-y-1">
+  <p>🚓 {guarnicaoDia?.viatura || "Viatura não definida"}</p>
+  <p>👮 {guarnicaoDia?.membros?.length || 0} guardas em serviço</p>
+  <p>📍 Biritinga - BA</p>
+</div>
           </div>
 
           <span className="bg-green-500/20 text-green-400 border border-green-500/40 rounded-full px-3 py-1 text-xs font-bold">
@@ -109,11 +185,11 @@ export default function TelaMobile() {
 </Link>
 
           <Link
-            href="/sistema/mapa-operacional"
-            className="bg-purple-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
-          >
-            🗺️ Mapa
-          </Link>
+  href="/sistema/offline"
+  className="bg-slate-700 rounded-2xl p-4 font-black text-lg shadow-xl text-center"
+>
+  📴 Offline
+</Link>
         </div>
       </section>
 

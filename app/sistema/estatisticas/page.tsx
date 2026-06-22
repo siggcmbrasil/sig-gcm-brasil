@@ -11,6 +11,9 @@ type Ocorrencia = {
   tipo: string;
   bairro?: string;
   local?: string;
+  veiculos_envolvidos?: string | any[];
+  envolvidos?: string | any[];
+  armas_objetos?: string | any[];
 };
 
 type Patrulhamento = {
@@ -24,6 +27,44 @@ type Guarda = {
 };
 
 export default function Estatisticas() {
+useEffect(() => {
+  const style = document.createElement("style");
+
+  style.innerHTML = `
+    @media print {
+
+      body * {
+        visibility: hidden;
+      }
+
+      .area-relatorio,
+      .area-relatorio * {
+        visibility: visible;
+      }
+
+      .area-relatorio {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        padding: 20px;
+      }
+
+      button,
+      select,
+      input {
+        display: none !important;
+      }
+    }
+  `;
+
+  document.head.appendChild(style);
+
+  return () => {
+    document.head.removeChild(style);
+  };
+}, []);
+
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
@@ -37,7 +78,7 @@ const [ano, setAno] = useState(String(new Date().getFullYear()));
 
     const { data: ocorrenciasData } = await supabase
       .from("ocorrencias")
-      .select("id, data, status, tipo, bairro, local");
+      .select("id, data, status, tipo, bairro, local, veiculos_envolvidos, envolvidos, armas_objetos");
 
     const { data: patrulhamentosData } = await supabase
       .from("patrulhamentos")
@@ -121,6 +162,103 @@ const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
   {}
 );
 
+const veiculosMaisCitados = ocorrenciasPeriodo.reduce(
+  (acc: Record<string, number>, item) => {
+    try {
+      const veiculos =
+        typeof item.veiculos_envolvidos === "string"
+          ? JSON.parse(item.veiculos_envolvidos || "[]")
+          : item.veiculos_envolvidos || [];
+
+      veiculos.forEach((veiculo: any) => {
+        const placa = veiculo.placa || "Sem placa";
+
+        acc[placa] = (acc[placa] || 0) + 1;
+      });
+    } catch {
+      // ignora registros antigos
+    }
+
+    return acc;
+  },
+  {}
+);
+
+const envolvidosRecorrentes = ocorrenciasPeriodo.reduce(
+  (acc: Record<string, number>, item) => {
+    try {
+      const envolvidos =
+        typeof item.envolvidos === "string"
+          ? JSON.parse(item.envolvidos || "[]")
+          : item.envolvidos || [];
+
+      envolvidos.forEach((pessoa: any) => {
+        const nome =
+          pessoa.nome?.trim() || "Não identificado";
+
+        acc[nome] = (acc[nome] || 0) + 1;
+      });
+    } catch {
+      // ignora registros inválidos
+    }
+
+    return acc;
+  },
+  {}
+);
+
+const objetosRegistrados = ocorrenciasPeriodo.reduce(
+  (acc: Record<string, number>, item) => {
+    try {
+      const objetos =
+        typeof item.armas_objetos === "string"
+          ? JSON.parse(item.armas_objetos || "[]")
+          : item.armas_objetos || [];
+
+      objetos.forEach((objeto: any) => {
+        const categoria =
+          objeto.categoria?.trim() || "Não informado";
+
+        acc[categoria] = (acc[categoria] || 0) + 1;
+      });
+    } catch {
+      // ignora registros inválidos
+    }
+
+    return acc;
+  },
+  {}
+);
+
+const ocorrenciasPorMes = ocorrencias
+  .filter((o) => {
+    if (!o.data) return false;
+
+    const dataItem = new Date(`${o.data}T00:00:00`);
+    return dataItem.getFullYear() === Number(ano);
+  })
+  .reduce((acc: Record<string, number>, item) => {
+    const dataItem = new Date(`${item.data}T00:00:00`);
+    const mesItem = String(dataItem.getMonth() + 1).padStart(2, "0");
+
+    acc[mesItem] = (acc[mesItem] || 0) + 1;
+
+    return acc;
+  }, {});
+
+  const bairroDestaque =
+  Object.entries(bairrosMaisAtendidos)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+const tipoDestaque =
+  Object.entries(tiposOcorrencia)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+const veiculoDestaque =
+  Object.entries(veiculosMaisCitados)
+    .sort((a, b) => Number(b[1]) - Number(a[1]))[0];
+
+    
 
 const mesAnterior = Number(mes) === 1 ? 12 : Number(mes) - 1;
 const anoMesAnterior =
@@ -147,6 +285,38 @@ const variacaoOcorrencias =
       )
     : 0;
 
+    const resumoInteligente = `
+No período selecionado foram registradas ${ocorrenciasPeriodo.length} ocorrência(s).
+
+O bairro com maior demanda operacional foi ${
+  bairroDestaque?.[0] || "não identificado"
+}, totalizando ${bairroDestaque?.[1] || 0} registro(s).
+
+O tipo de ocorrência mais frequente foi ${
+  tipoDestaque?.[0] || "não identificado"
+}, com ${tipoDestaque?.[1] || 0} registro(s).
+
+O veículo mais citado foi ${
+  veiculoDestaque?.[0] || "não identificado"
+}, aparecendo em ${veiculoDestaque?.[1] || 0} ocorrência(s).
+
+A variação em relação ao período anterior foi de ${
+  variacaoOcorrencias > 0 ? "+" : ""
+}${variacaoOcorrencias}%.
+`;
+
+function gerarPDFExecutivo() {
+  document.body.classList.add("modo-relatorio");
+
+  setTimeout(() => {
+    window.print();
+
+    setTimeout(() => {
+      document.body.classList.remove("modo-relatorio");
+    }, 1000);
+  }, 300);
+}
+
   return (
   <ProtecaoPerfil
   perfisPermitidos={[
@@ -156,8 +326,22 @@ const variacaoOcorrencias =
     "DIRETOR",
   ]}
 >
-    <div className="p-3 md:p-6 pb-24">
+    <div className="p-3 md:p-6 pb-24 area-relatorio">
       <header className="mb-6 border-b border-slate-800 pb-5">
+        <div className="mb-8 text-center border-b border-slate-700 pb-6">
+ <h1 className="text-4xl font-black">
+  SIG-GCM BRASIL
+</h1>
+
+<h2 className="text-2xl font-bold mt-2">
+  RELATÓRIO EXECUTIVO OPERACIONAL
+</h2>
+
+<p className="text-slate-400 mt-2">
+  Período: {mes}/{ano}
+</p>
+</div>
+        
         <h1 className="text-3xl md:text-5xl font-bold">
           📊 Estatísticas
         </h1>
@@ -212,6 +396,14 @@ const variacaoOcorrencias =
   >
     📄 Gerar PDF do Relatório
   </button>
+
+  <button
+  type="button"
+  onClick={gerarPDFExecutivo}
+  className="bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl font-bold"
+>
+  📊 Relatório Executivo
+</button>
 </div>
 
       </header>
@@ -226,6 +418,62 @@ const variacaoOcorrencias =
 <Card titulo="Abertas no Período" valor={abertasPeriodo} icone="⚠️" />
 <Card titulo="Finalizadas no Período" valor={finalizadasPeriodo} icone="✅" />
           </section>
+
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div className="card rounded-2xl shadow-lg p-4 border-yellow-700/60">
+    <p className="text-sm text-yellow-400 font-bold">
+      🥇 Bairro mais atendido
+    </p>
+
+    <h2 className="text-2xl font-black mt-2">
+      {bairroDestaque?.[0] || "-"}
+    </h2>
+
+    <p className="text-slate-400 mt-1">
+      {bairroDestaque?.[1] || 0} ocorrência(s)
+    </p>
+  </div>
+
+  <div className="card rounded-2xl shadow-lg p-4 border-slate-500/60">
+    <p className="text-sm text-slate-300 font-bold">
+      🥈 Tipo mais frequente
+    </p>
+
+    <h2 className="text-2xl font-black mt-2">
+      {tipoDestaque?.[0] || "-"}
+    </h2>
+
+    <p className="text-slate-400 mt-1">
+      {tipoDestaque?.[1] || 0} registro(s)
+    </p>
+  </div>
+
+  <div className="card rounded-2xl shadow-lg p-4 border-orange-700/60">
+    <p className="text-sm text-orange-400 font-bold">
+      🥉 Veículo mais citado
+    </p>
+
+    <h2 className="text-2xl font-black mt-2">
+      {veiculoDestaque?.[0] || "-"}
+    </h2>
+
+    <p className="text-slate-400 mt-1">
+      {veiculoDestaque?.[1] || 0} citação(ões)
+    </p>
+  </div>
+</section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    🤖 Resumo Inteligente
+  </h2>
+
+  <div className="rounded-2xl border border-cyan-700/40 bg-cyan-950/20 p-5">
+    <p className="leading-7 text-slate-200 whitespace-pre-line">
+      {resumoInteligente}
+    </p>
+  </div>
+</section>
 
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             <div className="card">
@@ -299,6 +547,78 @@ const variacaoOcorrencias =
 
 <section className="card mt-4">
   <h2 className="text-xl font-bold mb-4">
+    🚗 Veículos Mais Citados
+  </h2>
+
+  <div className="space-y-3">
+    {Object.entries(veiculosMaisCitados)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 10)
+      .map(([placa, quantidade]) => (
+        <div
+          key={placa}
+          className="flex justify-between border-b border-slate-800 pb-2"
+        >
+          <span>{placa}</span>
+
+          <span className="font-bold text-blue-400">
+            {String(quantidade)}
+          </span>
+        </div>
+      ))}
+  </div>
+</section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    👤 Envolvidos Recorrentes
+  </h2>
+
+  <div className="space-y-3">
+    {Object.entries(envolvidosRecorrentes)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 10)
+      .map(([nome, quantidade]) => (
+        <div
+          key={nome}
+          className="flex justify-between border-b border-slate-800 pb-2"
+        >
+          <span>{nome}</span>
+
+          <span className="font-bold text-purple-400">
+            {String(quantidade)}
+          </span>
+        </div>
+      ))}
+  </div>
+</section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    📦 Objetos Registrados
+  </h2>
+
+  <div className="space-y-3">
+    {Object.entries(objetosRegistrados)
+      .sort((a, b) => Number(b[1]) - Number(a[1]))
+      .slice(0, 10)
+      .map(([categoria, quantidade]) => (
+        <div
+          key={categoria}
+          className="flex justify-between border-b border-slate-800 pb-2"
+        >
+          <span>{categoria}</span>
+
+          <span className="font-bold text-yellow-400">
+            {String(quantidade)}
+          </span>
+        </div>
+      ))}
+  </div>
+</section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
     📈 Comparativo com Período Anterior
   </h2>
 
@@ -329,6 +649,40 @@ const variacaoOcorrencias =
       </span>
     </div>
 
+  </div>
+</section>
+
+<section className="card mt-4">
+  <h2 className="text-xl font-bold mb-4">
+    📈 Ocorrências por Mês
+  </h2>
+
+  <div className="space-y-3">
+    {[
+      ["01", "Janeiro"],
+      ["02", "Fevereiro"],
+      ["03", "Março"],
+      ["04", "Abril"],
+      ["05", "Maio"],
+      ["06", "Junho"],
+      ["07", "Julho"],
+      ["08", "Agosto"],
+      ["09", "Setembro"],
+      ["10", "Outubro"],
+      ["11", "Novembro"],
+      ["12", "Dezembro"],
+    ].map(([numeroMes, nomeMes]) => (
+      <div
+        key={numeroMes}
+        className="flex justify-between border-b border-slate-800 pb-2"
+      >
+        <span>{nomeMes}</span>
+
+        <span className="font-bold text-cyan-400">
+          {ocorrenciasPorMes[numeroMes] || 0}
+        </span>
+      </div>
+    ))}
   </div>
 </section>
 

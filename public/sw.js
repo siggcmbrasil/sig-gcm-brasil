@@ -1,3 +1,38 @@
+const CACHE_NAME = "sig-gcm-offline-v1";
+
+const URLS_TO_CACHE = [
+  "/",
+  "/login",
+  "/sistema/offline",
+  "/brasao-gcm-v2.png",
+];
+
+self.addEventListener("install", function (event) {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(function (cache) {
+      return cache.addAll(URLS_TO_CACHE);
+    })
+  );
+
+  self.skipWaiting();
+});
+
+self.addEventListener("activate", function (event) {
+  event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("fetch", function (event) {
+  if (event.request.method !== "GET") return;
+
+  event.respondWith(
+    fetch(event.request).catch(function () {
+      return caches.match(event.request).then(function (resposta) {
+        return resposta || caches.match("/sistema/offline");
+      });
+    })
+  );
+});
+
 self.addEventListener("push", function (event) {
   const data = event.data ? event.data.json() : {};
 

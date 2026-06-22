@@ -25,6 +25,13 @@ export default function Guardas() {
   const [nome, setNome] = useState("");
   const [cargo, setCargo] = useState("");
   const [telefone, setTelefone] = useState("");
+  const [cpf, setCpf] = useState("");
+  const [rg, setRg] = useState("");
+  const [email, setEmail] = useState("");
+  const [cnh, setCnh] = useState("");
+  const [categoriaCnh, setCategoriaCnh] = useState("");
+  const [validadeCnh, setValidadeCnh] = useState("");
+  const [dataAdmissao, setDataAdmissao] = useState("");
   const [status, setStatus] = useState("Em serviço");
   const [dataNascimento, setDataNascimento] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
@@ -92,6 +99,13 @@ if (editandoId) {
   cargo,
   telefone,
   status,
+  cpf,
+  rg,
+  email,
+  cnh,
+  categoria_cnh: categoriaCnh,
+  validade_cnh: validadeCnh || null,
+  data_admissao: dataAdmissao || null,
   data_nascimento: dataNascimento || null,
   foto_url: urlFoto,
 })
@@ -126,6 +140,13 @@ if (editandoId) {
   cargo,
   telefone,
   status,
+  cpf,
+  rg,
+  email,
+  cnh,
+  categoria_cnh: categoriaCnh,
+  validade_cnh: validadeCnh || null,
+  data_admissao: dataAdmissao || null,
   data_nascimento: dataNascimento || null,
   foto_url: urlFoto,
 }
@@ -288,6 +309,85 @@ function formatarData(data: string | null) {
                 onChange={(e) => setTelefone(e.target.value)}
                 placeholder="(75) 99999-9999"
               />
+
+<div>
+  <label className="label">CPF</label>
+  <input
+    className="input"
+    value={cpf}
+    onChange={(e) => setCpf(e.target.value)}
+    placeholder="000.000.000-00"
+  />
+</div>
+
+<div>
+  <label className="label">RG</label>
+  <input
+    className="input"
+    value={rg}
+    onChange={(e) => setRg(e.target.value)}
+    placeholder="RG"
+  />
+</div>
+
+<div>
+  <label className="label">E-mail Institucional</label>
+  <input
+    className="input"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    placeholder="guarda@municipio.gov.br"
+  />
+</div>
+
+<div>
+  <label className="label">CNH</label>
+  <input
+    className="input"
+    value={cnh}
+    onChange={(e) => setCnh(e.target.value)}
+    placeholder="Número da CNH"
+  />
+</div>
+
+<div>
+  <label className="label">Categoria CNH</label>
+  <select
+    className="input"
+    value={categoriaCnh}
+    onChange={(e) => setCategoriaCnh(e.target.value)}
+  >
+    <option value="">Selecione</option>
+    <option>A</option>
+    <option>B</option>
+    <option>AB</option>
+    <option>C</option>
+    <option>D</option>
+    <option>E</option>
+    <option>AE</option>
+  </select>
+</div>
+
+<div>
+  <label className="label">Validade CNH</label>
+  <input
+    type="date"
+    className="input"
+    value={validadeCnh}
+    onChange={(e) => setValidadeCnh(e.target.value)}
+  />
+</div>
+
+<div>
+  <label className="label">Data de Admissão</label>
+  <input
+    type="date"
+    className="input"
+    value={dataAdmissao}
+    onChange={(e) => setDataAdmissao(e.target.value)}
+  />
+</div>
+
             </div>
 
 <div>
