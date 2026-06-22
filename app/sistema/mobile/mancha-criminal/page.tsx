@@ -2,14 +2,35 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+
+const MapContainer = dynamic(
+  () => import("react-leaflet").then((m) => m.MapContainer),
+  { ssr: false }
+);
+
+const TileLayer = dynamic(
+  () => import("react-leaflet").then((m) => m.TileLayer),
+  { ssr: false }
+);
+
+const Marker = dynamic(
+  () => import("react-leaflet").then((m) => m.Marker),
+  { ssr: false }
+);
+
+const Popup = dynamic(
+  () => import("react-leaflet").then((m) => m.Popup),
+  { ssr: false }
+);
 
 type Ocorrencia = {
   id: number;
   tipo: string | null;
   local: string | null;
-  latitude: string | null;
-  longitude: string | null;
+  latitude: number | null;
+  longitude: number | null;
   data: string | null;
 };
 
@@ -43,6 +64,22 @@ export default function ManchaCriminalPage() {
     carregarOcorrencias();
   }, []);
 
+  const pontosValidos = ocorrencias.filter(
+    (o) =>
+      typeof o.latitude === "number" &&
+      typeof o.longitude === "number" &&
+      !isNaN(o.latitude) &&
+      !isNaN(o.longitude)
+  );
+
+  const centro =
+    pontosValidos.length > 0
+      ? ([pontosValidos[0].latitude!, pontosValidos[0].longitude!] as [
+          number,
+          number
+        ])
+      : ([-11.621296322631357, -38.80684199142887] as [number, number]);
+
   return (
     <main className="min-h-screen bg-[#02060f] text-white p-5 pb-24">
       <Link
@@ -52,9 +89,7 @@ export default function ManchaCriminalPage() {
         ← Voltar
       </Link>
 
-      <h1 className="text-3xl font-black mb-2">
-        🔥 Mancha Criminal
-      </h1>
+      <h1 className="text-3xl font-black mb-2">🔥 Mancha Criminal</h1>
 
       <p className="text-slate-400 mb-6">
         Locais com maior concentração de ocorrências.
@@ -67,24 +102,52 @@ export default function ManchaCriminalPage() {
           <section className="grid grid-cols-2 gap-3 mb-6">
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
               <p className="text-slate-400 text-xs">Pontos mapeados</p>
-              <h2 className="text-3xl font-black">{ocorrencias.length}</h2>
+              <h2 className="text-3xl font-black">{pontosValidos.length}</h2>
             </div>
 
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-              <p className="text-slate-400 text-xs">Últimos registros</p>
-              <h2 className="text-3xl font-black">100</h2>
+              <p className="text-slate-400 text-xs">Ocorrências</p>
+              <h2 className="text-3xl font-black">{ocorrencias.length}</h2>
+            </div>
+          </section>
+
+          <section className="mb-6">
+            <div className="h-[60vh] rounded-3xl overflow-hidden border border-slate-800">
+              <MapContainer
+                center={centro}
+                zoom={14}
+                style={{ height: "100%", width: "100%" }}
+              >
+                <TileLayer
+                  attribution="&copy; OpenStreetMap"
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+
+                {pontosValidos.map((item) => (
+                  <Marker
+                    key={item.id}
+                    position={[item.latitude!, item.longitude!]}
+                  >
+                    <Popup>
+                      <strong>{item.tipo || "Ocorrência"}</strong>
+                      <br />
+                      {item.local || "Local não informado"}
+                      <br />
+                      {item.data || ""}
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
             </div>
           </section>
 
           <section className="space-y-3">
-            {ocorrencias.map((item) => (
+            {pontosValidos.map((item) => (
               <div
                 key={item.id}
                 className="bg-slate-900 border border-slate-800 rounded-2xl p-4"
               >
-                <h2 className="font-black">
-                  {item.tipo || "Ocorrência"}
-                </h2>
+                <h2 className="font-black">{item.tipo || "Ocorrência"}</h2>
 
                 <p className="text-slate-400 text-sm mt-1">
                   {item.local || "Local não informado"}

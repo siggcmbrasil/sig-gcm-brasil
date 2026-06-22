@@ -71,10 +71,10 @@ export default function RotaPatrulhamentoPage() {
       .single();
 
     const { data: pontosData, error } = await supabase
-      .from("gps_patrulhamento")
-      .select("*")
-      .eq("patrulhamento_id", id)
-      .order("criado_em", { ascending: true });
+  .from("gps_patrulhamento")
+  .select("*")
+  .eq("patrulhamento_id", id)
+  .order("criado_em", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -92,10 +92,18 @@ export default function RotaPatrulhamentoPage() {
     if (id) carregarDados();
   }, [id]);
 
-  const posicoes = pontos.map((p) => [p.latitude, p.longitude]) as [
-    number,
-    number
-  ][];
+  const pontosValidos = pontos.filter(
+  (p) =>
+    typeof p.latitude === "number" &&
+    typeof p.longitude === "number" &&
+    !isNaN(p.latitude) &&
+    !isNaN(p.longitude)
+);
+
+const posicoes = pontosValidos.map((p) => [
+  p.latitude,
+  p.longitude,
+]) as [number, number][];
 
   const centro =
     posicoes.length > 0
@@ -178,7 +186,7 @@ export default function RotaPatrulhamentoPage() {
 
                   <Polyline positions={posicoes} weight={5} />
 
-                  {pontos.map((p, index) => (
+                  {pontosValidos.map((p, index) => (
                     <Marker key={p.id} position={[p.latitude, p.longitude]}>
                       <Popup>
                         <strong>
