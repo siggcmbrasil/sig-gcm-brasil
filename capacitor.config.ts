@@ -5,7 +5,7 @@ const config: CapacitorConfig = {
   appName: "SIG-GCM Brasil",
   webDir: "out",
   server: {
-    url: "https://siggcmbrasil.com.br/login",
+    url: "https://siggcmbrasil.com.br/sistema/mobile",
     cleartext: false,
   },
 };

@@ -93,6 +93,7 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
     }
 
     carregarGuarnicaoDia();
+    carregarResumoDia();
   }, []);
 
   useEffect(() => {
@@ -253,10 +254,31 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#02060f]/95 backdrop-blur-xl border-t border-slate-800 px-3 py-2">
         <div className="grid grid-cols-5 text-center text-[10px]">
           <Menu href="/sistema/mobile" icone="🏠" texto="Início" ativo />
-          <Menu href="/sistema/ocorrencias/nova" icone="📄" texto="Ocorrências" />
-          <Menu href="/sistema/ocorrencias/nova" icone="+" texto="" destaque />
-          <Menu href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
-          <Menu href="/sistema/mobile/mais" icone="☰" texto="Mais" />
+
+<Menu
+  href="/sistema/mobile/ocorrencias"
+  icone="📄"
+  texto="Ocorrências"
+/>
+
+<Menu
+  href="/sistema/mobile/operacao"
+  icone="🚔"
+  texto=""
+  destaque
+/>
+
+<Menu
+  href="/sistema/mobile/patrulhamento"
+  icone="📍"
+  texto="GPS"
+/>
+
+<Menu
+  href="/sistema/mobile/mais"
+  icone="☰"
+  texto="Mais"
+/>
         </div>
       </nav>
     </main>
