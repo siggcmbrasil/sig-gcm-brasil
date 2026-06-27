@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 export default function PatrulhamentoGpsPage() {
   const [tipo, setTipo] = useState("VIATURA");
   const [observacao, setObservacao] = useState("");
+  const [enviando, setEnviando] = useState(false);
 
   async function enviarLocalizacao() {
     if (!navigator.geolocation) {
@@ -13,38 +14,74 @@ export default function PatrulhamentoGpsPage() {
       return;
     }
 
+    setEnviando(true);
+
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const usuario = JSON.parse(
-          localStorage.getItem("usuarioLogado") || "{}"
-        );
+        try {
+          const usuario = JSON.parse(
+            localStorage.getItem("usuarioLogado") || "{}"
+          );
 
-        const { error } = await supabase
-          .from("localizacoes_tempo_real")
-          .insert({
+          if (!usuario?.id || !usuario?.municipio_id) {
+            alert("Usuário ou município não identificado.");
+            setEnviando(false);
+            return;
+          }
+
+          const dados = {
             usuario_id: usuario.id,
-            nome: usuario.nome,
+            nome: usuario.nome || "Usuário sem nome",
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
             municipio_id: usuario.municipio_id,
             status: tipo,
             observacao,
-          });
+            atualizado_em: new Date().toISOString(),
+          };
 
-        if (error) {
+          const { data: existente, error: erroBusca } = await supabase
+            .from("localizacoes_tempo_real")
+            .select("id")
+            .eq("usuario_id", usuario.id)
+            .eq("municipio_id", usuario.municipio_id)
+            .maybeSingle();
+
+          if (erroBusca) throw erroBusca;
+
+          let error;
+
+          if (existente) {
+            ({ error } = await supabase
+              .from("localizacoes_tempo_real")
+              .update(dados)
+              .eq("id", existente.id)
+              .eq("municipio_id", usuario.municipio_id));
+          } else {
+            ({ error } = await supabase
+              .from("localizacoes_tempo_real")
+              .insert(dados));
+          }
+
+          if (error) throw error;
+
+          alert("Localização atualizada!");
+          setObservacao("");
+        } catch (error) {
+          console.error("Erro ao enviar localização:", error);
           alert("Erro ao enviar localização.");
-          return;
+        } finally {
+          setEnviando(false);
         }
-
-        alert("Localização enviada com sucesso!");
-        setObservacao("");
       },
       () => {
         alert("Não foi possível obter sua localização.");
+        setEnviando(false);
       },
       {
         enableHighAccuracy: true,
         timeout: 10000,
+        maximumAge: 0,
       }
     );
   }
@@ -55,12 +92,19 @@ export default function PatrulhamentoGpsPage() {
 
     const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Usuário ou município não identificado.");
+      return;
+    }
+
     const { error } = await supabase
-  .from("localizacoes_tempo_real")
-  .delete()
-  .eq("usuario_id", usuario.id);
+      .from("localizacoes_tempo_real")
+      .delete()
+      .eq("usuario_id", usuario.id)
+      .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
+      console.error("Erro ao excluir pontos:", error);
       alert("Erro ao excluir pontos.");
       return;
     }
@@ -71,16 +115,18 @@ export default function PatrulhamentoGpsPage() {
   return (
     <div className="min-h-screen bg-[#020b1c] text-white p-6">
       <h1 className="text-3xl font-black mb-2">
-        🚔 Patrulhamento GPS
-      </h1>
+  📍 Localização em Tempo Real
+</h1>
 
       <p className="text-slate-400 mb-6">
-        Registre sua localização durante patrulhamento do seu município.
-      </p>
+  Compartilhe sua localização atual com o Centro Operacional.
+</p>
 
       <div className="painel-premium p-5 space-y-5">
         <div>
-          <label className="label">Tipo de patrulhamento</label>
+          <label className="label">
+  Tipo de deslocamento
+</label>
 
           <select
             className="input"
@@ -106,16 +152,17 @@ export default function PatrulhamentoGpsPage() {
 
         <button
           onClick={enviarLocalizacao}
-          className="w-full bg-blue-600 hover:bg-blue-700 px-6 py-5 rounded-2xl font-black text-lg"
+          disabled={enviando}
+          className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-6 py-5 rounded-2xl font-black text-lg"
         >
-          📍 Enviar localização atual
+          {enviando ? "Enviando localização..." : "📡 Atualizar localização"}
         </button>
 
         <button
           onClick={limparMeusPontos}
           className="w-full bg-red-700 hover:bg-red-800 px-6 py-4 rounded-2xl font-black text-lg"
         >
-          🗑️ Limpar meus pontos de teste
+          🗑️ Remover minha localização
         </button>
       </div>
     </div>

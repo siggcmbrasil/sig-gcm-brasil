@@ -4,6 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
+import {
+  Home,
+  FileText,
+  CalendarDays,
+  MapPinned,
+  Car,
+  Radio,
+  Shield,
+  Bell,
+  MapPin,
+  Menu as MenuIcon,
+  ClipboardList,
+} from "lucide-react";
 
 export default function AppPage() {
   const [guarnicaoDia, setGuarnicaoDia] = useState<any>(null);
@@ -144,8 +157,12 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
               Olá, {usuario?.nome || "Guarda"}
             </h1>
             <p className="text-slate-400 text-xs">
-              Bom dia! Seja bem-vindo.
-            </p>
+  {new Date().getHours() < 12
+    ? "Bom dia!"
+    : new Date().getHours() < 18
+    ? "Boa tarde!"
+    : "Boa noite!"}
+</p>
           </div>
         </div>
 
@@ -194,13 +211,42 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
           </Link>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          <Atalho href="/sistema/ocorrencias/nova" icone="📄" texto="Ocorrências" />
-          <Atalho href="/sistema/escalas-menu" icone="📅" texto="Escalas" />
-          <Atalho href="/sistema/relatorios" icone="📊" texto="Relatórios" />
-          <Atalho href="/sistema/patrulhamento" icone="📍" texto="Patrulhamento" />
-          <Atalho href="/sistema/viatura" icone="🚓" texto="Viaturas" />
-          <Atalho href="/sistema/mobile/operacao" icone="📢" texto="Comunicações" />
+        <div className="grid grid-cols-2 gap-3">          
+          <Atalho
+  href="/sistema/mobile/ocorrencias"
+  icone={FileText}
+  texto="Ocorrências"
+/>
+
+<Atalho
+  href="/sistema/mobile/escalas"
+  icone={CalendarDays}
+  texto="Escalas"
+/>
+
+<Atalho
+  href="/sistema/mobile/relatorios"
+  icone={ClipboardList}
+  texto="Relatórios"
+/>
+
+<Atalho
+  href="/sistema/mobile/gps"
+  icone={MapPinned}
+  texto="Patrulhamento"
+/>
+
+<Atalho
+  href="/sistema/mobile/viaturas"
+  icone={Car}
+  texto="Viaturas"
+/>
+
+<Atalho
+  href="/sistema/mobile/operacao"
+  icone={Radio}
+  texto="Comunicações"
+/>
         </div>
       </section>
 
@@ -210,7 +256,7 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
           <span className="text-slate-500 text-xs">Atualizado agora</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Resumo
   titulo="Ocorrências"
   valor={String(totalOcorrencias)}
@@ -250,26 +296,35 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
 
       <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#02060f]/95 backdrop-blur-xl border-t border-slate-800 px-3 py-2">
         <div className="grid grid-cols-5 text-center text-[10px]">
-          <Menu href="/sistema/mobile" icone="🏠" texto="Início" ativo />
+          <Menu
+  href="/sistema/mobile"
+  icone={Home}
+  texto="Início"
+  ativo
+/>
 
 <Menu
   href="/sistema/mobile/ocorrencias"
-  icone="📄"
+  icone={FileText}
   texto="Ocorrências"
 />
 
 <Menu
   href="/sistema/mobile/operacao"
-  icone="🚔"
-  texto=""
+  icone={Shield}
+  texto="Operação"
   destaque
 />
 
-<Menu href="/sistema/patrulhamento" icone="📍" texto="GPS" />
+<Menu
+  href="/sistema/mobile/gps"
+  icone={MapPin}
+  texto="GPS"
+/>
 
 <Menu
   href="/sistema/mobile/mais"
-  icone="☰"
+  icone={MenuIcon}
   texto="Mais"
 />
         </div>
@@ -280,11 +335,11 @@ const [totalPatrulhamentos, setTotalPatrulhamentos] = useState(0);
 
 function Atalho({
   href,
-  icone,
+  icone: Icone,
   texto,
 }: {
   href: string;
-  icone: string;
+  icone: any;
   texto: string;
 }) {
   return (
@@ -292,10 +347,13 @@ function Atalho({
       href={href}
       className="rounded-2xl bg-slate-900 border border-slate-800 min-h-24 p-3 flex flex-col items-center justify-center gap-2 text-center active:scale-95 transition"
     >
-      <div className="w-11 h-11 rounded-2xl bg-blue-600/20 flex items-center justify-center text-2xl">
-        {icone}
+      <div className="w-11 h-11 rounded-2xl bg-blue-600/20 flex items-center justify-center">
+        <Icone className="w-6 h-6 text-blue-400" />
       </div>
-      <span className="text-xs font-semibold">{texto}</span>
+
+      <span className="text-xs font-semibold">
+        {texto}
+      </span>
     </Link>
   );
 }
@@ -320,13 +378,13 @@ function Resumo({
 
 function Menu({
   href,
-  icone,
+  icone: Icone,
   texto,
   ativo,
   destaque,
 }: {
   href: string;
-  icone: string;
+  icone: any;
   texto: string;
   ativo?: boolean;
   destaque?: boolean;
@@ -341,13 +399,24 @@ function Menu({
       <span
         className={
           destaque
-            ? "w-14 h-14 -mt-7 rounded-full bg-blue-600 text-white flex items-center justify-center text-3xl font-black shadow-xl"
-            : "text-xl"
+            ? "w-14 h-14 -mt-7 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-xl"
+            : ""
         }
       >
-        {icone}
+        <Icone
+          className={
+            destaque
+              ? "w-7 h-7"
+              : "w-5 h-5"
+          }
+        />
       </span>
-      {texto && <span>{texto}</span>}
+
+      {texto && (
+        <span className="text-[10px]">
+          {texto}
+        </span>
+      )}
     </Link>
   );
 }

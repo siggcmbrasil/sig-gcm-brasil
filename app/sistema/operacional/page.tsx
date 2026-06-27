@@ -69,11 +69,11 @@ const cards = [
     descricao: "Planejamento, execução e controle de rondas preventivas.",
   },
   {
-    titulo: "Blitze e Barreiras",
-    icone: Shield,
-    href: "/sistema/blitze",
-    descricao: "Registro de barreiras, abordagens e operações de fiscalização.",
-  },
+  titulo: "Blitze e Barreiras",
+  icone: Shield,
+  href: "/sistema/blitzes-barreiras",
+  descricao: "Registro de barreiras, abordagens e operações de fiscalização.",
+},
   {
     titulo: "Operações Especiais",
     icone: Shield,

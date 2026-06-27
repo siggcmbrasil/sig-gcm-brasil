@@ -65,6 +65,9 @@ export default function Patrulhamento() {
   const [rastreamentoAtivo, setRastreamentoAtivo] = useState(false);
   const [patrulhamentoAtivoId, setPatrulhamentoAtivoId] = useState<number | null>(null);
   
+  const [guarnicoesServico, setGuarnicoesServico] = useState<GuarnicaoCompleta[]>([]);
+  const [guarnicaoSelecionadaId, setGuarnicaoSelecionadaId] = useState("");
+  const [mostrarListaGuardas, setMostrarListaGuardas] = useState(false);
 
   const [carregando, setCarregando] = useState(true);
   const [capturandoGps, setCapturandoGps] = useState(false);
@@ -85,7 +88,63 @@ if (!usuarioLogado?.municipio_id) {
   );
 }
 
-  async function carregarPatrulhamentos() {
+async function selecionarGuarnicaoServico(guarnicaoId: string) {
+
+  setGuarnicaoSelecionadaId(guarnicaoId);
+
+  const guarnicao = guarnicoesServico.find(
+    (g) => Number(g.id) === Number(guarnicaoId)
+  );
+
+  if (!guarnicao) return;
+
+  setLocal(`Ronda preventiva - ${guarnicao.nome}`);
+
+  if (guarnicao.viatura_id) {
+
+    const { data: viaturaAtual } = await supabase
+      .from("viaturas")
+      .select("id, prefixo, modelo, placa, status")
+      .eq("municipio_id", usuarioLogado.municipio_id)
+      .eq("id", guarnicao.viatura_id)
+      .single();
+
+    if (viaturaAtual) {
+      setViatura(viaturaAtual.prefixo);
+    }
+  }
+
+  const { data: membros } = await supabase
+  .from("guarnicao_membros")
+  .select(`
+    guarda_id,
+    guardas!inner (
+      nome,
+      municipio_id
+    )
+  `)
+  .eq("guarnicao_id", guarnicao.id)
+  .eq(
+    "guardas.municipio_id",
+    usuarioLogado.municipio_id
+  );
+
+if (!membros || membros.length === 0) {
+  setGuardasSelecionados([]);
+  setGuarda("");
+  return;
+}
+
+const nomes = membros
+  .map((m: any) => m.guardas?.nome)
+  .filter(Boolean);
+
+setGuardasSelecionados(nomes);
+setGuarda(nomes[0] || "");
+}
+
+async function carregarPatrulhamentos() {
+
     setCarregando(true);
 
     const { data, error } = await supabase
@@ -175,7 +234,14 @@ if (!usuarioLogado?.municipio_id) {
     const guardaPrincipal = guardasSelecionados[0] || guarda;
 
     if (!data || !hora || !local || !guardaPrincipal) {
-      alert("Preencha data, hora, local e selecione pelo menos um guarda.");
+      alert(
+  `Faltando: ${[
+    !data ? "data" : "",
+    !hora ? "hora" : "",
+    !local ? "local" : "",
+    !guardaPrincipal ? "guarda/equipe" : "",
+  ].filter(Boolean).join(", ")}`
+);
       return;
     }
 
@@ -212,6 +278,8 @@ if (!usuarioLogado?.municipio_id) {
     novoPatrulhamento.id,
     "MANUAL"
   );
+
+  setRastreamentoAtivo(true);
 }
 
     alert("Patrulhamento registrado com sucesso!");
@@ -233,15 +301,23 @@ if (!usuarioLogado?.municipio_id) {
   patrulhamentoId: number,
   tipo: "MANUAL" | "AUTOMATICO" = "AUTOMATICO"
 ) {
-  const localizacao = await obterLocalizacao();
+  try {
+    const localizacao = await obterLocalizacao();
 
-  await supabase.from("gps_patrulhamento").insert({
-    patrulhamento_id: patrulhamentoId,
-    municipio_id: usuarioLogado.municipio_id,
-    latitude: localizacao.latitude,
-    longitude: localizacao.longitude,
-    tipo,
-  });
+    const { error } = await supabase.from("gps_patrulhamento").insert({
+      patrulhamento_id: patrulhamentoId,
+      municipio_id: usuarioLogado.municipio_id,
+      latitude: localizacao.latitude,
+      longitude: localizacao.longitude,
+      tipo,
+    });
+
+    if (error) {
+      console.error(error);
+    }
+  } catch (error) {
+    console.error("Erro ao salvar ponto GPS:", error);
+  }
 }
 
   async function excluirPatrulhamento(id: number) {
@@ -292,13 +368,8 @@ async function finalizarPatrulhamento(id: number) {
 }
 
 async function carregarPlantaoAutomatico() {
-  const { data: configSistema } = await supabase
-    .from("configuracoes_sistema")
-    .select("municipio_padrao_id")
-    .limit(1)
-    .single();
+  const municipioId = usuarioLogado.municipio_id;
 
-const municipioId = usuarioLogado.municipio_id;
   const { data: configEscala } = await supabase
     .from("escala_operacional_config")
     .select("*")
@@ -337,17 +408,22 @@ const municipioId = usuarioLogado.municipio_id;
     ordem.length;
 
   const guarnicaoAtual = guarnicoes.find(
-    (g: GuarnicaoCompleta) => Number(g.id) === Number(ordem[indiceAtual])
+    (g: GuarnicaoCompleta) =>
+      Number(g.id) === Number(ordem[indiceAtual])
   );
 
   if (!guarnicaoAtual) return;
 
+  setGuarnicoesServico([guarnicaoAtual]);
+  setGuarnicaoSelecionadaId(String(guarnicaoAtual.id));
+  setLocal(`Ronda preventiva - ${guarnicaoAtual.nome}`);
+
   if (guarnicaoAtual.viatura_id) {
     const { data: viaturaAtual } = await supabase
       .from("viaturas")
-.select("id, prefixo, modelo, placa, status")
-.eq("municipio_id", usuarioLogado.municipio_id)
-.in("status", ["Operacional", "Reserva"])
+      .select("id, prefixo, modelo, placa, status")
+      .eq("municipio_id", municipioId)
+      .eq("id", guarnicaoAtual.viatura_id)
       .single();
 
     if (viaturaAtual) {
@@ -356,28 +432,44 @@ const municipioId = usuarioLogado.municipio_id;
   }
 
   const { data: membros } = await supabase
-  .from("guarnicao_membros")
-  .select("guarda_id")
-  .eq("guarnicao_id", guarnicaoAtual.id)
-  .eq("municipio_id", usuarioLogado.municipio_id);
+    .from("guarnicao_membros")
+    .select(`
+      guarda_id,
+      guardas!inner (
+        nome,
+        municipio_id
+      )
+    `)
+    .eq("guarnicao_id", guarnicaoAtual.id)
+    .eq("guardas.municipio_id", municipioId);
 
-  if (!membros || membros.length === 0) return;
-
-  const ids = membros.map((m: MembroGuarnicao) => m.guarda_id);
-
-  const { data: guardasEquipe } = await supabase
-    .from("guardas")
-    .select("nome")
-    .eq("municipio_id", usuarioLogado.municipio_id)
-    .in("id", ids);
-
-  if (guardasEquipe) {
-    setGuardasSelecionados(guardasEquipe.map((g) => g.nome));
-    setGuarda(guardasEquipe[0]?.nome || "");
+  if (!membros || membros.length === 0) {
+    setGuardasSelecionados([]);
+    setGuarda("");
+    return;
   }
+
+  const nomes = membros
+    .map((m: any) => m.guardas?.nome)
+    .filter(Boolean);
+
+  setGuardasSelecionados(nomes);
+  setGuarda(nomes[0] || "");
 }
 
   useEffect(() => {
+  const agora = new Date();
+
+  setData(agora.toISOString().split("T")[0]);
+
+  setHora(
+    agora.toLocaleTimeString("pt-BR", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    })
+  );
+
   void carregarPatrulhamentos();
   void carregarGuardas();
   void carregarViaturas();
@@ -549,36 +641,72 @@ useEffect(() => {
             </div>
 
             <div className="border-t border-slate-800 pt-4">
-              <label className="label">Equipe de patrulhamento</label>
+  <label className="label">Guarnição de serviço</label>
 
-              {guardas.length === 0 ? (
-                <p className="text-slate-400">Nenhum guarda cadastrado.</p>
-              ) : (
-                <div className="space-y-3">
-                  {guardas.map((g) => (
-                    <label
-                      key={g.id}
-                      className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={guardasSelecionados.includes(g.nome)}
-                        onChange={() => selecionarGuarda(g.nome)}
-                        className="mt-1"
-                      />
+  <select
+    className="input mb-3"
+    value={guarnicaoSelecionadaId}
+    onChange={(e) => selecionarGuarnicaoServico(e.target.value)}
+  >
+    <option value="">Selecione a guarnição</option>
 
-                      <div>
-                        <p className="font-bold">{g.nome}</p>
-                        <p className="text-sm text-slate-400">
-                          {g.matricula} • {g.cargo}
-                        </p>
-                        <p className="text-xs text-blue-400">{g.status}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              )}
-            </div>
+    {guarnicoesServico.map((g) => (
+      <option key={g.id} value={g.id}>
+        {g.nome}
+      </option>
+    ))}
+  </select>
+
+  {guardasSelecionados.length > 0 && (
+    <div className="mb-3 rounded-xl border border-cyan-700 bg-cyan-950/30 p-3">
+      <p className="font-semibold text-cyan-300 mb-2">
+        Equipe selecionada
+      </p>
+
+      <div className="space-y-1">
+        {guardasSelecionados.map((nome) => (
+          <p key={nome} className="text-sm text-slate-200">
+            👮 {nome}
+          </p>
+        ))}
+      </div>
+    </div>
+  )}
+
+  <button
+    type="button"
+    onClick={() => setMostrarListaGuardas(!mostrarListaGuardas)}
+    className="btn-secondary w-full"
+  >
+    {mostrarListaGuardas ? "Ocultar guardas" : "+ Adicionar guarda extra"}
+  </button>
+
+  {mostrarListaGuardas && (
+    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 mt-3">
+      {guardas.map((g) => (
+        <label
+          key={g.id}
+          className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
+        >
+          <input
+            type="checkbox"
+            checked={guardasSelecionados.includes(g.nome)}
+            onChange={() => selecionarGuarda(g.nome)}
+            className="mt-1"
+          />
+
+          <div>
+            <p className="font-bold">{g.nome}</p>
+            <p className="text-sm text-slate-400">
+              {g.matricula} • {g.cargo}
+            </p>
+            <p className="text-xs text-blue-400">{g.status}</p>
+          </div>
+        </label>
+      ))}
+    </div>
+  )}
+</div>
 
             <div>
               <button
@@ -587,28 +715,12 @@ useEffect(() => {
                 disabled={capturandoGps}
                 className="btn-secondary w-full text-lg disabled:opacity-50"
               >
-                {capturandoGps ? "Capturando GPS..." : "📍 Capturar GPS"}
+                {capturandoGps
+  ? "Capturando localização..."
+  : "📍 Capturar GPS Inicial"}
               </button>
 
-              <button
-  type="button"
-  onClick={() => setRastreamentoAtivo(true)}
-  disabled={!patrulhamentoAtivoId || rastreamentoAtivo}
-  className="btn-primary w-full mt-2 disabled:opacity-50"
->
-  {rastreamentoAtivo ? "🛰️ Rastreamento Ativo" : "🟢 Iniciar Rastreamento"}
-</button>
-
-<button
-  type="button"
-  onClick={() => setRastreamentoAtivo(false)}
-  disabled={!rastreamentoAtivo}
-  className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold w-full mt-2"
->
-  🔴 Parar Rastreamento
-</button>
-
-              {latitude && longitude && (
+               {latitude && longitude && (
                 <div className="mt-3 rounded-xl border border-green-700 bg-green-950/40 p-3 text-sm text-green-300">
                   <p>Latitude: {latitude}</p>
                   <p>Longitude: {longitude}</p>
@@ -631,7 +743,7 @@ useEffect(() => {
               onClick={salvarPatrulhamento}
               className="btn-primary w-full text-lg"
             >
-              Registrar Patrulhamento
+              🚔 Registrar e Iniciar Patrulhamento
             </button>
           </div>
           </div>

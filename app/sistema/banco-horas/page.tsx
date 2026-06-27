@@ -159,6 +159,18 @@ if (!id) {
     carregarMovimentos(municipioId);
   }
 
+  function saldoCredito() {
+  return movimentos
+    .filter((m) => m.tipo === "CREDITO")
+    .reduce((t, m) => t + Number(m.horas), 0);
+}
+
+function saldoDebito() {
+  return movimentos
+    .filter((m) => m.tipo === "DEBITO")
+    .reduce((t, m) => t + Number(m.horas), 0);
+}
+
   return (
     <div className="p-3 md:p-6 pb-24 space-y-6">
       <header className="border-b border-slate-800 pb-5">
@@ -170,9 +182,11 @@ if (!id) {
         </p>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card titulo="Lançamentos" valor={movimentos.length} />
-        <Card titulo="Saldo Geral" valor={`${saldoTotal().toFixed(2)}h`} />
+        <Card titulo="Créditos" valor={`${saldoCredito().toFixed(2)}h`} />
+<Card titulo="Débitos" valor={`${saldoDebito().toFixed(2)}h`} />
+<Card titulo="Saldo Geral" valor={`${saldoTotal().toFixed(2)}h`} />
         <Card
           titulo="Guardas"
           valor={new Set(movimentos.map((m) => m.guarda_id)).size}
@@ -187,7 +201,7 @@ if (!id) {
             <div>
               <label className="label">Guarda</label>
               <select
-                className="input"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
                 value={guardaId}
                 onChange={(e) => setGuardaId(e.target.value)}
               >
@@ -204,7 +218,7 @@ if (!id) {
               <label className="label">Data</label>
               <input
                 type="date"
-                className="input"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
                 value={dataMovimento}
                 onChange={(e) => setDataMovimento(e.target.value)}
               />
@@ -213,7 +227,7 @@ if (!id) {
             <div>
               <label className="label">Tipo</label>
               <select
-                className="input"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
               >
@@ -227,7 +241,7 @@ if (!id) {
               <input
                 type="number"
                 step="0.5"
-                className="input"
+                className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
                 value={horas}
                 onChange={(e) => setHoras(e.target.value)}
                 placeholder="Ex: 8"
@@ -236,18 +250,24 @@ if (!id) {
 
             <div>
               <label className="label">Motivo</label>
-              <input
-                className="input"
-                value={motivo}
-                onChange={(e) => setMotivo(e.target.value)}
-                placeholder="Ex: Serviço extra, compensação..."
-              />
+              <select
+  className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white"
+  value={motivo}
+  onChange={(e) => setMotivo(e.target.value)}
+>
+  <option value="">Selecione</option>
+  <option value="SERVICO_EXTRA">Serviço Extra</option>
+  <option value="OPERACAO">Operação</option>
+  <option value="EVENTO">Evento</option>
+  <option value="COMPENSACAO">Compensação</option>
+  <option value="FOLGA">Folga</option>
+</select>
             </div>
 
             <div>
               <label className="label">Observação</label>
               <textarea
-                className="input h-24 resize-none"
+  className="w-full rounded-xl border border-slate-700 bg-slate-900 p-3 text-white min-h-24 resize-none"
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
               />

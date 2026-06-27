@@ -142,6 +142,7 @@ export default function Dashboard() {
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
   const [rondas, setRondas] = useState<any[]>([]);
   const [agora, setAgora] = useState(new Date());
+  const [datasHoje, setDatasHoje] = useState<any[]>([]);
 
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
@@ -198,6 +199,16 @@ async function carregarDashboard() {
   setCarregando(false);
   return;
 }
+
+const hoje = new Date()
+  .toISOString()
+  .split("T")[0];
+
+const { data: datasHoje } = await supabase
+  .from("datas_comemorativas")
+  .select("*")
+  .eq("data_inicio", hoje)
+  .eq("ativo", true);
 
    const { data: municipioData } = await supabase
       .from("municipios")
@@ -340,6 +351,7 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
     setGuarnicoes(guarnicoesData || []);
     setMembrosGuarnicao(membrosGuarnicaoData || []);
     setCarregando(false);
+    setDatasHoje(datasHoje || []);
   }
 
   useEffect(() => {
@@ -589,25 +601,38 @@ setMostrarPerfil={setMostrarPerfil}
     <PainelAlertas avisos={avisos} />
 
     <div className="painel-premium p-3">
-      <TituloPainel icone="🎂" titulo="Aniversariantes do Dia" />
+  <TituloPainel icone="📅" titulo="Datas Importantes de Hoje" />
 
-      <div className="space-y-3 mt-3">
-        {aniversariantesHoje.length === 0 ? (
-          <p className="text-slate-400 text-sm">
-            Nenhum aniversariante hoje.
-          </p>
-        ) : (
-          aniversariantesHoje.map((guarda) => (
-            <div
-              key={guarda.id}
-              className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
-            >
-              <p className="font-bold">🎂 {guarda.nome}</p>
-            </div>
-          ))
-        )}
-      </div>
-    </div>
+  <div className="space-y-3 mt-3">
+    {datasHoje.length === 0 && aniversariantesHoje.length === 0 ? (
+      <p className="text-slate-400 text-sm">
+        Nenhuma data importante hoje.
+      </p>
+    ) : (
+      <>
+        {aniversariantesHoje.map((guarda) => (
+          <div
+            key={`aniv-${guarda.id}`}
+            className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
+          >
+            <p className="font-bold">🎂 {guarda.nome}</p>
+            <p className="text-slate-400 text-sm">Aniversariante</p>
+          </div>
+        ))}
+
+        {datasHoje.map((item) => (
+          <div
+            key={`data-${item.id}`}
+            className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
+          >
+            <p className="font-bold">{item.titulo}</p>
+            <p className="text-slate-400 text-sm">{item.categoria}</p>
+          </div>
+        ))}
+      </>
+    )}
+  </div>
+</div>
   </div>
 
   <div className="xl:col-span-8 space-y-3">

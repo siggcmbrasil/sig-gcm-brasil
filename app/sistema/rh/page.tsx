@@ -12,6 +12,7 @@ import {
   Medal,
   Briefcase,
   RotateCcw,
+  ShieldCheck,
 } from "lucide-react";
 
 const cards = [
@@ -24,26 +25,26 @@ const cards = [
   {
     titulo: "Dossiê do Guarda",
     icone: Briefcase,
-    href: "/sistema/guardas",
+    href: "/sistema/dossie",
     descricao: "Histórico funcional e informações do servidor.",
-  },
-  {
-    titulo: "Documentos",
-    icone: FileText,
-    href: "/sistema/guardas",
-    descricao: "Documentos funcionais dos guardas.",
   },
   {
     titulo: "Escalas",
     icone: CalendarDays,
-    href: "/sistema/escalas-menu",
+    href: "/sistema/escalas",
     descricao: "Escalas de serviço, modelos e configurações.",
   },
   {
-    titulo: "Permutas",
-    icone: RotateCcw,
-    href: "/sistema/escalas/permutas",
-    descricao: "Solicitações e controle de permutas de plantão.",
+  titulo: "Guarnições",
+  href: "/sistema/guarnicoes",
+  descricao: "Gestão das equipes e guarnições de serviço.",
+  icone: ShieldCheck,
+},
+  {
+    titulo: "Gestão Funcional",
+    descricao: "Elogios, advertências, promoções, avaliações e condecorações.",
+    href: "/sistema/rh/gestao-funcional",
+    icone: Medal,
   },
   {
     titulo: "Registro de Ponto",
@@ -58,59 +59,18 @@ const cards = [
     descricao: "Controle de saldo, extras e compensações.",
   },
   {
-    titulo: "Férias",
-    icone: CalendarDays,
-    href: "/sistema/ferias",
-    descricao: "Planejamento e controle de férias.",
-  },
-  {
-    titulo: "Licenças",
-    icone: HeartPulse,
-    href: "/sistema/licencas",
-    descricao: "Controle de licenças e afastamentos.",
-  },
-  {
     titulo: "Atestados",
     icone: HeartPulse,
     href: "/sistema/atestados",
     descricao: "Registro de atestados médicos.",
   },
   {
-    titulo: "Elogios",
-    icone: Star,
-    href: "/sistema/elogios",
-    descricao: "Registro de elogios funcionais.",
+    titulo: "Datas Institucionais",
+    descricao: "Aniversários, campanhas e datas comemorativas.",
+    href: "/sistema/rh/datas",
+    icone: CalendarDays,
   },
-  {
-    titulo: "Advertências",
-    icone: AlertTriangle,
-    href: "/sistema/advertencias",
-    descricao: "Controle de advertências e registros disciplinares.",
-  },
-  {
-    titulo: "Promoções",
-    icone: Award,
-    href: "/sistema/promocoes",
-    descricao: "Controle de promoções e progressões.",
-  },
-  {
-    titulo: "Avaliações",
-    icone: Star,
-    href: "/sistema/avaliacoes",
-    descricao: "Avaliações de desempenho funcional.",
-  },
-  {
-    titulo: "Aniversariantes",
-    icone: Cake,
-    href: "/sistema/aniversariantes",
-    descricao: "Aniversários dos servidores.",
-  },
-  {
-    titulo: "Condecorações",
-    icone: Medal,
-    href: "/sistema/condecoracoes",
-    descricao: "Medalhas, homenagens e condecorações.",
-  },
+  
 ];
 
 export default function CentralRHPage() {

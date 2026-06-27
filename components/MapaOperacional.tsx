@@ -33,6 +33,31 @@ type LocalizacaoGPS = {
   observacao?: string;
 };
 
+type BlitzMapa = {
+  id: string;
+  nome?: string;
+  tipo?: string;
+  local?: string;
+  status?: string;
+  latitude?: number;
+  longitude?: number;
+};
+
+type BarreiraMapa = BlitzMapa;
+
+type OperacaoEspecialMapa = {
+  id: string;
+  nome?: string;
+  tipo?: string;
+  local?: string;
+  status?: string;
+  data?: string;
+  comandante?: string;
+  efetivo?: number;
+  latitude?: number;
+  longitude?: number;
+};
+
 const iconBase = L.divIcon({
   html: `<span class="map-dot map-dot-gray"></span>`,
   className: "",
@@ -82,6 +107,27 @@ const iconMoto = L.divIcon({
   iconAnchor: [16, 16],
 });
 
+const iconBlitz = L.divIcon({
+  html: `<div style="font-size:28px">🚧</div>`,
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const iconBarreira = L.divIcon({
+  html: `<div style="font-size:28px">🛡️</div>`,
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
+const iconOperacaoEspecial = L.divIcon({
+  html: `<div style="font-size:28px">⭐</div>`,
+  className: "",
+  iconSize: [32, 32],
+  iconAnchor: [16, 16],
+});
+
 function obterIconeGPS(status?: string) {
   if (status === "A_PE") return iconPe;
   if (status === "MOTO") return iconMoto;
@@ -98,10 +144,16 @@ export default function MapaOperacional({
   ocorrencias,
   viaturas = [],
   localizacoes = [],
+  blitzes = [],
+  barreiras = [],
+  operacoesEspeciais = [],
 }: {
   ocorrencias: OcorrenciaMapa[];
   viaturas?: ViaturaMapa[];
   localizacoes?: LocalizacaoGPS[];
+  blitzes?: BlitzMapa[];
+  barreiras?: BarreiraMapa[];
+  operacoesEspeciais?: OperacaoEspecialMapa[];
 }) {
   const ocorrenciasComCoordenadas = (ocorrencias || []).map((o) => {
     const localRelacionado = Array.isArray(o.locais) ? o.locais[0] : o.locais;
@@ -109,8 +161,32 @@ export default function MapaOperacional({
   });
 
   const viaturasComCoordenadas = viaturas.filter(
-    (v) => v.latitude && v.longitude
-  );
+  (v) =>
+    Number(v.latitude) &&
+    Number(v.longitude)
+);
+
+const localizacoesComCoordenadas = localizacoes.filter(
+  (loc) =>
+    Number(loc.latitude) &&
+    Number(loc.longitude)
+);
+
+const blitzesComCoordenadas = blitzes.filter(
+  (b) =>
+    Number(b.latitude) &&
+    Number(b.longitude)
+);
+
+const barreirasComCoordenadas = barreiras.filter(
+  (b) =>
+    Number(b.latitude) &&
+    Number(b.longitude)
+);
+
+const operacoesComCoordenadas = operacoesEspeciais.filter(
+  (o) => Number(o.latitude) && Number(o.longitude)
+);
 
   return (
     <MapContainer
@@ -130,15 +206,17 @@ export default function MapaOperacional({
       </Marker>
 
       {ocorrenciasComCoordenadas.map((o) => {
-        if (!o.localRelacionado) return null;
+  if (!o.localRelacionado) return null;
 
-        return (
+  const latitude = Number(o.localRelacionado.latitude);
+  const longitude = Number(o.localRelacionado.longitude);
+
+  if (!latitude || !longitude) return null;
+
+  return (
           <Marker
             key={`ocorrencia-${o.id}`}
-            position={[
-              Number(o.localRelacionado.latitude),
-              Number(o.localRelacionado.longitude),
-            ]}
+            position={[latitude, longitude]}
             icon={obterIconeOcorrencia(o.status)}
           >
             <Popup>
@@ -170,7 +248,7 @@ export default function MapaOperacional({
         </Marker>
       ))}
 
-      {localizacoes.map((loc) => (
+      {localizacoesComCoordenadas.map((loc) => (
   <Marker
     key={`gps-${loc.id}`}
     position={[Number(loc.latitude), Number(loc.longitude)]}
@@ -203,6 +281,75 @@ export default function MapaOperacional({
     </Popup>
   </Marker>
 ))}
+
+{blitzesComCoordenadas.map((b) => (
+  <Marker
+    key={`blitz-${b.id}`}
+    position={[
+      Number(b.latitude),
+      Number(b.longitude),
+    ]}
+    icon={iconBlitz}
+  >
+    <Popup>
+      <div style={{ minWidth: "220px" }}>
+        <strong>🚧 Blitz</strong>
+        <hr style={{ margin: "8px 0" }} />
+
+        <div>📌 {b.nome}</div>
+        <div>📍 {b.local}</div>
+        <div>📋 {b.tipo}</div>
+        <div>🚦 {b.status}</div>
+      </div>
+    </Popup>
+  </Marker>
+))}
+
+{barreirasComCoordenadas.map((b) => (
+  <Marker
+    key={`barreira-${b.id}`}
+    position={[
+      Number(b.latitude),
+      Number(b.longitude),
+    ]}
+    icon={iconBarreira}
+  >
+    <Popup>
+      <div style={{ minWidth: "220px" }}>
+        <strong>🛡️ Barreira</strong>
+        <hr style={{ margin: "8px 0" }} />
+
+        <div>📌 {b.nome}</div>
+        <div>📍 {b.local}</div>
+        <div>📋 {b.tipo}</div>
+        <div>🚦 {b.status}</div>
+      </div>
+    </Popup>
+  </Marker>
+))}
+
+{operacoesComCoordenadas.map((o) => (
+  <Marker
+    key={`operacao-especial-${o.id}`}
+    position={[Number(o.latitude), Number(o.longitude)]}
+    icon={iconOperacaoEspecial}
+  >
+    <Popup>
+      <div style={{ minWidth: "230px" }}>
+        <strong>⭐ Operação Especial</strong>
+        <hr style={{ margin: "8px 0" }} />
+
+        <div>📌 {o.nome}</div>
+        <div>📍 {o.local}</div>
+        <div>📋 {o.tipo}</div>
+        <div>👮 Comandante: {o.comandante || "-"}</div>
+        <div>👥 Efetivo: {o.efetivo || 0}</div>
+        <div>🚦 {o.status}</div>
+      </div>
+    </Popup>
+  </Marker>
+))}
+
     </MapContainer>
   );
 }
