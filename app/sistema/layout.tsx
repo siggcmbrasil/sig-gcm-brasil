@@ -13,7 +13,15 @@ type UsuarioLogado = {
   nome: string;
   matricula?: string;
   email: string;
-  perfil: string;
+  perfil:
+  | "DESENVOLVEDOR"
+  | "ADMIN"
+  | "COMANDANTE"
+  | "DIRETOR"
+  | "CMT_GUARNICAO"
+  | "PLANTONISTA"
+  | "GUARDA"
+  | "CONSULTA";
   status?: string;
   municipio_id?: number;
   foto_url?: string;
@@ -30,6 +38,7 @@ export default function SistemaLayout({
 
   useEffect(() => {
     async function verificarSessao() {
+  try {
       const { data } = await supabase.auth.getUser();
 
       if (!data.user) {
@@ -41,8 +50,22 @@ export default function SistemaLayout({
       const { data: usuarioSistema } = await supabase
   .from("usuarios")
   .select("*")
-  .eq("email", data.user.email)
+  .eq("auth_id", data.user.id)
   .single();
+
+  if (!usuarioSistema) {
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  router.push("/login");
+  return;
+}
+
+if (usuarioSistema.status !== "Ativo") {
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  router.push("/login");
+  return;
+}
 
 const usuarioAtual = {
   id: usuarioSistema?.id,
@@ -62,10 +85,19 @@ localStorage.setItem(
 );
 setUsuario(usuarioAtual);
 setVerificando(false);
-    }
 
-    verificarSessao();
-  }, [router]);
+} catch (error) {
+  console.error(error);
+
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  router.push("/login");
+  return;
+}
+}
+
+verificarSessao();
+}, [router]);
 
   if (verificando) {
     return (
@@ -81,7 +113,7 @@ setVerificando(false);
     <RegistrarServiceWorker />
     
   <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
-    <Sidebar />
+    {usuario && <Sidebar usuario={usuario} />}
 
     <main className="flex-1 w-full">
 

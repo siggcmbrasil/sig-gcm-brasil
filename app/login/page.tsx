@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { getMensagemDoDia } from "@/lib/mensagensLogin";
 
 export default function Login() {
   const router = useRouter();
@@ -14,7 +13,6 @@ export default function Login() {
   
 const [municipioLogin, setMunicipioLogin] = useState<any>(null);
 
-const fraseDoDia = getMensagemDoDia();
 
 useEffect(() => {
   async function carregarMunicipioLogin() {
@@ -55,40 +53,42 @@ if (config?.municipio_padrao_id) {
     password: senha,
   });
 
-  console.log("AUTH:", data);
-console.log("ERROR:", error);
-
-  setCarregando(false);
+   setCarregando(false);
 
   if (error || !data.user) {
     alert("Usuário ou senha inválidos.");
     return;
   }
 
-  const { data: usuarioSistema } = await supabase
-    .from("usuarios")
-    .select("id, nome, email, perfil, status, municipio_id, foto_url")
-    .eq("email", data.user.email)
-    .single();
+  const { data: usuarioSistema, error: usuarioError } = await supabase
+  .from("usuarios")
+  .select("id, nome, matricula, email, perfil, status, municipio_id, foto_url")
+  .eq("auth_id", data.user.id)
+  .single();
 
+  if (usuarioError || !usuarioSistema) {
+  alert("Usuário não encontrado no sistema. Aguarde cadastro/aprovação.");
+
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
     
-  if (usuarioSistema?.perfil?.toUpperCase() === "DESENVOLVEDOR") {
-  console.log("USUARIO SISTEMA:", usuarioSistema);
-
+  if (usuarioSistema.perfil?.toUpperCase() === "DESENVOLVEDOR") {
+ 
   const dadosUsuario = {
-    id: usuarioSistema.id,
-    auth_id: data.user.id,
-    nome: usuarioSistema.nome || data.user.email,
-    email: data.user.email,
-    perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
-    status: usuarioSistema.status || "Ativo",
-    municipio_id: usuarioSistema.municipio_id,
-    foto_url: usuarioSistema.foto_url || "",
-  };
+  id: usuarioSistema.id,
+  auth_id: data.user.id,
+  nome: usuarioSistema.nome || data.user.email,
+  matricula: usuarioSistema.matricula || "",
+  email: data.user.email,
+  perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
+  status: usuarioSistema.status || "Ativo",
+  municipio_id: usuarioSistema.municipio_id || null,
+  foto_url: usuarioSistema.foto_url || "",
+};
 
-  console.log("SALVANDO LOCALSTORAGE:", dadosUsuario);
-
-  localStorage.setItem(
+   localStorage.setItem(
     "usuarioLogado",
     JSON.stringify(dadosUsuario)
   );
@@ -96,19 +96,7 @@ console.log("ERROR:", error);
   router.push("/sistema");
   return;
 }
-if (!usuarioSistema) {
-  alert("Usuário não encontrado no sistema. Aguarde cadastro/aprovação.");
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
-
-  if (
-    usuarioSistema.status === "Pendente" ||
-    usuarioSistema.status === "Inativo" ||
-    usuarioSistema.status === "Bloqueado" ||
-    usuarioSistema.status === "Recusado"
-  ) {
+  if (String(usuarioSistema.status || "").toUpperCase() !== "ATIVO") {
     alert(`Acesso não liberado. Status atual: ${usuarioSistema.status}`);
 
     await supabase.auth.signOut();
@@ -168,16 +156,7 @@ foto_url: usuarioSistema.foto_url || "",
                 guarnições, patrulhamento, chamados e relatórios institucionais.
               </p>
 
-              <div className="mt-8 border-l-4 border-yellow-400 pl-5">
-<p className="text-yellow-300 italic text-2xl font-semibold">
-  "{fraseDoDia.versiculo}"
-</p>
-
-<p className="text-yellow-500 mt-2 font-bold">
-  {fraseDoDia.referencia}
-</p>
-              </div>
-            </div>
+                        </div>
           </div>
 
           <div className="grid grid-cols-4 gap-4 mt-10">
@@ -265,37 +244,35 @@ foto_url: usuarioSistema.foto_url || "",
 
               <div className="mt-10 rounded-3xl border border-yellow-500/30 bg-slate-950/60 p-8 backdrop-blur-md animar-card">
   <div className="text-center">
-
-<p className="text-sm text-slate-400 mb-3 font-semibold">
-  {new Date().toLocaleDateString("pt-BR")}
-</p>
-
-    <p className="text-lg font-bold text-blue-300">
-      🛡️ MENSAGEM DO DIA
+    <p className="text-sm text-slate-400 mb-3 font-semibold">
+      {new Date().toLocaleDateString("pt-BR")}
     </p>
 
-    <p className="mt-2 text-white italic text-base">
-      "{fraseDoDia.motivacional}"
+    <p className="text-lg font-bold text-yellow-400">
+      ✝️ ORAÇÃO DE SÃO BENTO
     </p>
 
-    <div className="mt-4 border-t border-slate-700 pt-4">
-      <p className="text-sm font-bold text-yellow-400">
-        📖 VERSÍCULO DO DIA
-      </p>
+    <p className="mt-4 text-slate-200 italic text-sm leading-relaxed">
+      A Cruz Sagrada seja a minha luz.
+      <br />
+      Não seja o dragão meu guia.
+      <br />
+      Retira-te Satanás.
+      <br />
+      Nunca me aconselhes coisas vãs.
+      <br />
+      É mau o que tu me ofereces.
+      <br />
+      Bebe tu mesmo os teus venenos.
+    </p>
 
-      <p className="mt-2 text-slate-200 italic text-base">
-        "{fraseDoDia.versiculo}"
-      </p>
+    <p className="mt-4 text-yellow-400 font-bold">
+      Amém.
+    </p>
 
-      <p className="mt-2 text-sm font-bold text-yellow-500">
-        {fraseDoDia.referencia}
-      </p>
-
-      <p className="mt-3 text-xs text-slate-500 italic">
-  🇧🇷 Servindo e protegendo a sociedade com honra e compromisso.
-</p>
-    </div>
-
+    <p className="mt-3 text-xs text-slate-500 italic">
+      🇧🇷 Servindo e protegendo a sociedade com honra e compromisso.
+    </p>
   </div>
 </div>
 

@@ -25,6 +25,12 @@ export default function RelatorioPlantaoPage() {
 
 const municipioId = usuario.municipio_id;
 
+if (!municipioId) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
+
   const proximoDia = new Date(`${data}T00:00:00`);
   proximoDia.setDate(proximoDia.getDate() + 1);
   const dataFim = proximoDia.toISOString().split("T")[0];
@@ -62,27 +68,39 @@ const municipioId = usuario.municipio_id;
 }
 
   useEffect(() => {
-    carregarRelatorio();
-  }, [data]);
+  void carregarRelatorio();
+}, [data]);
 
-  const municipioLogado = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-
- async function gerarPDF() {
+  async function gerarPDF() {
   if (!data) {
     alert("Selecione a data do plantão.");
     return;
   }
 
-  const { data: municipioInfo } = await supabase
+const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+if (!usuario.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
+  const { data: municipioInfo, error } = await supabase
   .from("municipios")
   .select("*")
   .eq("id", usuario.municipio_id)
   .single();
+
+if (error || !municipioInfo) {
+  alert("Erro ao carregar informações do município.");
+  return;
+}
+
+if (error || !municipioInfo) {
+  alert("Erro ao carregar informações do município.");
+  return;
+}
 
 const brasaoMunicipio = municipioInfo?.brasao_prefeitura || "";
 const brasaoGCM = municipioInfo?.brasao_gcm || "";

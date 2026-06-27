@@ -37,12 +37,7 @@ export default function BancoHorasPage() {
   }, []);
 
   async function carregarSistema() {
-    const { data } = await supabase
-      .from("configuracoes_sistema")
-      .select("municipio_padrao_id")
-      .limit(1)
-      .single();
-
+    
    const usuarioLogado = JSON.parse(
   localStorage.getItem("usuarioLogado") || "{}"
 );

@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
+
 export default function GuarnicaoPage() {
   return (
     <main className="min-h-screen bg-[#02060f] text-white p-5">
-
+      
         <button
   onClick={() => window.history.back()}
   className="mb-5 bg-slate-900 border border-slate-800 px-4 py-2 rounded-2xl"
@@ -39,5 +41,6 @@ export default function GuarnicaoPage() {
         </div>
       </div>
     </main>
+    
   );
 }

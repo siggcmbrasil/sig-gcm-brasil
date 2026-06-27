@@ -90,6 +90,23 @@ export default function PainelDesenvolvedor() {
             <CardDev titulo="Ocorrências" valor={resumo.ocorrencias} icone="🚨" />
           </section>
         )}
+
+        <section className="mt-10">
+  <h2 className="text-3xl font-bold mb-6">
+    🛠 Ferramentas do Desenvolvedor
+  </h2>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+    <CardFerramenta titulo="Auditoria" href="/sistema/auditoria" icone="🧾" />
+    <CardFerramenta titulo="Backup" href="/sistema/backup" icone="💾" />
+    <CardFerramenta titulo="API Pública" href="/sistema/api-publica" icone="🌐" />
+    <CardFerramenta titulo="Integrações" href="/sistema/integracoes" icone="🔗" />
+    <CardFerramenta titulo="Importador" href="/sistema/importador-dados" icone="📥" />
+    <CardFerramenta titulo="Exportador" href="/sistema/exportador-dados" icone="📤" />
+    <CardFerramenta titulo="Migração" href="/sistema/migracao-dados" icone="🔄" />
+    <CardFerramenta titulo="Projetos" href="/sistema/projetos" icone="📁" />
+  </div>
+</section>
       </div>
     </ProtecaoModulo>
   );
@@ -110,5 +127,25 @@ function CardDev({
       <p className="text-slate-400 text-sm">{titulo}</p>
       <h2 className="text-4xl font-black mt-2">{valor}</h2>
     </div>
+  );
+}
+
+function CardFerramenta({
+  titulo,
+  href,
+  icone,
+}: {
+  titulo: string;
+  href: string;
+  icone: string;
+}) {
+  return (
+    <a href={href} className="card block hover:border-blue-500/40 transition">
+      <div className="text-4xl mb-4">{icone}</div>
+      <h3 className="text-xl font-black">{titulo}</h3>
+      <p className="text-slate-400 text-sm mt-2">
+        Acessar ferramenta do desenvolvedor.
+      </p>
+    </a>
   );
 }

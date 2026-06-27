@@ -387,3 +387,39 @@ body {
   display: inline-block;
   animation: marquee 35s linear infinite;
 }
+
+.label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: white;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid #C9A227;
+  background: #ffffff;
+  color: #07152E;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #C9A227;
+  box-shadow: 0 0 0 3px rgba(201,162,39,.20);
+}
+
+textarea.input {
+  min-height: 96px;
+}
+
+textarea.input{
+    min-height:140px;
+    padding:16px;
+}
+
+select.input{
+    cursor:pointer;
+}

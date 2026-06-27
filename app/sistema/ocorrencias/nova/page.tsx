@@ -3,6 +3,59 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { TIPOS_OCORRENCIA } from "@/lib/modelosOcorrencia";
+import { TIPOS_ENVOLVIDO } from "@/lib/modelosOcorrencia";
+import { CORES_VEICULO } from "@/lib/bases/cores";
+import { MARCAS_MODELOS_VEICULOS } from "@/lib/bases/veiculos";
+import SecaoOcorrencia from "@/components/ocorrencias/SecaoOcorrencia";
+import ResumoEtapas from "@/components/ocorrencias/ResumoEtapas";
+import EquipeOperacional from "@/components/ocorrencias/EquipeOperacional";
+import LocalizacaoOcorrencia from "@/components/ocorrencias/LocalizacaoOcorrencia";
+import EquipeEmpenhada from "@/components/ocorrencias/EquipeEmpenhada";
+import RecursosOcorrencia from "@/components/ocorrencias/RecursosOcorrencia";
+import EnvolvidosOcorrencia from "@/components/ocorrencias/EnvolvidosOcorrencia";
+import DadosOcorrencia from "@/components/ocorrencias/DadosOcorrencia";
+import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
+import { SITUACOES_VEICULO } from "@/lib/modelosOcorrencia";
+import {
+  buscarPessoaPorDocumento,
+  buscarVeiculoPorPlaca,
+  buscarVeiculoPorRenavam,
+} from "@/lib/consultas";
+import {
+  formatarCPF,
+  formatarTelefone,
+  formatarCEP,
+  formatarRG,
+  formatarCNH,
+  formatarPlaca,
+  formatarRenavam,
+  formatarChassi,
+  formatarDocumentoCondutor,
+} from "@/lib/formatadores";
+import {
+  CATEGORIAS_OBJETO,
+  TIPOS_DROGA,
+  TIPOS_DOCUMENTO,
+  TIPOS_FERRAMENTA,
+  TIPOS_ELETRONICO,
+  SITUACOES_OBJETO_GERAL,
+} from "@/lib/bases/objetos";
+
+import {
+  MARCAS_MODELOS_CELULARES,
+  CORES_CELULAR,
+  SITUACOES_CELULAR,
+} from "@/lib/bases/celulares";
+
+import {
+  TIPOS_ARMA_FOGO,
+  MARCAS_ARMA_FOGO,
+  MARCAS_MODELOS_ARMA_FOGO,
+  CALIBRES_ARMA_FOGO,
+  TIPOS_ARMA_BRANCA,
+  SITUACOES_ARMA,
+} from "@/lib/bases/armas";
 
 type Guarda = {
   id: number;
@@ -28,6 +81,7 @@ type LocalCadastrado = {
 
 type Envolvido = {
   nome: string;
+  tipo_documento: string;
   documento: string;
   telefone: string;
   endereco: string;
@@ -37,30 +91,46 @@ type Envolvido = {
 
 type VeiculoEnvolvido = {
   placa: string;
+  tipo_especie: string;
   marca: string;
   modelo: string;
   cor: string;
   ano: string;
   renavam: string;
+  chassi: string;
   proprietario: string;
   cpf_proprietario: string;
+  telefone_proprietario: string;
+email_proprietario: string;
+endereco_proprietario: string;
+cidade_proprietario: string;
+uf_proprietario: string;
+cep_proprietario: string;
   condutor: string;
+  tipo_documento_condutor: string;
   documento_condutor: string;
   situacao: string;
   observacao: string;
   situacao_consulta: string;
 };
 
-type ObjetoEnvolvido = {
+type ItemOcorrencia = {
   categoria: string;
+  subcategoria: string;
   descricao: string;
+
   marca: string;
   modelo: string;
+  cor: string;
+  imei: string;
+
   calibre: string;
   numeracao: string;
+
   quantidade: string;
   peso: string;
   unidade_peso: string;
+
   valor_estimado: string;
   procedencia: string;
   situacao: string;
@@ -108,7 +178,7 @@ export default function NovaOcorrencia() {
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
-  const [municipioId, setMunicipioId] = useState<number>(1);
+  const [municipioId, setMunicipioId] = useState<number | null>(null);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
   const [guarnicoes, setGuarnicoes] = useState<GuarnicaoCompleta[]>([]);
   const [guarnicaoId, setGuarnicaoId] = useState("");
@@ -118,35 +188,40 @@ export default function NovaOcorrencia() {
   const [historicoVeiculo, setHistoricoVeiculo] = useState<any[]>([]);
   const [historicoEnvolvido, setHistoricoEnvolvido] = useState<any[]>([]);
   const [abrirObjetos, setAbrirObjetos] = useState(true);
+  const [etapaAtual, setEtapaAtual] = useState<number>(1);
   const [gerandoNarrativa, setGerandoNarrativa] = useState(false);
-  const [objetosEnvolvidos, setObjetosEnvolvidos] =
-  useState<ObjetoEnvolvido[]>([
+  const [itensOcorrencia, setItensOcorrencia] =
+  useState<ItemOcorrencia[]>([
     {
   categoria: "",
+  subcategoria: "",
   descricao: "",
   marca: "",
   modelo: "",
+  cor: "",
+  imei: "",
   calibre: "",
   numeracao: "",
   quantidade: "1",
   situacao: "",
   observacao: "",
   peso: "",
-unidade_peso: "g",
-valor_estimado: "",
-procedencia: "",
+  unidade_peso: "g",
+  valor_estimado: "",
+  procedencia: "",
 },
   ]);
   const [envolvidos, setEnvolvidos] = useState<Envolvido[]>([
     
     {
-      nome: "",
-      documento: "",
-      telefone: "",
-      endereco: "",
-      tipo: "Vítima",
-      observacao: "",
-    },
+  nome: "",
+  tipo_documento: "CPF",
+  documento: "",
+  telefone: "",
+  endereco: "",
+  tipo: "Vítima",
+  observacao: "",
+},
     
   ]);
 
@@ -156,14 +231,23 @@ const [mostrarObjetos, setMostrarObjetos] = useState(false);
 const [veiculosEnvolvidos, setVeiculosEnvolvidos] = useState<VeiculoEnvolvido[]>([
   {
     placa: "",
+    tipo_especie: "",
     marca: "",
     modelo: "",
     cor: "",
     ano: "",
     renavam: "",
+    chassi: "",
     proprietario: "",
     cpf_proprietario: "",
+    telefone_proprietario: "",
+email_proprietario: "",
+endereco_proprietario: "",
+cidade_proprietario: "",
+uf_proprietario: "",
+cep_proprietario: "",
     condutor: "",
+    tipo_documento_condutor: "CPF",
     documento_condutor: "",
     situacao: "",
     observacao: "",
@@ -262,6 +346,7 @@ const [veiculosEnvolvidos, setVeiculosEnvolvidos] = useState<VeiculoEnvolvido[]>
       ...envolvidos,
       {
         nome: "",
+        tipo_documento: "CPF",
         documento: "",
         telefone: "",
         endereco: "",
@@ -285,6 +370,11 @@ const [veiculosEnvolvidos, setVeiculosEnvolvidos] = useState<VeiculoEnvolvido[]>
 ) {
     if (!tipo || !localId || !descricao) {
   alert("Preencha tipo, local e descrição.");
+  return;
+}
+
+if (!municipioId) {
+  alert("Município não identificado.");
   return;
 }
 
@@ -343,9 +433,7 @@ const hora = agora.toLocaleTimeString("pt-BR", {
     municipio_id: municipioId,
     guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
     viatura_id: viaturaId ? Number(viaturaId) : null,
-    guarda_responsavel_id: guardaResponsavelId
-  ? Number(guardaResponsavelId)
-  : null,
+    guarda_responsavel_id: guardaResponsavelId? Number(guardaResponsavelId): null,
     protocolo,
     tipo,
     status: statusPersonalizado || status,
@@ -358,7 +446,7 @@ const hora = agora.toLocaleTimeString("pt-BR", {
     numero,
     envolvidos: JSON.stringify(envolvidosValidos),
     veiculos_envolvidos: JSON.stringify(veiculosEnvolvidos),
-    armas_objetos: JSON.stringify(objetosEnvolvidos),
+    armas_objetos: JSON.stringify(itensOcorrencia),
     descricao,
     foto_url: fotosUrls[0] || "",
     fotos_urls: JSON.stringify(fotosUrls),
@@ -374,6 +462,94 @@ const hora = agora.toLocaleTimeString("pt-BR", {
       alert("Erro ao salvar ocorrência.");
       return;
     }
+
+    for (const veiculo of veiculosEnvolvidos) {
+  if (!veiculo.placa && !veiculo.renavam) continue;
+
+  const { data: existente } = await supabase
+    .from("veiculos_abordados")
+    .select("id")
+    .eq("municipio_id", municipioId)
+    .or(`placa.eq.${veiculo.placa},renavam.eq.${veiculo.renavam}`)
+    .maybeSingle();
+
+  if (existente) {
+    await supabase
+      .from("veiculos_abordados")
+      .update({
+        placa: veiculo.placa,
+        tipo_especie: veiculo.tipo_especie,
+        marca: veiculo.marca,
+        modelo: veiculo.modelo,
+        ano: veiculo.ano,
+        cor: veiculo.cor,
+        renavam: veiculo.renavam,
+        chassi: veiculo.chassi,
+        proprietario: veiculo.proprietario,
+        cpf_proprietario: veiculo.cpf_proprietario,
+        telefone_proprietario: veiculo.telefone_proprietario,
+        situacao: veiculo.situacao,
+        observacao: veiculo.observacao,
+      })
+      .eq("id", existente.id);
+  } else {
+    await supabase.from("veiculos_abordados").insert({
+      municipio_id: municipioId,
+      placa: veiculo.placa,
+      tipo_especie: veiculo.tipo_especie,
+      marca: veiculo.marca,
+      modelo: veiculo.modelo,
+      ano: veiculo.ano,
+      cor: veiculo.cor,
+      renavam: veiculo.renavam,
+      chassi: veiculo.chassi,
+      proprietario: veiculo.proprietario,
+      cpf_proprietario: veiculo.cpf_proprietario,
+      telefone_proprietario: veiculo.telefone_proprietario,
+      situacao: veiculo.situacao,
+      observacao: veiculo.observacao,
+    });
+  }
+}
+
+for (const pessoa of envolvidosValidos) {
+  if (!pessoa.documento) continue;
+
+  const { data: existente } = await supabase
+    .from("pessoas_abordadas")
+    .select("id")
+    .eq("municipio_id", municipioId)
+    .eq("documento", pessoa.documento)
+    .maybeSingle();
+
+  if (existente) {
+    await supabase
+      .from("pessoas_abordadas")
+      .update({
+        nome: pessoa.nome,
+        tipo_documento: pessoa.tipo_documento,
+        documento: pessoa.documento,
+        telefone: pessoa.telefone,
+        endereco: pessoa.endereco,
+        observacao: pessoa.observacao,
+      })
+      .eq("id", existente.id);
+  } else {
+    await supabase.from("pessoas_abordadas").insert({
+      municipio_id: municipioId,
+      nome: pessoa.nome,
+      tipo_documento: pessoa.tipo_documento,
+      documento: pessoa.documento,
+      telefone: pessoa.telefone,
+      endereco: pessoa.endereco,
+      local,
+      data,
+      hora,
+      guarda: equipeEmpenhada,
+      observacao: pessoa.observacao,
+    });
+  }
+}
 
     alert("Ocorrência salva com sucesso!");
     router.push("/sistema/ocorrencias");
@@ -423,40 +599,48 @@ async function carregarChamadoOrigem(id: string) {
   }
 
   setTipo(data.tipo || "");
-  setLocal(data.local || "");
-  setDescricao(
-    `Ocorrência gerada a partir do chamado ${data.protocolo}.
+setLocal(data.local || "");
+setBairro(data.bairro || "");
+setNumero(data.numero || "");
+
+setDescricao(
+  `Ocorrência gerada a partir do chamado ${data.protocolo}.
 
 Solicitante: ${data.solicitante || "-"}
 Telefone: ${data.telefone || "-"}
+Local: ${data.local || "-"}
+Bairro: ${data.bairro || "-"}
+Número: ${data.numero || "S/N"}
+Referência: ${data.referencia || "-"}
 Prioridade: ${data.prioridade || "-"}
 Observação: ${data.observacao || "-"}`
-  );
+);
 
-  setEnvolvidos([
-    {
-      nome: data.solicitante || "",
-      documento: "",
-      telefone: data.telefone || "",
-      endereco: "",
-      tipo: "Solicitante",
-      observacao: data.observacao || "",
-    },
-  ]);
+setEnvolvidos([
+  {
+    nome: data.solicitante || "",
+    tipo_documento: "CPF",
+    documento: "",
+    telefone: data.telefone || "",
+    endereco: data.local || "",
+    tipo: "Solicitante",
+    observacao: data.observacao || "",
+  },
+]);
 }
 
 async function carregarSistema() {
-  const { data } = await supabase
-    .from("configuracoes_sistema")
-    .select("municipio_padrao_id")
-    .limit(1)
-    .single();
-
+  
   const usuarioLogado = JSON.parse(
   localStorage.getItem("usuarioLogado") || "{}"
 );
 
 const id = usuarioLogado.municipio_id;
+
+if (!id) {
+  alert("Município não identificado.");
+  return;
+}
 
   const { data: configEscala } = await supabase
   .from("escala_operacional_config")
@@ -537,17 +721,17 @@ if (
 
   setMunicipioId(id);
 
-  carregarGuardas(id);
-  carregarGuarnicoes(id);
-  carregarViaturas(id);
-  carregarLocais(id);
+  await carregarGuardas(id);
+await carregarGuarnicoes(id);
+await carregarViaturas(id);
+await carregarLocais(id);
 }
 
   useEffect(() => {
-  carregarSistema();
+  void carregarSistema();
 
   if (chamadoId) {
-    carregarChamadoOrigem(chamadoId);
+    void carregarChamadoOrigem(chamadoId);
   }
 }, [chamadoId]);
 
@@ -556,14 +740,23 @@ function adicionarVeiculo() {
     ...veiculosEnvolvidos,
     {
       placa: "",
+      tipo_especie: "",
       marca: "",
       modelo: "",
       cor: "",
       ano: "",
       renavam: "",
+      chassi: "",
       proprietario: "",
       cpf_proprietario: "",
+      telefone_proprietario: "",
+email_proprietario: "",
+endereco_proprietario: "",
+cidade_proprietario: "",
+uf_proprietario: "",
+cep_proprietario: "",
       condutor: "",
+      tipo_documento_condutor: "CPF",
       documento_condutor: "",
       situacao: "",
       observacao: "",
@@ -594,47 +787,49 @@ function atualizarVeiculo(
 }
 
 function adicionarObjeto() {
-  setObjetosEnvolvidos([
-    ...objetosEnvolvidos,
+  setItensOcorrencia([
+    ...itensOcorrencia,
     {
   categoria: "",
+  subcategoria: "",
   descricao: "",
   marca: "",
   modelo: "",
+  cor: "",
+  imei: "",
   calibre: "",
   numeracao: "",
   quantidade: "1",
   situacao: "",
   observacao: "",
   peso: "",
-unidade_peso: "g",
-valor_estimado: "",
-procedencia: "",
+  unidade_peso: "g",
+  valor_estimado: "",
+  procedencia: "",
 },
   ]);
 }
 
 function removerObjeto(index: number) {
-  if (objetosEnvolvidos.length === 1) {
+  if (itensOcorrencia.length === 1) {
     alert("É necessário manter pelo menos um item.");
     return;
   }
 
-  setObjetosEnvolvidos(
-    objetosEnvolvidos.filter((_, i) => i !== index)
+  setItensOcorrencia(
+    itensOcorrencia.filter((_, i) => i !== index)
   );
 }
 
-function atualizarObjeto(
+function atualizarItem(
   index: number,
-  campo: keyof ObjetoEnvolvido,
+  campo: keyof ItemOcorrencia,
   valor: string
 ) {
-  const lista = [...objetosEnvolvidos];
+  const lista = [...itensOcorrencia];
   lista[index][campo] = valor;
-  setObjetosEnvolvidos(lista);
-}
-
+  setItensOcorrencia(lista);
+} 
 async function gerarNarrativaIA() {
   if (!tipo) {
     alert("Selecione o tipo da ocorrência antes de gerar a narrativa.");
@@ -747,7 +942,7 @@ function gerarNarrativaAutomatica() {
     .map((v) => `${v.placa ? `placa ${v.placa}` : "veículo sem placa"}${v.marca ? `, marca ${v.marca}` : ""}${v.modelo ? `, modelo ${v.modelo}` : ""}${v.cor ? `, cor ${v.cor}` : ""}${v.condutor ? `, conduzido por ${v.condutor}` : ""}`)
     .join("; ");
 
-  const objetosTexto = objetosEnvolvidos
+  const objetosTexto = itensOcorrencia
     .filter((o) => o.categoria || o.descricao || o.quantidade)
     .map((o) => `${o.categoria || "objeto"}${o.descricao ? `: ${o.descricao}` : ""}${o.quantidade ? `, quantidade ${o.quantidade}` : ""}${o.peso ? `, peso ${o.peso} ${o.unidade_peso}` : ""}`)
     .join("; ");
@@ -774,60 +969,73 @@ function removerFoto(index: number) {
   );
 }
 
+async function preencherPessoa(index: number, documento: string) {
+  if (!municipioId) return;
+
+  const pessoa = await buscarPessoaPorDocumento(
+    municipioId,
+    documento
+  );
+
+  if (!pessoa) return;
+
+  atualizarEnvolvido(index, "nome", pessoa.nome || "");
+  atualizarEnvolvido(index, "telefone", pessoa.telefone || "");
+  atualizarEnvolvido(index, "endereco", pessoa.endereco || "");
+}
+
+async function preencherVeiculo(index: number, placa: string) {
+  if (!municipioId) return;
+
+  const veiculo = await buscarVeiculoPorPlaca(
+    municipioId,
+    placa
+  );
+
+  if (!veiculo) return;
+
+  atualizarVeiculo(index, "marca", veiculo.marca || "");
+  atualizarVeiculo(index, "modelo", veiculo.modelo || "");
+  atualizarVeiculo(index, "ano", veiculo.ano || "");
+  atualizarVeiculo(index, "cor", veiculo.cor || "");
+  atualizarVeiculo(index, "renavam", veiculo.renavam || "");
+  atualizarVeiculo(index, "chassi", veiculo.chassi || "");
+  atualizarVeiculo(index, "proprietario", veiculo.proprietario || "");
+  atualizarVeiculo(
+    index,
+    "cpf_proprietario",
+    veiculo.cpf_proprietario || ""
+  );
+  atualizarVeiculo(
+    index,
+    "telefone_proprietario",
+    veiculo.telefone_proprietario || ""
+  );
+}
+
   return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-3xl font-bold">Nova Ocorrência</h1>
-        <p className="text-slate-400">
-          Preencha os dados da ocorrência registrada pela GCM.
-        </p>
-      </header>
+    <div className="min-h-screen bg-[#07152E] p-6 md:p-8">
+<header className="mb-8 border-b border-[#d6a93b] pb-6">
+  <h1 className="text-4xl font-black text-white">
+    Nova Ocorrência
+  </h1>
 
-      <form className="card space-y-6">
-        <h2 className="text-2xl font-bold">
-  Dados da Ocorrência
-</h2>
+  <p className="mt-2 text-slate-300">
+    Preencha os dados para registrar uma nova ocorrência no sistema.
+  </p>
+</header>
 
-<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-  <button
-    type="button"
-    onClick={() => {
-      setMostrarVeiculos(false);
-      setMostrarObjetos(false);
-    }}
-    className={`p-3 rounded-xl border font-semibold ${
-      !mostrarVeiculos && !mostrarObjetos
-        ? "bg-blue-600 border-blue-500"
-        : "bg-slate-900 border-slate-700"
-    }`}
-  >
-    Ocorrência Comum
-  </button>
+<form className="w-full max-w-full overflow-hidden rounded-2xl border border-[#C9A227] bg-[#0D1B34] p-8 space-y-8">
+        
+  <DadosOcorrencia>
 
-  <button
-    type="button"
-    onClick={() => setMostrarVeiculos(!mostrarVeiculos)}
-    className={`p-3 rounded-xl border font-semibold ${
-      mostrarVeiculos
-        ? "bg-green-600 border-green-500"
-        : "bg-slate-900 border-slate-700"
-    }`}
-  >
-    🚗 Veículos {mostrarVeiculos ? "✓" : ""}
-  </button>
-
-  <button
-    type="button"
-    onClick={() => setMostrarObjetos(!mostrarObjetos)}
-    className={`p-3 rounded-xl border font-semibold ${
-      mostrarObjetos
-        ? "bg-red-600 border-red-500"
-        : "bg-slate-900 border-slate-700"
-    }`}
-  >
-    📦 Objetos {mostrarObjetos ? "✓" : ""}
-  </button>
-</div>
+<RecursosOcorrencia
+  mostrarVeiculos={mostrarVeiculos}
+  setMostrarVeiculos={setMostrarVeiculos}
+  mostrarObjetos={mostrarObjetos}
+  setMostrarObjetos={setMostrarObjetos}
+  fotosLength={fotos.length}
+/>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
@@ -837,29 +1045,14 @@ function removerFoto(index: number) {
   value={tipo}
   onChange={(e) => setTipo(e.target.value)}
 >
-              <option value="">Selecione</option>
-              <option value="Perturbação do sossego">Perturbação do sossego</option>
-              <option value="Apoio ao cidadão">Apoio ao cidadão</option>
-              <option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
-              <option value="Apoio a outro órgão">Apoio a outro órgão</option>
-              <option value="Fiscalização">Fiscalização</option>
-              <option value="Acidente">Acidente</option>
-              <option value="Conselho Tutelar">Conselho Tutelar</option>
-              <option value="CAPS">CAPS</option>
-              <option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
-              <option value="Apoio em evento cultural">Apoio em evento cultural</option>
-              <option value="Apoio em evento religioso">Apoio em evento religioso</option>
-              <option value="Ronda escolar">Ronda escolar</option>
-              <option value="Apoio à escola">Apoio à escola</option>
-              <option value="Apoio à saúde">Apoio à saúde</option>
-              <option value="Apoio ao CRAS">Apoio ao CRAS</option>
-              <option value="Apoio à fiscalização municipal">Apoio à fiscalização municipal</option>
-              <option value="Averiguação de denúncia">Averiguação de denúncia</option>
-              <option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
-              <option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
-              <option value="Orientação ao público">Orientação ao público</option>
-              <option value="Outro">Outro</option>
-            </select>
+  <option value="">Selecione</option>
+
+  {TIPOS_OCORRENCIA.map((item) => (
+    <option key={item} value={item}>
+      {item}
+    </option>
+  ))}
+</select>
           </div>
 
           <div>
@@ -891,372 +1084,87 @@ function removerFoto(index: number) {
 </div>
 
         </div>
-        <div className="border-t border-slate-800 pt-6">
-  <h2 className="text-2xl font-bold mb-4">
-    Equipe Operacional
-  </h2>
+        
 
-  <label className="label">Guarnição empenhada</label>
+</DadosOcorrencia>
 
-  <select
-    className="input"
-    value={guarnicaoId}
-    onChange={(e) => setGuarnicaoId(e.target.value)}
+  <>
+    <EquipeOperacional
+      guarnicoes={guarnicoes}
+      guardas={guardas}
+      viaturas={viaturas}
+      guarnicaoId={guarnicaoId}
+      setGuarnicaoId={setGuarnicaoId}
+      guardaResponsavelId={guardaResponsavelId}
+      setGuardaResponsavelId={setGuardaResponsavelId}
+      viaturaId={viaturaId}
+      setViaturaId={setViaturaId}
+      setViaturaEmpenhada={setViaturaEmpenhada}
+    />
+
+    <EquipeEmpenhada
+      guardas={guardas}
+      guardasSelecionados={guardasSelecionados}
+      setGuardasSelecionados={setGuardasSelecionados}
+    />
+  </>
+        
+  <LocalizacaoOcorrencia
+    bairro={bairro}
+    setBairro={setBairro}
+    numero={numero}
+    setNumero={setNumero}
+    localId={localId}
+    setLocalId={setLocalId}
+    setLocal={setLocal}
+    locais={locais}
+  />
+
+         <EnvolvidosOcorrencia
+    envolvidos={envolvidos}
+    adicionarEnvolvido={adicionarEnvolvido}
+    preencherPessoa={preencherPessoa}
+    removerEnvolvido={removerEnvolvido}
+    atualizarEnvolvido={atualizarEnvolvido}
+    consultarHistoricoEnvolvido={consultarHistoricoEnvolvido}
+    historicoEnvolvido={historicoEnvolvido}
+  />
+
+       {mostrarVeiculos && (
+  <SecaoOcorrencia
+    titulo="Veículos"
+    descricao="Cadastre os veículos relacionados à ocorrência."
   >
-    <option value="">Selecione a guarnição</option>
-
-    {guarnicoes.map((g) => (
-      <option key={g.id} value={g.id}>
-        {g.nome}
-      </option>
-    ))}
-  </select>
-</div>
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-  <div>
-    <label className="label">Guarda responsável</label>
-
-    <select
-      className="input"
-      value={guardaResponsavelId}
-      onChange={(e) => setGuardaResponsavelId(e.target.value)}
-    >
-      <option value="">Selecione o guarda responsável</option>
-
-      {guardas.map((guarda) => (
-        <option key={guarda.id} value={guarda.id}>
-          {guarda.nome} • {guarda.matricula}
-        </option>
-      ))}
-    </select>
-  </div>
-
-  <div>
-    <label className="label">Viatura empenhada</label>
-
-    <select
-      className="input"
-      value={viaturaId}
-      onChange={(e) => {
-        const id = e.target.value;
-        setViaturaId(id);
-
-        const viatura = viaturas.find((v) => String(v.id) === id);
-        setViaturaEmpenhada(viatura?.prefixo || "");
-      }}
-    >
-      <option value="">Selecione a viatura</option>
-
-      {viaturas.map((viatura) => (
-        <option key={viatura.id} value={viatura.id}>
-          {viatura.prefixo} - {viatura.modelo}
-        </option>
-      ))}
-    </select>
-  </div>
-</div>
-
-        <div className="border-t border-slate-800 pt-6 space-y-4">
-          <h2 className="text-2xl font-bold">Equipe Empenhada</h2>
-
-          <div>
-  <label className="label">Selecionar guardas</label>
-
-  <select
-    className="input"
-    onChange={(e) => {
-      const nome = e.target.value;
-
-      if (!nome) return;
-
-      if (!guardasSelecionados.includes(nome)) {
-        setGuardasSelecionados([
-          ...guardasSelecionados,
-          nome,
-        ]);
-      }
-
-      e.target.value = "";
-    }}
-  >
-    <option value="">
-      Selecione ou busque guardas para adicionar
-    </option>
-
-    {guardas.map((guarda) => (
-      <option
-        key={guarda.id}
-        value={guarda.nome}
-      >
-        {guarda.nome} • {guarda.cargo}
-      </option>
-    ))}
-  </select>
-</div>
-
-<div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-  {guardasSelecionados.map((nome) => {
-    const guarda = guardas.find(
-      (g) => g.nome === nome
-    );
-
-    if (!guarda) return null;
-    
-    return (
-      <div
-        key={guarda.id}
-        className="relative bg-slate-950/40 border border-slate-700 rounded-xl p-4"
-      >
-        <button
-          type="button"
-          onClick={() =>
-            setGuardasSelecionados(
-              guardasSelecionados.filter(
-                (g) => g !== guarda.nome
-              )
-            )
-          }
-          className="absolute top-2 right-3 text-red-400 text-xl"
-        >
-          ×
-        </button>
-
-        <p className="font-bold">
-          {guarda.nome}
-        </p>
-
-        <p className="text-sm text-slate-400">
-          {guarda.matricula} • {guarda.cargo}
-        </p>
-
-        <p className="text-xs text-blue-400">
-          {guarda.status}
-        </p>
-      </div>
-    );
-  })}
-</div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Campo label="Bairro" valor={bairro} setValor={setBairro} placeholder="Ex: Centro" />
-          <div>
-  <select
-  className="input"
-  value={localId}
-  onChange={(e) => {
-    const id = e.target.value;
-
-    setLocalId(id);
-
-    const localSelecionado = locais.find(
-      (l) => String(l.id) === id
-    );
-
-    setLocal(localSelecionado?.nome || "");
-  }}
->
-    <option value="">
-      Selecione um local cadastrado
-    </option>
-
-    {locais.map((item) => (
-      <option
-  key={item.id}
-  value={item.id}
->
-  {item.nome} - {item.tipo}
-</option>
-    ))}
-  </select>
-</div>
-          <Campo label="Número" valor={numero} setValor={setNumero} placeholder="S/N" />
-        </div>
-
-        <div className="border-t border-slate-800 pt-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
-            <div>
-              <h2 className="text-2xl font-bold">
-  Envolvidos ({envolvidos.length})
-</h2>
-              <p className="text-slate-400 text-sm">
-                Cadastre uma ou mais pessoas relacionadas à ocorrência.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              onClick={adicionarEnvolvido}
-              className="bg-green-700 hover:bg-green-800 px-5 py-3 rounded-xl font-semibold"
-            >
-              + Adicionar Envolvido
-            </button>
-          </div>
-
-          <div className="space-y-5">
-            {envolvidos.map((pessoa, index) => (
-              <div
-                key={index}
-                className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-4"
-              >
-                <div className="flex justify-between items-center">
-                  <h3 className="font-bold text-lg">Envolvido {index + 1}</h3>
-
-                  <button
-                    type="button"
-                    onClick={() => removerEnvolvido(index)}
-                    className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm"
-                  >
-                    Remover
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
-  <div className="md:col-span-4">
-    <Campo
-      label="Nome completo"
-      valor={pessoa.nome}
-      setValor={(valor) => atualizarEnvolvido(index, "nome", valor)}
-      placeholder="Nome do envolvido"
-    />
-  </div>
-
-  <div className="md:col-span-2">
-    <Campo
-  label="Documento"
-  valor={pessoa.documento}
-  setValor={(valor) => {
-    atualizarEnvolvido(index, "documento", valor);
-    consultarHistoricoEnvolvido(valor);
-  }}
-  placeholder="RG, CPF ou outro"
-/>
-
-{historicoEnvolvido.length > 0 && pessoa.documento && (
-  <div className="md:col-span-12 bg-purple-950/30 border border-purple-700 rounded-xl p-4">
-    <p className="font-bold text-purple-400">
-      👤 Histórico encontrado para este envolvido
-    </p>
-
-    <p className="text-sm text-slate-300 mt-1">
-      {historicoEnvolvido.length} ocorrência(s) relacionada(s).
-    </p>
-
-    <div className="mt-3 space-y-2">
-      {historicoEnvolvido.slice(0, 3).map((oc) => (
-        <div
-          key={oc.id}
-          className="bg-slate-950/50 border border-slate-700 rounded-lg p-3 text-sm"
-        >
-          <p className="font-semibold">{oc.protocolo}</p>
-          <p className="text-slate-400">
-            Data: {oc.data} • Status: {oc.status}
-          </p>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
-
-  </div>
-
-  <div className="md:col-span-2">
-    <Campo
-      label="Telefone"
-      valor={pessoa.telefone}
-      setValor={(valor) => atualizarEnvolvido(index, "telefone", valor)}
-      placeholder="(75) 99999-9999"
-    />
-  </div>
-
-  <div className="md:col-span-2">
-    <label className="label">Tipo</label>
-    <select
-      className="input"
-      value={pessoa.tipo}
-      onChange={(e) =>
-        atualizarEnvolvido(index, "tipo", e.target.value)
-      }
-    >
-      <option value="Vítima">Vítima</option>
-      <option value="Autor">Autor</option>
-      <option value="Testemunha">Testemunha</option>
-      <option value="Solicitante">Solicitante</option>
-      <option value="Condutor">Condutor</option>
-      <option value="Outro">Outro</option>
-    </select>
-  </div>
-
-  <div className="md:col-span-6">
-    <Campo
-      label="Endereço"
-      valor={pessoa.endereco}
-      setValor={(valor) => atualizarEnvolvido(index, "endereco", valor)}
-      placeholder="Endereço do envolvido"
-    />
-  </div>
-
-  <div className="md:col-span-6">
-    <label className="label">Observação</label>
-    <textarea
-      className="input h-24 resize-none"
-      value={pessoa.observacao}
-      onChange={(e) =>
-        atualizarEnvolvido(index, "observacao", e.target.value)
-      }
-      placeholder="Informações adicionais sobre este envolvido"
-    />
-  </div>
-</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {mostrarVeiculos && (
-  <div className="border-t border-slate-800 pt-6">
-    <div className="flex justify-between items-center mb-4">
-      <button
-  type="button"
-  onClick={() => setAbrirVeiculos(!abrirVeiculos)}
-  className="w-full flex justify-between items-center text-2xl font-bold"
->
-  <span>
-    🚗 Veículos Envolvidos ({veiculosEnvolvidos.length})
-  </span>
-
-  <span>
-    {abrirVeiculos ? "▼" : "▶"}
-  </span>
-</button>
+    <div className="flex items-center justify-between mb-5">
+      <h3 className="text-lg font-semibold text-slate-700">
+        Lista de veículos ({veiculosEnvolvidos.length})
+      </h3>
 
       <button
         type="button"
         onClick={adicionarVeiculo}
-        className="px-4 py-2 rounded-xl border border-blue-600 text-blue-400 hover:bg-blue-950/40 font-semibold"
+        className="rounded-lg bg-[#07152e] px-4 py-2 text-white hover:bg-[#0d2146]"
       >
-        + Adicionar outro veículo
+        Adicionar veículo
       </button>
     </div>
 
-    {abrirVeiculos && (
-  <div className="space-y-5">
-    {veiculosEnvolvidos.map((veiculo, index) => (
+    <div className="space-y-5">
+      {veiculosEnvolvidos.map((veiculo, index) => (
         <div
-          key={index}
-          className="border border-slate-700 rounded-2xl p-5 bg-slate-950/30"
-        >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold">
-              🚘 Veículo {index + 1}
-            </h3>
+  key={index}
+  className="rounded-xl border border-[#C9A227] bg-[#07152E] p-5"
+>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-bold text-[#C9A227]">
+  Veículo {index + 1}
+</h3>
 
             {veiculosEnvolvidos.length > 1 && (
               <button
                 type="button"
                 onClick={() => removerVeiculo(index)}
-                className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm"
+                className="rounded-lg border border-red-500 px-3 py-2 text-sm font-semibold text-red-400 hover:bg-red-950/40"
               >
                 Remover
               </button>
@@ -1267,23 +1175,21 @@ function removerFoto(index: number) {
             <div className="md:col-span-2">
               <label className="label">Placa</label>
               <input
-                className="input"
-                placeholder="ABC1D23"
-                value={veiculo.placa}
-                onChange={(e) => {
-  const placa = e.target.value
-    .toUpperCase()
-    .slice(0, 8);
+  className="input uppercase"
+  placeholder="ABC1234"
+  maxLength={7}
+  value={veiculo.placa}
+  onChange={async (e) => {
+  const placa = formatarPlaca(e.target.value);
 
-  atualizarVeiculo(
-    index,
-    "placa",
-    placa
-  );
+  atualizarVeiculo(index, "placa", placa);
 
-  consultarHistoricoVeiculo(placa);
+  if (placa.length === 7) {
+    await preencherVeiculo(index, placa);
+    await consultarHistoricoVeiculo(placa);
+  }
 }}
-              />
+/>
             </div>
 
             {historicoVeiculo.length > 0 && (
@@ -1300,8 +1206,7 @@ function removerFoto(index: number) {
       {historicoVeiculo.slice(0, 3).map((oc) => (
         <div
           key={oc.id}
-          className="bg-slate-950/50 border border-slate-700 rounded-lg p-3 text-sm"
-        >
+                  >
           <p className="font-semibold">{oc.protocolo}</p>
           <p className="text-slate-400">
             Data: {oc.data} • Status: {oc.status}
@@ -1312,46 +1217,127 @@ function removerFoto(index: number) {
   </div>
 )}
 
-            <div className="md:col-span-3">
-              <label className="label">Marca</label>
-              <input
-                className="input"
-                placeholder="Ex: Fiat"
-                value={veiculo.marca}
-                onChange={(e) =>
-                  atualizarVeiculo(index, "marca", e.target.value)
-                }
-              />
-            </div>
+<div className="md:col-span-3">
+  <label className="label">Tipo / Espécie</label>
+
+  <select
+    className="input"
+    value={veiculo.tipo_especie}
+    onChange={(e) =>
+      atualizarVeiculo(index, "tipo_especie", e.target.value)
+    }
+  >
+    <option value="">Selecione</option>
+    <option value="Automóvel">Automóvel</option>
+    <option value="Motocicleta">Motocicleta</option>
+    <option value="Caminhonete">Caminhonete</option>
+    <option value="Camioneta">Camioneta</option>
+    <option value="Caminhão">Caminhão</option>
+    <option value="Ônibus">Ônibus</option>
+    <option value="Micro-ônibus">Micro-ônibus</option>
+    <option value="Van">Van</option>
+    <option value="Reboque">Reboque</option>
+    <option value="Semirreboque">Semirreboque</option>
+    <option value="Trator">Trator</option>
+    <option value="Bicicleta">Bicicleta</option>
+    <option value="Embarcação">Embarcação</option>
+    <option value="Outro">Outro</option>
+  </select>
+</div>
 
             <div className="md:col-span-3">
-              <label className="label">Modelo</label>
-              <input
-                className="input"
-                placeholder="Ex: Uno"
-                value={veiculo.modelo}
-                onChange={(e) =>
-                  atualizarVeiculo(index, "modelo", e.target.value)
-                }
-              />
-            </div>
+  <label className="label">Marca</label>
+
+  <select
+    className="input"
+    value={veiculo.marca}
+    onChange={(e) => {
+      atualizarVeiculo(index, "marca", e.target.value);
+      atualizarVeiculo(index, "modelo", "");
+    }}
+  >
+    <option value="">Selecione</option>
+
+    {Object.keys(VEICULOS_POR_TIPO[veiculo.tipo_especie] || {}).map((marca) => (
+      <option key={marca} value={marca}>
+        {marca}
+      </option>
+    ))}
+  </select>
+</div>
+
+            <div className="md:col-span-3">
+  <label className="label">Modelo</label>
+
+  <select
+    className="input"
+    value={veiculo.modelo}
+    onChange={(e) =>
+      atualizarVeiculo(index, "modelo", e.target.value)
+    }
+    disabled={!veiculo.tipo_especie || !veiculo.marca}
+  >
+    <option value="">Selecione</option>
+
+    {(VEICULOS_POR_TIPO[veiculo.tipo_especie]?.[veiculo.marca] || []).map((modelo) => (
+      <option key={modelo} value={modelo}>
+        {modelo}
+      </option>
+    ))}
+
+    <option value="OUTRO">Outro</option>
+  </select>
+
+  {veiculo.modelo === "OUTRO" && (
+    <input
+      className="input mt-2"
+      placeholder="Digite o modelo"
+      onChange={(e) =>
+        atualizarVeiculo(index, "modelo", e.target.value)
+      }
+    />
+  )}
+</div>
 
             <div className="md:col-span-1">
-              <label className="label">Ano</label>
-              <input
-                className="input"
-                placeholder="2024"
-                maxLength={4}
-                value={veiculo.ano}
-                onChange={(e) =>
-                  atualizarVeiculo(
-                    index,
-                    "ano",
-                    e.target.value.replace(/\D/g, "").slice(0, 4)
-                  )
-                }
-              />
-            </div>
+  <label className="label">Ano</label>
+
+  <select
+    className="input"
+    value={veiculo.ano}
+    onChange={(e) =>
+      atualizarVeiculo(index, "ano", e.target.value)
+    }
+  >
+    <option value="">Selecione</option>
+
+    {Array.from(
+      { length: new Date().getFullYear() + 2 - 1975 },
+      (_, i) => new Date().getFullYear() + 1 - i
+    ).map((ano) => (
+      <option key={ano} value={String(ano)}>
+        {ano}
+      </option>
+    ))}
+
+    <option value="OUTRO">Outro</option>
+  </select>
+
+  {veiculo.ano === "OUTRO" && (
+    <input
+      className="input mt-2"
+      placeholder="Digite o ano"
+      maxLength={4}
+      onChange={(e) =>
+        atualizarVeiculo(
+          index,
+          "ano",
+          e.target.value.replace(/\D/g, "").slice(0, 4)
+        )
+      }
+    />
+  )}
+</div>
 
             <div className="md:col-span-3">
               <label className="label">Cor</label>
@@ -1363,36 +1349,73 @@ function removerFoto(index: number) {
                 }
               >
                 <option value="">Selecione</option>
-                <option value="Branco">Branco</option>
-                <option value="Preto">Preto</option>
-                <option value="Prata">Prata</option>
-                <option value="Cinza">Cinza</option>
-                <option value="Vermelho">Vermelho</option>
-                <option value="Azul">Azul</option>
-                <option value="Verde">Verde</option>
-                <option value="Amarelo">Amarelo</option>
-                <option value="Marrom">Marrom</option>
-                <option value="Outro">Outro</option>
+
+{CORES_VEICULO.map((cor) => (
+  <option key={cor} value={cor}>
+    {cor}
+  </option>
+))}
               </select>
             </div>
 
             <div className="md:col-span-3">
               <label className="label">Renavam</label>
               <input
-                className="input"
-                placeholder="00000000000"
-                value={veiculo.renavam}
-                onChange={(e) =>
-                  atualizarVeiculo(
-                    index,
-                    "renavam",
-                    e.target.value.replace(/\D/g, "").slice(0, 11)
-                  )
-                }
-              />
+  className="input"
+  placeholder="00000000000"
+  inputMode="numeric"
+  maxLength={11}
+  value={veiculo.renavam}
+  onChange={async (e) => {
+  const renavam = formatarRenavam(e.target.value);
+
+  atualizarVeiculo(index, "renavam", renavam);
+
+  if (renavam.length === 11 && municipioId) {
+    const veiculo = await buscarVeiculoPorRenavam(
+      municipioId,
+      renavam
+    );
+
+    if (veiculo) {
+      atualizarVeiculo(index, "placa", veiculo.placa || "");
+      atualizarVeiculo(index, "tipo_especie", veiculo.tipo_especie || "");
+      atualizarVeiculo(index, "marca", veiculo.marca || "");
+      atualizarVeiculo(index, "modelo", veiculo.modelo || "");
+      atualizarVeiculo(index, "ano", veiculo.ano || "");
+      atualizarVeiculo(index, "cor", veiculo.cor || "");
+      atualizarVeiculo(index, "chassi", veiculo.chassi || "");
+      atualizarVeiculo(index, "proprietario", veiculo.proprietario || "");
+      atualizarVeiculo(index, "cpf_proprietario", veiculo.cpf_proprietario || "");
+      atualizarVeiculo(index, "telefone_proprietario", veiculo.telefone_proprietario || "");
+    }
+  }
+}}
+/>
             </div>
 
             <div className="md:col-span-3">
+  <label className="label">Chassi</label>
+  <input
+    className="input uppercase"
+    placeholder="17 caracteres"
+    maxLength={17}
+    value={veiculo.chassi}
+    onChange={(e) =>
+  atualizarVeiculo(
+    index,
+    "chassi",
+    formatarChassi(e.target.value)
+  )
+}
+  />
+</div>
+
+            <div className="md:col-span-3">
+<div className="md:col-span-12 mt-6 border-t border-[#C9A227]/50 pt-5">  <h4 className="text-base font-semibold text-white">
+    Condutor
+  </h4>
+</div>
               <label className="label">Condutor</label>
               <input
                 className="input"
@@ -1404,70 +1427,228 @@ function removerFoto(index: number) {
               />
             </div>
 
-            <div className="md:col-span-3">
-  <label className="label">Documento do Condutor</label>
-  <input
+            <div className="md:col-span-2">
+  <label className="label">Tipo do Documento</label>
+
+  <select
     className="input"
-    placeholder="RG, CPF ou CNH"
-    value={veiculo.documento_condutor || ""}
+    value={veiculo.tipo_documento_condutor}
     onChange={(e) =>
       atualizarVeiculo(
         index,
-        "documento_condutor",
+        "tipo_documento_condutor",
         e.target.value
       )
     }
+  >
+    <option value="CPF">CPF</option>
+    <option value="CNH">CNH</option>
+    <option value="RG">RG</option>
+    <option value="PASSAPORTE">Passaporte</option>
+    <option value="OUTRO">Outro</option>
+  </select>
+</div>
+
+<div className="md:col-span-4">
+  <label className="label">Documento do Condutor</label>
+
+  <input
+    className="input"
+    value={veiculo.documento_condutor}
+    placeholder={
+      veiculo.tipo_documento_condutor === "CPF"
+        ? "000.000.000-00"
+        : veiculo.tipo_documento_condutor === "CNH"
+        ? "Número da CNH"
+        : veiculo.tipo_documento_condutor === "RG"
+        ? "Número do RG"
+        : "Documento"
+    }
+    onChange={(e) => {
+      let valor = e.target.value;
+
+     valor = formatarDocumentoCondutor(
+  veiculo.tipo_documento_condutor,
+  valor
+);
+
+      atualizarVeiculo(index, "documento_condutor", valor);
+    }}
   />
 </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Proprietário</label>
-              <input
-                className="input"
-                placeholder="Nome do proprietário"
-                value={veiculo.proprietario}
-                onChange={(e) =>
-                  atualizarVeiculo(index, "proprietario", e.target.value)
-                }
-              />
-            </div>
+<div className="md:col-span-12 mt-6 border-t border-[#C9A227]/50 pt-5">  <h4 className="text-lg font-bold text-[#C9A227]">
+    Proprietário
+  </h4>
 
-            <div className="md:col-span-3">
-              <label className="label">CPF do Proprietário</label>
-              <input
-                className="input"
-                placeholder="000.000.000-00"
-                value={veiculo.cpf_proprietario}
-                onChange={(e) => {
-                  let v = e.target.value.replace(/\D/g, "").slice(0, 11);
-                  v = v.replace(/(\d{3})(\d)/, "$1.$2");
-                  v = v.replace(/(\d{3})(\d)/, "$1.$2");
-                  v = v.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+  <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+    <div className="md:col-span-4">
+      <label className="label">Nome do Proprietário</label>
+      <input
+        className="input"
+        placeholder="Nome completo"
+        value={veiculo.proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(index, "proprietario", e.target.value)
+        }
+      />
+    </div>
 
-                  atualizarVeiculo(index, "cpf_proprietario", v);
-                }}
-              />
-            </div>
+    <div className="md:col-span-3">
+      <label className="label">CPF do Proprietário</label>
+      <input
+        className="input"
+        placeholder="000.000.000-00"
+        inputMode="numeric"
+        maxLength={14}
+        value={veiculo.cpf_proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(
+            index,
+            "cpf_proprietario",
+            formatarCPF(e.target.value)
+          )
+        }
+      />
+    </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Situação do Veículo</label>
-              <select
-                className="input"
-                value={veiculo.situacao}
-                onChange={(e) =>
-                  atualizarVeiculo(index, "situacao", e.target.value)
-                }
-              >
+    <div className="md:col-span-3">
+      <label className="label">Telefone</label>
+      <input
+  className="input"
+  placeholder="(75) 99999-9999"
+  maxLength={15}
+  value={veiculo.telefone_proprietario}
+  onChange={(e) => {
+    let valor = e.target.value
+      formatarTelefone(e.target.value)
+
+    valor = valor
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2");
+
+    atualizarVeiculo(index, "telefone_proprietario", valor);
+  }}
+/>
+    </div>
+
+    <div className="md:col-span-2">
+      <label className="label">UF</label>
+      <input
+        className="input uppercase"
+        placeholder="BA"
+        maxLength={2}
+        value={veiculo.uf_proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(
+            index,
+            "uf_proprietario",
+            e.target.value.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 2)
+          )
+        }
+      />
+    </div>
+
+    <div className="md:col-span-4">
+      <label className="label">E-mail</label>
+      <input
+        className="input"
+        placeholder="email@exemplo.com"
+        value={veiculo.email_proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(
+            index,
+            "email_proprietario",
+            e.target.value
+          )
+        }
+      />
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">CEP</label>
+      <input
+  className="input"
+  placeholder="00000-000"
+  maxLength={9}
+  value={veiculo.cep_proprietario}
+  onChange={(e) => {
+    let valor = e.target.value
+      .replace(/\D/g, "")
+      .slice(0, 8);
+
+    valor = valor.replace(/^(\d{5})(\d)/, "$1-$2");
+
+    atualizarVeiculo(index, "cep_proprietario", valor);
+  }}
+/>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Cidade</label>
+      <input
+        className="input"
+        placeholder="Cidade"
+        value={veiculo.cidade_proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(
+            index,
+            "cidade_proprietario",
+            e.target.value
+          )
+        }
+      />
+    </div>
+
+    <div className="md:col-span-12">
+      <label className="label">Endereço</label>
+      <input
+        className="input"
+        placeholder="Rua, número, bairro"
+        value={veiculo.endereco_proprietario}
+        onChange={(e) =>
+          atualizarVeiculo(
+            index,
+            "endereco_proprietario",
+            e.target.value
+          )
+        }
+      />
+    </div>
+  </div>
+</div>
+
+<div className="md:col-span-12 mt-6 border-t border-[#C9A227]/50 pt-5">  <h4 className="text-lg font-bold text-[#C9A227]">
+    Situação
+  </h4>
+</div>
+
+<div className="md:col-span-3">
+  <label className="label">Situação do Veículo</label>
+
+  <select
+    className="input"
+    value={veiculo.situacao}
+    onChange={(e) =>
+      atualizarVeiculo(index, "situacao", e.target.value)
+    }
+  >
 
                 <option value="">Selecione</option>
-                <option value="ABORDADO">Abordado</option>
-                <option value="ACIDENTE">Acidente</option>
-                <option value="APREENDIDO">Apreendido</option>
-                <option value="RECUPERADO">Recuperado</option>
-                <option value="ABANDONADO">Abandonado</option>
-                <option value="FURTO_ROUBO">Furto/Roubo</option>
+
+{SITUACOES_VEICULO.map((situacao) => (
+  <option key={situacao} value={situacao}>
+    {situacao}
+  </option>
+))}
               </select>
             </div>
+
+            <div className="md:col-span-12 mt-6 border-t border-[#C9A227] pt-4">
+  <h4 className="text-lg font-bold text-[#C9A227]">
+    Condutor
+  </h4>
+</div>
 
 <div className="md:col-span-3">
   <label className="label">Situação da Consulta</label>
@@ -1507,50 +1688,46 @@ function removerFoto(index: number) {
             </div>
           </div>
         </div>
-      ))}
-        </div>
-  )}
-</div>
+              ))}
+      </div>
+  </SecaoOcorrencia>
 )}
 
 {mostrarObjetos && (
-  <div className="border-t border-slate-800 pt-6">
-    <div className="flex justify-between items-center mb-4">
-      <button
-  type="button"
-  onClick={() => setAbrirObjetos(!abrirObjetos)}
-  className="w-full flex justify-between items-center text-2xl font-bold"
->
-  <span>📦 Objetos Envolvidos ({objetosEnvolvidos.length})</span>
-  <span>{abrirObjetos ? "▼" : "▶"}</span>
-</button>
+  <SecaoOcorrencia
+    titulo="Itens"
+    descricao="Cadastre os objetos relacionados à ocorrência."
+  >
+    <div className="mb-5 flex items-center justify-between">
+      <h3 className="text-lg font-semibold text-white">
+        Lista de itens ({itensOcorrencia.length})
+      </h3>
 
       <button
         type="button"
         onClick={adicionarObjeto}
-        className="px-4 py-2 rounded-xl border border-red-600 text-red-400 hover:bg-red-950/40 font-semibold"
+        className="rounded-lg border border-[#C9A227] px-5 py-2 font-semibold text-white hover:bg-[#C9A227]/10 transition"
       >
-        + Adicionar item
+        Adicionar item
       </button>
     </div>
 
-    {abrirObjetos && (
-  <div className="space-y-5">
-    {objetosEnvolvidos.map((item, index) => (
+    <div className="space-y-5">
+      {itensOcorrencia.map((item, index) => (
         <div
           key={index}
-          className="border border-slate-700 rounded-2xl p-5 bg-slate-950/30"
+          className="rounded-xl border border-[#C9A227] bg-[#07152E] p-5"
         >
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-xl font-bold">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-xl font-bold text-[#C9A227]">
               Item {index + 1}
             </h3>
 
-            {objetosEnvolvidos.length > 1 && (
+            {itensOcorrencia.length > 1 && (
               <button
                 type="button"
                 onClick={() => removerObjeto(index)}
-                className="bg-red-700 hover:bg-red-800 px-3 py-2 rounded-lg text-sm"
+                className="rounded-lg border border-red-500 px-3 py-2 text-sm font-semibold text-red-400 hover:bg-red-950/40"
               >
                 Remover
               </button>
@@ -1558,141 +1735,401 @@ function removerFoto(index: number) {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="md:col-span-12 border-t border-[#C9A227]/50 pt-5">
+              <h4 className="text-lg font-bold text-[#C9A227]">
+                Dados do item
+              </h4>
+            </div>
+
             <div className="md:col-span-3">
-              <label className="label">Categoria</label>
+              <label className="label">Tipo do Item</label>
               <select
                 className="input"
                 value={item.categoria}
-                onChange={(e) =>
-                  atualizarObjeto(index, "categoria", e.target.value)
-                }
+                onChange={(e) => {
+                  atualizarItem(index, "categoria", e.target.value);
+                  atualizarItem(index, "subcategoria", "");
+                  atualizarItem(index, "marca", "");
+                  atualizarItem(index, "modelo", "");
+                  atualizarItem(index, "calibre", "");
+                  atualizarItem(index, "cor", "");
+                  atualizarItem(index, "imei", "");
+                  atualizarItem(index, "peso", "");
+                  atualizarItem(index, "numeracao", "");
+                }}
               >
                 <option value="">Selecione</option>
 
-<option value="CELULAR">📱 Celular</option>
-<option value="DINHEIRO">💰 Dinheiro</option>
-<option value="DOCUMENTO">📄 Documento</option>
-<option value="BICICLETA">🚲 Bicicleta</option>
-<option value="ARMA_BRANCA">🔪 Arma Branca</option>
-<option value="ARMA_FOGO">🔫 Arma de Fogo</option>
-<option value="ENTORPECENTE">🌿 Entorpecente</option>
-<option value="FERRAMENTA">🛠 Ferramenta</option>
-<option value="PRODUTO">📦 Produto</option>
-<option value="PECA_VEICULAR">🚗 Peça Veicular</option>
-<option value="OUTRO">📋 Outro</option>
+                {CATEGORIAS_OBJETO.map((categoria) => (
+                  <option key={categoria} value={categoria}>
+                    {categoria}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Marca</label>
-              <input
-                className="input"
-                value={item.marca}
-                onChange={(e) =>
-                  atualizarObjeto(index, "marca", e.target.value)
-                }
-              />
-            </div>
+{item.categoria === "Celular" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Marca</label>
+      <select
+        className="input"
+        value={item.marca}
+        onChange={(e) => {
+          atualizarItem(index, "marca", e.target.value);
+          atualizarItem(index, "modelo", "");
+        }}
+      >
+        <option value="">Selecione</option>
+        {Object.keys(MARCAS_MODELOS_CELULARES).map((marca) => (
+          <option key={marca} value={marca}>{marca}</option>
+        ))}
+        <option value="OUTRO">Outra</option>
+      </select>
+    </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Modelo</label>
-              <input
-                className="input"
-                value={item.modelo}
-                onChange={(e) =>
-                  atualizarObjeto(index, "modelo", e.target.value)
-                }
-              />
-            </div>
+    <div className="md:col-span-3">
+      <label className="label">Modelo</label>
+      <select
+        className="input"
+        value={item.modelo}
+        onChange={(e) => atualizarItem(index, "modelo", e.target.value)}
+        disabled={!item.marca}
+      >
+        <option value="">Selecione</option>
+        {(MARCAS_MODELOS_CELULARES[item.marca] || []).map((modelo) => (
+          <option key={modelo} value={modelo}>{modelo}</option>
+        ))}
+        <option value="OUTRO">Outro</option>
+      </select>
+    </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Calibre</label>
-              <input
-                className="input"
-                placeholder="Ex: .38, 9mm"
-                value={item.calibre}
-                onChange={(e) =>
-                  atualizarObjeto(index, "calibre", e.target.value)
-                }
-              />
-            </div>
+    <div className="md:col-span-2">
+      <label className="label">Cor</label>
+      <select
+        className="input"
+        value={item.cor}
+        onChange={(e) => atualizarItem(index, "cor", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {CORES_CELULAR.map((cor) => (
+          <option key={cor} value={cor}>{cor}</option>
+        ))}
+      </select>
+    </div>
 
-            <div className="md:col-span-3">
-              <label className="label">Numeração</label>
-              <input
-                className="input"
-                value={item.numeracao}
-                onChange={(e) =>
-                  atualizarObjeto(index, "numeracao", e.target.value)
-                }
-              />
-            </div>
+    <div className="md:col-span-4">
+      <label className="label">IMEI</label>
+      <input
+        className="input"
+        placeholder="15 dígitos"
+        value={item.imei}
+        onChange={(e) =>
+          atualizarItem(index, "imei", e.target.value.replace(/\D/g, "").slice(0, 15))
+        }
+      />
+    </div>
+  </>
+)}
 
-            <div className="md:col-span-2">
-              <label className="label">Quantidade</label>
-              <input
-                className="input"
-                value={item.quantidade}
-                onChange={(e) =>
-                  atualizarObjeto(
-                    index,
-                    "quantidade",
-                    e.target.value.replace(/\D/g, "")
-                  )
-                }
-              />
-            </div>
+{item.categoria === "Arma de fogo" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo da Arma</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_ARMA_FOGO.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
 
-            <div className="md:col-span-2">
-  <label className="label">Peso</label>
-  <input
-    className="input"
-    value={item.peso}
-    onChange={(e) =>
-      atualizarObjeto(index, "peso", e.target.value)
-    }
-  />
-</div>
+    <div className="md:col-span-3">
+      <label className="label">Marca</label>
+      <select
+        className="input"
+        value={item.marca}
+        onChange={(e) => {
+          atualizarItem(index, "marca", e.target.value);
+          atualizarItem(index, "modelo", "");
+        }}
+      >
+        <option value="">Selecione</option>
+        {MARCAS_ARMA_FOGO.map((marca) => (
+          <option key={marca} value={marca}>{marca}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Modelo</label>
+      <select
+        className="input"
+        value={item.modelo}
+        onChange={(e) => atualizarItem(index, "modelo", e.target.value)}
+        disabled={!item.marca}
+      >
+        <option value="">Selecione</option>
+        {(MARCAS_MODELOS_ARMA_FOGO[item.marca] || []).map((modelo) => (
+          <option key={modelo} value={modelo}>{modelo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Calibre</label>
+      <select
+        className="input"
+        value={item.calibre}
+        onChange={(e) => atualizarItem(index, "calibre", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {CALIBRES_ARMA_FOGO.map((calibre) => (
+          <option key={calibre} value={calibre}>{calibre}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Numeração</label>
+      <input
+        className="input uppercase"
+        value={item.numeracao}
+        onChange={(e) =>
+          atualizarItem(index, "numeracao", e.target.value.toUpperCase())
+        }
+      />
+    </div>
+  </>
+)}
+
+{item.categoria === "Arma branca" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_ARMA_BRANCA.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Marca</label>
+      <input
+        className="input"
+        placeholder="Se houver"
+        value={item.marca}
+        onChange={(e) => atualizarItem(index, "marca", e.target.value)}
+      />
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Tamanho / Medida</label>
+      <input
+        className="input"
+        placeholder="Ex: 20 cm"
+        value={item.modelo}
+        onChange={(e) => atualizarItem(index, "modelo", e.target.value)}
+      />
+    </div>
+  </>
+)}
+
+{item.categoria === "Droga" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo da Droga</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_DROGA.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-2">
+      <label className="label">Peso</label>
+      <input
+        className="input"
+        value={item.peso}
+        onChange={(e) => atualizarItem(index, "peso", e.target.value)}
+      />
+    </div>
+
+    <div className="md:col-span-2">
+      <label className="label">Unidade</label>
+      <select
+        className="input"
+        value={item.unidade_peso}
+        onChange={(e) => atualizarItem(index, "unidade_peso", e.target.value)}
+      >
+        <option value="g">Gramas</option>
+        <option value="kg">Quilos</option>
+        <option value="mg">Miligramas</option>
+        <option value="un">Unidades</option>
+      </select>
+    </div>
+  </>
+)}
+
+{item.categoria === "Documento" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo do Documento</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_DOCUMENTO.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-4">
+      <label className="label">Número / Identificação</label>
+      <input
+        className="input"
+        value={item.numeracao}
+        onChange={(e) => atualizarItem(index, "numeracao", e.target.value)}
+      />
+    </div>
+  </>
+)}
+
+{item.categoria === "Dinheiro" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        <option value="Espécie">Espécie</option>
+        <option value="Moeda">Moeda</option>
+        <option value="Cheque">Cheque</option>
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Valor</label>
+      <input
+        className="input"
+        placeholder="R$ 0,00"
+        value={item.valor_estimado}
+        onChange={(e) => atualizarItem(index, "valor_estimado", e.target.value)}
+      />
+    </div>
+  </>
+)}
+
+{item.categoria === "Ferramenta" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo da Ferramenta</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_FERRAMENTA.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Marca</label>
+      <input
+        className="input"
+        value={item.marca}
+        onChange={(e) => atualizarItem(index, "marca", e.target.value)}
+      />
+    </div>
+  </>
+)}
+
+{item.categoria === "Eletrônico" && (
+  <>
+    <div className="md:col-span-3">
+      <label className="label">Tipo do Eletrônico</label>
+      <select
+        className="input"
+        value={item.subcategoria}
+        onChange={(e) => atualizarItem(index, "subcategoria", e.target.value)}
+      >
+        <option value="">Selecione</option>
+        {TIPOS_ELETRONICO.map((tipo) => (
+          <option key={tipo} value={tipo}>{tipo}</option>
+        ))}
+      </select>
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Marca</label>
+      <input
+        className="input"
+        value={item.marca}
+        onChange={(e) => atualizarItem(index, "marca", e.target.value)}
+      />
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Modelo</label>
+      <input
+        className="input"
+        value={item.modelo}
+        onChange={(e) => atualizarItem(index, "modelo", e.target.value)}
+      />
+    </div>
+
+    <div className="md:col-span-3">
+      <label className="label">Numeração / Série</label>
+      <input
+        className="input"
+        value={item.numeracao}
+        onChange={(e) => atualizarItem(index, "numeracao", e.target.value)}
+      />
+    </div>
+  </>
+)}
 
 <div className="md:col-span-2">
-  <label className="label">Unidade</label>
-
-  <select
-    className="input"
-    value={item.unidade_peso}
-    onChange={(e) =>
-      atualizarObjeto(index, "unidade_peso", e.target.value)
-    }
-  >
-    <option value="g">Gramas</option>
-    <option value="kg">Quilos</option>
-    <option value="mg">Miligramas</option>
-    <option value="un">Unidades</option>
-  </select>
-</div>
-
-<div className="md:col-span-3">
-  <label className="label">Valor Estimado</label>
-
+  <label className="label">Quantidade</label>
   <input
     className="input"
-    placeholder="R$ 0,00"
-    value={item.valor_estimado}
+    value={item.quantidade}
     onChange={(e) =>
-      atualizarObjeto(index, "valor_estimado", e.target.value)
+      atualizarItem(index, "quantidade", e.target.value.replace(/\D/g, ""))
     }
   />
 </div>
 
 <div className="md:col-span-3">
   <label className="label">Procedência</label>
-
   <select
     className="input"
     value={item.procedencia}
-    onChange={(e) =>
-      atualizarObjeto(index, "procedencia", e.target.value)
-    }
+    onChange={(e) => atualizarItem(index, "procedencia", e.target.value)}
   >
     <option value="">Selecione</option>
     <option value="APREENDIDO">Apreendido</option>
@@ -1703,67 +2140,65 @@ function removerFoto(index: number) {
   </select>
 </div>
 
-            <div className="md:col-span-4">
-              <label className="label">Situação</label>
-              <select
-                className="input"
-                value={item.situacao}
-                onChange={(e) =>
-                  atualizarObjeto(index, "situacao", e.target.value)
-                }
-              >
-                <option value="">Selecione</option>
-                <option value="APREENDIDO">Apreendido</option>
-                <option value="ENTREGUE">Entregue</option>
-                <option value="ENCAMINHADO">Encaminhado</option>
-                <option value="ENCONTRADO">Encontrado</option>
-                <option value="RECOLHIDO">Recolhido</option>
-              </select>
-            </div>
+<div className="md:col-span-3">
+  <label className="label">Situação</label>
+  <select
+    className="input"
+    value={item.situacao}
+    onChange={(e) => atualizarItem(index, "situacao", e.target.value)}
+  >
+    <option value="">Selecione</option>
+    {SITUACOES_OBJETO_GERAL.map((situacao) => (
+      <option key={situacao} value={situacao}>{situacao}</option>
+    ))}
+  </select>
+</div>
 
-            <div className="md:col-span-12">
-              <label className="label">Observação</label>
-              <textarea
-                className="input h-24 resize-none"
-                value={item.observacao}
-                onChange={(e) =>
-                  atualizarObjeto(index, "observacao", e.target.value)
-                }
-              />
-            </div>
+<div className="md:col-span-12">
+  <label className="label">Descrição / Observação</label>
+  <textarea
+    className="input h-24 resize-none"
+    value={item.observacao}
+    onChange={(e) => atualizarItem(index, "observacao", e.target.value)}
+  />
+</div>
           </div>
         </div>
-      ))}
-        </div>
-  )}
-</div>
+            ))}
+    </div>
+  </SecaoOcorrencia>
 )}
 
-<div className="flex justify-end">
-  <button
-    type="button"
-    onClick={gerarNarrativaIA}
-    disabled={gerandoNarrativa}
-    className="px-4 py-2 rounded-xl bg-purple-700 hover:bg-purple-800 font-semibold disabled:opacity-50"
-  >
-    {gerandoNarrativa ? "Gerando narrativa..." : "✨ Gerar Narrativa"}
-  </button>
-</div>
+<SecaoOcorrencia
+  titulo="Narrativa"
+  descricao="Descreva os fatos ou utilize a IA para gerar automaticamente."
+>
+  <div className="mb-4 flex justify-end">
+    <button
+      type="button"
+      onClick={gerarNarrativaIA}
+      disabled={gerandoNarrativa}
+      className="rounded-lg border border-[#C9A227] px-4 py-2 font-semibold text-white hover:bg-[#C9A227]/10 disabled:opacity-50"
+    >
+      {gerandoNarrativa ? "Gerando narrativa..." : "Gerar narrativa automática"}
+    </button>
+  </div>
 
-        <div>
+  <div>
+    <label className="label">Descrição da ocorrência</label>
+    <textarea
+      className="input h-36 resize-none"
+      placeholder="Descreva o que aconteceu..."
+      value={descricao}
+      onChange={(e) => setDescricao(e.target.value)}
+    />
+  </div>
+</SecaoOcorrencia>
 
-         <label className="label">Descrição da ocorrência</label>
-          <textarea
-            className="input h-36 resize-none"
-            placeholder="Descreva o que aconteceu..."
-            value={descricao}
-            onChange={(e) => setDescricao(e.target.value)}
-          />
-        </div>
-
-        <div>
-  <label className="label">Fotos da ocorrência</label>
-
+<SecaoOcorrencia
+  titulo="Fotos"
+  descricao="Adicione imagens que auxiliem na comprovação dos fatos."
+>
   <input
     type="file"
     accept="image/*"
@@ -1774,33 +2209,33 @@ function removerFoto(index: number) {
 
   {fotos.length > 0 && (
     <div className="mt-4">
-      <p className="text-sm text-green-400 mb-3">
+      <p className="mb-3 text-sm text-slate-300">
         {fotos.length} foto(s) selecionada(s)
       </p>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
         {fotos.map((foto, index) => (
           <div
             key={index}
-            className="border border-slate-700 rounded-xl overflow-hidden"
+            className="overflow-hidden rounded-lg border border-[#C9A227] bg-[#07152E]"
           >
-<div className="flex justify-end p-2">
-  <button
-    type="button"
-    onClick={() => removerFoto(index)}
-    className="bg-red-700 hover:bg-red-800 w-8 h-8 rounded-lg flex items-center justify-center"
-  >
-    ❌
-  </button>
-</div>
+            <div className="flex justify-end p-2">
+              <button
+                type="button"
+                onClick={() => removerFoto(index)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500 text-red-400 hover:bg-red-950/40"
+              >
+                ×
+              </button>
+            </div>
 
             <img
               src={URL.createObjectURL(foto)}
               alt={`Foto ${index + 1}`}
-              className="w-full h-40 object-cover"
+              className="h-40 w-full object-cover"
             />
 
-            <div className="p-2 text-xs text-slate-400 truncate">
+            <div className="truncate p-2 text-xs text-slate-300">
               {foto.name}
             </div>
           </div>
@@ -1808,39 +2243,41 @@ function removerFoto(index: number) {
       </div>
     </div>
   )}
+</SecaoOcorrencia>
+
+<div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#C9A227] pt-6">
+  <button
+    type="button"
+    onClick={() => router.push("/sistema/ocorrencias")}
+    className="rounded-lg border border-[#C9A227] px-6 py-3 font-semibold text-white hover:bg-[#C9A227]/10"
+  >
+    Cancelar
+  </button>
+
+  <div className="flex flex-wrap gap-3">
+    <button
+      type="button"
+      onClick={() => {
+        setStatus("RASCUNHO");
+        salvarOcorrencia("RASCUNHO");
+      }}
+      disabled={salvando}
+      className="rounded-lg border border-[#C9A227] px-6 py-3 font-semibold text-white hover:bg-[#C9A227]/10 disabled:opacity-50"
+    >
+      Salvar Rascunho
+    </button>
+
+    <button
+      type="button"
+      onClick={() => salvarOcorrencia()}
+      disabled={salvando}
+      className="rounded-lg bg-[#C9A227] px-6 py-3 font-bold text-[#07152E] hover:bg-[#D9B64A] disabled:opacity-50"
+    >
+      {salvando ? "Salvando..." : "Salvar Registro"}
+    </button>
+  </div>
 </div>
-
-        <div className="flex flex-col md:flex-row justify-end gap-3 border-t border-slate-800 pt-6">
-          <button
-            type="button"
-            onClick={() => router.push("/sistema/ocorrencias")}
-            className="px-5 py-3 rounded-xl bg-slate-700 hover:bg-slate-600"
-          >
-            Cancelar
-          </button>
-
-          <button
-  type="button"
-  onClick={() => {
-    setStatus("RASCUNHO");
-    salvarOcorrencia("RASCUNHO");
-  }}
-  disabled={salvando}
-  className="px-5 py-3 rounded-xl bg-yellow-600 hover:bg-yellow-700 font-semibold disabled:opacity-50"
->
-  💾 Salvar Rascunho
-</button>
-
-          <button
-            type="button"
-            onClick={() => salvarOcorrencia()}
-            disabled={salvando}
-            className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 font-semibold disabled:opacity-50"
-          >
-            {salvando ? "Salvando..." : "Salvar Ocorrência"}
-          </button>
-        </div>
-      </form>
+</form>
     </div>
   );
 }

@@ -60,6 +60,19 @@ const cards = [
     href: "/sistema/aniversariantes",
     descricao: "Aniversários dos servidores",
   },
+
+  {
+  titulo: "Patrimônio",
+  icone: HardHat,
+  href: "/sistema/patrimonio",
+  descricao: "Cadastro de bens e patrimônio institucional",
+},
+{
+  titulo: "Armamento",
+  icone: Shield,
+  href: "/sistema/gestao-armamento",
+  descricao: "Cadastro e controle de armamentos",
+},
 ];
 
 export default function CadastrosPage() {

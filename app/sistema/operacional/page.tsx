@@ -7,8 +7,8 @@ import {
   Map,
   MapPin,
   Route,
-  Bot,
-  Scale,
+  Shield,
+  Users,
 } from "lucide-react";
 
 const cards = [
@@ -16,49 +16,87 @@ const cards = [
     titulo: "Ocorrências",
     icone: AlertTriangle,
     href: "/sistema/ocorrencias",
-    descricao: "Registro e gerenciamento de ocorrências",
+    descricao: "Registro, consulta e acompanhamento de ocorrências.",
+  },
+  {
+    titulo: "Ocorrência Expressa",
+    icone: AlertTriangle,
+    href: "/sistema/ocorrencias/expressa",
+    descricao: "Registro rápido de ocorrência durante o serviço.",
   },
   {
     titulo: "Chamados",
     icone: PhoneCall,
     href: "/sistema/chamados",
-    descricao: "Atendimentos e solicitações",
+    descricao: "Atendimento de solicitações e demandas recebidas.",
   },
   {
     titulo: "Patrulhamento",
     icone: CarFront,
     href: "/sistema/patrulhamento",
-    descricao: "Controle operacional das equipes",
+    descricao: "Controle de rondas, equipes, viaturas e áreas patrulhadas.",
   },
+
+{
+  titulo: "Pessoas",
+  icone: Users,
+  href: "/sistema/pessoas",
+  descricao: "Cadastro e histórico de pessoas abordadas.",
+},
+{
+  titulo: "Veículos",
+  icone: CarFront,
+  href: "/sistema/veiculos",
+  descricao: "Cadastro e histórico de veículos abordados.",
+},
+
   {
     titulo: "Mapa Operacional",
     icone: Map,
     href: "/sistema/mapa-operacional",
-    descricao: "Visualização geográfica em tempo real",
+    descricao: "Visualização geográfica de ocorrências e pontos operacionais.",
   },
   {
-    titulo: "Patrulhamento GPS",
+    titulo: "Localização em Tempo Real",
     icone: MapPin,
     href: "/sistema/localizacao",
-    descricao: "Monitoramento de localização",
+    descricao: "Monitoramento de equipes e viaturas em serviço.",
   },
   {
     titulo: "Plano de Rondas",
     icone: Route,
     href: "/sistema/rondas",
-    descricao: "Planejamento das rondas operacionais",
+    descricao: "Planejamento, execução e controle de rondas preventivas.",
   },
   {
-    titulo: "IA Operacional",
-    icone: Bot,
-    href: "/sistema/ia",
-    descricao: "Assistente inteligente operacional",
+    titulo: "Blitze e Barreiras",
+    icone: Shield,
+    href: "/sistema/blitze",
+    descricao: "Registro de barreiras, abordagens e operações de fiscalização.",
   },
   {
-    titulo: "Legislação",
-    icone: Scale,
-    href: "/sistema/legislacao",
-    descricao: "Consulta rápida à legislação",
+    titulo: "Operações Especiais",
+    icone: Shield,
+    href: "/sistema/operacoes-especiais",
+    descricao: "Controle de operações planejadas e missões especiais.",
+  },
+  {
+    titulo: "Eventos Operacionais",
+    icone: Route,
+    href: "/sistema/eventos-operacionais",
+    descricao: "Apoio operacional em eventos públicos e institucionais.",
+  },
+  {
+    titulo: "Escoltas",
+    icone: CarFront,
+    href: "/sistema/escoltas",
+    descricao: "Controle de escoltas, deslocamentos e apoios oficiais.",
+  },
+  {
+    titulo: "Apoios",
+    icone: PhoneCall,
+    href: "/sistema/apoios",
+    descricao: "Registro de apoios a órgãos, secretarias e instituições.",
   },
 ];
 

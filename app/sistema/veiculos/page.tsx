@@ -2,12 +2,32 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import BotaoAcao from "@/components/BotaoAcao";
+import { Pencil, Trash2 } from "lucide-react";
+import { CORES_VEICULO } from "@/lib/bases/cores";
+import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
+import {
+  formatarPlaca,
+  formatarRenavam,
+  formatarChassi,
+  formatarCPF,
+  formatarTelefone,
+} from "@/lib/formatadores";
 
 type Veiculo = {
   id: number;
   placa: string;
+  marca: string | null;
   modelo: string | null;
+  ano: string | null;
   cor: string | null;
+  renavam: string | null;
+  chassi: string | null;
+  proprietario: string | null;
+  cpf_proprietario: string | null;
+  telefone_proprietario: string | null;
+  tipo_especie: string | null;
+  situacao: string | null;
   condutor: string | null;
   documento: string | null;
   local: string;
@@ -29,6 +49,24 @@ export default function VeiculosAbordados() {
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
   const [observacao, setObservacao] = useState("");
+
+  const [marca, setMarca] = useState("");
+const [ano, setAno] = useState("");
+const [renavam, setRenavam] = useState("");
+const [chassi, setChassi] = useState("");
+const [proprietario, setProprietario] = useState("");
+const [cpfProprietario, setCpfProprietario] = useState("");
+const [telefoneProprietario, setTelefoneProprietario] = useState("");
+const [tipoEspecie, setTipoEspecie] = useState("");
+const [situacao, setSituacao] = useState("");
+
+const [veiculosCadastrados, setVeiculosCadastrados] =
+  useState<any[]>([]);
+
+const [veiculoId, setVeiculoId] =
+  useState("");
+
+  const [editandoId, setEditandoId] = useState<number | null>(null);
 
   const [carregando, setCarregando] = useState(true);
   const usuarioLogado =
@@ -70,18 +108,85 @@ const podeEditar = perfilUsuario !== "CONSULTA";
       return;
     }
 
+    if (editandoId) {
+  const { error } = await supabase
+    .from("veiculos_abordados")
+    .update({
+      placa,
+marca,
+modelo,
+ano,
+cor,
+renavam,
+chassi,
+proprietario,
+cpf_proprietario: cpfProprietario,
+telefone_proprietario: telefoneProprietario,
+tipo_especie: tipoEspecie,
+situacao,
+condutor,
+documento,
+local,
+data,
+hora,
+observacao,
+    })
+    .eq("id", editandoId)
+    .eq("municipio_id", usuarioLogado.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atualizar veículo.");
+    return;
+  }
+
+  alert("Veículo atualizado com sucesso!");
+
+  setEditandoId(null);
+  setPlaca("");
+  setModelo("");
+  setCor("");
+  setCondutor("");
+  setDocumento("");
+  setLocal("");
+  setData("");
+  setHora("");
+  setObservacao("");
+  setMarca("");
+setAno("");
+setRenavam("");
+setChassi("");
+setProprietario("");
+setCpfProprietario("");
+setTelefoneProprietario("");
+setTipoEspecie("");
+setSituacao("");
+
+  carregarVeiculos();
+  return;
+}
+
     const { error } = await supabase.from("veiculos_abordados").insert([
       {
         municipio_id: usuarioLogado.municipio_id,
         placa,
-        modelo,
-        cor,
-        condutor,
-        documento,
-        local,
-        data,
-        hora,
-        observacao,
+marca,
+modelo,
+ano,
+cor,
+renavam,
+chassi,
+proprietario,
+cpf_proprietario: cpfProprietario,
+telefone_proprietario: telefoneProprietario,
+tipo_especie: tipoEspecie,
+situacao,
+condutor,
+documento,
+local,
+data,
+hora,
+observacao,
       },
     ]);
 
@@ -102,9 +207,53 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     setData("");
     setHora("");
     setObservacao("");
+    setMarca("");
+setAno("");
+setRenavam("");
+setChassi("");
+setProprietario("");
+setCpfProprietario("");
+setTelefoneProprietario("");
+setTipoEspecie("");
+setSituacao("");
 
     carregarVeiculos();
   }
+
+function editarVeiculo(veiculo: Veiculo) {
+  if (!podeEditar) {
+    alert("Você não possui permissão para editar veículos.");
+    return;
+  }
+
+  setEditandoId(veiculo.id);
+
+  setPlaca(veiculo.placa || "");
+  setModelo(veiculo.modelo || "");
+  setCor(veiculo.cor || "");
+  setCondutor(veiculo.condutor || "");
+  setLocal(veiculo.local || "");
+  setData(veiculo.data || "");
+  setHora(veiculo.hora || "");
+  setObservacao(veiculo.observacao || "");
+  setMarca(veiculo.marca || "");
+setAno(veiculo.ano || "");
+setRenavam(veiculo.renavam || "");
+setChassi(veiculo.chassi || "");
+setProprietario(veiculo.proprietario || "");
+setCpfProprietario(
+  veiculo.cpf_proprietario || ""
+);
+setTelefoneProprietario(
+  veiculo.telefone_proprietario || ""
+);
+setTipoEspecie(
+  veiculo.tipo_especie || ""
+);
+setSituacao(
+  veiculo.situacao || ""
+);
+}
 
   async function excluirVeiculo(id: number) {
     if (!podeEditar) {
@@ -141,7 +290,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     const texto = `
       ${veiculo.placa}
       ${veiculo.modelo || ""}
+      ${veiculo.marca || ""}
       ${veiculo.cor || ""}
+      ${veiculo.renavam || ""}
+      ${veiculo.proprietario || ""}
+      ${veiculo.cpf_proprietario || ""}
+      ${veiculo.situacao || ""}
       ${veiculo.condutor || ""}
       ${veiculo.documento || ""}
       ${veiculo.local}
@@ -195,23 +349,161 @@ const podeEditar = perfilUsuario !== "CONSULTA";
             <Campo
               label="Placa"
               valor={placa}
-              setValor={(valor) => setPlaca(valor.toUpperCase())}
+              setValor={(valor) =>
+              setPlaca(formatarPlaca(valor))}
               placeholder="ABC1D23"
             />
 
-            <Campo
-              label="Modelo"
-              valor={modelo}
-              setValor={setModelo}
-              placeholder="Ex: Gol, Uno, Duster"
-            />
+            <div>
+  <label className="label">Tipo / Espécie</label>
+  <select
+    className="input"
+    value={tipoEspecie}
+    onChange={(e) => {
+      setTipoEspecie(e.target.value);
+      setMarca("");
+      setModelo("");
+    }}
+  >
+    <option value="">Selecione</option>
+    {Object.keys(VEICULOS_POR_TIPO).map((tipo) => (
+      <option key={tipo} value={tipo}>
+        {tipo}
+      </option>
+    ))}
+  </select>
+</div>
 
-            <Campo
-              label="Cor"
-              valor={cor}
-              setValor={setCor}
-              placeholder="Ex: Branco"
-            />
+<div>
+  <label className="label">Marca</label>
+  <select
+    className="input"
+    value={marca}
+    onChange={(e) => {
+      setMarca(e.target.value);
+      setModelo("");
+    }}
+    disabled={!tipoEspecie}
+  >
+    <option value="">Selecione</option>
+    {Object.keys(VEICULOS_POR_TIPO[tipoEspecie] || {}).map((marca) => (
+      <option key={marca} value={marca}>
+        {marca}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div>
+  <label className="label">Modelo</label>
+  <select
+    className="input"
+    value={modelo}
+    onChange={(e) => setModelo(e.target.value)}
+    disabled={!tipoEspecie || !marca}
+  >
+    <option value="">Selecione</option>
+    {(VEICULOS_POR_TIPO[tipoEspecie]?.[marca] || []).map((modelo) => (
+      <option key={modelo} value={modelo}>
+        {modelo}
+      </option>
+    ))}
+    <option value="OUTRO">Outro</option>
+  </select>
+</div>
+
+{modelo === "OUTRO" && (
+  <Campo
+    label="Modelo manual"
+    valor={modelo}
+    setValor={setModelo}
+    placeholder="Digite o modelo"
+  />
+)}
+
+<div>
+  <label className="label">Cor</label>
+  <select
+    className="input"
+    value={cor}
+    onChange={(e) => setCor(e.target.value)}
+  >
+    <option value="">Selecione</option>
+    {CORES_VEICULO.map((cor) => (
+      <option key={cor} value={cor}>
+        {cor}
+      </option>
+    ))}
+  </select>
+</div>
+
+<Campo
+  label="Ano"
+  valor={ano}
+  setValor={setAno}
+  placeholder="Ex: 2022"
+/>
+
+<Campo
+  label="RENAVAM"
+  valor={renavam}
+  setValor={(v) =>
+    setRenavam(formatarRenavam(v))
+  }
+  placeholder="Somente números"
+/>
+
+<Campo
+  label="Chassi"
+  valor={chassi}
+  setValor={(v) =>
+   setChassi(formatarChassi(v))
+  }
+  placeholder="Número do chassi"
+/>
+
+<Campo
+  label="Proprietário"
+  valor={proprietario}
+  setValor={(v) => setCpfProprietario(formatarCPF(v))}
+  placeholder="Nome do proprietário"
+/>
+
+<Campo
+  label="CPF do Proprietário"
+  valor={cpfProprietario}
+  setValor={(v) => setCpfProprietario(formatarCPF(v))}
+  placeholder="CPF"
+/>
+
+<Campo
+  label="Telefone do Proprietário"
+  valor={telefoneProprietario}
+  setValor={(v) => setTelefoneProprietario(formatarTelefone(v))}
+  placeholder="Telefone"
+/>
+
+<div>
+  <label className="label">
+    Situação
+  </label>
+
+  <select
+    className="input"
+    value={situacao}
+    onChange={(e) =>
+      setSituacao(e.target.value)
+    }
+  >
+    <option value="">Selecione</option>
+    <option>Regular</option>
+    <option>Furto/Roubo</option>
+    <option>Apreendido</option>
+    <option>Recuperado</option>
+    <option>Licenciamento vencido</option>
+    <option>Outro</option>
+  </select>
+</div>
 
             <Campo
               label="Condutor"
@@ -269,7 +561,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
               onClick={salvarVeiculo}
               className="btn-primary w-full text-lg"
             >
-              Registrar Veículo
+              {editandoId ? "Atualizar Veículo" : "Registrar Veículo"}
             </button>
           </div>
           </div>
@@ -365,7 +657,8 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                       <th className="text-left py-3">Placa</th>
                       <th className="text-left py-3">Modelo</th>
                       <th className="text-left py-3">Cor</th>
-                      <th className="text-left py-3">Condutor</th>
+                      <th className="text-left py-3">Proprietário</th>
+                      <th className="text-left py-3">Situação</th>
                       <th className="text-left py-3">Local</th>
                       <th className="text-left py-3">Data</th>
                       <th className="text-right py-3">Ações</th>
@@ -385,7 +678,8 @@ const podeEditar = perfilUsuario !== "CONSULTA";
                           {veiculo.cor || "-"}
                         </td>
 
-                        <td>{veiculo.condutor || "-"}</td>
+                        <td>{veiculo.proprietario || "-"}</td>
+                        <td>{veiculo.situacao || "-"}</td>
 
                         <td className="text-slate-400">
                           {veiculo.local}
@@ -393,17 +687,31 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
                         <td>{veiculo.data}</td>
 
-                        <td className="text-right">
-                          {podeEditar && (
-  <button
-    type="button"
-    onClick={() => excluirVeiculo(veiculo.id)}
-    className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-  >
-    Excluir
-  </button>
-)}
-                        </td>
+                        <td className="text-center">
+  <div className="flex items-center justify-center gap-2">
+
+    {podeEditar && (
+      <BotaoAcao
+        title="Editar"
+        cor="blue"
+        onClick={() => editarVeiculo(veiculo)}
+      >
+        <Pencil size={18} />
+      </BotaoAcao>
+    )}
+
+    {podeEditar && (
+      <BotaoAcao
+        title="Excluir"
+        cor="red"
+        onClick={() => excluirVeiculo(veiculo.id)}
+      >
+        <Trash2 size={18} />
+      </BotaoAcao>
+    )}
+
+  </div>
+</td>
                       </tr>
                     ))}
                   </tbody>

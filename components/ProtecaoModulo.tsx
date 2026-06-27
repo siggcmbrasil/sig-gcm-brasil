@@ -21,14 +21,20 @@ export default function ProtecaoModulo({
         const dados = localStorage.getItem("usuarioLogado");
 
         if (!dados) {
-          window.location.href = "/login";
+          location.replace("/login");
           return;
         }
 
         const usuario = JSON.parse(dados);
 
+        if (usuario.status !== "Ativo") {
+  localStorage.removeItem("usuarioLogado");
+  location.replace("/login");
+  return;
+}
+
         if (!usuario?.perfil) {
-          window.location.href = "/login";
+          location.replace("/login");
           return;
         }
 
@@ -40,9 +46,10 @@ export default function ProtecaoModulo({
         }
 
         setStatus("liberado");
-      } catch {
+      } catch (error) {
+  console.error("Erro ao verificar permissão:", error);
         localStorage.removeItem("usuarioLogado");
-        window.location.href = "/login";
+        location.replace("/login");
       }
     }
 
@@ -50,7 +57,11 @@ export default function ProtecaoModulo({
   }, [modulo]);
 
   if (status === "verificando") {
-    return <div className="p-6 text-white">Verificando permissão...</div>;
+    return (
+  <div className="min-h-[300px] flex items-center justify-center text-white">
+    Verificando permissões...
+  </div>
+);
   }
 
   if (status === "negado") {

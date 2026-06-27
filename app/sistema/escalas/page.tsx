@@ -47,14 +47,16 @@ export default function Escalas() {
 
   const [carregando, setCarregando] = useState(true);
 
-  const usuarioLogado =
+ const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
 
   async function carregarDados() {
 
-if (!usuarioLogado.municipio_id) {
+if (!municipioId) {
   alert("Município não identificado.");
   return;
 }
@@ -64,18 +66,18 @@ if (!usuarioLogado.municipio_id) {
     const { data: escalasData } = await supabase
       .from("escalas_servico")
 .select("*")
-.eq("municipio_id", usuarioLogado.municipio_id)
+.eq("municipio_id", municipioId)
 .order("data_servico", { ascending: false });
     const { data: guardasData } = await supabase
       .from("guardas")
 .select("id, nome, matricula, status")
-.eq("municipio_id", usuarioLogado.municipio_id)
+.eq("municipio_id", municipioId)
 .order("nome", { ascending: true });
 
     const { data: viaturasData } = await supabase
       .from("viaturas")
 .select("id, prefixo, modelo, status")
-.eq("municipio_id", usuarioLogado.municipio_id)
+.eq("municipio_id", municipioId)
 .order("prefixo", { ascending: true });
 
     setEscalas(escalasData || []);
@@ -93,7 +95,7 @@ if (!usuarioLogado.municipio_id) {
 
   async function salvarEscala() {
 
-if (!usuarioLogado.municipio_id) {
+if (!municipioId) {
   alert("Município não identificado.");
   return;
 }
@@ -107,7 +109,7 @@ if (!usuarioLogado.municipio_id) {
   .from("escalas_servico")
   .insert([
     {
-      municipio_id: usuarioLogado.municipio_id,
+      municipio_id: municipioId,
 
       data_servico: dataServico,
       turno,
@@ -137,12 +139,12 @@ if (!usuarioLogado.municipio_id) {
     setFuncao("Patrulheiro");
     setObservacao("");
 
-    carregarDados();
+    await carregarDados();
   }
 
   async function excluirEscala(id: number) {
 
-if (!usuarioLogado.municipio_id) {
+if (!municipioId) {
   alert("Município não identificado.");
   return;
 }
@@ -155,7 +157,7 @@ if (!usuarioLogado.municipio_id) {
       .from("escalas_servico")
       .delete()
 .eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+.eq("municipio_id", municipioId);
 
     if (error) {
       console.error(error);
@@ -163,12 +165,12 @@ if (!usuarioLogado.municipio_id) {
       return;
     }
 
-    carregarDados();
+    await carregarDados();
   }
 
   useEffect(() => {
-    carregarDados();
-  }, []);
+  void carregarDados();
+}, []);
 
   const hoje = new Date().toISOString().split("T")[0];
 

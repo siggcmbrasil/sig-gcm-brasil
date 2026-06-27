@@ -149,9 +149,11 @@ export default function Dashboard() {
   const [indiceMensagem, setIndiceMensagem] = useState(0);
   
   const usuarioLogado =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
 
   const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
   const ehDesenvolvedor = perfilUsuario === "DESENVOLVEDOR";
@@ -191,9 +193,13 @@ export default function Dashboard() {
 async function carregarDashboard() {
   setCarregando(true);
 
-const municipioId = usuarioLogado.municipio_id;
+  if (!municipioId) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
 
-    const { data: municipioData } = await supabase
+   const { data: municipioData } = await supabase
       .from("municipios")
       .select("*")
       .eq("id", municipioId)
@@ -235,7 +241,7 @@ const { data: ocorrenciasData } = await supabase
       longitude
     )
   `)
-  .eq("municipio_id", usuarioLogado.municipio_id)
+  .eq("municipio_id", municipioId)
   .order("id", { ascending: false });
 
     const { data: guardasData } = await supabase
@@ -252,18 +258,21 @@ const { data: ocorrenciasData } = await supabase
       .single();
 
     const { data: avisosData } = await supabase
-      .from("avisos")
-      .select("*")
-      .order("id", { ascending: false });
+  .from("avisos")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: false });
 
     const { data: permutasData } = await supabase
-      .from("permutas_plantao")
-      .select("id, status");
+  .from("permutas_plantao")
+  .select("id, status")
+  .eq("municipio_id", municipioId);
 
       const { data: rondasData } = await supabase
   .from("planos_ronda")
-  .select("*")
-  .order("id", { ascending: false });
+.select("*")
+.eq("municipio_id", municipioId)
+.order("id", { ascending: false });
 
 setRondas(rondasData || []);
 
@@ -298,7 +307,8 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
 
     const { data: membrosGuarnicaoData } = await supabase
       .from("guarnicao_membros")
-      .select("id, guarnicao_id, guarda_id");
+.select("id, guarnicao_id, guarda_id")
+.eq("municipio_id", municipioId);
 
     const { data: viaturasData } = await supabase
       .from("viaturas")
@@ -310,7 +320,8 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
     const { data: escalaHojeData } = await supabase
       .from("escalas_servico")
       .select("*")
-      .eq("data_servico", hojeData);
+      .eq("municipio_id", municipioId)
+.eq("data_servico", hojeData);
 
     setMunicipioAtivo(municipioData || null);
     setModeloEscalaAtivo(modeloData?.nome || "Não configurado");

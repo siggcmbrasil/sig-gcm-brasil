@@ -1,7 +1,7 @@
 import { supabase } from "@/lib/supabase";
 
 export async function buscarModulosPermitidos(perfil: string) {
-  if (perfil === "DESENVOLVEDOR") {
+  if (perfil?.toUpperCase() === "DESENVOLVEDOR") {
     return ["*"];
   }
 
@@ -11,17 +11,24 @@ export async function buscarModulosPermitidos(perfil: string) {
     .eq("perfil", perfil)
     .eq("pode_ver", true);
 
-  if (error || !data) {
-    return [];
-  }
+ if (error) {
+  console.error("Erro ao buscar permissões:", error);
+  return [];
+}
 
-  return data.map((item) => item.modulo);
+if (!data) {
+  return [];
+}
+
+  return data
+  .map((item) => item.modulo)
+  .filter(Boolean);
 }
 
 export function moduloLiberado(
   modulosPermitidos: string[],
   modulo: string
-) {
+): boolean {
   return (
     modulosPermitidos.includes("*") ||
     modulosPermitidos.includes(modulo)

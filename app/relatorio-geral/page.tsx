@@ -10,12 +10,13 @@ export default function RelatorioGeralPlantao() {
   const [dados, setDados] = useState<any>(null);
   const [carregando, setCarregando] = useState(false);
 
-  const usuarioLogado =
+ const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    : null;
 
-const municipioId = usuarioLogado.municipio_id;
+const municipioId = usuarioLogado?.municipio_id;
+const perfil = usuarioLogado?.perfil;
 
   async function gerarRelatorio() {
 
@@ -100,9 +101,21 @@ if (!municipioId) {
     <div className="min-h-screen bg-slate-100 p-4">
       <div className="mx-auto max-w-6xl bg-white rounded-2xl shadow p-6">
         <div className="no-print mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">
-            Relatório Geral do Plantão
-          </h1>
+         <h1 className="text-3xl font-black text-slate-900">
+  Relatório Operacional Integrado
+</h1>
+
+<p className="text-slate-600 mt-2">
+  Consolidado institucional do plantão.
+</p>
+
+<p className="font-semibold">
+  Município: {usuarioLogado?.municipio_nome || "Não informado"}
+</p>
+
+<p className="text-sm">
+  Emitido em: {new Date().toLocaleString("pt-BR")}
+</p>
 
           <p className="text-slate-600 mt-1">
             Ocorrências, patrulhamentos, chamados, pessoas e veículos abordados.

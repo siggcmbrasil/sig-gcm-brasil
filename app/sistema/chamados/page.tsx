@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
+import BotaoAcao from "@/components/BotaoAcao";
+
+import {
+  Eye,
+  Pencil,
+  Play,
+  Check,
+  Trash2,
+} from "lucide-react";
 
 type Chamado = {
   id: number;
@@ -24,9 +33,17 @@ export default function Chamados() {
   const [telefone, setTelefone] = useState("");
   const [tipo, setTipo] = useState("");
   const [local, setLocal] = useState("");
+  const [bairro, setBairro] = useState("");
+  const [numero, setNumero] = useState("");
+  const [referencia, setReferencia] = useState("");
   const [prioridade, setPrioridade] = useState("Normal");
+  const [tipoLocal, setTipoLocal] = useState("Bairro");
   const [status, setStatus] = useState("Aberto");
   const [observacao, setObservacao] = useState("");
+  const [locais, setLocais] = useState<any[]>([]);
+  const [localId, setLocalId] = useState("");
+
+  const [editandoId, setEditandoId] = useState<number | null>(null);
 
   const [carregando, setCarregando] = useState(true);
   const usuarioLogado =
@@ -37,6 +54,14 @@ export default function Chamados() {
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
 const podeEditar = perfilUsuario !== "CONSULTA";
+
+if (!usuarioLogado?.municipio_id) {
+  return (
+    <div className="p-6">
+      Município não identificado.
+    </div>
+  );
+}
 
   async function carregarChamados() {
 
@@ -82,18 +107,66 @@ if (!usuarioLogado.municipio_id) {
 
     const protocolo = "CH-" + Date.now();
 
+    if (editandoId) {
+  const { error } = await supabase
+    .from("chamados")
+    .update({
+      solicitante,
+      telefone,
+      tipo,
+      local,
+      bairro,
+      numero,
+      referencia,
+      tipo_local: tipoLocal,
+      prioridade,
+      status,
+      observacao,
+    })
+    .eq("id", editandoId)
+    .eq("municipio_id", usuarioLogado.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atualizar chamado.");
+    return;
+  }
+
+  alert("Chamado atualizado com sucesso!");
+
+  setEditandoId(null);
+  setSolicitante("");
+  setTelefone("");
+  setTipo("");
+  setLocal("");
+  setBairro("");
+  setNumero("");
+  setReferencia("");
+  setTipoLocal("Bairro");
+  setPrioridade("Normal");
+  setStatus("Aberto");
+  setObservacao("");
+
+  carregarChamados();
+  return;
+}
+
     const { error } = await supabase.from("chamados").insert([
   {
-    municipio_id: usuarioLogado.municipio_id,
-    protocolo,
-    solicitante,
-    telefone,
-    tipo,
-    local,
-    prioridade,
-    status,
-    observacao,
-  },
+  municipio_id: usuarioLogado.municipio_id,
+  protocolo,
+  solicitante,
+  telefone,
+  tipo,
+  local,
+  bairro,
+  numero,
+  referencia,
+  tipo_local: tipoLocal,
+  prioridade,
+  status,
+  observacao,
+},
 ]);
 
     if (error) {
@@ -105,15 +178,82 @@ if (!usuarioLogado.municipio_id) {
     alert("Chamado registrado com sucesso!");
 
     setSolicitante("");
-    setTelefone("");
-    setTipo("");
-    setLocal("");
-    setPrioridade("Normal");
-    setStatus("Aberto");
-    setObservacao("");
+setTelefone("");
+setTipo("");
+setLocal("");
+setBairro("");
+setNumero("");
+setReferencia("");
+setTipoLocal("Bairro");
+setPrioridade("Normal");
+setStatus("Aberto");
+setObservacao("");
 
     carregarChamados();
   }
+
+  function editarChamado(chamado: Chamado) {
+  setEditandoId(chamado.id);
+  setSolicitante(chamado.solicitante || "");
+  setTelefone(chamado.telefone || "");
+  setTipo(chamado.tipo || "");
+  setLocal(chamado.local || "");
+  setPrioridade(chamado.prioridade || "Normal");
+  setStatus(chamado.status || "Aberto");
+  setObservacao(chamado.observacao || "");
+}
+
+async function atenderChamado(id: number) {
+  if (!podeEditar) {
+    alert("Você não possui permissão.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("chamados")
+    .update({
+      status: "Em atendimento",
+      atendido_por: usuarioLogado?.nome || usuarioLogado?.email || "Sistema",
+      data_atendimento: new Date().toISOString(),
+    })
+    .eq("id", id)
+    .eq("municipio_id", usuarioLogado.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atender chamado.");
+    return;
+  }
+
+  carregarChamados();
+}
+
+async function finalizarChamado(id: number) {
+  if (!podeEditar) {
+    alert("Você não possui permissão.");
+    return;
+  }
+
+  const observacaoFinal = prompt("Observação de finalização:");
+
+  const { error } = await supabase
+    .from("chamados")
+    .update({
+      status: "Finalizado",
+      finalizado_em: new Date().toISOString(),
+      observacao_finalizacao: observacaoFinal || "",
+    })
+    .eq("id", id)
+    .eq("municipio_id", usuarioLogado.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao finalizar chamado.");
+    return;
+  }
+
+  carregarChamados();
+}
 
   async function excluirChamado(id: number) {
 
@@ -145,9 +285,27 @@ if (!usuarioLogado.municipio_id) {
     carregarChamados();
   }
 
-  useEffect(() => {
-    carregarChamados();
-  }, []);
+  async function carregarLocais() {
+  const { data, error } = await supabase
+    .from("locais")
+    .select("id, nome, tipo")
+    .eq("municipio_id", usuarioLogado.municipio_id)
+    .eq("ativo", true)
+    .order("nome");
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar locais.");
+    return;
+  }
+
+  setLocais(data || []);
+}
+
+ useEffect(() => {
+  void carregarChamados();
+  void carregarLocais();
+}, []);
 
   const chamadosFiltrados = chamados.filter((chamado) => {
     const texto = `
@@ -245,12 +403,23 @@ if (!usuarioLogado.municipio_id) {
 
             <div>
               <label className="label">Telefone</label>
-              <input
-                className="input"
-                placeholder="(75) 99999-9999"
-                value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
-              />
+<input
+  className="input"
+  placeholder="(75) 99999-9999"
+  maxLength={15}
+  value={telefone}
+  onChange={(e) => {
+    let valor = e.target.value
+      .replace(/\D/g, "")
+      .slice(0, 11);
+
+    valor = valor
+      .replace(/^(\d{2})(\d)/, "($1) $2")
+      .replace(/(\d{5})(\d)/, "$1-$2");
+
+    setTelefone(valor);
+  }}
+/>
             </div>
 
             <div>
@@ -261,6 +430,7 @@ if (!usuarioLogado.municipio_id) {
                 onChange={(e) => setTipo(e.target.value)}
               >
                 <option value="">Selecione</option>
+                <option value="Apoio ao SAMU">Apoio ao SAMU</option>
                 <option value="Perturbação do sossego">Perturbação do sossego</option>
                 <option value="Apoio ao cidadão">Apoio ao cidadão</option>
                 <option value="Fiscalização">Fiscalização</option>
@@ -275,17 +445,83 @@ if (!usuarioLogado.municipio_id) {
                 <option value="Averiguação de denúncia">Averiguação de denúncia</option>
                 <option value="Outro">Outro</option>
               </select>
-            </div>
+            
+  <label className="label">Local Cadastrado</label>
 
-            <div>
-              <label className="label">Local</label>
-              <input
-                className="input"
-                placeholder="Local do chamado"
-                value={local}
-                onChange={(e) => setLocal(e.target.value)}
-              />
-            </div>
+  <select
+    className="input"
+    value={localId}
+    onChange={(e) => {
+  const id = e.target.value;
+  setLocalId(id);
+
+  const localSelecionado = locais.find(
+    (l) => String(l.id) === id
+  );
+
+  if (localSelecionado) {
+    setLocal(localSelecionado.nome || "");
+
+  }
+}}
+  >
+    <option value="">Selecione um local</option>
+
+    {locais.map((l) => (
+      <option key={l.id} value={l.id}>
+        {l.nome}
+      </option>
+    ))}
+  </select>
+</div>
+
+    <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+  <div className="md:col-span-3">
+    <label className="label">Tipo de local</label>
+    <select
+      className="input"
+      value={tipoLocal}
+      onChange={(e) => setTipoLocal(e.target.value)}
+    >
+      <option value="Bairro">Bairro</option>
+      <option value="Zona Rural">Zona Rural</option>
+      <option value="Povoado">Povoado</option>
+      <option value="Distrito">Distrito</option>
+      <option value="Rodovia">Rodovia</option>
+      <option value="Outro">Outro</option>
+    </select>
+  </div>
+
+  <div className="md:col-span-3">
+    <label className="label">Bairro / Localidade</label>
+    <input
+      className="input"
+      placeholder={`Informe ${tipoLocal.toLowerCase()}`}
+      value={bairro}
+      onChange={(e) => setBairro(e.target.value)}
+    />
+  </div>
+
+  <div className="md:col-span-2">
+    <label className="label">Número</label>
+    <input
+      className="input"
+      placeholder="S/N"
+      value={numero}
+      onChange={(e) => setNumero(e.target.value)}
+    />
+  </div>
+
+  <div className="md:col-span-4">
+    <label className="label">Referência</label>
+    <input
+      className="input"
+      placeholder="Ponto de referência"
+      value={referencia}
+      onChange={(e) => setReferencia(e.target.value)}
+    />
+  </div>
+</div>
 
             <div>
               <label className="label">Prioridade</label>
@@ -328,7 +564,7 @@ if (!usuarioLogado.municipio_id) {
               onClick={salvarChamado}
               className="btn-primary w-full text-lg"
             >
-              Registrar Chamado
+              {editandoId ? "Atualizar Chamado" : "Registrar Chamado"}
             </button>
           </div>
           </div>
@@ -414,13 +650,44 @@ if (!usuarioLogado.municipio_id) {
   Gerar Ocorrência
 </button>
 
-                    <button
+<button
   type="button"
-  onClick={() => excluirChamado(chamado.id)}
-  className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+  onClick={() => editarChamado(chamado)}
+  className="bg-blue-700 hover:bg-blue-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
 >
-  Excluir
+  <Pencil className="w-4 h-4" />
 </button>
+
+{chamado.status !== "Em atendimento" &&
+  chamado.status !== "Finalizado" && (
+    <button
+      type="button"
+      onClick={() => atenderChamado(chamado.id)}
+      className="bg-yellow-700 hover:bg-yellow-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
+    >
+      <Play className="w-4 h-4" />
+    </button>
+  )}
+
+{chamado.status !== "Finalizado" && (
+  <button
+    type="button"
+    onClick={() => finalizarChamado(chamado.id)}
+    className="bg-green-700 hover:bg-green-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
+  >
+    <Check className="w-4 h-4" />
+  </button>
+)}
+
+                    {podeEditar && (
+  <button
+    type="button"
+    onClick={() => excluirChamado(chamado.id)}
+    className="bg-red-700 hover:bg-red-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs"
+  >
+    <Trash2 className="w-4 h-4" />
+  </button>
+)}
                   </div>
                 ))}
               </div>
@@ -434,7 +701,9 @@ if (!usuarioLogado.municipio_id) {
                       <th className="text-left py-3">Tipo</th>
                       <th className="text-left py-3">Prioridade</th>
                       <th className="text-left py-3">Status</th>
-                      <th className="text-right py-3">Ações</th>
+                      <th className="text-center py-3 min-w-[420px]">
+  Ações
+</th>
                     </tr>
                   </thead>
 
@@ -456,27 +725,61 @@ if (!usuarioLogado.municipio_id) {
                           <Status status={chamado.status} />
                         </td>
 
-                        <td className="text-right">
-                          <button
-  type="button"
-  onClick={() =>
-    window.location.href =
-      `/sistema/ocorrencias/nova?chamado=${chamado.id}`
-  }
-  className="bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold mr-2"
->
-  Gerar Ocorrência
-</button>
-                          {podeEditar && (         
-  <button
-    type="button"
-    onClick={() => excluirChamado(chamado.id)}
-    className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-  >
-    Excluir
-  </button>
-)}
-                        </td>
+                        <td className="text-center">
+  <div className="flex items-center justify-center gap-2">
+
+    <BotaoAcao
+      title="Gerar Ocorrência"
+      cor="green"
+      onClick={() =>
+        window.location.href =
+          `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+      }
+    >
+      <Eye size={18} />
+    </BotaoAcao>
+
+    <BotaoAcao
+      title="Editar"
+      cor="blue"
+      onClick={() => editarChamado(chamado)}
+    >
+      <Pencil size={18} />
+    </BotaoAcao>
+
+    {chamado.status !== "Em atendimento" &&
+      chamado.status !== "Finalizado" && (
+        <BotaoAcao
+          title="Atender"
+          cor="yellow"
+          onClick={() => atenderChamado(chamado.id)}
+        >
+          <Play size={18} />
+        </BotaoAcao>
+      )}
+
+    {chamado.status !== "Finalizado" && (
+      <BotaoAcao
+        title="Finalizar"
+        cor="green"
+        onClick={() => finalizarChamado(chamado.id)}
+      >
+        <Check size={18} />
+      </BotaoAcao>
+    )}
+
+    {podeEditar && (
+      <BotaoAcao
+        title="Excluir"
+        cor="red"
+        onClick={() => excluirChamado(chamado.id)}
+      >
+        <Trash2 size={18} />
+      </BotaoAcao>
+    )}
+
+  </div>
+</td>
                       </tr>
                     ))}
                   </tbody>

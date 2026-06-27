@@ -21,6 +21,7 @@ import {
 
 type Ocorrencia = {
   id: number;
+  municipio_id: number;
   protocolo: string;
   tipo: string;
   local: string;
@@ -66,26 +67,31 @@ export default function Ocorrencias() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   
-  const [municipioId, setMunicipioId] = useState<number>(1);
+  const [municipioId, setMunicipioId] = useState<number | null>(null);
 
   const usuarioLogado =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : null;
 
   const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
   const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarOcorrencias(municipio: number) {
+    if (!municipio) {
+  setCarregando(false);
+  return;
+}
     setCarregando(true);
 
     const { data, error } = await supabase
       .from("ocorrencias")
       .select(
-  "id, protocolo, tipo, local, bairro, data, hora, status, prioridade, guarnicao_id, viatura_id, guarda_responsavel_id"
+  "id, municipio_id, protocolo, tipo, local, bairro, data, hora, status, prioridade, guarnicao_id, viatura_id, guarda_responsavel_id"
 )
       .eq("municipio_id", municipio)
-      .order("id", { ascending: false });
+      .order("data", { ascending: false })
+.order("hora", { ascending: false });
 
     if (error) {
       console.error(error);
@@ -99,6 +105,9 @@ export default function Ocorrencias() {
   }
 
   async function carregarDadosApoio(municipio: number) {
+    if (!municipio) {
+  return;
+}
     const { data: guarnicoesData } = await supabase
       .from("guarnicoes")
       .select("id, nome")
@@ -122,29 +131,29 @@ export default function Ocorrencias() {
     setGuardas(guardasData || []);
   }
 
-  async function carregarSistema() {
-    const { data } = await supabase
-      .from("configuracoes_sistema")
-      .select("municipio_padrao_id")
-      .limit(1)
-      .single();
+     async function carregarSistema() {
+  const id = usuarioLogado?.municipio_id;
 
-    const usuarioLogado = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-
-const id = usuarioLogado.municipio_id;
-
-    setMunicipioId(id);
-    carregarOcorrencias(id);
-    carregarDadosApoio(id);
+  if (!id) {
+    alert("Município não identificado.");
+    return;
   }
 
+  setMunicipioId(id);
+
+  await carregarOcorrencias(id);
+  await carregarDadosApoio(id);
+}
+
   useEffect(() => {
-    carregarSistema();
-  }, []);
+  void carregarSistema();
+}, []);
 
   async function excluirOcorrencia(id: number) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
     if (!podeEditar) {
       alert("Você não possui permissão para excluir ocorrências.");
       return;
@@ -153,7 +162,11 @@ const id = usuarioLogado.municipio_id;
     const confirmar = confirm("Tem certeza que deseja excluir esta ocorrência?");
     if (!confirmar) return;
 
-    const { error } = await supabase.from("ocorrencias").delete().eq("id", id);
+    const { error } = await supabase.from("ocorrencias")
+    
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", municipioId);
 
     if (error) {
       console.error(error);
@@ -162,21 +175,30 @@ const id = usuarioLogado.municipio_id;
     }
 
     alert("Ocorrência excluída com sucesso.");
-    carregarOcorrencias(municipioId);
+await carregarOcorrencias(municipioId);
   }
 
   async function alterarStatus(id: number, status: string) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
+    if (!podeEditar) {
+  alert("Você não possui permissão.");
+  return;
+}
     const { error } = await supabase
       .from("ocorrencias")
       .update({ status })
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", municipioId);
 
     if (error) {
       alert("Erro ao atualizar status.");
       return;
     }
 
-    carregarOcorrencias(municipioId);
+    await carregarOcorrencias(municipioId);
   }
 
   function nomeGuarnicao(id: number | null) {
@@ -286,7 +308,7 @@ const id = usuarioLogado.municipio_id;
 
             <p className="text-slate-400 text-base md:text-lg mt-2 max-w-4xl">
               Registro, acompanhamento e gerenciamento operacional das
-              ocorrências da Guarda Civil Municipal de Biritinga.
+              ocorrências da Guarda Civil Municipal.
             </p>
           </div>
 

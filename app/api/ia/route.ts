@@ -1,11 +1,64 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
+const CUSTOS_IA: Record<string, number> = {
+  operacional: 2,
+  juridica: 3,
+  relatorio: 5,
+  geral: 1,
+};
+
 export async function POST(req: Request) {
   try {
-    const { pergunta, usuario, modo } = await req.json();
+    const token = req.headers.get("authorization")?.replace("Bearer ", "");
 
-    if (!pergunta) {
+    if (!token) {
+      return NextResponse.json(
+        { erro: "Usuário não autenticado." },
+        { status: 401 }
+      );
+    }
+
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.getUser(token);
+
+    if (authError || !authData.user) {
+      return NextResponse.json(
+        { erro: "Sessão inválida." },
+        { status: 401 }
+      );
+    }
+
+    const { data: usuario, error: usuarioError } = await supabaseAdmin
+      .from("usuarios")
+      .select("id, nome, perfil, municipio_id, status")
+      .eq("auth_id", authData.user.id)
+      .single();
+
+    if (usuarioError || !usuario) {
+      return NextResponse.json(
+        { erro: "Usuário não encontrado no sistema." },
+        { status: 403 }
+      );
+    }
+
+    if (usuario.status !== "Ativo") {
+      return NextResponse.json(
+        { erro: "Usuário sem permissão de acesso." },
+        { status: 403 }
+      );
+    }
+
+    if (!usuario.municipio_id) {
+      return NextResponse.json(
+        { erro: "Usuário sem município vinculado." },
+        { status: 403 }
+      );
+    }
+
+    const { pergunta, modo } = await req.json();
+
+    if (!pergunta || String(pergunta).trim().length < 2) {
       return NextResponse.json(
         { erro: "Digite uma pergunta." },
         { status: 400 }
@@ -21,34 +74,13 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!usuario?.id || !usuario?.municipio_id) {
-  return NextResponse.json(
-    { erro: "Usuário inválido para consulta de IA." },
-    { status: 401 }
-  );
-}
-
-const municipioId = Number(usuario.municipio_id);
-
-    let custo = 1;
-
-    switch (modo) {
-      case "operacional":
-        custo = 2;
-        break;
-      case "juridica":
-        custo = 3;
-        break;
-      case "relatorio":
-        custo = 5;
-        break;
-      default:
-        custo = 1;
-    }
+    const modoFinal = String(modo || "geral").toLowerCase();
+    const custo = CUSTOS_IA[modoFinal] || 1;
+    const municipioId = Number(usuario.municipio_id);
 
     const { data: creditoAtual, error: erroCredito } = await supabaseAdmin
       .from("ia_creditos_municipio")
-      .select("*")
+      .select("municipio_id, saldo")
       .eq("municipio_id", municipioId)
       .single();
 
@@ -59,22 +91,25 @@ const municipioId = Number(usuario.municipio_id);
       );
     }
 
-    if (creditoAtual.saldo < custo) {
+    if (Number(creditoAtual.saldo) < custo) {
       return NextResponse.json(
         { erro: "Créditos de IA insuficientes." },
         { status: 400 }
       );
     }
 
+    const saldoAntes = Number(creditoAtual.saldo);
+    const saldoDepois = saldoAntes - custo;
+
     const prompt = `
 Você é a IA do SIG-GCM Brasil.
 
 Modo da consulta:
-${modo || "geral"}
+${modoFinal}
 
 Usuário:
-Nome: ${usuario?.nome || "Não informado"}
-Perfil: ${usuario?.perfil || "Não informado"}
+Nome: ${usuario.nome || "Não informado"}
+Perfil: ${usuario.perfil || "Não informado"}
 
 REGRAS GERAIS:
 - Responda de forma profissional, objetiva e útil.
@@ -113,7 +148,7 @@ Use como base:
 - Legislação municipal, quando aplicável
 
 Pergunta:
-${pergunta}
+${String(pergunta).trim()}
 `;
 
     const geminiRes = await fetch(
@@ -150,22 +185,28 @@ ${pergunta}
       geminiData?.candidates?.[0]?.content?.parts?.[0]?.text ||
       "Não consegui gerar uma resposta.";
 
-    const saldoAntes = creditoAtual.saldo;
-    const saldoDepois = saldoAntes - custo;
+    const { data: saldoAtualizado, error: erroAtualizarSaldo } = await supabaseAdmin
+  .from("ia_creditos_municipio")
+  .update({
+    saldo: saldoDepois,
+    atualizado_em: new Date().toISOString(),
+  })
+  .eq("municipio_id", municipioId)
+  .eq("saldo", saldoAntes)
+  .select("saldo")
+  .single();
 
-    await supabaseAdmin
-      .from("ia_creditos_municipio")
-      .update({
-        saldo: saldoDepois,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("municipio_id", municipioId)
-.eq("saldo", saldoAntes);
+if (erroAtualizarSaldo || !saldoAtualizado) {
+  return NextResponse.json(
+    { erro: "Não foi possível atualizar os créditos de IA." },
+    { status: 409 }
+  );
+}
 
     await supabaseAdmin.from("ia_creditos_historico").insert({
       municipio_id: municipioId,
-      usuario_id: usuario?.id || null,
-      tipo_acao: modo || "geral",
+      usuario_id: usuario.id,
+      tipo_acao: modoFinal,
       creditos_usados: custo,
       saldo_antes: saldoAntes,
       saldo_depois: saldoDepois,
@@ -181,7 +222,7 @@ ${pergunta}
 
     return NextResponse.json(
       {
-        erro: String(error?.message || error),
+        erro: "Erro interno ao consultar a IA.",
       },
       { status: 500 }
     );

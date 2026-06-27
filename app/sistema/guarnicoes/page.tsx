@@ -9,6 +9,8 @@ type Guarnicao = {
   comandante_id: number | null;
   viatura_id: number | null;
   ativa: boolean;
+  tipo_guarnicao: string | null;
+  area_atuacao: string | null;
 };
 
 type Guarda = {
@@ -44,27 +46,35 @@ export default function Guarnicoes() {
 const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
 
   async function carregarDados() {
+if (!municipioId) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
+
     setCarregando(true);
 
     const { data: guarnicoesData } = await supabase
   .from("guarnicoes")
   .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
+  .eq("municipio_id", municipioId)
   .order("id");
 
     const { data: guardasData } = await supabase
       .from("guardas")
       .select("id, nome, matricula, cargo, status")
-      .eq("municipio_id", usuarioLogado.municipio_id)
+      .eq("municipio_id", municipioId)
       .order("nome");
 
     const { data: viaturasData } = await supabase
   .from("viaturas")
   .select("id, prefixo, modelo, status")
-  .eq("municipio_id", usuarioLogado.municipio_id)
+  .eq("municipio_id", municipioId)
   .order("prefixo");
 
     const { data: membrosData, error: membrosError } = await supabase
@@ -83,7 +93,7 @@ const usuarioLogado =
       municipio_id
     )
   `)
-  .eq("guardas.municipio_id", usuarioLogado.municipio_id);
+  .eq("guardas.municipio_id", municipioId);
 
     if (membrosError) {
       console.error(membrosError);
@@ -99,17 +109,31 @@ const usuarioLogado =
   }
 
   async function atualizarGuarnicao(
-    id: number,
-    campo: "comandante_id" | "viatura_id",
+     id: number,
+    campo:
+  | "comandante_id"
+  | "viatura_id"
+  | "tipo_guarnicao"
+  | "area_atuacao",
     valor: string
   ) {
-    const valorFinal = valor ? Number(valor) : null;
+
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
+    const valorFinal =
+  campo === "comandante_id" || campo === "viatura_id"
+    ? valor
+      ? Number(valor)
+      : null
+    : valor;
 
     const { error } = await supabase
       .from("guarnicoes")
       .update({ [campo]: valorFinal })
       .eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+.eq("municipio_id", municipioId);
 
     if (error) {
       console.error(error);
@@ -117,10 +141,38 @@ const usuarioLogado =
       return;
     }
 
-    carregarDados();
+    await carregarDados();
   }
 
+  async function atualizarStatusGuarnicao(
+  id: number,
+  status: string
+) {
+  if (!municipioId) {
+    alert("Município não identificado.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("guarnicoes")
+    .update({ status_operacional: status })
+    .eq("id", id)
+    .eq("municipio_id", municipioId);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atualizar status da guarnição.");
+    return;
+  }
+
+  await carregarDados();
+}
+
   async function adicionarMembro(guarnicaoId: number, guardaId: string) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
     if (!guardaId) return;
 
     const jaExiste = membros.some(
@@ -136,10 +188,11 @@ const usuarioLogado =
 
     const { error } = await supabase.from("guarnicao_membros").insert([
       {
-        guarnicao_id: guarnicaoId,
-        guarda_id: Number(guardaId),
-        funcao: "Patrulheiro",
-      },
+  guarnicao_id: guarnicaoId,
+  guarda_id: Number(guardaId),
+  funcao: "Patrulheiro",
+  municipio_id: municipioId,
+},
     ]);
 
     if (error) {
@@ -148,17 +201,21 @@ const usuarioLogado =
       return;
     }
 
-    carregarDados();
+    await carregarDados();
   }
 
   async function removerMembro(id: number) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
     const confirmar = confirm("Remover este guarda da guarnição?");
     if (!confirmar) return;
 
     const { error } = await supabase
       .from("guarnicao_membros")
       .delete()
-      .eq("id", id);
+.eq("id", id);
 
     if (error) {
       console.error(error);
@@ -166,24 +223,47 @@ const usuarioLogado =
       return;
     }
 
-    carregarDados();
+    await carregarDados();
   }
 
+  async function atualizarFuncaoMembro(
+  membroId: number,
+  funcao: string
+) {
+  if (!municipioId) {
+    alert("Município não identificado.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("guarnicao_membros")
+    .update({ funcao })
+    .eq("id", membroId);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao atualizar função do membro.");
+    return;
+  }
+
+  await carregarDados();
+}
+
   useEffect(() => {
-    carregarDados();
+    void carregarDados();
   }, []);
 
   if (carregando) {
     return (
-      <div className="p-3 md:p-6 pb-24">
+      <div className="min-h-screen bg-[#07152E] p-3 md:p-6 pb-24 text-white">
         <div className="card">Carregando guarnições...</div>
       </div>
     );
   }
 
   return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
+    <div className="min-h-screen bg-[#07152E] p-3 md:p-6 pb-24 text-white">
+      <header className="border-b border-[#C9A227] pb-5 mb-6">
         <h1 className="text-3xl font-bold">Guarnições</h1>
         <p className="text-slate-400">
           Cadastro das equipes operacionais de plantão da GCM.
@@ -197,15 +277,85 @@ const usuarioLogado =
           );
 
           return (
-            <div key={guarnicao.id} className="card space-y-5">
+            <div
+  key={guarnicao.id}
+  className="rounded-xl border border-[#C9A227] bg-[#0D1B34] p-5 space-y-5"
+>
               <div>
-                <h2 className="text-2xl font-bold">{guarnicao.nome}</h2>
-                <p className="text-slate-400">
-                  {membrosDaGuarnicao.length} guarda(s) vinculado(s)
-                </p>
-              </div>
+  <h2 className="text-2xl font-bold text-[#C9A227]">
+    {guarnicao.nome}
+  </h2>
 
-              <div>
+  <p className="text-slate-400">
+    {membrosDaGuarnicao.length} guarda(s) vinculado(s)
+  </p>
+
+  <div className="mt-5 border-t border-[#C9A227]/40 pt-5">
+    <h3 className="text-lg font-bold text-[#C9A227] mb-4">
+      Informações da Guarnição
+    </h3>
+
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label className="label">Tipo da Guarnição</label>
+
+        <select
+          className="input"
+          value={guarnicao.tipo_guarnicao || "Operacional"}
+          onChange={(e) =>
+            atualizarGuarnicao(
+              guarnicao.id,
+              "tipo_guarnicao",
+              e.target.value
+            )
+          }
+        >
+          <option value="Operacional">Operacional</option>
+          <option value="ROMU">ROMU</option>
+          <option value="Patrulha Escolar">Patrulha Escolar</option>
+          <option value="Maria da Penha">Maria da Penha</option>
+          <option value="Ambiental">Ambiental</option>
+          <option value="Trânsito">Trânsito</option>
+          <option value="Canil">Canil</option>
+          <option value="Motopatrulha">Motopatrulha</option>
+          <option value="Ciclopatrulha">Ciclopatrulha</option>
+          <option value="Administrativa">Administrativa</option>
+          <option value="Defesa Civil">Defesa Civil</option>
+          <option value="Apoio">Apoio</option>
+          <option value="Outra">Outra</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="label">Área de Atuação</label>
+
+        <select
+          className="input"
+          value={guarnicao.area_atuacao || "Toda cidade"}
+          onChange={(e) =>
+            atualizarGuarnicao(
+              guarnicao.id,
+              "area_atuacao",
+              e.target.value
+            )
+          }
+        >
+          <option value="Toda cidade">Toda cidade</option>
+          <option value="Centro">Centro</option>
+          <option value="Zona Norte">Zona Norte</option>
+          <option value="Zona Sul">Zona Sul</option>
+          <option value="Zona Leste">Zona Leste</option>
+          <option value="Zona Oeste">Zona Oeste</option>
+          <option value="Zona Rural">Zona Rural</option>
+          <option value="Distritos">Distritos</option>
+          <option value="Povoados">Povoados</option>
+          <option value="Personalizada">Personalizada</option>
+        </select>
+      </div>
+    </div>
+  </div>
+</div>
+<div>
                 <label className="label">Comandante da Guarnição</label>
                 <select
                   className="input"
@@ -272,7 +422,7 @@ const usuarioLogado =
               </div>
 
               <div>
-                <h3 className="text-xl font-bold mb-3">Membros</h3>
+                <h3 className="text-lg font-bold text-[#C9A227] mb-3">Membros</h3>
 
                 {membrosDaGuarnicao.length === 0 ? (
                   <p className="text-slate-400">
@@ -283,7 +433,7 @@ const usuarioLogado =
                     {membrosDaGuarnicao.map((membro) => (
                       <div
                         key={membro.id}
-                        className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex justify-between gap-4"
+                        className="rounded-xl border border-[#C9A227]/50 bg-[#07152E] p-4 flex justify-between gap-4"
                       >
                         <div>
                           <p className="font-bold">
@@ -295,15 +445,27 @@ const usuarioLogado =
                             {membro.guardas?.cargo || "-"}
                           </p>
 
-                          <p className="text-xs text-blue-400">
-                            {membro.funcao || "Patrulheiro"}
-                          </p>
+                          <select
+  className="mt-2 rounded-lg border border-[#C9A227] bg-[#07152E] px-3 py-2 text-xs text-white"
+  value={membro.funcao || "Patrulheiro"}
+  onChange={(e) =>
+    atualizarFuncaoMembro(membro.id, e.target.value)
+  }
+>
+  <option value="Comandante">Comandante</option>
+  <option value="Motorista">Motorista</option>
+  <option value="Patrulheiro">Patrulheiro</option>
+  <option value="Apoio">Apoio</option>
+  <option value="Extra">Extra</option>
+  <option value="Supervisor">Supervisor</option>
+  <option value="Inspetor">Inspetor</option>
+</select>
                         </div>
 
                         <button
                           type="button"
                           onClick={() => removerMembro(membro.id)}
-                          className="text-red-400 text-xl"
+                          className="flex h-8 w-8 items-center justify-center rounded-lg border border-red-500 text-red-400 hover:bg-red-950/40"
                         >
                           ×
                         </button>

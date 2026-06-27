@@ -12,9 +12,29 @@ type Guarda = {
   cargo: string;
   telefone: string | null;
   status: string;
-  municipio_id: 1;
+  municipio_id: number;
   data_nascimento: string | null;
   foto_url: string | null;
+
+  cpf?: string | null;
+  rg?: string | null;
+  email?: string | null;
+  cnh?: string | null;
+  categoria_cnh?: string | null;
+  validade_cnh?: string | null;
+  data_admissao?: string | null;
+
+  graduacao?: string | null;
+  tipo_sanguineo?: string | null;
+
+  contato_emergencia_nome?: string | null;
+  contato_emergencia_parentesco?: string |null;
+  contato_emergencia_telefone?: string | null;
+
+  especialidades?: string[] | null;
+
+  observacao?: string | null;
+  lotacao?: string | null;
 };
 
 export default function Guardas() {
@@ -38,26 +58,31 @@ export default function Guardas() {
   const [fotoUrl, setFotoUrl] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [graduacao, setGraduacao] = useState("");
+const [tipoSanguineo, setTipoSanguineo] = useState("");
+const [contatoEmergenciaNome, setContatoEmergenciaNome] = useState("");
+const [contatoEmergenciaParentesco, setContatoEmergenciaParentesco] = useState("");
+const [contatoEmergenciaTelefone, setContatoEmergenciaTelefone] = useState("");
+const [observacao, setObservacao] = useState("");
+const [lotacao, setLotacao] = useState("");
+const [especialidades, setEspecialidades] = useState<string[]>([]);
   const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    : null;
 
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+const municipioId = usuarioLogado?.municipio_id;
 
 const podeEditar = perfilUsuario !== "CONSULTA";
 
   async function carregarGuardas() {
     setCarregando(true);
 
-    const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-
 const { data, error } = await supabase
   .from("guardas")
   .select("*")
-  .eq("municipio_id", usuario.municipio_id)
+  .eq("municipio_id", municipioId)
   .order("id", { ascending: false });
 
     if (error) {
@@ -72,6 +97,10 @@ const { data, error } = await supabase
   }
 
   async function salvarGuarda() {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
     let urlFoto = fotoUrl;
 
 if (foto) {
@@ -108,13 +137,22 @@ if (editandoId) {
   rg,
   email,
   cnh,
+  graduacao,
+tipo_sanguineo: tipoSanguineo,
+contato_emergencia_nome: contatoEmergenciaNome,
+contato_emergencia_parentesco: contatoEmergenciaParentesco,
+contato_emergencia_telefone: contatoEmergenciaTelefone,
+especialidades,
   categoria_cnh: categoriaCnh,
   validade_cnh: validadeCnh || null,
   data_admissao: dataAdmissao || null,
   data_nascimento: dataNascimento || null,
   foto_url: urlFoto,
+  observacao,
+  lotacao,
 })
-    .eq("id", editandoId);
+    .eq("id", editandoId)
+.eq("municipio_id", municipioId);
 
   if (error) {
     console.error(error);
@@ -140,6 +178,7 @@ if (editandoId) {
 
     const { error } = await supabase.from("guardas").insert([
       {
+  municipio_id: municipioId,
   matricula,
   nome,
   cargo,
@@ -149,11 +188,19 @@ if (editandoId) {
   rg,
   email,
   cnh,
+  graduacao,
+tipo_sanguineo: tipoSanguineo,
+contato_emergencia_nome: contatoEmergenciaNome,
+contato_emergencia_parentesco: contatoEmergenciaParentesco,
+contato_emergencia_telefone: contatoEmergenciaTelefone,
+especialidades,
   categoria_cnh: categoriaCnh,
   validade_cnh: validadeCnh || null,
   data_admissao: dataAdmissao || null,
   data_nascimento: dataNascimento || null,
   foto_url: urlFoto,
+  observacao,
+  lotacao,
 }
     ]);
 
@@ -170,6 +217,17 @@ if (editandoId) {
     carregarGuardas();
   }
 function editarGuarda(guarda: Guarda) {
+
+if (!podeEditar) {
+  alert("Você não possui permissão para editar guardas.");
+  return;
+}
+
+if (!municipioId || guarda.municipio_id !== municipioId) {
+  alert("Guarda não pertence ao município atual.");
+  return;
+}
+
   setEditandoId(guarda.id);
   setMatricula(guarda.matricula);
   setNome(guarda.nome);
@@ -179,9 +237,27 @@ function editarGuarda(guarda: Guarda) {
   setDataNascimento(guarda.data_nascimento || "");
   setFotoUrl(guarda.foto_url || "");
   setFoto(null);
+  setCpf(guarda.cpf || "");
+setRg(guarda.rg || "");
+setEmail(guarda.email || "");
+setCnh(guarda.cnh || "");
+setCategoriaCnh(guarda.categoria_cnh || "");
+setValidadeCnh(guarda.validade_cnh || "");
+setDataAdmissao(guarda.data_admissao || "");
+setGraduacao(guarda.graduacao || "");
+setTipoSanguineo(guarda.tipo_sanguineo || "");
+setContatoEmergenciaNome(guarda.contato_emergencia_nome || "");
+setContatoEmergenciaParentesco(guarda.contato_emergencia_parentesco || "");
+setContatoEmergenciaTelefone(guarda.contato_emergencia_telefone || "");
+setEspecialidades(guarda.especialidades || []);
+setObservacao(guarda.observacao || "");
 }
 
   async function excluirGuarda(id: number) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
     if (!podeEditar) {
       alert("Você não possui permissão para excluir guardas.");
       return;
@@ -191,7 +267,11 @@ function editarGuarda(guarda: Guarda) {
 
     if (!confirmar) return;
 
-    const { error } = await supabase.from("guardas").delete().eq("id", id);
+    const { error } = await supabase
+  .from("guardas")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", municipioId);
 
     if (error) {
       console.error(error);
@@ -229,13 +309,56 @@ function limparFormulario() {
   setDataNascimento("");
   setFoto(null);
   setFotoUrl("");
-}
+  setCpf("");
+  setRg("");
+  setEmail("");
+  setCnh("");
+  setGraduacao("");
+setTipoSanguineo("");
+setContatoEmergenciaNome("");
+setContatoEmergenciaParentesco("");
+setContatoEmergenciaTelefone("");
+setEspecialidades([]);
+  setCategoriaCnh("");
+  setValidadeCnh("");
+  setDataAdmissao("");
+  setObservacao("");
+  }
 
 function formatarData(data: string | null) {
   if (!data) return "-";
 
   const [ano, mes, dia] = data.split("-");
   return `${dia}/${mes}/${ano}`;
+}
+
+function formatarCPF(valor: string) {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatarTelefone(valor: string) {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 11)
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d)/, "$1-$2");
+}
+
+function formatarCNH(valor: string) {
+  return valor
+    .replace(/\D/g, "")
+    .slice(0, 11);
+}
+
+function formatarRG(valor: string) {
+  return valor
+    .replace(/[^0-9A-Za-z]/g, "")
+    .slice(0, 20);
 }
 
   return (
@@ -277,6 +400,11 @@ function formatarData(data: string | null) {
 
           <div className="space-y-4">
             <div>
+
+<h3 className="text-lg font-bold text-[#C9A227] border-b border-[#C9A227]/40 pb-2 mb-4">
+  👤 Dados Pessoais
+</h3>
+
               <label className="label">Matrícula</label>
               <input
                 className="input"
@@ -297,6 +425,25 @@ function formatarData(data: string | null) {
             </div>
 
             <div>
+  <label className="label">Graduação</label>
+
+  <select
+    className="input"
+    value={graduacao}
+    onChange={(e) => setGraduacao(e.target.value)}
+  >
+    <option value="">Selecione</option>
+    <option>Guarda Municipal</option>
+    <option>Guarda Classe Distinta</option>
+    <option>Subinspetor</option>
+    <option>Inspetor</option>
+    <option>Inspetor Regional</option>
+    <option>Subcomandante</option>
+    <option>Comandante</option>
+  </select>
+</div>
+
+            <div>
               <label className="label">Cargo / Função</label>
               <input
                 className="input"
@@ -307,20 +454,62 @@ function formatarData(data: string | null) {
             </div>
 
             <div>
+  <label className="label">Lotação</label>
+
+  <select
+    className="input"
+    value={lotacao}
+    onChange={(e) => setLotacao(e.target.value)}
+  >
+    <option value="">Selecione</option>
+    <option>Comando</option>
+    <option>Operacional</option>
+    <option>Administrativo</option>
+    <option>ROMU</option>
+    <option>Patrulha Escolar</option>
+    <option>Maria da Penha</option>
+    <option>Ambiental</option>
+    <option>Trânsito</option>
+    <option>Canil</option>
+    <option>Motopatrulha</option>
+    <option>Ciclopatrulha</option>
+    <option>Defesa Civil</option>
+  </select>
+</div>
+
+<h3 className="text-lg font-bold text-[#C9A227] border-b border-[#C9A227]/40 pb-2 mb-4 mt-6">
+  📞 Contatos
+</h3>
+
+            <div>
               <label className="label">Telefone</label>
               <input
                 className="input"
                 value={telefone}
-                onChange={(e) => setTelefone(e.target.value)}
+                onChange={(e) => setTelefone(formatarTelefone(e.target.value))}
                 placeholder="(75) 99999-9999"
               />
+
+              <div>
+  <label className="label">E-mail</label>
+  <input
+    className="input"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    placeholder="emailpessoal@guarda.com"
+  />
+</div>
+
+<h3 className="text-lg font-bold text-[#C9A227] border-b border-[#C9A227]/40 pb-2 mb-4 mt-6">
+  📄 Documentação
+</h3>
 
 <div>
   <label className="label">CPF</label>
   <input
     className="input"
     value={cpf}
-    onChange={(e) => setCpf(e.target.value)}
+    onChange={(e) => setCpf(formatarCPF(e.target.value))}
     placeholder="000.000.000-00"
   />
 </div>
@@ -330,18 +519,8 @@ function formatarData(data: string | null) {
   <input
     className="input"
     value={rg}
-    onChange={(e) => setRg(e.target.value)}
+    onChange={(e) => setRg(formatarRG(e.target.value))}
     placeholder="RG"
-  />
-</div>
-
-<div>
-  <label className="label">E-mail Institucional</label>
-  <input
-    className="input"
-    value={email}
-    onChange={(e) => setEmail(e.target.value)}
-    placeholder="guarda@municipio.gov.br"
   />
 </div>
 
@@ -350,7 +529,7 @@ function formatarData(data: string | null) {
   <input
     className="input"
     value={cnh}
-    onChange={(e) => setCnh(e.target.value)}
+    onChange={(e) => setCnh(formatarCNH(e.target.value))}
     placeholder="Número da CNH"
   />
 </div>
@@ -398,6 +577,122 @@ function formatarData(data: string | null) {
 <div>
   <label className="label">Data de Nascimento</label>
   <div>
+
+<div>
+  <label className="label">Tipo Sanguíneo</label>
+
+  <select
+    className="input"
+    value={tipoSanguineo}
+    onChange={(e) => setTipoSanguineo(e.target.value)}
+  >
+    <option value="">Selecione</option>
+    <option>O+</option>
+    <option>O-</option>
+    <option>A+</option>
+    <option>A-</option>
+    <option>B+</option>
+    <option>B-</option>
+    <option>AB+</option>
+    <option>AB-</option>
+  </select>
+</div>
+
+<div className="border-t border-[#C9A227]/40 pt-4 space-y-4">
+  <h3 className="text-lg font-bold text-[#C9A227]">
+    Contato de Emergência
+  </h3>
+
+  <div>
+    <label className="label">Nome do contato</label>
+    <input
+      className="input"
+      value={contatoEmergenciaNome}
+      onChange={(e) => setContatoEmergenciaNome(e.target.value)}
+      placeholder="Nome completo"
+    />
+  </div>
+
+  <div>
+    <label className="label">Parentesco</label>
+    <input
+      className="input"
+      value={contatoEmergenciaParentesco}
+      onChange={(e) => setContatoEmergenciaParentesco(e.target.value)}
+      placeholder="Ex: Esposa, mãe, pai, irmão"
+    />
+  </div>
+
+  <div>
+    <label className="label">Telefone de emergência</label>
+    <input
+      className="input"
+      value={contatoEmergenciaTelefone}
+      maxLength={15}
+      onChange={(e) =>
+        setContatoEmergenciaTelefone(formatarTelefone(e.target.value))
+      }
+      placeholder="(75) 99999-9999"
+    />
+  </div>
+</div>
+
+<div className="border-t border-[#C9A227]/40 pt-4">
+  <h3 className="text-lg font-bold text-[#C9A227] mb-3">
+    Especialidades
+  </h3>
+
+  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+    {[
+      "ROMU",
+      "Patrulha Escolar",
+      "Maria da Penha",
+      "Ambiental",
+      "Trânsito",
+      "Motopatrulha",
+      "Ciclopatrulha",
+      "Defesa Civil",
+      "APH",
+      "Drone",
+      "Canil",
+    ].map((item) => (
+      <label key={item} className="flex items-center gap-2 text-white">
+        <input
+          type="checkbox"
+          checked={especialidades.includes(item)}
+          onChange={(e) => {
+            if (e.target.checked) {
+              setEspecialidades([...especialidades, item]);
+            } else {
+              setEspecialidades(
+                especialidades.filter((e) => e !== item)
+              );
+            }
+          }}
+        />
+        {item}
+      </label>
+    ))}
+  </div>
+</div>
+
+<div className="border-t border-[#C9A227]/40 pt-4">
+  <h3 className="text-lg font-bold text-[#C9A227] mb-3">
+    Observações
+  </h3>
+
+  <textarea
+    className="input h-28 resize-none"
+    placeholder="Observações sobre o guarda..."
+    value={observacao}
+    onChange={(e) => setObservacao(e.target.value)}
+  />
+</div>
+
+<h3 className="text-lg font-bold text-[#C9A227] border-b border-[#C9A227]/40 pb-2 mb-4 mt-6">
+  📷 Identificação
+</h3>
+
   <label className="label">Foto do Guarda</label>
 
   <input
@@ -416,6 +711,10 @@ function formatarData(data: string | null) {
     onChange={(e) => setDataNascimento(e.target.value)}
   />
 </div>
+
+<h3 className="text-lg font-bold text-[#C9A227] border-b border-[#C9A227]/40 pb-2 mb-4 mt-6">
+  🏢 Dados Funcionais
+</h3>
 
             <div>
               <label className="label">Status</label>
@@ -500,13 +799,15 @@ function formatarData(data: string | null) {
   👮 Dossiê do Guarda
 </Link>
 
-<button
-  type="button"
-  onClick={() => editarGuarda(guarda)}
-  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
->
-  Editar
-</button>
+{podeEditar && (
+  <button
+    type="button"
+    onClick={() => editarGuarda(guarda)}
+    className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs mr-2"
+  >
+    Editar
+  </button>
+)}
 
                     <button
   type="button"

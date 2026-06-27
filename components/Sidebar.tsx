@@ -30,44 +30,39 @@ type Perfil =
   | "GUARDA"
   | "CONSULTA";
 
-type UsuarioLogado = {
+export default function Sidebar({
+  usuario,
+}: {
+  usuario: {
   id: string;
   nome: string;
-  matricula: string;
+  matricula?: string;
   email: string;
   perfil: Perfil;
-  foto_url?: string;
   municipio_id?: number;
-};
-
-export default function Sidebar() {
+  foto_url?: string;
+} | null;
+}) {
   const pathname = usePathname();
   const [aberto, setAberto] = useState(false);
   const [menuCompacto, setMenuCompacto] = useState(false);
-  const [menuAberto, setMenuAberto] = useState("operacional");
-  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [modulosPermitidos, setModulosPermitidos] = useState<string[]>([]);
   const [brasaoMunicipio, setBrasaoMunicipio] = useState("");
 
   useEffect(() => {
-  async function iniciar() {
-    const dados = localStorage.getItem("usuarioLogado");
+  if (!usuario) return;
 
-    if (!dados) return;
+  carregarBrasaoMunicipio(usuario.municipio_id);
 
-    const usuarioLogado = JSON.parse(dados);
-    setUsuario(usuarioLogado);
-    carregarBrasaoMunicipio(usuarioLogado.municipio_id);
-
-    const modulos = await buscarModulosPermitidos(usuarioLogado.perfil);
-    setModulosPermitidos(modulos);
-  }
-
-  iniciar();
-}, []);
+  buscarModulosPermitidos(usuario.perfil).then(setModulosPermitidos);
+}, [usuario]);
 
 async function carregarBrasaoMunicipio(municipioId?: number) {
-  if (!municipioId) return;
+
+if (!municipioId) {
+  setBrasaoMunicipio("/brasao-gcm-v2.png");
+  return;
+}
 
   const { data, error } = await supabase
     .from("municipios")
@@ -86,52 +81,18 @@ async function carregarBrasaoMunicipio(municipioId?: number) {
 }
 
   async function sair() {
-    await supabase.auth.signOut();
-    localStorage.removeItem("usuarioLogado");
-    window.location.href = "/login";
-  }
+  if (!confirm("Deseja realmente sair do sistema?")) return;
+
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  window.location.href = "/login";
+}
 
   function fecharMenu() {
     setAberto(false);
   }
 
-  function podeVer(perfis: Perfil[]) {
-  if (!usuario) return false;
-
-  if (usuario.perfil === "DESENVOLVEDOR") {
-    return true;
-  }
-
-  return perfis.includes(usuario.perfil);
-}
-
-  const todos: Perfil[] = [
-    "ADMIN",
-    "COMANDANTE",
-    "DIRETOR",
-    "CMT_GUARNICAO",
-    "PLANTONISTA",
-    "CONSULTA",
-  ];
-
-  const operacionais: Perfil[] = [
-    "ADMIN",
-    "COMANDANTE",
-    "DIRETOR",
-    "CMT_GUARNICAO",
-    "PLANTONISTA",
-  ];
-
-  const comando: Perfil[] = [
-    "ADMIN",
-    "COMANDANTE",
-    "DIRETOR",
-    "CMT_GUARNICAO",
-  ];
-
-  const gestao: Perfil[] = ["ADMIN", "COMANDANTE", "DIRETOR"];
-
-  function podeVerModuloMenu(modulo: string) {
+    function podeVerModuloMenu(modulo: string) {
   return moduloLiberado(modulosPermitidos, modulo);
 }
 
@@ -141,13 +102,20 @@ async function carregarBrasaoMunicipio(municipioId?: number) {
         <div className="flex items-center gap-3">
           <img
   src={brasaoMunicipio || "/brasao-gcm-v2.png"}
+  onError={(e) => {
+    (e.currentTarget as HTMLImageElement).src = "/brasao-gcm-v2.png";
+  }}
   alt="Brasão GCM"
   className="w-20 h-20 object-contain mb-3"
 />
 
           <div>
             <h1 className="font-bold text-white">SIG-GCM</h1>
-            <p className="text-xs text-slate-400">Biritinga - BA</p>
+            <p className="text-xs text-slate-400">
+  {usuario?.municipio_id
+    ? `Município ID: ${usuario.municipio_id}`
+    : "Município"}
+</p>
           </div>
         </div>
 
@@ -227,91 +195,115 @@ w-80
     menuCompacto ? "items-center" : ""
   }`}
 >
-  <ItemMenu
-  href="/sistema"
-  icone={LayoutDashboard}
-  titulo="Dashboard"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname === "/sistema"}
-/>
 
-{podeVerModuloMenu("ocorrencias") && (
+  <ItemMenu
+    href="/sistema"
+    icone={LayoutDashboard}
+    titulo="Centro de Comando"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+    ativo={pathname === "/sistema"}
+  />
+
   <ItemMenu
     href="/sistema/operacional"
-    icone={CarFront}
-    titulo="Operacional"
+    icone={Shield}
+    titulo="Central Operacional"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
     ativo={pathname.startsWith("/sistema/operacional")}
   />
-)}
 
-{podeVerModuloMenu("guardas") && (
   <ItemMenu
-    href="/sistema/cadastros"
+    href="/sistema/rh"
     icone={Users}
-    titulo="Cadastros"
+    titulo="Central de RH"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/cadastros")}
+    ativo={pathname.startsWith("/sistema/rh")}
   />
-)}
 
-{podeVerModuloMenu("escalas") && (
   <ItemMenu
-    href="/sistema/escalas-menu"
-    icone={CalendarDays}
-    titulo="Escalas"
+    href="/sistema/frota"
+    icone={CarFront}
+    titulo="Central de Frota"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/escalas-menu")}
+    ativo={pathname.startsWith("/sistema/frota")}
   />
-)}
 
-{podeVerModuloMenu("relatorios") && (
   <ItemMenu
-    href="/sistema/gestao"
-    icone={BarChart3}
-    titulo="Gestão"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/gestao")}
-  />
-)}
-
-{podeVerModuloMenu("ia") && (
-  <ItemMenu
-    href="/sistema/inteligencia"
-    icone={Bot}
-    titulo="Inteligência"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/inteligencia")}
-  />
-)}
-
-{podeVerModuloMenu("administracao") && (
-  <ItemMenu
-    href="/sistema/administracao"
+    href="/sistema/central-patrimonio"
     icone={Shield}
-    titulo="Administração"
+    titulo="Central de Patrimônio"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/administracao")}
+    ativo={pathname.startsWith("/sistema/central-patrimonio")}
   />
-)}
 
-{podeVerModuloMenu("configuracoes") && (
   <ItemMenu
-    href="/sistema/configuracoes"
-    icone={Settings}
-    titulo="Configurações"
+    href="/sistema/central-inteligencia"
+    icone={Bot}
+    titulo="Central de Inteligência"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/configuracoes")}
+    ativo={pathname.startsWith("/sistema/central-inteligencia")}
   />
-)}
+
+  <ItemMenu
+  href="/sistema/sigia"
+  icone={Bot}
+  titulo="SIGIA"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/sigia")}
+/>
+
+  <ItemMenu
+  href="/sistema/central-juridica"
+  icone={Shield}
+  titulo="Central Jurídica"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/central-juridica")}
+/>
+
+  <ItemMenu
+    href="/sistema/central-relatorios"
+    icone={BarChart3}
+    titulo="Central de Relatórios"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/central-relatorios")}
+  />
+
+  <ItemMenu
+    href="/sistema/central-cidadao"
+    icone={Users}
+    titulo="Central do Cidadão"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/central-cidadao")}
+  />
+
+  <ItemMenu
+    href="/sistema/central-administrativa"
+    icone={Settings}
+    titulo="Central Administrativa"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/central-administrativa")}
+  />
+
+  <ItemMenu
+    href="/sistema/desenvolvedor"
+    icone={Settings}
+    titulo="Desenvolvedor"
+    fecharMenu={fecharMenu}
+    compacto={menuCompacto}
+    ativo={pathname.startsWith("/sistema/desenvolvedor")}
+  />
+
 </nav>
 
         <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">
@@ -331,12 +323,12 @@ w-80
     <p className="font-semibold">SIG-GCM Brasil</p>
 
     <p className="text-xs text-slate-400">
-      Sistema Integrado das Guardas Municipais
-    </p>
+  {usuario?.nome}
+</p>
 
-    <p className="text-xs text-blue-400">
-      suporte@siggcmbrasil.com
-    </p>
+<p className="text-xs text-blue-400">
+  {usuario?.perfil}
+</p>
   </div>
 )}
           </div>
@@ -410,7 +402,7 @@ function ItemMenu({
         w-full
         flex items-center gap-4
         px-5 py-5
-        text-2xl font-bold
+        text-1xl font-bold
         border-b border-slate-800
         transition-all duration-200
         ${
@@ -431,8 +423,4 @@ function ItemMenu({
       {!compacto && <span>{titulo}</span>}
     </Link>
   );
-}
-
-function Divisor() {
-  return <div className="border-t border-slate-800 my-3" />;
 }

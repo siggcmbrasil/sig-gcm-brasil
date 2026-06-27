@@ -77,7 +77,13 @@ const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
 const podeEditar = perfilUsuario !== "CONSULTA";
 
-
+if (!usuarioLogado?.municipio_id) {
+  return (
+    <div className="p-6">
+      Município não identificado.
+    </div>
+  );
+}
 
   async function carregarPatrulhamentos() {
     setCarregando(true);
@@ -231,6 +237,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
 
   await supabase.from("gps_patrulhamento").insert({
     patrulhamento_id: patrulhamentoId,
+    municipio_id: usuarioLogado.municipio_id,
     latitude: localizacao.latitude,
     longitude: localizacao.longitude,
     tipo,
@@ -249,7 +256,8 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     const { error } = await supabase
       .from("patrulhamentos")
       .delete()
-      .eq("id", id);
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
     if (error) {
       console.error(error);
@@ -266,9 +274,10 @@ async function finalizarPatrulhamento(id: number) {
   const { error } = await supabase
     .from("patrulhamentos")
     .update({
-      status: "FINALIZADO",
-    })
-    .eq("id", id);
+  status: "FINALIZADO",
+})
+.eq("id", id)
+.eq("municipio_id", usuarioLogado.municipio_id);
 
   if (error) {
     console.error(error);
@@ -347,9 +356,10 @@ const municipioId = usuarioLogado.municipio_id;
   }
 
   const { data: membros } = await supabase
-    .from("guarnicao_membros")
-    .select("guarda_id")
-    .eq("guarnicao_id", guarnicaoAtual.id);
+  .from("guarnicao_membros")
+  .select("guarda_id")
+  .eq("guarnicao_id", guarnicaoAtual.id)
+  .eq("municipio_id", usuarioLogado.municipio_id);
 
   if (!membros || membros.length === 0) return;
 
@@ -368,10 +378,10 @@ const municipioId = usuarioLogado.municipio_id;
 }
 
   useEffect(() => {
-  carregarPatrulhamentos();
-  carregarGuardas();
-  carregarViaturas();
-  carregarPlantaoAutomatico();
+  void carregarPatrulhamentos();
+  void carregarGuardas();
+  void carregarViaturas();
+  void carregarPlantaoAutomatico();
 }, []);
 
 useEffect(() => {

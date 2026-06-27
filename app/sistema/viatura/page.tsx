@@ -18,6 +18,7 @@ type Viatura = {
 
 export default function Viatura() {
   const [viatura, setViatura] = useState<Viatura | null>(null);
+  const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
   const [prefixo, setPrefixo] = useState("");
@@ -31,9 +32,16 @@ const [modelo, setModelo] = useState("");
   const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
 
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+
+const podeExcluir =
+  perfilUsuario === "ADMIN" ||
+  perfilUsuario === "COMANDANTE" ||
+  perfilUsuario === "DESENVOLVEDOR";
 
 const podeEditar = perfilUsuario !== "CONSULTA";
 
@@ -43,7 +51,7 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     const { data, error } = await supabase
   .from("viaturas")
   .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
+  .eq("municipio_id", municipioId)
   .order("id", { ascending: true })
   .limit(1)
   .single();
@@ -71,13 +79,22 @@ const podeEditar = perfilUsuario !== "CONSULTA";
   }
 
   async function salvarViatura() {
+if (!municipioId) {
+  alert("Município não identificado.");
+  setSalvando(false); return;
+}
+
+if (salvando) return;
+
+setSalvando(true);
+
   if (!podeEditar) {
     alert("Você não possui permissão para alterar dados da viatura.");
-    return;
+    setSalvando(false); return;
   }
     if (!prefixo || !modelo || !placa) {
       alert("Preencha prefixo, modelo e placa.");
-      return;
+      setSalvando(false); return;
     }
 
     if (viatura) {
@@ -94,22 +111,23 @@ const podeEditar = perfilUsuario !== "CONSULTA";
           observacoes,
         })
         .eq("id", viatura.id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+.eq("municipio_id", municipioId);
 
       if (error) {
         console.error(error);
         alert("Erro ao atualizar viatura.");
-        return;
+        setSalvando(false); return;
       }
 
-      alert("Viatura atualizada com sucesso.");
-      carregarViatura();
-      return;
+      alert("Viatura atualizada com sucesso."); setSalvando(false);
+      await carregarViatura();
+setSalvando(false);
+return;
     }
 
     const { error } = await supabase.from("viaturas").insert([
       {
-        municipio_id: usuarioLogado.municipio_id,
+        municipio_id: municipioId,
         prefixo,
         modelo,
         placa,
@@ -124,11 +142,12 @@ const podeEditar = perfilUsuario !== "CONSULTA";
     if (error) {
       console.error(error);
       alert("Erro ao cadastrar viatura.");
-      return;
+      setSalvando(false); return;
     }
 
     alert("Viatura cadastrada com sucesso.");
-    carregarViatura();
+await carregarViatura();
+setSalvando(false);
   }
 
   useEffect(() => {
@@ -266,9 +285,10 @@ const podeEditar = perfilUsuario !== "CONSULTA";
             <button
               type="button"
               onClick={salvarViatura}
+              disabled={salvando}
               className="btn-primary w-full md:w-auto text-lg"
             >
-              Salvar Dados da Viatura
+              {salvando ? "Salvando..." : "Salvar Dados da Viatura"}
             </button>
           </div>
           </div>

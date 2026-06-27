@@ -72,6 +72,13 @@ export default function VisualizarOcorrencia() {
   const params = useParams();
   const id = params.id;
 
+  const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
+
   const [ocorrencia, setOcorrencia] = useState<Ocorrencia | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -81,11 +88,24 @@ export default function VisualizarOcorrencia() {
   const [guardas, setGuardas] = useState<Guarda[]>([]);
 
   async function carregarOcorrencia() {
-    const { data, error } = await supabase
-      .from("ocorrencias")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const usuarioLogado =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : null;
+
+const municipioId = usuarioLogado?.municipio_id;
+
+if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
+
+const { data, error } = await supabase
+  .from("ocorrencias")
+  .select("*")
+  .eq("id", id)
+  .eq("municipio_id", municipioId)
+  .single();
 
     if (error) {
       console.error(error);
@@ -99,21 +119,30 @@ export default function VisualizarOcorrencia() {
   }
 
   async function carregarDadosApoio() {
+
+if (!municipioId) {
+  return;
+}
+
   const { data: municipiosData } = await supabase
     .from("municipios")
-.select("id, nome, estado, brasao, nome_corporacao, sigla_corporacao");
+.select("id, nome, estado, brasao, nome_corporacao, sigla_corporacao")
+.eq("id", municipioId);
 
   const { data: guarnicoesData } = await supabase
     .from("guarnicoes")
-    .select("id, nome");
+.select("id, nome")
+.eq("municipio_id", municipioId);
 
   const { data: viaturasData } = await supabase
     .from("viaturas")
-    .select("id, prefixo");
+.select("id, prefixo")
+.eq("municipio_id", municipioId);
 
   const { data: guardasData } = await supabase
     .from("guardas")
-    .select("id, nome");
+.select("id, nome")
+.eq("municipio_id", municipioId);
 
   setMunicipios(municipiosData || []);
   setGuarnicoes(guarnicoesData || []);
@@ -246,15 +275,19 @@ Local: ${ocorrencia.local}
       pdf.addImage(brasaoBase64, "PNG", 15, 10, 25, 25);
     }
 
-    pdf.setFontSize(16);
-    pdf.text("PREFEITURA MUNICIPAL DE BIRITINGA", 105, 18, {
-  align: "center",
-});
+   pdf.text(
+  municipioAtual?.nome || "PREFEITURA MUNICIPAL",
+  105,
+  18,
+  { align: "center" }
+);
 
-pdf.setFontSize(14);
-pdf.text("GUARDA CIVIL MUNICIPAL", 105, 27, {
-  align: "center",
-});
+pdf.text(
+  municipioAtual?.nome_corporacao || "GUARDA CIVIL MUNICIPAL",
+  105,
+  27,
+  { align: "center" }
+);
 
     pdf.setFontSize(11);
     pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
@@ -337,35 +370,55 @@ y += 12;
     y += descricao.length * 7 + 10;
 
     if (envolvidos.length > 0) {
-      if (y > 220) {
-        pdf.addPage();
-        y = 20;
-      }
+  if (y > 220) {
+    pdf.addPage();
+    y = 20;
+  }
 
-      pdf.setFontSize(14);
-      pdf.text("ENVOLVIDOS", 15, y);
-      y += 10;
+  pdf.setFontSize(14);
+  pdf.text("ENVOLVIDOS", 15, y);
+  y += 10;
 
-      pdf.setFontSize(11);
+  pdf.setFontSize(11);
 
-      envolvidos.forEach((pessoa, index) => {
-        if (y > 250) {
-          pdf.addPage();
-          y = 20;
-        }
+  function linhaPessoa(label: string, valor: any) {
+    if (!valor) return;
 
-        pdf.text(`${index + 1}. ${pessoa.nome || "Sem nome"}`, 15, y);
-        y += 7;
-        pdf.text(`Tipo: ${pessoa.tipo || "-"}`, 20, y);
-        y += 7;
-        pdf.text(`Documento: ${pessoa.documento || "-"}`, 20, y);
-        y += 7;
-        pdf.text(`Telefone: ${pessoa.telefone || "-"}`, 20, y);
-        y += 7;
-        pdf.text(`Endereço: ${pessoa.endereco || "-"}`, 20, y);
-        y += 10;
-      });
+    pdf.text(`${label}: ${valor}`, 20, y);
+    y += 7;
+  }
+
+  envolvidos.forEach((pessoa, index) => {
+    if (y > 250) {
+      pdf.addPage();
+      y = 20;
     }
+
+    pdf.text(
+      `${index + 1}. ${pessoa.nome || "Sem nome"}`,
+      15,
+      y
+    );
+    y += 7;
+
+    linhaPessoa("Tipo", pessoa.tipo);
+    linhaPessoa("Documento", pessoa.documento);
+    linhaPessoa("Telefone", pessoa.telefone);
+    linhaPessoa("Endereço", pessoa.endereco);
+
+    if (pessoa.observacao) {
+      const obs = pdf.splitTextToSize(
+        `Observação: ${pessoa.observacao}`,
+        165
+      );
+
+      pdf.text(obs, 20, y);
+      y += obs.length * 7;
+    }
+
+    y += 8;
+  });
+}
 
     if (veiculosEnvolvidos.length > 0) {
   if (y > 220) {
@@ -379,6 +432,13 @@ y += 12;
 
   pdf.setFontSize(11);
 
+  function linhaVeiculo(label: string, valor: any) {
+    if (!valor) return;
+
+    pdf.text(`${label}: ${valor}`, 20, y);
+    y += 7;
+  }
+
   veiculosEnvolvidos.forEach((veiculo: any, index: number) => {
     if (y > 230) {
       pdf.addPage();
@@ -387,36 +447,32 @@ y += 12;
 
     pdf.text(`${index + 1}. Veículo`, 15, y);
     y += 7;
-    pdf.text(`Placa: ${veiculo.placa || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Marca: ${veiculo.marca || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Modelo: ${veiculo.modelo || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Ano: ${veiculo.ano || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Cor: ${veiculo.cor || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Renavam: ${veiculo.renavam || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Condutor: ${veiculo.condutor || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Documento Condutor: ${veiculo.documento_condutor || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Proprietário: ${veiculo.proprietario || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`CPF Proprietário: ${veiculo.cpf_proprietario || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Situação: ${veiculo.situacao || "-"}`, 20, y);
-    y += 7;
-    pdf.text(`Consulta: ${veiculo.situacao_consulta || "-"}`, 20, y);
-    y += 7;
+
+    linhaVeiculo("Placa", veiculo.placa);
+    linhaVeiculo("Tipo/Espécie", veiculo.tipo_especie);
+    linhaVeiculo("Marca", veiculo.marca);
+    linhaVeiculo("Modelo", veiculo.modelo);
+    linhaVeiculo("Ano", veiculo.ano);
+    linhaVeiculo("Cor", veiculo.cor);
+    linhaVeiculo("Renavam", veiculo.renavam);
+    linhaVeiculo("Chassi", veiculo.chassi);
+
+    linhaVeiculo("Condutor", veiculo.condutor);
+    linhaVeiculo("Documento Condutor", veiculo.documento_condutor);
+
+    linhaVeiculo("Proprietário", veiculo.proprietario);
+    linhaVeiculo("CPF Proprietário", veiculo.cpf_proprietario);
+    linhaVeiculo("Telefone Proprietário", veiculo.telefone_proprietario);
+
+    linhaVeiculo("Situação", veiculo.situacao);
+    linhaVeiculo("Consulta", veiculo.situacao_consulta);
 
     if (veiculo.observacao) {
       const obs = pdf.splitTextToSize(
         `Observação: ${veiculo.observacao}`,
         165
       );
+
       pdf.text(obs, 20, y);
       y += obs.length * 7;
     }
@@ -449,47 +505,31 @@ if (objetosEnvolvidos.length > 0) {
     pdf.text(`Categoria: ${item.categoria || "-"}`, 20, y);
     y += 7;
 
-    pdf.text(`Descrição: ${item.descricao || "-"}`, 20, y);
-    y += 7;
+    function linhaObjeto(label: string, valor: any) {
+  if (!valor) return;
 
-    pdf.text(`Marca: ${item.marca || "-"}`, 20, y);
-    y += 7;
+  pdf.text(`${label}: ${valor}`, 20, y);
+  y += 7;
+}
 
-    pdf.text(`Modelo: ${item.modelo || "-"}`, 20, y);
-    y += 7;
+linhaObjeto("Categoria", item.categoria);
+linhaObjeto("Descrição", item.descricao);
+linhaObjeto("Marca", item.marca);
+linhaObjeto("Modelo", item.modelo);
+linhaObjeto("Calibre", item.calibre);
+linhaObjeto("Numeração", item.numeracao);
+linhaObjeto("Quantidade", item.quantidade);
 
-    pdf.text(`Calibre: ${item.calibre || "-"}`, 20, y);
-    y += 7;
+if (item.peso) {
+  linhaObjeto(
+    "Peso",
+    `${item.peso} ${item.unidade_peso || ""}`
+  );
+}
 
-    pdf.text(`Numeração: ${item.numeracao || "-"}`, 20, y);
-    y += 7;
-
-    pdf.text(`Quantidade: ${item.quantidade || "-"}`, 20, y);
-    y += 7;
-
-    pdf.text(
-      `Peso: ${item.peso || "-"} ${item.unidade_peso || ""}`,
-      20,
-      y
-    );
-    y += 7;
-
-    pdf.text(
-      `Valor Estimado: ${item.valor_estimado || "-"}`,
-      20,
-      y
-    );
-    y += 7;
-
-    pdf.text(
-      `Procedência: ${item.procedencia || "-"}`,
-      20,
-      y
-    );
-    y += 7;
-
-    pdf.text(`Situação: ${item.situacao || "-"}`, 20, y);
-    y += 7;
+linhaObjeto("Valor Estimado", item.valor_estimado);
+linhaObjeto("Procedência", item.procedencia);
+linhaObjeto("Situação", item.situacao);
 
     if (item.observacao) {
       const obs = pdf.splitTextToSize(
@@ -551,8 +591,8 @@ if (objetosEnvolvidos.length > 0) {
   }
 
   useEffect(() => {
-  carregarOcorrencia();
-  carregarDadosApoio();
+  void carregarOcorrencia();
+  void carregarDadosApoio();
 }, []);
 
   if (carregando) {
