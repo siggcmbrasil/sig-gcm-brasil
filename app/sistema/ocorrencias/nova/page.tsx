@@ -1014,7 +1014,8 @@ async function preencherVeiculo(index: number, placa: string) {
 }
 
   return (
-    <div className="min-h-screen bg-[#07152E] p-6 md:p-8">
+  <>
+    <div className="hidden md:block min-h-screen bg-[#07152E] p-6 md:p-8">
 <header className="mb-8 border-b border-[#d6a93b] pb-6">
   <h1 className="text-4xl font-black text-white">
     Nova Ocorrência
@@ -2279,7 +2280,1236 @@ async function preencherVeiculo(index: number, placa: string) {
 </div>
 </form>
     </div>
-  );
+
+    <div className="block md:hidden">
+  <main className="min-h-screen bg-[#02060f] text-white p-4 pb-28">
+    <header className="mb-5">
+      <h1 className="text-3xl font-black">
+        Nova Ocorrência
+      </h1>
+
+      <p className="text-slate-400 text-sm mt-2">
+        Registro rápido usando a mesma base da versão PC.
+      </p>
+    </header>
+
+    <section className="space-y-4">
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+        <label className="text-sm text-slate-400 mb-2 block">
+          Tipo da ocorrência
+        </label>
+
+        <select
+          value={tipo}
+          onChange={(e) => setTipo(e.target.value)}
+          className="w-full bg-transparent outline-none text-white"
+        >
+          <option value="">Selecione</option>
+
+          {TIPOS_OCORRENCIA.map((item) => (
+            <option key={item} value={item}>
+              {item}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+  <label className="text-sm text-slate-400 mb-2 block">
+    Guarnição
+  </label>
+
+  <select
+    value={guarnicaoId}
+    onChange={(e) => setGuarnicaoId(e.target.value)}
+    className="w-full bg-transparent outline-none text-white"
+  >
+    <option value="">Selecione a guarnição</option>
+
+    {guarnicoes.map((g) => (
+      <option key={g.id} value={g.id}>
+        {g.nome}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+  <label className="text-sm text-slate-400 mb-2 block">
+    Viatura
+  </label>
+
+  <select
+    value={viaturaId}
+    onChange={(e) => {
+      setViaturaId(e.target.value);
+
+      const vtr = viaturas.find(
+        (v) => String(v.id) === e.target.value
+      );
+
+      setViaturaEmpenhada(vtr?.prefixo || "");
+    }}
+    className="w-full bg-transparent outline-none text-white"
+  >
+    <option value="">Selecione a viatura</option>
+
+    {viaturas.map((v) => (
+      <option key={v.id} value={v.id}>
+        {v.prefixo} {v.modelo ? `- ${v.modelo}` : ""}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+  <label className="text-sm text-slate-400 mb-2 block">
+    Responsável
+  </label>
+
+  <select
+    value={guardaResponsavelId}
+    onChange={(e) => setGuardaResponsavelId(e.target.value)}
+    className="w-full bg-transparent outline-none text-white"
+  >
+    <option value="">Selecione o responsável</option>
+
+    {guardas.map((g) => (
+      <option key={g.id} value={g.id}>
+        {g.nome}
+      </option>
+    ))}
+  </select>
+</div>
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+        <label className="text-sm text-slate-400 mb-2 block">
+          Local
+        </label>
+
+        <select
+          value={localId}
+          onChange={(e) => {
+            setLocalId(e.target.value);
+
+            const selecionado = locais.find(
+              (l) => String(l.id) === e.target.value
+            );
+
+            setLocal(selecionado?.nome || "");
+          }}
+          className="w-full bg-transparent outline-none text-white"
+        >
+          <option value="">Selecione o local</option>
+
+          {locais.map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.nome}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+        <label className="text-sm text-slate-400 mb-2 block">
+          Bairro
+        </label>
+
+        <input
+          value={bairro}
+          onChange={(e) => setBairro(e.target.value)}
+          placeholder="Bairro"
+          className="w-full bg-transparent outline-none text-white"
+        />
+      </div>
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+        <label className="text-sm text-slate-400 mb-2 block">
+          Número
+        </label>
+
+        <input
+          value={numero}
+          onChange={(e) => setNumero(e.target.value)}
+          placeholder="Número ou S/N"
+          className="w-full bg-transparent outline-none text-white"
+        />
+      </div>
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4 space-y-4">
+  <div className="flex items-center justify-between gap-3">
+    <div>
+      <h2 className="text-lg font-black">
+        Envolvidos
+      </h2>
+
+      <p className="text-slate-400 text-sm">
+        Pessoas relacionadas à ocorrência.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={adicionarEnvolvido}
+      className="px-4 py-2 rounded-2xl bg-blue-600 font-bold text-sm"
+    >
+      +
+    </button>
+  </div>
+
+  {envolvidos.map((pessoa, index) => (
+    <div
+      key={index}
+      className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-blue-300">
+          Envolvido {index + 1}
+        </h3>
+
+        {envolvidos.length > 1 && (
+          <button
+            type="button"
+            onClick={() => removerEnvolvido(index)}
+            className="text-red-400 text-sm font-bold"
+          >
+            Remover
+          </button>
+        )}
+      </div>
+
+      <input
+        value={pessoa.nome}
+        onChange={(e) =>
+          atualizarEnvolvido(index, "nome", e.target.value)
+        }
+        placeholder="Nome completo"
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      />
+
+      <select
+        value={pessoa.tipo}
+        onChange={(e) =>
+          atualizarEnvolvido(index, "tipo", e.target.value)
+        }
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      >
+        <option value="">Tipo do envolvido</option>
+
+        {TIPOS_ENVOLVIDO.map((tipo) => (
+          <option key={tipo} value={tipo}>
+            {tipo}
+          </option>
+        ))}
+      </select>
+
+      <div className="grid grid-cols-2 gap-3">
+        <select
+          value={pessoa.tipo_documento || "CPF"}
+          onChange={(e) =>
+            atualizarEnvolvido(index, "tipo_documento", e.target.value)
+          }
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+        >
+          <option value="CPF">CPF</option>
+          <option value="RG">RG</option>
+          <option value="CNH">CNH</option>
+          <option value="PASSAPORTE">Passaporte</option>
+          <option value="OUTRO">Outro</option>
+        </select>
+
+        <input
+          value={pessoa.documento}
+          onChange={async (e) => {
+            let valor = e.target.value;
+
+            if (pessoa.tipo_documento === "CPF") {
+              valor = formatarCPF(valor);
+            } else if (pessoa.tipo_documento === "RG") {
+              valor = formatarRG(valor);
+            } else if (pessoa.tipo_documento === "CNH") {
+              valor = formatarCNH(valor);
+            }
+
+            atualizarEnvolvido(index, "documento", valor);
+
+            if (
+              (pessoa.tipo_documento === "CPF" && valor.length === 14) ||
+              (pessoa.tipo_documento === "CNH" && valor.length === 11) ||
+              (pessoa.tipo_documento === "RG" && valor.length >= 7)
+            ) {
+              await preencherPessoa(index, valor);
+              await consultarHistoricoEnvolvido(valor);
+            }
+          }}
+          placeholder="Documento"
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+        />
+      </div>
+
+      <input
+        value={pessoa.telefone}
+        onChange={(e) =>
+          atualizarEnvolvido(
+            index,
+            "telefone",
+            formatarTelefone(e.target.value)
+          )
+        }
+        placeholder="Telefone"
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      />
+
+      <input
+        value={pessoa.endereco}
+        onChange={(e) =>
+          atualizarEnvolvido(index, "endereco", e.target.value)
+        }
+        placeholder="Endereço"
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      />
+
+      <textarea
+        value={pessoa.observacao}
+        onChange={(e) =>
+          atualizarEnvolvido(index, "observacao", e.target.value)
+        }
+        placeholder="Observação"
+        className="w-full min-h-24 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white resize-none"
+      />
+
+      {historicoEnvolvido.length > 0 && pessoa.documento && (
+        <div className="rounded-2xl border border-purple-500/40 bg-purple-950/30 p-3">
+          <p className="text-purple-300 font-bold text-sm">
+            Histórico encontrado
+          </p>
+
+          <p className="text-slate-400 text-xs mt-1">
+            {historicoEnvolvido.length} ocorrência(s) relacionada(s).
+          </p>
+        </div>
+      )}
+    </div>
+  ))}
+</div>
+
+<button
+  type="button"
+  onClick={() => setMostrarVeiculos(!mostrarVeiculos)}
+  className="w-full rounded-3xl bg-slate-900 border border-slate-800 p-4 flex items-center justify-between"
+>
+  <span className="font-black">
+    Veículos
+  </span>
+
+  <span className="text-blue-400">
+    {mostrarVeiculos ? "Ocultar" : "Adicionar"}
+  </span>
+</button>
+
+{mostrarVeiculos && (
+<div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+  <div className="flex items-center justify-between gap-3">
+    <div>
+      <h2 className="text-lg font-black">Veículos</h2>
+      <p className="text-slate-400 text-sm">
+        Veículos relacionados à ocorrência.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={adicionarVeiculo}
+      className="px-4 py-2 rounded-2xl bg-blue-600 font-bold text-sm"
+    >
+      +
+    </button>
+  </div>
+
+  {veiculosEnvolvidos.map((veiculo, index) => (
+    <div
+      key={index}
+      className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="font-bold text-blue-300">
+          Veículo {index + 1}
+        </h3>
+
+        {veiculosEnvolvidos.length > 1 && (
+          <button
+            type="button"
+            onClick={() => removerVeiculo(index)}
+            className="text-red-400 text-sm font-bold"
+          >
+            Remover
+          </button>
+        )}
+      </div>
+
+      <input
+        value={veiculo.placa}
+        maxLength={7}
+        placeholder="Placa"
+        onChange={async (e) => {
+          const placa = formatarPlaca(e.target.value);
+          atualizarVeiculo(index, "placa", placa);
+
+          if (placa.length === 7) {
+            await preencherVeiculo(index, placa);
+            await consultarHistoricoVeiculo(placa);
+          }
+        }}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white uppercase"
+      />
+
+      {historicoVeiculo.length > 0 && veiculo.placa && (
+        <div className="rounded-2xl border border-yellow-500/40 bg-yellow-950/30 p-3">
+          <p className="text-yellow-300 font-bold text-sm">
+            Histórico encontrado
+          </p>
+
+          <p className="text-slate-400 text-xs mt-1">
+            {historicoVeiculo.length} ocorrência(s) relacionada(s).
+          </p>
+        </div>
+      )}
+
+      <select
+        value={veiculo.tipo_especie}
+        onChange={(e) => {
+          atualizarVeiculo(index, "tipo_especie", e.target.value);
+          atualizarVeiculo(index, "marca", "");
+          atualizarVeiculo(index, "modelo", "");
+        }}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      >
+        <option value="">Tipo / Espécie</option>
+        {Object.keys(VEICULOS_POR_TIPO).map((tipo) => (
+          <option key={tipo} value={tipo}>
+            {tipo}
+          </option>
+        ))}
+      </select>
+
+      <select
+        value={veiculo.marca}
+        onChange={(e) => {
+          atualizarVeiculo(index, "marca", e.target.value);
+          atualizarVeiculo(index, "modelo", "");
+        }}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      >
+        <option value="">Marca</option>
+        {Object.keys(VEICULOS_POR_TIPO[veiculo.tipo_especie] || {}).map(
+          (marca) => (
+            <option key={marca} value={marca}>
+              {marca}
+            </option>
+          )
+        )}
+      </select>
+
+      <select
+        value={veiculo.modelo}
+        onChange={(e) =>
+          atualizarVeiculo(index, "modelo", e.target.value)
+        }
+        disabled={!veiculo.tipo_especie || !veiculo.marca}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white disabled:opacity-50"
+      >
+        <option value="">Modelo</option>
+        {(VEICULOS_POR_TIPO[veiculo.tipo_especie]?.[veiculo.marca] || []).map(
+          (modelo) => (
+            <option key={modelo} value={modelo}>
+              {modelo}
+            </option>
+          )
+        )}
+        <option value="OUTRO">Outro</option>
+      </select>
+
+      <div className="grid grid-cols-2 gap-3">
+        <select
+          value={veiculo.cor}
+          onChange={(e) =>
+            atualizarVeiculo(index, "cor", e.target.value)
+          }
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+        >
+          <option value="">Cor</option>
+          {CORES_VEICULO.map((cor) => (
+            <option key={cor} value={cor}>
+              {cor}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={veiculo.ano}
+          onChange={(e) =>
+            atualizarVeiculo(index, "ano", e.target.value)
+          }
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+        >
+          <option value="">Ano</option>
+          {Array.from(
+            { length: new Date().getFullYear() + 2 - 1975 },
+            (_, i) => new Date().getFullYear() + 1 - i
+          ).map((ano) => (
+            <option key={ano} value={String(ano)}>
+              {ano}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <input
+        value={veiculo.renavam}
+        maxLength={11}
+        inputMode="numeric"
+        placeholder="Renavam"
+        onChange={async (e) => {
+          const renavam = formatarRenavam(e.target.value);
+          atualizarVeiculo(index, "renavam", renavam);
+
+          if (renavam.length === 11 && municipioId) {
+            const encontrado = await buscarVeiculoPorRenavam(
+              municipioId,
+              renavam
+            );
+
+            if (encontrado) {
+              atualizarVeiculo(index, "placa", encontrado.placa || "");
+              atualizarVeiculo(index, "tipo_especie", encontrado.tipo_especie || "");
+              atualizarVeiculo(index, "marca", encontrado.marca || "");
+              atualizarVeiculo(index, "modelo", encontrado.modelo || "");
+              atualizarVeiculo(index, "ano", encontrado.ano || "");
+              atualizarVeiculo(index, "cor", encontrado.cor || "");
+              atualizarVeiculo(index, "chassi", encontrado.chassi || "");
+              atualizarVeiculo(index, "proprietario", encontrado.proprietario || "");
+              atualizarVeiculo(index, "cpf_proprietario", encontrado.cpf_proprietario || "");
+              atualizarVeiculo(index, "telefone_proprietario", encontrado.telefone_proprietario || "");
+            }
+          }
+        }}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+      />
+
+      <input
+        value={veiculo.chassi}
+        maxLength={17}
+        placeholder="Chassi"
+        onChange={(e) =>
+          atualizarVeiculo(index, "chassi", formatarChassi(e.target.value))
+        }
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white uppercase"
+      />
+
+      <div className="pt-3 border-t border-slate-800">
+        <p className="text-sm font-bold text-slate-300 mb-3">
+          Condutor
+        </p>
+
+        <input
+          value={veiculo.condutor}
+          placeholder="Nome do condutor"
+          onChange={(e) =>
+            atualizarVeiculo(index, "condutor", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <div className="grid grid-cols-2 gap-3">
+          <select
+            value={veiculo.tipo_documento_condutor}
+            onChange={(e) =>
+              atualizarVeiculo(
+                index,
+                "tipo_documento_condutor",
+                e.target.value
+              )
+            }
+            className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+          >
+            <option value="CPF">CPF</option>
+            <option value="CNH">CNH</option>
+            <option value="RG">RG</option>
+            <option value="PASSAPORTE">Passaporte</option>
+            <option value="OUTRO">Outro</option>
+          </select>
+
+          <input
+            value={veiculo.documento_condutor}
+            placeholder="Documento"
+            onChange={(e) =>
+              atualizarVeiculo(
+                index,
+                "documento_condutor",
+                formatarDocumentoCondutor(
+                  veiculo.tipo_documento_condutor,
+                  e.target.value
+                )
+              )
+            }
+            className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+          />
+        </div>
+      </div>
+
+      <div className="pt-3 border-t border-slate-800">
+        <p className="text-sm font-bold text-slate-300 mb-3">
+          Proprietário
+        </p>
+
+        <input
+          value={veiculo.proprietario}
+          placeholder="Nome do proprietário"
+          onChange={(e) =>
+            atualizarVeiculo(index, "proprietario", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <input
+          value={veiculo.cpf_proprietario}
+          maxLength={14}
+          placeholder="CPF do proprietário"
+          onChange={(e) =>
+            atualizarVeiculo(
+              index,
+              "cpf_proprietario",
+              formatarCPF(e.target.value)
+            )
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <input
+          value={veiculo.telefone_proprietario}
+          maxLength={15}
+          placeholder="Telefone do proprietário"
+          onChange={(e) =>
+            atualizarVeiculo(
+              index,
+              "telefone_proprietario",
+              formatarTelefone(e.target.value)
+            )
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <input
+          value={veiculo.email_proprietario}
+          placeholder="E-mail"
+          onChange={(e) =>
+            atualizarVeiculo(index, "email_proprietario", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <div className="grid grid-cols-2 gap-3 mb-3">
+          <input
+            value={veiculo.cep_proprietario}
+            maxLength={9}
+            placeholder="CEP"
+            onChange={(e) => {
+              let valor = e.target.value.replace(/\D/g, "").slice(0, 8);
+              valor = valor.replace(/^(\d{5})(\d)/, "$1-$2");
+              atualizarVeiculo(index, "cep_proprietario", valor);
+            }}
+            className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+          />
+
+          <input
+            value={veiculo.uf_proprietario}
+            maxLength={2}
+            placeholder="UF"
+            onChange={(e) =>
+              atualizarVeiculo(
+                index,
+                "uf_proprietario",
+                e.target.value
+                  .toUpperCase()
+                  .replace(/[^A-Z]/g, "")
+                  .slice(0, 2)
+              )
+            }
+            className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white uppercase"
+          />
+        </div>
+
+        <input
+          value={veiculo.cidade_proprietario}
+          placeholder="Cidade"
+          onChange={(e) =>
+            atualizarVeiculo(index, "cidade_proprietario", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        />
+
+        <input
+          value={veiculo.endereco_proprietario}
+          placeholder="Endereço"
+          onChange={(e) =>
+            atualizarVeiculo(index, "endereco_proprietario", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
+        />
+      </div>
+
+      <div className="pt-3 border-t border-slate-800">
+        <p className="text-sm font-bold text-slate-300 mb-3">
+          Situação
+        </p>
+
+        <select
+          value={veiculo.situacao}
+          onChange={(e) =>
+            atualizarVeiculo(index, "situacao", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        >
+          <option value="">Situação do veículo</option>
+          {SITUACOES_VEICULO.map((situacao) => (
+            <option key={situacao} value={situacao}>
+              {situacao}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={veiculo.situacao_consulta || ""}
+          onChange={(e) =>
+            atualizarVeiculo(index, "situacao_consulta", e.target.value)
+          }
+          className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white mb-3"
+        >
+          <option value="">Situação da consulta</option>
+          <option value="REGULAR">Regular</option>
+          <option value="RESTRICAO_ADMINISTRATIVA">Restrição Administrativa</option>
+          <option value="FURTO_ROUBO">Furto/Roubo</option>
+          <option value="LICENCIAMENTO_ATRASADO">Licenciamento Atrasado</option>
+          <option value="SUSPEITA_CLONAGEM">Suspeita de Clonagem</option>
+        </select>
+
+        <textarea
+          value={veiculo.observacao}
+          onChange={(e) =>
+            atualizarVeiculo(index, "observacao", e.target.value)
+          }
+          placeholder="Observações do veículo"
+          className="w-full min-h-24 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white resize-none"
+        />
+      </div>
+    </div>
+  ))}
+</div>
+)}
+
+<button
+  type="button"
+  onClick={() => setMostrarObjetos(!mostrarObjetos)}
+  className="w-full rounded-3xl bg-slate-900 border border-slate-800 p-4 flex justify-between"
+>
+  <span>Objetos</span>
+
+  <span>
+    {mostrarObjetos ? "▲" : "▼"}
+  </span>
+</button>
+
+{mostrarObjetos && (
+<div className="rounded-3xl bg-slate-900 border border-slate-800 p-4 space-y-4">
+  <div className="flex items-center justify-between">
+    <div>
+      <h2 className="text-lg font-black">
+        Objetos
+      </h2>
+
+      <p className="text-slate-400 text-sm">
+        Objetos relacionados à ocorrência.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={adicionarObjeto}
+      className="px-4 py-2 rounded-2xl bg-blue-600 font-bold"
+    >
+      +
+    </button>
+  </div>
+
+  {itensOcorrencia.map((item, index) => (
+    <div
+      key={index}
+      className="rounded-2xl bg-slate-950 border border-slate-800 p-4 space-y-3"
+    >
+      <div className="flex justify-between">
+        <h3 className="font-bold text-blue-300">
+          Item {index + 1}
+        </h3>
+
+        {itensOcorrencia.length > 1 && (
+          <button
+            type="button"
+            onClick={() => removerObjeto(index)}
+            className="text-red-400 text-sm font-bold"
+          >
+            Remover
+          </button>
+        )}
+      </div>
+
+      <select
+        value={item.categoria}
+        onChange={(e) => {
+          atualizarItem(index, "categoria", e.target.value);
+          atualizarItem(index, "subcategoria", "");
+        }}
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+      >
+        <option value="">Categoria</option>
+
+        {CATEGORIAS_OBJETO.map((categoria) => (
+          <option key={categoria} value={categoria}>
+            {categoria}
+          </option>
+        ))}
+      </select>
+
+      <input
+        value={item.descricao}
+        onChange={(e) =>
+          atualizarItem(index, "descricao", e.target.value)
+        }
+        placeholder="Descrição"
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+      />
+
+      {item.categoria === "Celular" && (
+  <>
+    <select
+      value={item.marca}
+      onChange={(e) => {
+        atualizarItem(index, "marca", e.target.value);
+        atualizarItem(index, "modelo", "");
+      }}
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Marca do celular</option>
+
+      {Object.keys(MARCAS_MODELOS_CELULARES).map((marca) => (
+        <option key={marca} value={marca}>
+          {marca}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={item.modelo}
+      onChange={(e) =>
+        atualizarItem(index, "modelo", e.target.value)
+      }
+      disabled={!item.marca}
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white disabled:opacity-50"
+    >
+      <option value="">Modelo do celular</option>
+
+      {(MARCAS_MODELOS_CELULARES[item.marca] || []).map((modelo) => (
+        <option key={modelo} value={modelo}>
+          {modelo}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={item.cor}
+      onChange={(e) =>
+        atualizarItem(index, "cor", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Cor</option>
+
+      {CORES_CELULAR.map((cor) => (
+        <option key={cor} value={cor}>
+          {cor}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.imei}
+      maxLength={15}
+      inputMode="numeric"
+      onChange={(e) =>
+        atualizarItem(
+          index,
+          "imei",
+          e.target.value.replace(/\D/g, "").slice(0, 15)
+        )
+      }
+      placeholder="IMEI"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+  </>
+)}
+
+{item.categoria === "Arma de fogo" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo da arma</option>
+
+      {TIPOS_ARMA_FOGO.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={item.marca}
+      onChange={(e) => {
+        atualizarItem(index, "marca", e.target.value);
+        atualizarItem(index, "modelo", "");
+      }}
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Marca da arma</option>
+
+      {MARCAS_ARMA_FOGO.map((marca) => (
+        <option key={marca} value={marca}>
+          {marca}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={item.modelo}
+      onChange={(e) =>
+        atualizarItem(index, "modelo", e.target.value)
+      }
+      disabled={!item.marca}
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white disabled:opacity-50"
+    >
+      <option value="">Modelo da arma</option>
+
+      {(MARCAS_MODELOS_ARMA_FOGO[item.marca] || []).map((modelo) => (
+        <option key={modelo} value={modelo}>
+          {modelo}
+        </option>
+      ))}
+    </select>
+
+    <select
+      value={item.calibre}
+      onChange={(e) =>
+        atualizarItem(index, "calibre", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Calibre</option>
+
+      {CALIBRES_ARMA_FOGO.map((calibre) => (
+        <option key={calibre} value={calibre}>
+          {calibre}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.numeracao}
+      onChange={(e) =>
+        atualizarItem(index, "numeracao", e.target.value.toUpperCase())
+      }
+      placeholder="Numeração"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white uppercase"
+    />
+  </>
+)}
+
+{item.categoria === "Arma branca" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo da arma branca</option>
+
+      {TIPOS_ARMA_BRANCA.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.marca}
+      onChange={(e) =>
+        atualizarItem(index, "marca", e.target.value)
+      }
+      placeholder="Marca / identificação"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+
+    <input
+      value={item.modelo}
+      onChange={(e) =>
+        atualizarItem(index, "modelo", e.target.value)
+      }
+      placeholder="Tamanho / medida"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+  </>
+)}
+
+{item.categoria === "Droga" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo da droga</option>
+
+      {TIPOS_DROGA.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <div className="grid grid-cols-2 gap-3">
+      <input
+        value={item.peso}
+        onChange={(e) =>
+          atualizarItem(index, "peso", e.target.value)
+        }
+        placeholder="Peso"
+        className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+      />
+
+      <select
+        value={item.unidade_peso}
+        onChange={(e) =>
+          atualizarItem(index, "unidade_peso", e.target.value)
+        }
+        className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+      >
+        <option value="g">g</option>
+        <option value="kg">kg</option>
+        <option value="mg">mg</option>
+        <option value="un">un</option>
+      </select>
+    </div>
+  </>
+)}
+
+{item.categoria === "Documento" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo de documento</option>
+
+      {TIPOS_DOCUMENTO.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.numeracao}
+      onChange={(e) =>
+        atualizarItem(index, "numeracao", e.target.value)
+      }
+      placeholder="Número / identificação"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+  </>
+)}
+
+{item.categoria === "Ferramenta" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo da ferramenta</option>
+
+      {TIPOS_FERRAMENTA.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.marca}
+      onChange={(e) =>
+        atualizarItem(index, "marca", e.target.value)
+      }
+      placeholder="Marca"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+  </>
+)}
+
+{item.categoria === "Eletrônico" && (
+  <>
+    <select
+      value={item.subcategoria}
+      onChange={(e) =>
+        atualizarItem(index, "subcategoria", e.target.value)
+      }
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    >
+      <option value="">Tipo do eletrônico</option>
+
+      {TIPOS_ELETRONICO.map((tipo) => (
+        <option key={tipo} value={tipo}>
+          {tipo}
+        </option>
+      ))}
+    </select>
+
+    <input
+      value={item.marca}
+      onChange={(e) =>
+        atualizarItem(index, "marca", e.target.value)
+      }
+      placeholder="Marca"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+
+    <input
+      value={item.modelo}
+      onChange={(e) =>
+        atualizarItem(index, "modelo", e.target.value)
+      }
+      placeholder="Modelo"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+
+    <input
+      value={item.numeracao}
+      onChange={(e) =>
+        atualizarItem(index, "numeracao", e.target.value)
+      }
+      placeholder="Número de série"
+      className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+    />
+  </>
+)}
+
+      <div className="grid grid-cols-2 gap-3">
+        <input
+          value={item.quantidade}
+          onChange={(e) =>
+            atualizarItem(
+              index,
+              "quantidade",
+              e.target.value
+            )
+          }
+          placeholder="Quantidade"
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+        />
+
+        <input
+          value={item.peso}
+          onChange={(e) =>
+            atualizarItem(index, "peso", e.target.value)
+          }
+          placeholder="Peso"
+          className="rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+        />
+      </div>
+
+      <select
+        value={item.situacao}
+        onChange={(e) =>
+          atualizarItem(index, "situacao", e.target.value)
+        }
+        className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white"
+      >
+        <option value="">Situação</option>
+
+        {SITUACOES_OBJETO_GERAL.map((situacao) => (
+          <option key={situacao} value={situacao}>
+            {situacao}
+          </option>
+        ))}
+      </select>
+
+      <textarea
+        value={item.observacao}
+        onChange={(e) =>
+          atualizarItem(index, "observacao", e.target.value)
+        }
+        placeholder="Observações"
+        className="w-full min-h-24 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 text-white resize-none"
+      />
+    </div>
+  ))}
+</div>
+)}
+
+      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
+        <label className="text-sm text-slate-400 mb-2 block">
+          Descrição
+        </label>
+
+        <textarea
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Descreva resumidamente o fato..."
+          className="w-full min-h-32 bg-transparent outline-none text-white resize-none"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => gerarNarrativaAutomatica()}
+        className="w-full rounded-3xl bg-slate-900 border border-blue-500/40 p-4 font-bold text-blue-300"
+      >
+        Gerar Narrativa Automática
+      </button>
+
+      <button
+        type="button"
+        onClick={() => salvarOcorrencia()}
+        disabled={salvando}
+        className="w-full rounded-3xl bg-blue-600 p-5 font-black disabled:opacity-50"
+      >
+        {salvando ? "Salvando..." : "Salvar Ocorrência"}
+      </button>
+    </section>
+  </main>
+</div>
+  </>
+);
 }
 
 function Campo({

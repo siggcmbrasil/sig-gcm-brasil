@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function PatrulhamentoMobilePage() {
   const router = useRouter();
@@ -24,6 +25,9 @@ export default function PatrulhamentoMobilePage() {
       >
         Abrir Rastreamento GPS
       </button>
+
+<MobileBottomNav />
+
     </main>
   );
 }

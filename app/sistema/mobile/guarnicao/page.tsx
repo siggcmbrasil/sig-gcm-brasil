@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default function GuarnicaoPage() {
   return (
@@ -40,6 +41,9 @@ export default function GuarnicaoPage() {
           </div>
         </div>
       </div>
+
+<MobileBottomNav />
+
     </main>
     
   );
