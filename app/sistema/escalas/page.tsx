@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   CalendarDays,
+  CalendarRange,
   Building2,
   Star,
   Repeat,
@@ -11,6 +12,12 @@ import {
 } from "lucide-react";
 
 const cards = [
+    {
+  titulo: "Escala Mensal",
+  descricao: "Calendário mensal de serviço, plantões, guarnições e folgas.",
+  href: "/sistema/escalas/escala-mensal",
+  icone: CalendarRange,
+},
   {
     titulo: "Escalas Operacionais",
     descricao: "Plantões 24/96, 12/36, rondas, guarnições e viaturas.",

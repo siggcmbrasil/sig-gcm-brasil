@@ -8,6 +8,7 @@ import {
   Database,
   FolderSync,
   FileCog,
+  MapPin,
 } from "lucide-react";
 
 const cards = [
@@ -23,6 +24,12 @@ const cards = [
     href: "/sistema/municipios",
     descricao: "Gerenciamento dos municípios cadastrados.",
   },
+  {
+  titulo: "Locais",
+  descricao: "Cadastro de ruas, bairros, escolas, órgãos públicos e pontos estratégicos.",
+  href: "/sistema/locais",
+  icone: MapPin,
+},
   {
     titulo: "Permissões",
     icone: Shield,

@@ -9,6 +9,7 @@ import {
   Route,
   Shield,
   Users,
+  Handshake,
 } from "lucide-react";
 
 const cards = [
@@ -68,6 +69,12 @@ const cards = [
     href: "/sistema/rondas",
     descricao: "Planejamento, execução e controle de rondas preventivas.",
   },
+  {
+  titulo: "Visitas Preventivas",
+  descricao: "Ações preventivas, Guarda na Escola e visitas comunitárias.",
+  href: "/sistema/visitas",
+  icone: Handshake,
+},
   {
   titulo: "Blitze e Barreiras",
   icone: Shield,

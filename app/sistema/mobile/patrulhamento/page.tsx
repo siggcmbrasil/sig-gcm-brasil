@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import { Route } from "lucide-react";
+import Link from "next/link";
 
 export default function PatrulhamentoMobilePage() {
   const router = useRouter();

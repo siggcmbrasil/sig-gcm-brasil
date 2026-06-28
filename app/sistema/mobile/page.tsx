@@ -17,6 +17,7 @@ import {
   Clock,
   Circle,
   ClipboardList,
+  Handshake,
 } from "lucide-react";
 
 export default function AppPage() {
@@ -280,10 +281,10 @@ select-none
 
         <div className="grid grid-cols-3 gap-3">
           <Atalho href="/sistema/ocorrencias" icone={FileText} texto="Ocorrências" />
-          <Atalho href="/sistema/mobile/escalas" icone={CalendarDays} texto="Escalas" />
-          <Atalho href="/sistema/mobile/relatorios" icone={ClipboardList} texto="Relatórios" />
-          <Atalho href="/sistema/mobile/guardas" icone={Users} texto="Guardas"/>
-          <Atalho href="/sistema/mobile/viaturas" icone={Car} texto="Viaturas" />
+          <Atalho href="/sistema/escalas" icone={CalendarDays} texto="Escalas" />
+          <Atalho href="/sistema/relatorios" icone={ClipboardList} texto="Relatórios" />
+          <Atalho href="/sistema/visitas" icone={Handshake} texto="Visitas"/>
+          <Atalho href="/sistema/viaturas" icone={Car} texto="Viaturas" />
           <Atalho href="/sistema/mobile/operacao" icone={Radio} texto="Comunicações" />
         </div>
       </section>

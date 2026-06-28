@@ -13,6 +13,11 @@ export default function VisitasPage() {
   const [participantes, setParticipantes] = useState("");
   const [descricao, setDescricao] = useState("");
   const [dataVisita, setDataVisita] = useState("");
+  const [locais, setLocais] = useState<any[]>([]);
+  const [localId, setLocalId] = useState("");
+
+  const [guarnicoes, setGuarnicoes] = useState<any[]>([]);
+  const [guarnicaoId, setGuarnicaoId] = useState("");
 
   const usuario =
     typeof window !== "undefined"
@@ -21,17 +26,21 @@ export default function VisitasPage() {
 
   async function carregar() {
     const { data } = await supabase
-      .from("visitas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("data_visita", { ascending: false });
+  .from("visitas")
+  .select(`*,guarnicoes (nome)`)
+  .eq("municipio_id", usuario.municipio_id)
+  .order("data_visita", { ascending: false });
 
     setVisitas(data || []);
   }
 
   useEffect(() => {
-    if (usuario?.municipio_id) carregar();
-  }, []);
+  if (usuario?.municipio_id) {
+    carregar();
+    carregarLocais();
+    carregarGuarnicoes();
+  }
+}, []);
 
   async function salvar() {
     if (!local || !dataVisita) {
@@ -45,9 +54,10 @@ export default function VisitasPage() {
       .from("visitas")
       .insert([
         {
-          municipio_id: usuario.municipio_id,
-          criado_por: usuario.id,
-          tipo,
+  municipio_id: usuario.municipio_id,
+  criado_por: usuario.id,
+  guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
+  tipo,
           local,
           responsavel,
           participantes,
@@ -68,9 +78,33 @@ export default function VisitasPage() {
     setParticipantes("");
     setDescricao("");
     setDataVisita("");
+    setGuarnicaoId("");
+    setLocalId("");
 
     carregar();
   }
+
+async function carregarGuarnicoes() {
+  const { data } = await supabase
+    .from("guarnicoes")
+    .select("id,nome")
+    .eq("municipio_id", usuario.municipio_id)
+    .eq("ativa", true)
+    .order("nome");
+
+  setGuarnicoes(data || []);
+}
+
+  async function carregarLocais() {
+  const { data } = await supabase
+    .from("locais")
+    .select("id,nome,tipo")
+    .eq("municipio_id", usuario.municipio_id)
+    .eq("ativo", true)
+    .order("nome");
+
+  setLocais(data || []);
+}
 
   return (
     <div className="p-6">
@@ -88,6 +122,7 @@ export default function VisitasPage() {
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
           >
+
             <option value="GUARDA_ESCOLA">Guarda na Escola</option>
             <option value="COMUNIDADE">Comunidade</option>
             <option value="FEIRA_LIVRE">Feira Livre</option>
@@ -99,12 +134,56 @@ export default function VisitasPage() {
             <option value="OUTRO">Outro</option>
           </select>
 
-          <input
-            className="input"
-            placeholder="Local"
-            value={local}
-            onChange={(e) => setLocal(e.target.value)}
-          />
+          <select
+  className="input"
+  value={guarnicaoId}
+  onChange={(e) => setGuarnicaoId(e.target.value)}
+>
+  <option value="">Selecione a Guarnição</option>
+
+  {guarnicoes.map((g) => (
+    <option key={g.id} value={g.id}>
+      {g.nome}
+    </option>
+  ))}
+</select>
+
+          <select
+  className="input"
+  value={localId}
+  onChange={(e) => {
+    const id = e.target.value;
+
+    setLocalId(id);
+
+    const localSelecionado = locais.find(
+      (l) => String(l.id) === id
+    );
+
+    setLocal(localSelecionado?.nome || "");
+  }}
+>
+  <option value="">
+    Selecione um local
+  </option>
+
+  {locais.map((item) => (
+    <option
+      key={item.id}
+      value={item.id}
+    >
+      {item.nome}
+      {item.tipo ? ` - ${item.tipo.replaceAll("_", " ")}` : ""}
+    </option>
+  ))}
+</select>
+
+<input
+  className="input mt-3"
+  placeholder="Ou digite outro local"
+  value={local}
+  onChange={(e) => setLocal(e.target.value)}
+/>
 
           <input
             className="input"
@@ -149,13 +228,41 @@ export default function VisitasPage() {
             key={item.id}
             className="painel-premium p-5"
           >
+
+<p className="text-3xl">
+  {item.tipo === "GUARDA_ESCOLA" && "🏫"}
+  {item.tipo === "COMUNIDADE" && "🏘️"}
+  {item.tipo === "COMERCIO" && "🏪"}
+  {item.tipo === "PATRULHA_PREVENTIVA" && "🚔"}
+  {item.tipo === "PROJETO_SOCIAL" && "🤝"}
+  {item.tipo === "FISCALIZACAO" && "📋"}
+</p>
+
             <h2 className="font-black text-xl">
               {item.tipo}
             </h2>
 
+            {item.guarnicoes?.nome && (
+            <p className="text-blue-400 text-sm">
+            🚔 {item.guarnicoes.nome}
+            </p>
+            )}
+
             <p className="text-yellow-400">
               {item.local}
             </p>
+
+            {item.responsavel && (
+            <p className="text-slate-400 text-sm">
+            👤 {item.responsavel}
+            </p>
+            )}
+
+            {item.participantes && (
+            <p className="text-slate-400 text-sm mt-1">
+            👥 {item.participantes}
+            </p>
+            )}
 
             <p className="text-slate-300 mt-3">
               {item.descricao}

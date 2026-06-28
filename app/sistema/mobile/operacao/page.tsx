@@ -13,6 +13,7 @@ import {
   ChevronRight,
   Shield,
   CalendarDays,
+  Handshake,
 } from "lucide-react";
 
 const acoes = [
@@ -41,6 +42,12 @@ const acoes = [
     href: "/sistema/mobile/gps",
     icone: MapPinned,
   },
+  {
+  titulo: "Visita Preventiva",
+  descricao: "Registrar ação preventiva sem ocorrência.",
+  href: "/sistema/visitas",
+  icone: Handshake,
+},
   {
     titulo: "Mapa Operacional",
     descricao: "Visualizar viaturas, ocorrências e pontos.",

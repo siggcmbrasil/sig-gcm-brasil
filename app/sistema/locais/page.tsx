@@ -10,6 +10,9 @@ type Local = {
   endereco: string | null;
   referencia: string | null;
   nivel_atencao: string;
+  latitude: number | null;
+  longitude: number | null;
+  raio_metros: number | null;
 };
 
 const tipos = [
@@ -41,6 +44,9 @@ export default function LocaisPage() {
   const [endereco, setEndereco] = useState("");
   const [referencia, setReferencia] = useState("");
   const [nivelAtencao, setNivelAtencao] = useState("Baixo");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [raioMetros, setRaioMetros] = useState("200");
   const [editando, setEditando] = useState<number | null>(null);
 
   const usuarioLogado =
@@ -51,7 +57,7 @@ export default function LocaisPage() {
   async function carregarLocais() {
     const { data, error } = await supabase
   .from("locais")
-  .select("id,nome,tipo,endereco,referencia,nivel_atencao")
+  .select("id,nome,tipo,endereco,referencia,nivel_atencao,latitude,longitude,raio_metros")
   .eq("municipio_id", usuarioLogado.municipio_id)
   .order("nome", { ascending: true });
 
@@ -74,8 +80,35 @@ export default function LocaisPage() {
     setTipo("Rua");
     setEndereco("");
     setReferencia("");
+    setLatitude("");
+    setLongitude("");
+    setRaioMetros("200");
     setNivelAtencao("Baixo");
   }
+
+  function capturarPontoGPS() {
+  if (!navigator.geolocation) {
+    alert("GPS não disponível neste dispositivo.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      setLatitude(String(pos.coords.latitude));
+      setLongitude(String(pos.coords.longitude));
+      alert("Ponto GPS capturado com sucesso.");
+    },
+    (erro) => {
+      console.error(erro);
+      alert("Não foi possível capturar o GPS.");
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    }
+  );
+}
 
   async function salvar() {
     if (!nome.trim()) {
@@ -90,6 +123,9 @@ export default function LocaisPage() {
   endereco,
   referencia,
   nivel_atencao: nivelAtencao,
+  latitude: latitude ? Number(latitude) : null,
+  longitude: longitude ? Number(longitude) : null,
+  raio_metros: raioMetros ? Number(raioMetros) : 200,
   ativo: true,
 };
 
@@ -113,6 +149,9 @@ export default function LocaisPage() {
     setTipo(local.tipo);
     setEndereco(local.endereco || "");
     setReferencia(local.referencia || "");
+    setLatitude(local.latitude ? String(local.latitude) : "");
+    setLongitude(local.longitude ? String(local.longitude) : "");
+    setRaioMetros(local.raio_metros ? String(local.raio_metros) : "200");
     setNivelAtencao(local.nivel_atencao || "Baixo");
   }
 
@@ -210,6 +249,47 @@ export default function LocaisPage() {
           </div>
         </div>
 
+        <div>
+  <label className="label">Raio de reconhecimento (metros)</label>
+  <input
+    className="input"
+    type="number"
+    value={raioMetros}
+    onChange={(e) => setRaioMetros(e.target.value)}
+    placeholder="Ex: 200"
+  />
+</div>
+
+<div>
+  <label className="label">Latitude</label>
+  <input
+    className="input"
+    value={latitude}
+    onChange={(e) => setLatitude(e.target.value)}
+    placeholder="-11.620000"
+  />
+</div>
+
+<div>
+  <label className="label">Longitude</label>
+  <input
+    className="input"
+    value={longitude}
+    onChange={(e) => setLongitude(e.target.value)}
+    placeholder="-38.800000"
+  />
+</div>
+
+<div className="md:col-span-2">
+  <button
+    type="button"
+    onClick={capturarPontoGPS}
+    className="bg-green-700 hover:bg-green-800 px-5 py-3 rounded-xl font-semibold"
+  >
+    📍 Capturar ponto GPS atual
+  </button>
+</div>
+
         <div className="flex gap-3">
           <button
             type="button"
@@ -264,6 +344,11 @@ export default function LocaisPage() {
                   <p className="text-sm text-blue-400">
                     Nível: {local.nivel_atencao}
                   </p>
+                  {local.latitude && local.longitude && (
+  <p className="text-sm text-green-400">
+    📍 GPS cadastrado • Raio: {local.raio_metros || 200}m
+  </p>
+)}
                   {local.referencia && (
                     <p className="text-sm text-slate-400">
                       Referência: {local.referencia}

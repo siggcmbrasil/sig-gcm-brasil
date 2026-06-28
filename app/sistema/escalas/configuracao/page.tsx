@@ -113,8 +113,13 @@ const { data: gruposData } = await supabase
       .single();
 
     if (error || !modeloCriado) {
-      console.error(error);
-      alert("Erro ao criar modelo de escala.");
+      console.error("Erro completo ao criar modelo:", JSON.stringify(error, null, 2));
+
+alert(
+  `Erro ao criar modelo de escala:\n${
+    error?.message || error?.details || error?.hint || "Erro desconhecido"
+  }`
+);
       return;
     }
 

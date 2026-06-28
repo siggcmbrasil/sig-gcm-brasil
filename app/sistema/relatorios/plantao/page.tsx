@@ -11,6 +11,7 @@ export default function RelatorioPlantaoPage() {
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [patrulhamentos, setPatrulhamentos] = useState<any[]>([]);
   const [chamados, setChamados] = useState<any[]>([]);
+  const [visitas, setVisitas] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
 
   async function carregarRelatorio() {
@@ -61,9 +62,20 @@ if (!municipioId) {
 .gte("criado_em", inicio)
     .lte("criado_em", fim);
 
+    const { data: vis } = await supabase
+  .from("visitas")
+  .select(`
+    *,
+    guarnicoes(nome)
+  `)
+  .eq("municipio_id", municipioId)
+  .gte("data_visita", inicio)
+  .lte("data_visita", fim);
+
   setOcorrencias(ocorr || []);
   setPatrulhamentos(patr || []);
   setChamados(cham || []);
+  setVisitas(vis || []);
   setCarregando(false);
 }
 
@@ -167,11 +179,12 @@ doc.text("RELATÓRIO GERAL DO PLANTÃO", 105, 26, {
 
   head: [["Item", "Quantidade"]],
 
-  body: [
-    ["Ocorrências", ocorrencias.length],
-    ["Patrulhamentos", patrulhamentos.length],
-    ["Chamados", chamados.length],
-  ],
+ body: [
+  ["Ocorrências", ocorrencias.length],
+  ["Patrulhamentos", patrulhamentos.length],
+  ["Chamados", chamados.length],
+  ["Visitas", visitas.length],
+],
 });
 
   const abertas = ocorrencias.filter(
@@ -249,6 +262,35 @@ autoTable(doc, {
     ]),
   });
 
+  doc.addPage();
+
+doc.setFontSize(14);
+doc.text(
+  "Visitas e Ações Preventivas",
+  14,
+  15
+);
+
+autoTable(doc, {
+  startY: 22,
+  head: [
+    [
+      "Tipo",
+      "Local",
+      "Guarnição",
+      "Data",
+    ],
+  ],
+  body: visitas.map((v) => [
+    v.tipo || "-",
+    v.local || "-",
+    v.guarnicoes?.nome || "-",
+    new Date(
+      v.data_visita
+    ).toLocaleString("pt-BR"),
+  ]),
+});
+
   doc.text("__________________________________", 14, 260);
   doc.text(
   `Comandante: ${municipioInfo?.comandante || ""}`,
@@ -318,10 +360,11 @@ for (let i = 1; i <= paginas; i++) {
         <p className="text-slate-400">Carregando relatório...</p>
       ) : (
         <>
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card titulo="Ocorrências" valor={ocorrencias.length} cor="blue" />
             <Card titulo="Patrulhamentos" valor={patrulhamentos.length} cor="green" />
             <Card titulo="Chamados" valor={chamados.length} cor="orange" />
+            <Card titulo="Visitas" valor={visitas.length} cor="green"/>
           </section>
 
           <section className="flex justify-end">
@@ -336,6 +379,7 @@ for (let i = 1; i <= paginas; i++) {
           <TabelaOcorrencias dados={ocorrencias} />
           <TabelaPatrulhamentos dados={patrulhamentos} />
           <TabelaChamados dados={chamados} />
+          <TabelaVisitas dados={visitas} />
         </>
       )}
     </div>
@@ -462,6 +506,73 @@ function TabelaChamados({ dados }: { dados: any[] }) {
                 <td>{c.local || "-"}</td>
                 <td>{c.status || "-"}</td>
                 <td>{c.prioridade || "-"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaVisitas({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Visitas e Ações Preventivas
+      </h2>
+
+      {dados.length === 0 ? (
+        <p className="text-slate-400">
+          Nenhuma visita registrada.
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="text-slate-400 border-b border-slate-700">
+            <tr>
+              <th className="text-left py-3">
+                Tipo
+              </th>
+
+              <th className="text-left py-3">
+                Local
+              </th>
+
+              <th className="text-left py-3">
+                Guarnição
+              </th>
+
+              <th className="text-left py-3">
+                Data
+              </th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {dados.map((v) => (
+              <tr
+                key={v.id}
+                className="border-b border-slate-800"
+              >
+                <td className="py-3 font-semibold">
+                  {v.tipo}
+                </td>
+
+                <td>{v.local}</td>
+
+                <td>
+                  {v.guarnicoes?.nome || "-"}
+                </td>
+
+                <td>
+                  {new Date(
+                    v.data_visita
+                  ).toLocaleString("pt-BR")}
+                </td>
               </tr>
             ))}
           </tbody>

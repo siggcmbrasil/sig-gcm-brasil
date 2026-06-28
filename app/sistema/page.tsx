@@ -569,6 +569,41 @@ setMostrarPerfil={setMostrarPerfil}
 
     </section>
 
+<section className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+  <Link
+    href="/sistema/consultas"
+    className="
+      painel-premium
+      p-5
+      flex items-center gap-4
+      border border-yellow-500/30
+      hover:border-yellow-400
+      transition-all
+      hover:scale-[1.01]
+    "
+  >
+    <div className="
+      w-16 h-16
+      rounded-2xl
+      bg-yellow-500/15
+      border border-yellow-500/30
+      flex items-center justify-center
+    ">
+      <Search className="w-8 h-8 text-yellow-400" />
+    </div>
+
+    <div>
+      <h2 className="text-xl font-black text-white">
+        Consultas Integradas
+      </h2>
+
+      <p className="text-slate-400 text-sm">
+        CPF, placa, RENAVAM e pesquisa global SIG Brasil.
+      </p>
+    </div>
+  </Link>
+</section>
+
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
   <div className="xl:col-span-8">
     <PainelMapa ocorrencias={ocorrencias} />
