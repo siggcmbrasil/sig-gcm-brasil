@@ -6,9 +6,10 @@ import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { obterLocalizacao } from "@/lib/gps";
 import {
-  iniciarRastreamentoTempoReal,
+  iniciarBackgroundRastreamento,
+  pararBackgroundRastreamento,
   limparUltimoPontoGPS,
-} from "@/lib/gps/rastreamentoTempoReal";
+} from "@/lib/gps/backgroundRastreamento";
 
 
 type Patrulhamento = {
@@ -73,8 +74,7 @@ export default function Patrulhamento() {
 
   const [carregando, setCarregando] = useState(true);
   const [capturandoGps, setCapturandoGps] = useState(false);
-  const [pararRastreamento, setPararRastreamento] =
-  useState<(() => void) | null>(null);
+  
   const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
@@ -286,22 +286,13 @@ async function carregarPatrulhamentos() {
     String(novoPatrulhamento.id)
   );
 
-  const parar =
-  iniciarRastreamentoTempoReal(
-    {
-      municipio_id:
-        usuarioLogado.municipio_id,
-      usuario_id: String(
-        usuarioLogado.id
-      ),
-      patrulhamento_id:
-        novoPatrulhamento.id,
-    }
-  );
+  await iniciarBackgroundRastreamento({
+  municipio_id: usuarioLogado.municipio_id,
+  usuario_id: String(usuarioLogado.id),
+  patrulhamento_id: novoPatrulhamento.id,
+});
 
-  setPararRastreamento(() => parar);
-
-  setRastreamentoAtivo(true);
+setRastreamentoAtivo(true);
 }
 
     alert("Patrulhamento registrado com sucesso!");
@@ -344,9 +335,7 @@ async function carregarPatrulhamentos() {
   }
 
 async function finalizarPatrulhamento(id: number) {
-  if (pararRastreamento) {
-    pararRastreamento();
-  }
+  await pararBackgroundRastreamento();
 
   const { error } = await supabase
     .from("patrulhamentos")
@@ -368,6 +357,7 @@ async function finalizarPatrulhamento(id: number) {
   limparUltimoPontoGPS();
 
   alert("Patrulhamento finalizado com sucesso.");
+
   carregarPatrulhamentos();
 }
 
@@ -481,50 +471,42 @@ async function carregarPlantaoAutomatico() {
 }, []);
 
 useEffect(() => {
-  const idSalvo = localStorage.getItem(
-    "patrulhamentoAtivoId"
-  );
+  const restaurar = async () => {
+    const idSalvo = localStorage.getItem("patrulhamentoAtivoId");
 
-  if (!idSalvo) return;
+    if (!idSalvo) return;
 
-  const patrulhamentoId = Number(idSalvo);
+    const patrulhamentoId = Number(idSalvo);
 
-  setPatrulhamentoAtivoId(
-    patrulhamentoId
-  );
+    setPatrulhamentoAtivoId(patrulhamentoId);
 
-  const parar =
-    iniciarRastreamentoTempoReal(
-      {
-        municipio_id:
-          usuarioLogado.municipio_id,
-        usuario_id: String(
-          usuarioLogado.id
-        ),
-        patrulhamento_id:
-          patrulhamentoId,
-      }
-    );
+    await iniciarBackgroundRastreamento({
+      municipio_id: usuarioLogado.municipio_id,
+      usuario_id: String(usuarioLogado.id),
+      patrulhamento_id: patrulhamentoId,
+    });
 
-  setPararRastreamento(() => parar);
-  setRastreamentoAtivo(true);
+    setRastreamentoAtivo(true);
+  };
+
+  restaurar();
 }, []);
 
-  const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
-    const texto = `
-      ${item.data}
-      ${item.hora}
-      ${item.local}
-      ${item.guarda}
-      ${item.equipe || ""}
-      ${item.viatura || ""}
-      ${item.observacao || ""}
-    `.toLowerCase();
+const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
+  const texto = `
+    ${item.data}
+    ${item.hora}
+    ${item.local}
+    ${item.guarda}
+    ${item.equipe || ""}
+    ${item.viatura || ""}
+    ${item.observacao || ""}
+  `.toLowerCase();
 
-    return texto.includes(busca.toLowerCase());
-  });
+  return texto.includes(busca.toLowerCase());
+});
 
-  function StatusPatrulhamento({ status }: { status: string | null }) {
+function StatusPatrulhamento({ status }: { status: string | null }) {
   if (status === "FINALIZADO") {
     return (
       <span className="bg-green-700 text-green-100 px-3 py-2 rounded text-xs inline-block">
@@ -539,7 +521,6 @@ useEffect(() => {
     </span>
   );
 }
-
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6">

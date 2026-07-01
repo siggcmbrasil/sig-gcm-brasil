@@ -6,7 +6,6 @@ import Sidebar from "@/components/Sidebar";
 import ModalAniversariantes from "@/components/ModalAniversariantes";
 import { supabase } from "@/lib/supabase";
 import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
-import { iniciarPushNotifications } from "@/lib/pushNotifications";
 
 type UsuarioLogado = {
   id: string;
@@ -48,11 +47,6 @@ export default function SistemaLayout({
         return;
       }
 
-      useEffect(() => {
-  if (!usuario) return;
-
-  iniciarPushNotifications();
-}, [usuario]);
 
       const { data: usuarioSistema } = await supabase
   .from("usuarios")
