@@ -1,31 +1,63 @@
 "use client";
 
-import Link from "next/link";
+import {
+  Settings,
+  Building2,
+  Shield,
+  Bell,
+  SlidersHorizontal,
+} from "lucide-react";
+
+import SigCentralHeader from "@/components/sig/SigCentralHeader";
+import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const itens = [
-  { titulo: "Configurações", href: "/sistema/configuracoes", icone: "⚙️" },
-  { titulo: "Municípios", href: "/sistema/municipios", icone: "🏙️" },
-  { titulo: "Permissões", href: "/sistema/permissoes", icone: "🔐" },
-  { titulo: "Notificações", href: "/sistema/notificacoes", icone: "🔔" },
+  {
+    titulo: "Configurações",
+    href: "/sistema/configuracoes",
+    descricao: "Parâmetros gerais e configurações institucionais.",
+    icone: Settings,
+  },
+  {
+    titulo: "Municípios",
+    href: "/sistema/municipios",
+    descricao: "Gerenciamento dos municípios cadastrados.",
+    icone: Building2,
+  },
+  {
+    titulo: "Permissões",
+    href: "/sistema/permissoes",
+    descricao: "Controle de acesso por perfis e módulos.",
+    icone: Shield,
+  },
+  {
+    titulo: "Notificações",
+    href: "/sistema/notificacoes",
+    descricao: "Gerenciamento de avisos e notificações do sistema.",
+    icone: Bell,
+  },
 ];
 
-export default function Page() {
+export default function ConfiguracoesCentralPage() {
   return (
-    <div className="p-6">
-      <div className="painel-premium p-6 mb-6">
-        <h1 className="text-3xl font-black">
-          Central de Configurações
-        </h1>
-      </div>
+    <section className="p-4 md:p-6 pb-24 space-y-6">
+      <SigCentralHeader
+        titulo="Central de Configurações"
+        descricao="Parâmetros gerais, permissões e configurações institucionais do SIG-GCM Brasil."
+        icone={SlidersHorizontal}
+      />
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {itens.map((i) => (
-          <Link key={i.href} href={i.href} className="painel-premium p-5">
-            <p className="text-4xl">{i.icone}</p>
-            <h2 className="text-xl font-black mt-4">{i.titulo}</h2>
-          </Link>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+        {itens.map((item) => (
+          <SigCentralCard
+            key={item.href}
+            titulo={item.titulo}
+            descricao={item.descricao}
+            href={item.href}
+            icone={item.icone}
+          />
         ))}
       </div>
-    </div>
+    </section>
   );
 }

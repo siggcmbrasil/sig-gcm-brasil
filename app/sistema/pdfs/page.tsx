@@ -1,16 +1,69 @@
 "use client";
 
-export default function Page() {
-  return (
-    <div className="p-6">
-      <div className="painel-premium p-6">
-        <h1 className="text-3xl font-black">
-          PDFS
-        </h1>
+import {
+  FileText,
+  FileSpreadsheet,
+  FileCheck,
+  Printer,
+} from "lucide-react";
 
-        <p className="text-slate-400 mt-2">
-          Módulo em construção no SIG-GCM Brasil.
-        </p>
+import SigPageHeader from "@/components/sig/SigPageHeader";
+import SigCard from "@/components/sig/SigCard";
+
+export default function PDFsPage() {
+  const itens = [
+    {
+      titulo: "Ocorrências",
+      descricao: "PDFs de ocorrências gerados pelo sistema.",
+      icone: FileText,
+    },
+    {
+      titulo: "Relatórios",
+      descricao: "Relatórios operacionais e administrativos.",
+      icone: FileSpreadsheet,
+    },
+    {
+      titulo: "Ofícios",
+      descricao: "Documentos oficiais emitidos pelo SIG.",
+      icone: FileCheck,
+    },
+    {
+      titulo: "Impressões",
+      descricao: "Central de documentos para impressão.",
+      icone: Printer,
+    },
+  ];
+
+  return (
+    <div className="p-4 md:p-6 pb-24 space-y-6">
+      <SigPageHeader
+        titulo="Central de PDFs"
+        subtitulo="Documentos e arquivos gerados pelo SIG-GCM Brasil."
+        icone={FileText}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+        {itens.map((item) => {
+          const Icone = item.icone;
+
+          return (
+            <SigCard key={item.titulo}>
+              <div className="flex flex-col items-center text-center py-6">
+                <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4">
+                  <Icone className="w-8 h-8 text-cyan-400" />
+                </div>
+
+                <h2 className="text-xl font-black text-white">
+                  {item.titulo}
+                </h2>
+
+                <p className="text-slate-400 text-sm mt-2">
+                  {item.descricao}
+                </p>
+              </div>
+            </SigCard>
+          );
+        })}
       </div>
     </div>
   );

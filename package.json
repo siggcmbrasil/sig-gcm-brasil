@@ -21,6 +21,7 @@
     "@capacitor/cli": "^8.4.0",
     "@capacitor/core": "^8.4.0",
     "@capacitor/geolocation": "^8.2.0",
+    "@capacitor/push-notifications": "^8.1.1",
     "@supabase/supabase-js": "^2.106.2",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",

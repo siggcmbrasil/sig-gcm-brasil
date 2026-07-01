@@ -1,8 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import {
+  AlertTriangle,
+  Building2,
+  CheckCircle,
+  Database,
+  FileArchive,
+  FileInput,
+  FileOutput,
+  FolderKanban,
+  Globe,
+  Link2,
+  RefreshCcw,
+  ShieldCheck,
+  Users,
+} from "lucide-react";
 
 type ResumoSistema = {
   municipios: number;
@@ -24,38 +40,48 @@ export default function PainelDesenvolvedor() {
   const [carregando, setCarregando] = useState(true);
 
   async function carregarResumo() {
-    setCarregando(true);
+    try {
+      setCarregando(true);
 
-    const { count: totalMunicipios } = await supabase
-      .from("municipios")
-      .select("*", { count: "exact", head: true });
+      const [
+        { count: totalMunicipios },
+        { count: municipiosAtivos },
+        { count: totalUsuarios },
+        { count: totalGuardas },
+        { count: totalOcorrencias },
+      ] = await Promise.all([
+        supabase
+          .from("municipios")
+          .select("*", { count: "exact", head: true }),
 
-    const { count: municipiosAtivos } = await supabase
-      .from("municipios")
-      .select("*", { count: "exact", head: true })
-      .eq("ativo", true);
+        supabase
+          .from("municipios")
+          .select("*", { count: "exact", head: true })
+          .eq("ativo", true),
 
-    const { count: totalUsuarios } = await supabase
-      .from("usuarios")
-      .select("*", { count: "exact", head: true });
+        supabase
+          .from("usuarios")
+          .select("*", { count: "exact", head: true }),
 
-    const { count: totalGuardas } = await supabase
-      .from("guardas")
-      .select("*", { count: "exact", head: true });
+        supabase
+          .from("guardas")
+          .select("*", { count: "exact", head: true }),
 
-    const { count: totalOcorrencias } = await supabase
-      .from("ocorrencias")
-      .select("*", { count: "exact", head: true });
+        supabase
+          .from("ocorrencias")
+          .select("*", { count: "exact", head: true }),
+      ]);
 
-    setResumo({
-      municipios: totalMunicipios || 0,
-      municipiosAtivos: municipiosAtivos || 0,
-      usuarios: totalUsuarios || 0,
-      guardas: totalGuardas || 0,
-      ocorrencias: totalOcorrencias || 0,
-    });
-
-    setCarregando(false);
+      setResumo({
+        municipios: totalMunicipios || 0,
+        municipiosAtivos: municipiosAtivos || 0,
+        usuarios: totalUsuarios || 0,
+        guardas: totalGuardas || 0,
+        ocorrencias: totalOcorrencias || 0,
+      });
+    } finally {
+      setCarregando(false);
+    }
   }
 
   useEffect(() => {
@@ -64,10 +90,10 @@ export default function PainelDesenvolvedor() {
 
   return (
     <ProtecaoModulo modulo="desenvolvedor">
-      <div className="p-3 md:p-6 pb-24">
-        <header className="mb-6 border-b border-slate-800 pb-5">
-          <h1 className="text-3xl md:text-5xl font-bold">
-            🧠 Painel do Desenvolvedor
+      <div className="p-4 md:p-6 pb-24 space-y-8">
+        <header className="border-b border-slate-800 pb-5">
+          <h1 className="text-3xl md:text-5xl font-black text-white">
+            Painel do Desenvolvedor
           </h1>
 
           <p className="text-slate-400 mt-2">
@@ -76,37 +102,100 @@ export default function PainelDesenvolvedor() {
         </header>
 
         {carregando ? (
-          <p className="text-slate-400">Carregando painel mestre...</p>
+          <div className="card">
+            <p className="text-slate-400">
+              Carregando painel mestre...
+            </p>
+          </div>
         ) : (
           <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
-            <CardDev titulo="Municípios" valor={resumo.municipios} icone="🏛️" />
+            <CardDev
+              titulo="Municípios"
+              valor={resumo.municipios}
+              Icone={Building2}
+            />
+
             <CardDev
               titulo="Municípios Ativos"
               valor={resumo.municipiosAtivos}
-              icone="✅"
+              Icone={CheckCircle}
             />
-            <CardDev titulo="Usuários" valor={resumo.usuarios} icone="👤" />
-            <CardDev titulo="Guardas" valor={resumo.guardas} icone="👮" />
-            <CardDev titulo="Ocorrências" valor={resumo.ocorrencias} icone="🚨" />
+
+            <CardDev
+              titulo="Usuários"
+              valor={resumo.usuarios}
+              Icone={Users}
+            />
+
+            <CardDev
+              titulo="Guardas"
+              valor={resumo.guardas}
+              Icone={ShieldCheck}
+            />
+
+            <CardDev
+              titulo="Ocorrências"
+              valor={resumo.ocorrencias}
+              Icone={AlertTriangle}
+            />
           </section>
         )}
 
-        <section className="mt-10">
-  <h2 className="text-3xl font-bold mb-6">
-    🛠 Ferramentas do Desenvolvedor
-  </h2>
+        <section>
+          <h2 className="text-3xl font-black text-white mb-6">
+            Ferramentas do Desenvolvedor
+          </h2>
 
-  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
-    <CardFerramenta titulo="Auditoria" href="/sistema/auditoria" icone="🧾" />
-    <CardFerramenta titulo="Backup" href="/sistema/backup" icone="💾" />
-    <CardFerramenta titulo="API Pública" href="/sistema/api-publica" icone="🌐" />
-    <CardFerramenta titulo="Integrações" href="/sistema/integracoes" icone="🔗" />
-    <CardFerramenta titulo="Importador" href="/sistema/importador-dados" icone="📥" />
-    <CardFerramenta titulo="Exportador" href="/sistema/exportador-dados" icone="📤" />
-    <CardFerramenta titulo="Migração" href="/sistema/migracao-dados" icone="🔄" />
-    <CardFerramenta titulo="Projetos" href="/sistema/projetos" icone="📁" />
-  </div>
-</section>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5">
+            <CardFerramenta
+              titulo="Auditoria"
+              href="/sistema/auditoria"
+              Icone={FileArchive}
+            />
+
+            <CardFerramenta
+              titulo="Backup"
+              href="/sistema/backup"
+              Icone={Database}
+            />
+
+            <CardFerramenta
+              titulo="API Pública"
+              href="/sistema/api-publica"
+              Icone={Globe}
+            />
+
+            <CardFerramenta
+              titulo="Integrações"
+              href="/sistema/integracoes"
+              Icone={Link2}
+            />
+
+            <CardFerramenta
+              titulo="Importador"
+              href="/sistema/importador-dados"
+              Icone={FileInput}
+            />
+
+            <CardFerramenta
+              titulo="Exportador"
+              href="/sistema/exportador-dados"
+              Icone={FileOutput}
+            />
+
+            <CardFerramenta
+              titulo="Migração"
+              href="/sistema/migracao-dados"
+              Icone={RefreshCcw}
+            />
+
+            <CardFerramenta
+              titulo="Projetos"
+              href="/sistema/projetos"
+              Icone={FolderKanban}
+            />
+          </div>
+        </section>
       </div>
     </ProtecaoModulo>
   );
@@ -115,17 +204,23 @@ export default function PainelDesenvolvedor() {
 function CardDev({
   titulo,
   valor,
-  icone,
+  Icone,
 }: {
   titulo: string;
   valor: number;
-  icone: string;
+  Icone: any;
 }) {
   return (
     <div className="card">
-      <div className="text-4xl mb-4">{icone}</div>
-      <p className="text-slate-400 text-sm">{titulo}</p>
-      <h2 className="text-4xl font-black mt-2">{valor}</h2>
+      <Icone className="w-10 h-10 text-yellow-400 mb-4" />
+
+      <p className="text-sm text-slate-400">
+        {titulo}
+      </p>
+
+      <h2 className="text-4xl font-black text-white mt-2">
+        {valor}
+      </h2>
     </div>
   );
 }
@@ -133,19 +228,31 @@ function CardDev({
 function CardFerramenta({
   titulo,
   href,
-  icone,
+  Icone,
 }: {
   titulo: string;
   href: string;
-  icone: string;
+  Icone: any;
 }) {
   return (
-    <a href={href} className="card block hover:border-blue-500/40 transition">
-      <div className="text-4xl mb-4">{icone}</div>
-      <h3 className="text-xl font-black">{titulo}</h3>
-      <p className="text-slate-400 text-sm mt-2">
+    <Link
+      href={href}
+      className="
+        card block
+        hover:border-yellow-500/40
+        hover:-translate-y-1
+        transition-all duration-300
+      "
+    >
+      <Icone className="w-10 h-10 text-yellow-400 mb-4" />
+
+      <h3 className="text-xl font-black text-white">
+        {titulo}
+      </h3>
+
+      <p className="text-sm text-slate-400 mt-2">
         Acessar ferramenta do desenvolvedor.
       </p>
-    </a>
+    </Link>
   );
 }

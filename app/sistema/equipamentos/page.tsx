@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Equipamento = {
   id: number;
   patrimonio: string | null;
   tipo: string | null;
+  quantidade: number | null;
+  controle_tipo: string | null;
   marca: string | null;
   modelo: string | null;
   numero_serie: string | null;
@@ -23,10 +25,41 @@ type Guarda = {
   status: string;
 };
 
-export default function Equipamentos() {
+const tiposEquipamento = [
+  "Colete Balístico",
+  "HT Rádio",
+  "Tonfa",
+  "Algema",
+  "Lanterna",
+  "BodyCam",
+  "Tablet",
+  "Celular Funcional",
+  "Apito",
+  "Capa de Chuva",
+  "Cone",
+  "Barreira",
+  "Bastão Sinalizador",
+  "Câmera Fotográfica",
+  "Notebook",
+  "Impressora",
+  "GPS",
+  "Drone",
+  "Kit Primeiros Socorros",
+  "Outro",
+];
+
+export default function EquipamentosPage() {
   const [equipamentos, setEquipamentos] = useState<Equipamento[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
+  const [editando, setEditando] = useState<Equipamento | null>(null);
+
   const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+
+  const [quantidade, setQuantidade] = useState("1");
+const [controleTipo, setControleTipo] =
+  useState<"Individual" | "Lote">("Individual");
 
   const [patrimonio, setPatrimonio] = useState("");
   const [tipo, setTipo] = useState("");
@@ -38,138 +71,59 @@ export default function Equipamentos() {
   const [responsavel, setResponsavel] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const [carregando, setCarregando] = useState(true);
+  const usuario =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
   async function carregarEquipamentos() {
-
-if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
+    if (!usuario?.municipio_id) return;
 
     setCarregando(true);
 
     const { data, error } = await supabase
-  .from("equipamentos")
-  .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
-  .order("id", { ascending: false });
+      .from("equipamentos")
+      .select("*")
+      .eq("municipio_id", usuario.municipio_id)
+      .order("id", { ascending: false });
 
     if (error) {
       console.error(error);
       alert("Erro ao carregar equipamentos.");
-      setCarregando(false);
-      return;
     }
 
     setEquipamentos(data || []);
     setCarregando(false);
   }
 
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
-
   async function carregarGuardas() {
+    if (!usuario?.municipio_id) return;
 
-    if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("guardas")
       .select("id, nome, matricula, status")
-      .eq("municipio_id", usuarioLogado.municipio_id)
+      .eq("municipio_id", usuario.municipio_id)
       .order("nome", { ascending: true });
 
-    if (error) {
-      console.error(error);
-      return;
-    }
-
     setGuardas(data || []);
-  }
-
-  async function salvarEquipamento() {
-
-if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
-    if (!tipo || !patrimonio) {
-      alert("Preencha tipo e patrimônio.");
-      return;
-    }
-
-    const { error } = await supabase.from("equipamentos").insert([
-  {
-    municipio_id: usuarioLogado.municipio_id,
-    patrimonio,
-    tipo,
-    marca,
-    modelo,
-    numero_serie: numeroSerie,
-    validade,
-    status,
-    responsavel,
-    observacao,
-  },
-]);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar equipamento.");
-      return;
-    }
-
-    alert("Equipamento cadastrado com sucesso!");
-
-    setPatrimonio("");
-    setTipo("");
-    setMarca("");
-    setModelo("");
-    setNumeroSerie("");
-    setValidade("");
-    setStatus("Disponível");
-    setResponsavel("");
-    setObservacao("");
-
-    carregarEquipamentos();
-  }
-
-  async function excluirEquipamento(id: number) {
-
-if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
-    const confirmar = confirm("Deseja excluir este equipamento?");
-
-    if (!confirmar) return;
-
-    const { error } = await supabase
-      .from("equipamentos")
-      .delete()
-.eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao excluir equipamento.");
-      return;
-    }
-
-    carregarEquipamentos();
   }
 
   useEffect(() => {
     carregarEquipamentos();
     carregarGuardas();
   }, []);
+
+  const resumo = useMemo(() => {
+    return {
+      total: equipamentos.length,
+      disponiveis: equipamentos.filter((e) => e.status === "Disponível").length,
+      emUso: equipamentos.filter((e) => e.status === "Em uso").length,
+      manutencao: equipamentos.filter((e) => e.status === "Manutenção").length,
+      baixados: equipamentos.filter(
+        (e) => e.status === "Baixado" || e.status === "Extraviado"
+      ).length,
+    };
+  }, [equipamentos]);
 
   const equipamentosFiltrados = equipamentos.filter((item) => {
     const texto = `
@@ -187,45 +141,180 @@ if (!usuarioLogado.municipio_id) {
     return texto.includes(busca.toLowerCase());
   });
 
+  function limparFormulario() {
+    setEditando(null);
+    setPatrimonio("");
+    setTipo("");
+    setMarca("");
+    setModelo("");
+    setNumeroSerie("");
+    setValidade("");
+    setStatus("Disponível");
+    setResponsavel("");
+    setObservacao("");
+    setQuantidade("1");
+    setControleTipo("Individual");
+  }
+
+  function editarEquipamento(item: Equipamento) {
+    setEditando(item);
+    setPatrimonio(item.patrimonio || "");
+    setTipo(item.tipo || "");
+    setMarca(item.marca || "");
+    setModelo(item.modelo || "");
+    setNumeroSerie(item.numero_serie || "");
+    setValidade(item.validade || "");
+    setStatus(item.status || "Disponível");
+    setResponsavel(item.responsavel || "");
+    setObservacao(item.observacao || "");
+    setQuantidade(String(item.quantidade || 1));
+    setControleTipo(
+    (item.controle_tipo as "Individual" | "Lote") ||
+    "Individual"
+);
+  }
+
+  async function salvarEquipamento() {
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      return;
+    }
+
+    if (
+  (controleTipo === "Individual" &&
+    !patrimonio.trim()) ||
+  !tipo.trim()
+) {
+      alert("Preencha patrimônio e tipo.");
+      return;
+    }
+
+    setSalvando(true);
+
+    const dados = {
+  municipio_id: usuario.municipio_id,
+  patrimonio:
+    controleTipo === "Individual"
+      ? patrimonio.trim().toUpperCase()
+      : null,
+  quantidade:
+    controleTipo === "Lote"
+      ? Number(quantidade)
+      : 1,
+  controle_tipo: controleTipo,
+  tipo,
+  marca: marca.trim() || null,
+  modelo: modelo.trim() || null,
+  numero_serie: numeroSerie.trim() || null,
+  validade: validade || null,
+  status,
+  responsavel: responsavel || null,
+  observacao: observacao.trim() || null,
+};
+
+    const { error } = editando
+      ? await supabase
+          .from("equipamentos")
+          .update(dados)
+          .eq("id", editando.id)
+          .eq("municipio_id", usuario.municipio_id)
+      : await supabase.from("equipamentos").insert([dados]);
+
+    setSalvando(false);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao salvar equipamento.");
+      return;
+    }
+
+    alert(editando ? "Equipamento atualizado com sucesso." : "Equipamento cadastrado com sucesso.");
+    limparFormulario();
+    carregarEquipamentos();
+  }
+
+  async function excluirEquipamento(id: number) {
+    if (!confirm("Deseja excluir este equipamento?")) return;
+
+    const { error } = await supabase
+      .from("equipamentos")
+      .delete()
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao excluir equipamento.");
+      return;
+    }
+
+    carregarEquipamentos();
+  }
+
   return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Equipamentos</h1>
-
-        <p className="text-slate-400 text-sm md:text-base">
-          Controle de equipamentos operacionais da GCM Biritinga.
+    <div className="p-4 md:p-6 pb-24 space-y-6">
+      <div className="painel-premium p-6">
+        <p className="text-sm text-slate-400 font-semibold">
+          Controle Patrimonial
         </p>
-      </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Total" valor={equipamentos.length} />
-        <Card
-          titulo="Disponíveis"
-          valor={equipamentos.filter((e) => e.status === "Disponível").length}
-        />
-        <Card
-          titulo="Em uso"
-          valor={equipamentos.filter((e) => e.status === "Em uso").length}
-        />
-        <Card
-          titulo="Manutenção"
-          valor={equipamentos.filter((e) => e.status === "Manutenção").length}
-        />
-      </section>
+        <h1 className="text-2xl md:text-3xl font-black text-white">
+          🎒 Equipamentos
+        </h1>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Novo Equipamento
+        <p className="text-slate-400 mt-2">
+          Cadastro, controle, responsabilidade e situação dos equipamentos operacionais.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <Card titulo="Total" valor={String(resumo.total)} />
+        <Card titulo="Disponíveis" valor={String(resumo.disponiveis)} />
+        <Card titulo="Em uso" valor={String(resumo.emUso)} />
+        <Card titulo="Manutenção" valor={String(resumo.manutencao)} />
+        <Card titulo="Baixados" valor={String(resumo.baixados)} />
+      </div>
+
+<div>
+  <label className="label">Tipo de Controle</label>
+
+  <select
+    className="input"
+    value={controleTipo}
+    onChange={(e) =>
+      setControleTipo(
+        e.target.value as "Individual" | "Lote"
+      )
+    }
+  >
+    <option value="Individual">
+      Patrimonial Individual
+    </option>
+    <option value="Lote">
+      Controle por Quantidade
+    </option>
+  </select>
+</div>
+
+      <div className="grid xl:grid-cols-3 gap-6">
+        <div className="painel-premium p-6 xl:col-span-1">
+          <h2 className="text-xl font-black text-white">
+            {editando ? "Editar Equipamento" : "Novo Equipamento"}
           </h2>
 
+          <p className="text-slate-400 text-sm mb-5">
+            Informe patrimônio, tipo, responsável e situação atual.
+          </p>
+
           <div className="space-y-4">
-            <Campo
-              label="Patrimônio"
-              valor={patrimonio}
-              setValor={setPatrimonio}
-              placeholder="Ex: CB-015"
-            />
+            {controleTipo === "Individual" && (
+  <Campo
+    label="Patrimônio"
+    valor={patrimonio}
+    setValor={setPatrimonio}
+    placeholder="Ex: CB-015"
+  />
+)}
 
             <div>
               <label className="label">Tipo</label>
@@ -234,26 +323,41 @@ if (!usuarioLogado.municipio_id) {
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
               >
-                <option value="">Selecione</option>
-                <option>Colete Balístico</option>
-                <option>HT Rádio</option>
-                <option>Tonfa</option>
-                <option>Algema</option>
-                <option>Lanterna</option>
-                <option>BodyCam</option>
-                <option>Tablet</option>
-                <option>Celular Funcional</option>
-                <option>Outro</option>
+                <option value="">Selecione o tipo</option>
+
+                {tiposEquipamento.map((item) => (
+                  <option key={item} value={item}>
+                    {item}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <Campo label="Marca" valor={marca} setValor={setMarca} />
-            <Campo label="Modelo" valor={modelo} setValor={setModelo} />
+{controleTipo === "Lote" && (
+  <div>
+    <label className="label">Quantidade</label>
+
+    <input
+      type="number"
+      min={1}
+      className="input"
+      value={quantidade}
+      onChange={(e) => setQuantidade(e.target.value)}
+      placeholder="Ex: 10"
+    />
+  </div>
+)}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Campo label="Marca" valor={marca} setValor={setMarca} />
+              <Campo label="Modelo" valor={modelo} setValor={setModelo} />
+            </div>
 
             <Campo
               label="Número de série"
               valor={numeroSerie}
               setValor={setNumeroSerie}
+              placeholder="Ex: SN-2026-001"
             />
 
             <div>
@@ -301,132 +405,162 @@ if (!usuarioLogado.municipio_id) {
             <div>
               <label className="label">Observação</label>
               <textarea
-                className="input h-28 resize-none"
+                className="input min-h-[110px]"
                 value={observacao}
                 onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Observações sobre o equipamento..."
+                placeholder="Ex: entregue ao servidor, em bom estado, aguardando manutenção..."
               />
             </div>
 
             <button
               type="button"
               onClick={salvarEquipamento}
-              className="btn-primary w-full text-lg"
+              disabled={salvando}
+              className="sig-btn-gold w-full disabled:opacity-50"
             >
-              Salvar Equipamento
+              {salvando
+                ? "Salvando..."
+                : editando
+                ? "Atualizar Equipamento"
+                : "Salvar Equipamento"}
             </button>
+
+            {editando && (
+              <button
+                type="button"
+                onClick={limparFormulario}
+                className="btn-secondary w-full"
+              >
+                Cancelar edição
+              </button>
+            )}
           </div>
         </div>
 
-        <div className="card xl:col-span-2">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Equipamentos Cadastrados
-          </h2>
+        <div className="xl:col-span-2 space-y-4">
+          <div className="painel-premium p-6">
+            <h2 className="text-xl font-black text-white">
+              Equipamentos Cadastrados
+            </h2>
 
-          <div className="mb-5">
-            <label className="label">Buscar equipamento</label>
+            <p className="text-slate-400 text-sm mb-4">
+              Consulte os equipamentos por patrimônio, tipo, responsável ou status.
+            </p>
+
             <input
               className="input"
-              placeholder="Buscar por patrimônio, tipo, responsável..."
+              placeholder="Buscar por patrimônio, tipo, série, responsável..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
             />
           </div>
 
           {carregando ? (
-            <p className="text-slate-400">Carregando equipamentos...</p>
+            <div className="painel-premium p-6 text-slate-400">
+              Carregando equipamentos...
+            </div>
           ) : equipamentosFiltrados.length === 0 ? (
-            <p className="text-slate-400">Nenhum equipamento encontrado.</p>
+            <div className="painel-premium p-10 text-center">
+              <p className="text-6xl mb-3">🎒</p>
+              <h2 className="text-white font-black text-xl">
+                Nenhum equipamento encontrado
+              </h2>
+              <p className="text-slate-400 text-sm mt-2">
+                Cadastre um equipamento ou altere a busca.
+              </p>
+            </div>
           ) : (
-            <>
-              <div className="md:hidden space-y-4">
-                {equipamentosFiltrados.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
-                  >
-                    <div className="flex justify-between gap-3 items-start">
-                      <div>
-                        <p className="text-blue-400 font-semibold">
-                          {item.patrimonio || "Sem patrimônio"}
-                        </p>
+            <div className="grid md:grid-cols-2 gap-4">
+              {equipamentosFiltrados.map((item) => (
+                <div
+                  key={item.id}
+                  className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="text-blue-400 text-sm font-bold">
+                        {item.patrimonio || "Sem patrimônio"}
+                      </p>
 
-                        <h3 className="text-xl font-bold">
-                          {item.tipo || "Equipamento"}
-                        </h3>
-                      </div>
+                      <h3 className="text-xl font-black text-white">
+                        {iconeTipo(item.tipo || "")} {item.tipo || "Equipamento"}
+                      </h3>
 
-                      <Status status={item.status || "-"} />
+                      <p className="text-slate-500 text-sm">
+                        {item.marca || "Marca não informada"}{" "}
+                        {item.modelo ? `• ${item.modelo}` : ""}
+                      </p>
                     </div>
 
-                    <Linha nome="Marca" valor={item.marca || "-"} />
-                    <Linha nome="Modelo" valor={item.modelo || "-"} />
-                    <Linha nome="Série" valor={item.numero_serie || "-"} />
-                    <Linha nome="Validade" valor={item.validade || "-"} />
-                    <Linha nome="Responsável" valor={item.responsavel || "-"} />
+                    <Status status={item.status || "-"} />
+                  </div>
 
-                    {item.observacao && (
-                      <p className="text-slate-400">{item.observacao}</p>
-                    )}
+                  <div className="grid grid-cols-2 gap-3 mt-4">
+  <Info
+    titulo="Controle"
+    valor={item.controle_tipo || "Individual"}
+  />
+
+  {item.controle_tipo === "Lote" && (
+    <Info
+      titulo="Quantidade"
+      valor={String(item.quantidade || 0)}
+    />
+  )}
+
+  <Info titulo="Série" valor={item.numero_serie || "N/I"} />
+  <Info titulo="Validade" valor={item.validade || "N/I"} />
+  <Info titulo="Responsável" valor={item.responsavel || "Sem responsável"} />
+  <Info titulo="Status" valor={item.status || "-"} />
+</div>
+
+                  {item.observacao && (
+                    <p className="text-slate-400 text-sm mt-4 whitespace-pre-wrap">
+                      {item.observacao}
+                    </p>
+                  )}
+
+                  <div className="flex gap-3 mt-5">
+                    <button
+                      type="button"
+                      onClick={() => editarEquipamento(item)}
+                      className="sig-btn-gold flex-1"
+                    >
+                      Editar
+                    </button>
 
                     <button
                       type="button"
                       onClick={() => excluirEquipamento(item.id)}
-                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                      className="rounded-xl px-4 py-2 bg-red-950/60 border border-red-900 text-red-300 font-bold"
                     >
                       Excluir
                     </button>
                   </div>
-                ))}
-              </div>
-
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-slate-400 border-b border-slate-700">
-                    <tr>
-                      <th className="text-left py-3">Patrimônio</th>
-                      <th className="text-left py-3">Tipo</th>
-                      <th className="text-left py-3">Status</th>
-                      <th className="text-left py-3">Responsável</th>
-                      <th className="text-left py-3">Validade</th>
-                      <th className="text-right py-3">Ações</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {equipamentosFiltrados.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-800">
-                        <td className="py-4 text-blue-400 font-semibold">
-                          {item.patrimonio || "-"}
-                        </td>
-                        <td>{item.tipo || "-"}</td>
-                        <td>
-                          <Status status={item.status || "-"} />
-                        </td>
-                        <td className="text-slate-400">
-                          {item.responsavel || "-"}
-                        </td>
-                        <td>{item.validade || "-"}</td>
-                        <td className="text-right">
-                          <button
-                            type="button"
-                            onClick={() => excluirEquipamento(item.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      </section>
+      </div>
     </div>
   );
+}
+
+function iconeTipo(tipo: string) {
+  const texto = tipo.toLowerCase();
+
+  if (texto.includes("colete")) return "🦺";
+  if (texto.includes("rádio") || texto.includes("ht")) return "📻";
+  if (texto.includes("algema")) return "🔗";
+  if (texto.includes("lanterna")) return "🔦";
+  if (texto.includes("body")) return "📹";
+  if (texto.includes("tablet") || texto.includes("celular")) return "📱";
+  if (texto.includes("drone")) return "🚁";
+  if (texto.includes("cone")) return "🔶";
+  if (texto.includes("primeiros")) return "🚑";
+
+  return "🎒";
 }
 
 function Campo({
@@ -454,35 +588,35 @@ function Campo({
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: number }) {
+function Card({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
+    <div className="painel-premium p-5">
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className="text-2xl md:text-3xl font-black text-white">{valor}</h2>
     </div>
   );
 }
 
-function Linha({ nome, valor }: { nome: string; valor: string }) {
+function Info({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
-      <span className="text-slate-400">{nome}</span>
-      <span className="text-right">{valor}</span>
+    <div className="rounded-xl bg-slate-900/70 p-3">
+      <p className="text-slate-500 text-xs">{titulo}</p>
+      <p className="text-slate-200 font-bold text-sm">{valor}</p>
     </div>
   );
 }
 
 function Status({ status }: { status: string }) {
-  let cor = "bg-slate-700 text-slate-100";
+  let cor = "bg-slate-900 text-slate-300 border-slate-700";
 
-  if (status === "Disponível") cor = "bg-green-700 text-green-100";
-  if (status === "Em uso") cor = "bg-blue-700 text-blue-100";
-  if (status === "Manutenção") cor = "bg-yellow-600 text-yellow-100";
-  if (status === "Baixado") cor = "bg-red-700 text-red-100";
-  if (status === "Extraviado") cor = "bg-red-900 text-red-100";
+  if (status === "Disponível") cor = "bg-green-950 text-green-300 border-green-800";
+  if (status === "Em uso") cor = "bg-blue-950 text-blue-300 border-blue-800";
+  if (status === "Manutenção") cor = "bg-yellow-950 text-yellow-300 border-yellow-800";
+  if (status === "Baixado") cor = "bg-red-950 text-red-300 border-red-800";
+  if (status === "Extraviado") cor = "bg-red-950 text-red-300 border-red-800";
 
   return (
-    <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>
+    <span className={`h-fit rounded-full border px-3 py-1 text-xs font-bold ${cor}`}>
       {status}
     </span>
   );

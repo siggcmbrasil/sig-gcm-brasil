@@ -1,9 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { obterLocalizacao } from "@/lib/gps";
+import {
+  iniciarRastreamentoTempoReal,
+  limparUltimoPontoGPS,
+} from "@/lib/gps/rastreamentoTempoReal";
+
 
 type Patrulhamento = {
   id: number;
@@ -33,10 +39,6 @@ type Viatura = {
   modelo: string;
   placa: string;
   status: string;
-};
-
-type MembroGuarnicao = {
-  guarda_id: number;
 };
 
 type GuarnicaoCompleta = {
@@ -71,6 +73,8 @@ export default function Patrulhamento() {
 
   const [carregando, setCarregando] = useState(true);
   const [capturandoGps, setCapturandoGps] = useState(false);
+  const [pararRastreamento, setPararRastreamento] =
+  useState<(() => void) | null>(null);
   const usuarioLogado =
   typeof window !== "undefined"
     ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
@@ -182,10 +186,11 @@ async function carregarPatrulhamentos() {
 
   async function carregarViaturas() {
     const { data, error } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, placa, status")
-      .in("status", ["Operacional", "Reserva"])
-      .order("prefixo", { ascending: true });
+  .from("viaturas")
+  .select("id, prefixo, modelo, placa, status")
+  .eq("municipio_id", usuarioLogado.municipio_id)
+  .in("status", ["Operacional", "Reserva"])
+  .order("prefixo", { ascending: true });
 
     if (error) {
       console.error(error);
@@ -272,12 +277,29 @@ async function carregarPatrulhamentos() {
     }
 
     if (novoPatrulhamento?.id) {
-  setPatrulhamentoAtivoId(novoPatrulhamento.id);
-
-  await salvarPontoGps(
-    novoPatrulhamento.id,
-    "MANUAL"
+  setPatrulhamentoAtivoId(
+    novoPatrulhamento.id
   );
+
+  localStorage.setItem(
+    "patrulhamentoAtivoId",
+    String(novoPatrulhamento.id)
+  );
+
+  const parar =
+  iniciarRastreamentoTempoReal(
+    {
+      municipio_id:
+        usuarioLogado.municipio_id,
+      usuario_id: String(
+        usuarioLogado.id
+      ),
+      patrulhamento_id:
+        novoPatrulhamento.id,
+    }
+  );
+
+  setPararRastreamento(() => parar);
 
   setRastreamentoAtivo(true);
 }
@@ -296,29 +318,6 @@ async function carregarPatrulhamentos() {
 
     carregarPatrulhamentos();
   }
-
-  async function salvarPontoGps(
-  patrulhamentoId: number,
-  tipo: "MANUAL" | "AUTOMATICO" = "AUTOMATICO"
-) {
-  try {
-    const localizacao = await obterLocalizacao();
-
-    const { error } = await supabase.from("gps_patrulhamento").insert({
-      patrulhamento_id: patrulhamentoId,
-      municipio_id: usuarioLogado.municipio_id,
-      latitude: localizacao.latitude,
-      longitude: localizacao.longitude,
-      tipo,
-    });
-
-    if (error) {
-      console.error(error);
-    }
-  } catch (error) {
-    console.error("Erro ao salvar ponto GPS:", error);
-  }
-}
 
   async function excluirPatrulhamento(id: number) {
   if (!podeEditar) {
@@ -345,23 +344,28 @@ async function carregarPatrulhamentos() {
   }
 
 async function finalizarPatrulhamento(id: number) {
-  setRastreamentoAtivo(false);
+  if (pararRastreamento) {
+    pararRastreamento();
+  }
 
   const { error } = await supabase
     .from("patrulhamentos")
     .update({
-  status: "FINALIZADO",
-})
-.eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+      status: "FINALIZADO",
+    })
+    .eq("id", id)
+    .eq("municipio_id", usuarioLogado.municipio_id);
 
   if (error) {
     console.error(error);
-    alert("Erro ao finalizar patrulhamento.");
     return;
   }
 
+  setRastreamentoAtivo(false);
   setPatrulhamentoAtivoId(null);
+
+  localStorage.removeItem("patrulhamentoAtivoId");
+  limparUltimoPontoGPS();
 
   alert("Patrulhamento finalizado com sucesso.");
   carregarPatrulhamentos();
@@ -477,19 +481,34 @@ async function carregarPlantaoAutomatico() {
 }, []);
 
 useEffect(() => {
-  if (!rastreamentoAtivo || !patrulhamentoAtivoId) return;
+  const idSalvo = localStorage.getItem(
+    "patrulhamentoAtivoId"
+  );
 
-  const intervalo = setInterval(async () => {
-    await salvarPontoGps(
-      patrulhamentoAtivoId,
-      "AUTOMATICO"
+  if (!idSalvo) return;
+
+  const patrulhamentoId = Number(idSalvo);
+
+  setPatrulhamentoAtivoId(
+    patrulhamentoId
+  );
+
+  const parar =
+    iniciarRastreamentoTempoReal(
+      {
+        municipio_id:
+          usuarioLogado.municipio_id,
+        usuario_id: String(
+          usuarioLogado.id
+        ),
+        patrulhamento_id:
+          patrulhamentoId,
+      }
     );
-  }, 30000);
 
-  return () => clearInterval(intervalo);
-}, [rastreamentoAtivo, patrulhamentoAtivoId]);
-
-  const hoje = new Date().toISOString().split("T")[0];
+  setPararRastreamento(() => parar);
+  setRastreamentoAtivo(true);
+}, []);
 
   const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
     const texto = `
@@ -552,8 +571,10 @@ useEffect(() => {
     titulo="Viaturas"
     valor={
       new Set(
-        patrulhamentos.map((p) => p.viatura)
-      ).size
+  patrulhamentos
+    .map((p) => p.viatura)
+    .filter(Boolean)
+).size
     }
     icone="🚓"
     cor="purple"
@@ -563,8 +584,10 @@ useEffect(() => {
     titulo="Equipes"
     valor={
       new Set(
-        patrulhamentos.map((p) => p.equipe)
-      ).size
+  patrulhamentos
+    .map((p) => p.equipe)
+    .filter(Boolean)
+).size
     }
     icone="👮"
     cor="green"
@@ -894,12 +917,12 @@ useEffect(() => {
       </button>
     )}
 
-    <a
+   <Link
   href={`/sistema/patrulhamento/${item.id}`}
   className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
 >
   Ver Rota
-</a>
+</Link>
 
     {podeEditar && (
       <button

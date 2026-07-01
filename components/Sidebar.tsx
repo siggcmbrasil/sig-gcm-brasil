@@ -6,16 +6,24 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { buscarModulosPermitidos, moduloLiberado } from "@/lib/permissoesMenu";
 import {
-  LayoutDashboard,
-  Shield,
-  Users,
-  CalendarDays,
-  BarChart3,
+  Activity,
   Bot,
-  Settings,
-  LogOut,
+  Boxes,
+  Brain,
+  Building2,
   CarFront,
+  Code2,
+  Cog,
+  FileText,
+  Landmark,
+  LayoutDashboard,
+  LogOut,
   Menu,
+  MessageCircle,
+  Scale,
+  Shield,
+  ShieldCheck,
+  Users,
 } from "lucide-react";
 
 import type { LucideIcon } from "lucide-react";
@@ -197,112 +205,163 @@ w-80
 >
 
   <ItemMenu
-    href="/sistema"
-    icone={LayoutDashboard}
-    titulo="Centro de Comando"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname === "/sistema"}
-  />
+  href="/sistema"
+  icone={LayoutDashboard}
+  titulo="Centro de Comando"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname === "/sistema"}
+/>
 
-  <ItemMenu
-    href="/sistema/operacional"
-    icone={Shield}
-    titulo="Central Operacional"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/operacional")}
-  />
+<ItemMenu
+  href="/sistema/operacional"
+  icone={Shield}
+  titulo="Central Operacional"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/operacional")}
+/>
 
-  <ItemMenu
-    href="/sistema/rh"
-    icone={Users}
-    titulo="Central de RH"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/rh")}
-  />
-
-  <ItemMenu
-    href="/sistema/frota"
-    icone={CarFront}
-    titulo="Central de Frota"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/frota")}
-  />
-
-  <ItemMenu
-    href="/sistema/central-patrimonio"
-    icone={Shield}
-    titulo="Central de Patrimônio"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/central-patrimonio")}
-  />
-
-  <ItemMenu
-    href="/sistema/central-inteligencia"
-    icone={Bot}
-    titulo="Central de Inteligência"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/central-inteligencia")}
-  />
-
-  <ItemMenu
+<ItemMenu
   href="/sistema/sigia"
-  icone={Bot}
+  icone={Brain}
   titulo="SIGIA"
   fecharMenu={fecharMenu}
   compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/sigia")}
+  ativo={
+    pathname.startsWith("/sistema/sigia") ||
+    pathname.startsWith("/sistema/ia") ||
+    pathname.startsWith("/sistema/ia-juridica") ||
+    pathname.startsWith("/sistema/legislacao/ia") ||
+    pathname.startsWith("/sistema/busca")
+  }
 />
 
-  <ItemMenu
+<ItemMenu
+  href="/sistema/central-inteligencia"
+  icone={Activity}
+  titulo="Central de Inteligência"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={
+    pathname.startsWith("/sistema/central-inteligencia") ||
+    pathname.startsWith("/sistema/inteligencia") ||
+    pathname.startsWith("/sistema/estatisticas")
+  }
+/>
+
+<ItemMenu
   href="/sistema/central-juridica"
-  icone={Shield}
+  icone={Scale}
   titulo="Central Jurídica"
   fecharMenu={fecharMenu}
   compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/central-juridica")}
+  ativo={
+    pathname.startsWith("/sistema/central-juridica") ||
+    pathname.startsWith("/sistema/legislacao") ||
+    pathname.startsWith("/sistema/sig-legislacao")
+  }
 />
 
-  <ItemMenu
-    href="/sistema/central-relatorios"
-    icone={BarChart3}
-    titulo="Central de Relatórios"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/central-relatorios")}
-  />
+<ItemMenu
+  href="/sistema/central-comunicacao"
+  icone={MessageCircle}
+  titulo="Comunicação"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={
+    pathname.startsWith("/sistema/comunicacao") ||
+    pathname.startsWith("/sistema/chat") ||
+    pathname.startsWith("/sistema/avisos") ||
+    pathname.startsWith("/sistema/notificacoes") ||
+    pathname.startsWith("/sistema/blog-operacional") ||
+    pathname.startsWith("/sistema/agenda-institucional")
+  }
+/>
 
-  <ItemMenu
-    href="/sistema/central-cidadao"
-    icone={Users}
-    titulo="Central do Cidadão"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/central-cidadao")}
-  />
+<ItemMenu
+  href="/sistema/rh"
+  icone={Users}
+  titulo="Central de RH"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/rh")}
+/>
 
-  <ItemMenu
-    href="/sistema/central-administrativa"
-    icone={Settings}
-    titulo="Central Administrativa"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/central-administrativa")}
-  />
+<ItemMenu
+  href="/sistema/frota"
+  icone={CarFront}
+  titulo="Central de Frota"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/frota")}
+/>
 
+<ItemMenu
+  href="/sistema/armamentos"
+  icone={ShieldCheck}
+  titulo="Central de Armamentos"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/armamentos")}
+/>
+
+<ItemMenu
+  href="/sistema/central-patrimonio"
+  icone={Boxes}
+  titulo="Central de Patrimônio"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/central-patrimonio")}
+/>
+
+<ItemMenu
+  href="/sistema/central-relatorios"
+  icone={FileText}
+  titulo="Central de Relatórios"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/central-relatorios")}
+/>
+
+<ItemMenu
+  href="/sistema/central-cidadao"
+  icone={Landmark}
+  titulo="Central do Cidadão"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/central-cidadao")}
+/>
+
+<ItemMenu
+  href="/sistema/central-administrativa"
+  icone={Building2}
+  titulo="Central Administrativa"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/central-administrativa")}
+/>
+
+<ItemMenu
+  href="/sistema/configuracoes"
+  icone={Cog}
+  titulo="Central de Configurações"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/configuracoes")}
+/>
+
+{usuario?.perfil === "DESENVOLVEDOR" && (
   <ItemMenu
     href="/sistema/desenvolvedor"
-    icone={Settings}
+    icone={Code2}
     titulo="Desenvolvedor"
     fecharMenu={fecharMenu}
     compacto={menuCompacto}
     ativo={pathname.startsWith("/sistema/desenvolvedor")}
   />
+)}
+
 
 </nav>
 

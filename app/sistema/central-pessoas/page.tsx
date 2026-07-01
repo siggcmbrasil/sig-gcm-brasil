@@ -1,0 +1,56 @@
+"use client";
+
+import {
+  Users,
+  UserPlus,
+  Search,
+  FileText,
+} from "lucide-react";
+
+import SigCentralHeader from "@/components/sig/SigCentralHeader";
+import SigCentralCard from "@/components/sig/SigCentralCard";
+
+const cards = [
+  {
+    titulo: "Nova Pessoa",
+    href: "/sistema/pessoas/nova",
+    descricao: "Cadastrar uma nova pessoa abordada.",
+    icone: UserPlus,
+  },
+  {
+    titulo: "Pessoas Abordadas",
+    href: "/sistema/pessoas",
+    descricao: "Lista geral das pessoas abordadas e registradas no sistema.",
+    icone: Users,
+  },
+  {
+    titulo: "Relatório de Abordagens",
+    href: "/sistema/pessoas/relatorio",
+    descricao: "Relatório das pessoas abordadas por período.",
+    icone: FileText,
+  },
+];
+
+export default function CentralPessoasPage() {
+  return (
+    <section className="p-4 md:p-6 pb-24 space-y-6">
+      <SigCentralHeader
+        titulo="Central de Pessoas"
+        descricao="Lista, cadastro, pesquisa e relatório de pessoas abordadas."
+        icone={Users}
+      />
+
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
+        {cards.map((card) => (
+          <SigCentralCard
+            key={`${card.href}-${card.titulo}`}
+            titulo={card.titulo}
+            descricao={card.descricao}
+            href={card.href}
+            icone={card.icone}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}

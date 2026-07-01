@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Viatura = {
@@ -14,286 +14,334 @@ type Viatura = {
   quilometragem: string | null;
   ultima_manutencao: string | null;
   observacoes: string | null;
+  foto_url?: string | null;
 };
 
-export default function Viatura() {
-  const [viatura, setViatura] = useState<Viatura | null>(null);
-  const [salvando, setSalvando] = useState(false);
+export default function ViaturasPage() {
+  const [viaturas, setViaturas] = useState<Viatura[]>([]);
+  const [editando, setEditando] = useState<Viatura | null>(null);
   const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
 
   const [prefixo, setPrefixo] = useState("");
-const [modelo, setModelo] = useState("");
+  const [modelo, setModelo] = useState("");
   const [placa, setPlaca] = useState("");
   const [status, setStatus] = useState("Operacional");
   const [combustivel, setCombustivel] = useState("");
   const [quilometragem, setQuilometragem] = useState("");
   const [ultimaManutencao, setUltimaManutencao] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : null;
+  const [fotoUrl, setFotoUrl] = useState("");
 
-const municipioId = usuarioLogado?.municipio_id;
+  const usuario =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
-const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const municipioId = usuario?.municipio_id;
+  const perfilUsuario = usuario?.perfil || "CONSULTA";
 
-const podeExcluir =
-  perfilUsuario === "ADMIN" ||
-  perfilUsuario === "COMANDANTE" ||
-  perfilUsuario === "DESENVOLVEDOR";
+  const podeEditar = perfilUsuario !== "CONSULTA";
+  const podeExcluir = ["ADMIN", "COMANDANTE", "DESENVOLVEDOR"].includes(perfilUsuario);
 
-const podeEditar = perfilUsuario !== "CONSULTA";
+  async function carregarViaturas() {
+    if (!municipioId) return;
 
-  async function carregarViatura() {
     setCarregando(true);
 
     const { data, error } = await supabase
-  .from("viaturas")
-  .select("*")
-  .eq("municipio_id", municipioId)
-  .order("id", { ascending: true })
-  .limit(1)
-  .single();
-
-    if (error && error.code !== "PGRST116") {
-      console.error(error);
-      alert("Erro ao carregar viatura.");
-      setCarregando(false);
-      return;
-    }
-
-    if (data) {
-      setViatura(data);
-      setPrefixo(data.prefixo || "VTR-01");
-      setModelo(data.modelo || "Renault Duster");
-      setPlaca(data.placa || "");
-      setStatus(data.status || "Operacional");
-      setCombustivel(data.combustivel || "");
-      setQuilometragem(data.quilometragem || "");
-      setUltimaManutencao(data.ultima_manutencao || "");
-      setObservacoes(data.observacoes || "");
-    }
-
-    setCarregando(false);
-  }
-
-  async function salvarViatura() {
-if (!municipioId) {
-  alert("Município não identificado.");
-  setSalvando(false); return;
-}
-
-if (salvando) return;
-
-setSalvando(true);
-
-  if (!podeEditar) {
-    alert("Você não possui permissão para alterar dados da viatura.");
-    setSalvando(false); return;
-  }
-    if (!prefixo || !modelo || !placa) {
-      alert("Preencha prefixo, modelo e placa.");
-      setSalvando(false); return;
-    }
-
-    if (viatura) {
-      const { error } = await supabase
-        .from("viaturas")
-        .update({
-          prefixo,
-          modelo,
-          placa,
-          status,
-          combustivel,
-          quilometragem,
-          ultima_manutencao: ultimaManutencao || null,
-          observacoes,
-        })
-        .eq("id", viatura.id)
-.eq("municipio_id", municipioId);
-
-      if (error) {
-        console.error(error);
-        alert("Erro ao atualizar viatura.");
-        setSalvando(false); return;
-      }
-
-      alert("Viatura atualizada com sucesso."); setSalvando(false);
-      await carregarViatura();
-setSalvando(false);
-return;
-    }
-
-    const { error } = await supabase.from("viaturas").insert([
-      {
-        municipio_id: municipioId,
-        prefixo,
-        modelo,
-        placa,
-        status,
-        combustivel,
-        quilometragem,
-        ultima_manutencao: ultimaManutencao || null,
-        observacoes,
-      },
-    ]);
+      .from("viaturas")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .order("prefixo", { ascending: true });
 
     if (error) {
       console.error(error);
-      alert("Erro ao cadastrar viatura.");
-      setSalvando(false); return;
+      alert("Erro ao carregar viaturas.");
     }
 
-    alert("Viatura cadastrada com sucesso.");
-await carregarViatura();
-setSalvando(false);
+    setViaturas(data || []);
+    setCarregando(false);
   }
 
   useEffect(() => {
-    carregarViatura();
+    carregarViaturas();
   }, []);
 
+  const resumo = useMemo(() => {
+    return {
+      total: viaturas.length,
+      operacionais: viaturas.filter((v) => v.status === "Operacional").length,
+      manutencao: viaturas.filter((v) => v.status === "Em manutenção").length,
+      reserva: viaturas.filter((v) => v.status === "Reserva").length,
+    };
+  }, [viaturas]);
+
+  function limparFormulario() {
+    setEditando(null);
+    setPrefixo("");
+    setModelo("");
+    setPlaca("");
+    setStatus("Operacional");
+    setCombustivel("");
+    setQuilometragem("");
+    setUltimaManutencao("");
+    setObservacoes("");
+    setFotoUrl("");
+  }
+
+  function editarViatura(v: Viatura) {
+    setEditando(v);
+    setPrefixo(v.prefixo || "");
+    setModelo(v.modelo || "");
+    setPlaca(v.placa || "");
+    setStatus(v.status || "Operacional");
+    setCombustivel(v.combustivel || "");
+    setQuilometragem(v.quilometragem || "");
+    setUltimaManutencao(v.ultima_manutencao || "");
+    setObservacoes(v.observacoes || "");
+    setFotoUrl(v.foto_url || "");
+  }
+
+  async function salvarViatura() {
+    if (!podeEditar) return alert("Sem permissão.");
+    if (!municipioId) return alert("Município não identificado.");
+    if (!prefixo || !modelo || !placa) {
+      return alert("Preencha prefixo, modelo e placa.");
+    }
+
+    setSalvando(true);
+
+    const dados = {
+      municipio_id: municipioId,
+      prefixo: prefixo.trim().toUpperCase(),
+      modelo: modelo.trim(),
+      placa: placa.trim().toUpperCase(),
+      status,
+      combustivel: combustivel.trim() || null,
+      quilometragem: quilometragem.trim() || null,
+      ultima_manutencao: ultimaManutencao || null,
+      observacoes: observacoes.trim() || null,
+      foto_url: fotoUrl.trim() || null,
+    };
+
+    const { error } = editando
+      ? await supabase
+          .from("viaturas")
+          .update(dados)
+          .eq("id", editando.id)
+          .eq("municipio_id", municipioId)
+      : await supabase.from("viaturas").insert([dados]);
+
+    setSalvando(false);
+
+    if (error) {
+      console.error(error);
+      return alert("Erro ao salvar viatura.");
+    }
+
+    alert(editando ? "Viatura atualizada." : "Viatura cadastrada.");
+    limparFormulario();
+    carregarViaturas();
+  }
+
+  async function excluirViatura(id: number) {
+    if (!podeExcluir) return alert("Sem permissão para excluir.");
+
+    if (!confirm("Deseja excluir esta viatura?")) return;
+
+    const { error } = await supabase
+      .from("viaturas")
+      .delete()
+      .eq("id", id)
+      .eq("municipio_id", municipioId);
+
+    if (error) {
+      console.error(error);
+      return alert("Erro ao excluir.");
+    }
+
+    carregarViaturas();
+  }
+
   return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Viatura</h1>
-        <p className="text-slate-400 text-sm md:text-base">
-  Controle das viaturas operacionais do município.
-</p>
-      </header>
+    <div className="p-4 md:p-6 pb-24 space-y-6">
+      <div className="painel-premium p-6">
+        <p className="text-sm text-slate-400 font-semibold">Controle de Frota</p>
+        <h1 className="text-2xl md:text-3xl font-black text-white">
+          🚔 Viaturas
+        </h1>
+        <p className="text-slate-400 mt-2">
+          Cadastro, acompanhamento e gestão das viaturas operacionais.
+        </p>
+      </div>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <Card titulo="Prefixo" valor={prefixo || "-"} />
-        <Card titulo="Status" valor={status || "-"} destaque={status === "Operacional"} />
-        <Card titulo="Combustível" valor={combustivel || "-"} />
-        <Card titulo="Quilometragem" valor={quilometragem || "-"} />
-      </section>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card titulo="Total" valor={resumo.total} />
+        <Card titulo="Operacionais" valor={resumo.operacionais} />
+        <Card titulo="Manutenção" valor={resumo.manutencao} />
+        <Card titulo="Reserva" valor={resumo.reserva} />
+      </div>
 
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-  {viatura ? viatura.prefixo : "Nenhuma viatura cadastrada"}
-</h2>
+      <div className="grid xl:grid-cols-4 gap-6">
+        {podeEditar && (
+          <div className="painel-premium p-6 xl:col-span-1">
+            <h2 className="text-xl font-black text-white">
+              {editando ? "Editar Viatura" : "Nova Viatura"}
+            </h2>
 
-          <div className="flex justify-center mb-6">
-            {viatura ? (
-  <Image
-    src="/viatura-gcm.png"
-    alt="Viatura"
-    width={420}
-    height={260}
-    className="rounded-xl object-contain w-full h-auto max-w-sm"
-    priority
-  />
-) : (
-  <div className="h-56 flex items-center justify-center border border-slate-700 rounded-xl bg-slate-900">
-    <div className="text-center">
-      <p className="text-5xl mb-2">🚓</p>
-      <p className="text-slate-400">
-        Nenhuma viatura cadastrada
-      </p>
-    </div>
-  </div>
-)}
+            <p className="text-slate-400 text-sm mb-5">
+              Preencha os dados da viatura.
+            </p>
+
+            <div className="space-y-4">
+              <Campo label="Prefixo" valor={prefixo} setValor={setPrefixo} placeholder="VTR-01" />
+              <Campo label="Modelo" valor={modelo} setValor={setModelo} placeholder="Renault Duster" />
+              <Campo label="Placa" valor={placa} setValor={(v) => setPlaca(v.toUpperCase())} placeholder="ABC1D23" />
+              <Campo label="Foto da viatura" valor={fotoUrl} setValor={setFotoUrl} placeholder="/viatura-gcm.png ou URL" />
+              <Campo label="Combustível" valor={combustivel} setValor={setCombustivel} placeholder="Diesel / Gasolina / 80%" />
+              <Campo label="Quilometragem" valor={quilometragem} setValor={setQuilometragem} placeholder="25430" />
+
+              <div>
+                <label className="label">Status</label>
+                <select className="input" value={status} onChange={(e) => setStatus(e.target.value)}>
+                  <option>Operacional</option>
+                  <option>Em manutenção</option>
+                  <option>Indisponível</option>
+                  <option>Reserva</option>
+                  <option>Baixada</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="label">Última manutenção</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={ultimaManutencao}
+                  onChange={(e) => setUltimaManutencao(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="label">Observações</label>
+                <textarea
+                  className="input min-h-[100px]"
+                  value={observacoes}
+                  onChange={(e) => setObservacoes(e.target.value)}
+                  placeholder="Observações gerais da viatura..."
+                />
+              </div>
+
+              <button
+                onClick={salvarViatura}
+                disabled={salvando}
+                className="sig-btn-gold w-full disabled:opacity-50"
+              >
+                {salvando ? "Salvando..." : editando ? "Atualizar Viatura" : "Cadastrar Viatura"}
+              </button>
+
+              {editando && (
+                <button onClick={limparFormulario} className="btn-secondary w-full">
+                  Cancelar edição
+                </button>
+              )}
+            </div>
           </div>
+        )}
 
+        <div className={`${podeEditar ? "xl:col-span-3" : "xl:col-span-4"}`}>
           {carregando ? (
-            <p className="text-slate-400">Carregando...</p>
+            <div className="painel-premium p-6 text-slate-400">
+              Carregando viaturas...
+            </div>
+          ) : viaturas.length === 0 ? (
+            <div className="painel-premium p-10 text-center">
+              <p className="text-6xl mb-3">🚔</p>
+              <h2 className="text-white font-black text-xl">
+                Nenhuma viatura cadastrada
+              </h2>
+              <p className="text-slate-400 text-sm mt-2">
+                Cadastre a primeira viatura para iniciar o controle de frota.
+              </p>
+            </div>
           ) : (
-            <div className="space-y-3">
-              <Linha nome="Prefixo" valor={prefixo} />
-              <Linha nome="Modelo" valor={modelo} />
-              <Linha nome="Placa" valor={placa || "-"} />
-              <Linha nome="Status" valor={status} />
-              <Linha nome="Combustível" valor={combustivel || "-"} />
-              <Linha nome="Quilometragem" valor={quilometragem || "-"} />
-              <Linha nome="Última manutenção" valor={ultimaManutencao || "-"} />
+            <div className="grid sm:grid-cols-2 2xl:grid-cols-3 gap-5">
+              {viaturas.map((v) => (
+                <div
+                  key={v.id}
+                  className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/70 shadow-xl"
+                >
+                  <div className="relative h-44 bg-slate-900">
+                    <Image
+                      src={v.foto_url || "/viatura-gcm.png"}
+                      alt={v.prefixo}
+                      fill
+                      className="object-cover"
+                    />
+
+                    <div className="absolute top-3 left-3 rounded-full bg-black/70 px-3 py-1 text-white text-sm font-black">
+                      {v.prefixo}
+                    </div>
+
+                    <div className="absolute top-3 right-3 rounded-full bg-black/70 px-3 py-1 text-xs font-bold text-slate-100">
+                      {v.status}
+                    </div>
+                  </div>
+
+                  <div className="p-5">
+                    <h3 className="text-xl font-black text-white">
+                      {v.modelo}
+                    </h3>
+
+                    <p className="text-slate-400 text-sm">
+                      Placa: {v.placa}
+                    </p>
+
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <Info titulo="Combustível" valor={v.combustivel || "-"} />
+                      <Info titulo="KM" valor={v.quilometragem || "-"} />
+                    </div>
+
+                    <div className="mt-3">
+                      <Info
+                        titulo="Última manutenção"
+                        valor={v.ultima_manutencao || "Não informada"}
+                      />
+                    </div>
+
+                    {v.observacoes && (
+                      <p className="text-slate-400 text-sm mt-4 line-clamp-2">
+                        {v.observacoes}
+                      </p>
+                    )}
+
+                    <div className="flex gap-3 mt-5">
+                      {podeEditar && (
+                        <button
+                          onClick={() => editarViatura(v)}
+                          className="sig-btn-gold flex-1"
+                        >
+                          Editar
+                        </button>
+                      )}
+
+                      {podeExcluir && (
+                        <button
+                          onClick={() => excluirViatura(v.id)}
+                          className="rounded-xl px-4 py-2 bg-red-950/60 border border-red-900 text-red-300 font-bold"
+                        >
+                          Excluir
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
-
-        {podeEditar && (
-  <div className="card xl:col-span-2">
-    <h2 className="text-xl md:text-2xl font-bold mb-4">
-      Dados da Viatura
-    </h2>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Campo label="Prefixo" valor={prefixo} setValor={setPrefixo} />
-
-            <Campo label="Modelo" valor={modelo} setValor={setModelo} />
-
-            <Campo
-              label="Placa"
-              valor={placa}
-              setValor={(valor) => setPlaca(valor.toUpperCase())}
-              placeholder="ABC1D23"
-            />
-
-            <Campo
-              label="Combustível"
-              valor={combustivel}
-              setValor={setCombustivel}
-              placeholder="Ex: 78%"
-            />
-
-            <Campo
-              label="Quilometragem"
-              valor={quilometragem}
-              setValor={setQuilometragem}
-              placeholder="Ex: 25.430 km"
-            />
-
-            <div>
-              <label className="label">Status</label>
-              <select
-                className="input"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option>Operacional</option>
-                <option>Em manutenção</option>
-                <option>Indisponível</option>
-                <option>Reserva</option>
-                <option>Baixada</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="label">Última manutenção</label>
-              <input
-                type="date"
-                className="input"
-                value={ultimaManutencao}
-                onChange={(e) => setUltimaManutencao(e.target.value)}
-              />
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="label">Observações</label>
-              <textarea
-                className="input h-32 resize-none"
-                value={observacoes}
-                onChange={(e) => setObservacoes(e.target.value)}
-                placeholder="Ex: viatura em operação normal."
-              />
-            </div>
-          </div>
-
-          <div className="flex justify-end mt-6">
-            <button
-              type="button"
-              onClick={salvarViatura}
-              disabled={salvando}
-              className="btn-primary w-full md:w-auto text-lg"
-            >
-              {salvando ? "Salvando..." : "Salvar Dados da Viatura"}
-            </button>
-          </div>
-          </div>
-)}
-</section>
+      </div>
     </div>
   );
 }
@@ -322,34 +370,20 @@ function Campo({
   );
 }
 
-function Card({
-  titulo,
-  valor,
-  destaque,
-}: {
-  titulo: string;
-  valor: string;
-  destaque?: boolean;
-}) {
+function Card({ titulo, valor }: { titulo: string; valor: number }) {
   return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2
-        className={`text-3xl md:text-4xl font-bold ${
-          destaque ? "text-green-400" : ""
-        }`}
-      >
-        {valor}
-      </h2>
+    <div className="painel-premium p-5">
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className="text-3xl font-black text-white">{valor}</h2>
     </div>
   );
 }
 
-function Linha({ nome, valor }: { nome: string; valor: string }) {
+function Info({ titulo, valor }: { titulo: string; valor: string }) {
   return (
-    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
-      <span className="text-slate-400">{nome}</span>
-      <span className="text-right">{valor}</span>
+    <div className="rounded-xl bg-slate-900/70 p-3">
+      <p className="text-slate-500 text-xs">{titulo}</p>
+      <p className="text-slate-200 font-bold text-sm">{valor}</p>
     </div>
   );
 }

@@ -314,23 +314,7 @@ await carregarOcorrencias(municipioId);
 
           {podeEditar && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:w-[760px]">
-              <Link
-                href="/sistema/ocorrencias/expressa"
-                className="rounded-2xl border border-red-500/50 bg-gradient-to-r from-red-950/50 to-red-900/20 hover:border-red-500 hover:scale-[1.02] transition p-5"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-red-500/20 flex items-center justify-center text-3xl">
-                    ⚡
-                  </div>
 
-                  <div>
-                    <h3 className="font-black text-xl text-red-100">
-                      Ocorrência Expressa
-                    </h3>
-                    <p className="text-slate-400 text-sm">Registro rápido</p>
-                  </div>
-                </div>
-              </Link>
 
               <Link
                 href="/sistema/ocorrencias/nova"
@@ -681,8 +665,8 @@ await carregarOcorrencias(municipioId);
                     <th className="text-left py-4 px-4">Protocolo</th>
                     <th className="text-left py-4 px-4">Data/Hora</th>
                     <th className="text-left py-4 px-4">Tipo</th>
-<th className="text-left py-4 px-4">Prioridade</th>
-<th className="text-left py-4 px-4">Local</th>
+                    <th className="text-left py-4 px-4">Prioridade</th>
+                    <th className="text-left py-4 px-4">Local</th>
                     <th className="text-left py-4 px-4">Guarnição</th>
                     <th className="text-left py-4 px-4">Viatura</th>
                     <th className="text-left py-4 px-4">Responsável</th>
