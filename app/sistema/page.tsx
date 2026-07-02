@@ -143,6 +143,7 @@ export default function Dashboard() {
   const [rondas, setRondas] = useState<any[]>([]);
   const [agora, setAgora] = useState(new Date());
   const [datasHoje, setDatasHoje] = useState<any[]>([]);
+  const [chamados, setChamados] = useState<any[]>([]);
 
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
@@ -209,6 +210,11 @@ const { data: datasHoje } = await supabase
   .select("*")
   .eq("data_inicio", hoje)
   .eq("ativo", true);
+
+  const { data: chamadosData } = await supabase
+  .from("chamados")
+  .select("*")
+  .eq("municipio_id", municipioId);
 
    const { data: municipioData } = await supabase
       .from("municipios")
@@ -341,6 +347,7 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
     console.log("OCORRENCIAS:", ocorrenciasData);
     
     setOcorrencias((ocorrenciasData as Ocorrencia[]) || []);
+    setChamados(chamadosData || []);
 
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
@@ -395,6 +402,10 @@ const aniversariantesHoje = guardas.filter((g) => {
  const permutasPendentes = permutas.filter(
     (p) => p.status === "PENDENTE" || p.status === "ACEITA"
   ).length;
+
+  const chamadosAbertos = chamados.filter(
+  (c) => c.status !== "Finalizado"
+).length;
 
   function calcularGuarnicaoPlantaoConfigurada() {
     if (!configEscala || !configEscala.ordem_guarnicoes?.length) return null;
@@ -535,13 +546,15 @@ setMostrarPerfil={setMostrarPerfil}
   cor="blue"
 />
 
-<CardComando
-  titulo="Chamados Abertos"
-  valor="0"
-  detalhe="Em atendimento"
-  icone={<PhoneCall className="w-8 h-8" />}
-  cor="cyan"
-/>
+<Link href="/sistema/chamados">
+  <CardComando
+    titulo="Chamados Abertos"
+    valor={String(chamadosAbertos)}
+    detalhe="Clique para acessar"
+    icone={<PhoneCall className="w-8 h-8" />}
+    cor="cyan"
+  />
+</Link>
 
 <CardComando
   titulo="Viaturas em Serviço"

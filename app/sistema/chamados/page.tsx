@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import BotaoAcao from "@/components/BotaoAcao";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { buscarModulosPermitidos, moduloLiberado, } from "@/lib/permissoesMenu";
 
 import {
   Eye,
@@ -21,12 +23,24 @@ type Chamado = {
   telefone: string | null;
   tipo: string;
   local: string;
+  bairro: string | null;
+  numero: string | null;
+  referencia: string | null;
+  tipo_local: string | null;
   prioridade: string;
   status: string;
   observacao: string | null;
+  descricao: string | null;
+  atendido_por: string | null;
+  finalizado_por: string | null;
+  data_atendimento: string | null;
+  finalizado_em: string | null;
+  observacao_finalizacao: string | null;
 };
 
 export default function Chamados() {
+  const router = useRouter();
+  
   const [chamados, setChamados] = useState<Chamado[]>([]);
   const [busca, setBusca] = useState("");
 
@@ -54,7 +68,20 @@ export default function Chamados() {
 
 const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
 
-const podeEditar = perfilUsuario !== "CONSULTA";
+const [modulosPermitidos, setModulosPermitidos] =
+  useState<string[]>([]);
+
+  const ehDesenvolvedor =
+  perfilUsuario === "DESENVOLVEDOR";
+
+function pode(modulo: string) {
+  if (ehDesenvolvedor) return true;
+
+  return moduloLiberado(
+    modulosPermitidos,
+    modulo
+  );
+}
 
 if (!usuarioLogado?.municipio_id) {
   return (
@@ -63,6 +90,27 @@ if (!usuarioLogado?.municipio_id) {
     </div>
   );
 }
+
+const podeVerChamados =
+  pode("CHAMADOS");
+
+const podeCriarChamado =
+  pode("CHAMADOS_CRIAR");
+
+const podeEditarChamado =
+  pode("CHAMADOS_EDITAR");
+
+const podeAtenderChamado =
+  pode("CHAMADOS_ATENDER");
+
+const podeFinalizarChamado =
+  pode("CHAMADOS_FINALIZAR");
+
+const podeExcluirChamado =
+  pode("CHAMADOS_EXCLUIR");
+
+const podeGerarOcorrencia =
+  pode("CHAMADOS_GERAR_OCORRENCIA");
 
   async function carregarChamados() {
 
@@ -97,14 +145,15 @@ if (!usuarioLogado.municipio_id) {
   return;
 }
 
-  if (!podeEditar) {
-    alert("Você não possui permissão para registrar chamados.");
-    return;
-  }
-    if (!solicitante || !tipo || !local) {
-      alert("Preencha solicitante, tipo e local.");
-      return;
-    }
+  if (editandoId && !podeEditarChamado) {
+  alert("Você não possui permissão para editar chamados.");
+  return;
+}
+
+if (!editandoId && !podeCriarChamado) {
+  alert("Você não possui permissão para registrar chamados.");
+  return;
+}
 
     const protocolo = "CH-" + Date.now();
 
@@ -217,71 +266,108 @@ setObservacao("");
   setTelefone(chamado.telefone || "");
   setTipo(chamado.tipo || "");
   setLocal(chamado.local || "");
+  setBairro(chamado.bairro || "");
+setNumero(chamado.numero || "");
+setReferencia(chamado.referencia || "");
+setTipoLocal(chamado.tipo_local || "Bairro");
   setPrioridade(chamado.prioridade || "Normal");
   setStatus(chamado.status || "Aberto");
   setObservacao(chamado.observacao || "");
 }
 
 async function atenderChamado(id: number) {
-  if (!podeEditar) {
+  if (!podeAtenderChamado) {
     alert("Você não possui permissão.");
     return;
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("chamados")
     .update({
-      status: "Em atendimento",
-      atendido_por: usuarioLogado?.nome || usuarioLogado?.email || "Sistema",
+      status: "Em Atendimento",
+      atendido_por:
+        usuarioLogado?.nome ||
+        usuarioLogado?.email ||
+        "Sistema",
       data_atendimento: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq("municipio_id", usuarioLogado.municipio_id);
+    .select()
+    .single();
 
   if (error) {
     console.error(error);
-    alert("Erro ao atender chamado.");
+    alert(JSON.stringify(error));
     return;
   }
 
-  const chamado = chamados.find(
-  (c) => c.id === id
-);
+  if (!data) {
+    alert("Nenhum chamado foi atualizado. Verifique o município_id.");
+    return;
+  }
 
-await registrarAuditoria({
-  modulo: "Chamados",
-  acao: "ATENDER",
-  descricao: `Iniciou atendimento do chamado ${
-    chamado?.protocolo || id
-  }.`,
-});
+  await registrarAuditoria({
+    modulo: "Chamados",
+    acao: "ATENDER",
+    descricao: `Iniciou atendimento do chamado ${
+      data.protocolo || id
+    }.`,
+  });
 
-  carregarChamados();
+  alert("Chamado colocado em atendimento.");
+
+  setChamados((lista) =>
+    lista.map((item) =>
+      item.id === id
+        ? {
+            ...item,
+            status: "Em Atendimento",
+            atendido_por:
+              usuarioLogado?.nome ||
+              usuarioLogado?.email ||
+              "Sistema",
+            data_atendimento: new Date().toISOString(),
+          }
+        : item
+    )
+  );
+
+  await carregarChamados();
 }
 
 async function finalizarChamado(id: number) {
-  if (!podeEditar) {
+  if (!podeFinalizarChamado) {
     alert("Você não possui permissão.");
     return;
   }
 
-  const observacaoFinal = prompt("Observação de finalização:");
+  const observacaoFinal =
+  prompt("Observação de finalização:") || "";
+
+console.log("Finalizando chamado:", id);
+console.log("Observação:", observacaoFinal);
 
   const { error } = await supabase
     .from("chamados")
     .update({
-      status: "Finalizado",
-      finalizado_em: new Date().toISOString(),
-      observacao_finalizacao: observacaoFinal || "",
-    })
+  status: "Finalizado",
+  finalizado_em: new Date().toISOString(),
+  finalizado_por:
+    usuarioLogado?.nome ||
+    usuarioLogado?.email ||
+    "Sistema",
+  observacao_finalizacao: observacaoFinal || "",
+})
     .eq("id", id)
     .eq("municipio_id", usuarioLogado.municipio_id);
 
+    console.log("Resultado finalizar:", error);
+
   if (error) {
-    console.error(error);
-    alert("Erro ao finalizar chamado.");
-    return;
-  }
+  console.error(error);
+  alert(JSON.stringify(error));
+  return;
+}
 
 const chamado = chamados.find(
   (c) => c.id === id
@@ -295,7 +381,8 @@ await registrarAuditoria({
   }.`,
 });
 
-  carregarChamados();
+ alert("Chamado finalizado com sucesso.");
+await carregarChamados();
 }
 
   async function excluirChamado(id: number) {
@@ -305,15 +392,20 @@ if (!usuarioLogado.municipio_id) {
   return;
 }
 
-  if (!podeEditar) {
+  if (!podeExcluirChamado) {
     alert("Você não possui permissão para excluir chamados.");
     return;
   }
-    const confirmar = confirm("Deseja excluir este chamado?");
-
-    if (!confirmar) return;
-
     const chamado = chamados.find((c) => c.id === id);
+
+if (chamado?.status === "Finalizado") {
+  alert("Chamados finalizados não podem ser excluídos.");
+  return;
+}
+
+const confirmar = confirm("Deseja excluir este chamado?");
+
+if (!confirmar) return;
 
 const { error } = await supabase
   .from("chamados")
@@ -357,23 +449,40 @@ carregarChamados();
 }
 
  useEffect(() => {
-  void carregarChamados();
-  void carregarLocais();
+  async function iniciar() {
+    const permissoes =
+      await buscarModulosPermitidos(
+        perfilUsuario
+      );
+
+    setModulosPermitidos(
+      permissoes || []
+    );
+
+    await carregarChamados();
+    await carregarLocais();
+  }
+
+  void iniciar();
 }, []);
 
-  const chamadosFiltrados = chamados.filter((chamado) => {
-    const texto = `
-      ${chamado.protocolo}
-      ${chamado.solicitante}
-      ${chamado.telefone || ""}
-      ${chamado.tipo}
-      ${chamado.local}
-      ${chamado.prioridade}
-      ${chamado.status}
-    `.toLowerCase();
+ const chamadosFiltrados = chamados.filter((chamado) => {
+  const texto = `
+    ${chamado.protocolo || ""}
+    ${chamado.solicitante || ""}
+    ${chamado.telefone || ""}
+    ${chamado.tipo || ""}
+    ${chamado.local || ""}
+    ${chamado.bairro || ""}
+    ${chamado.numero || ""}
+    ${chamado.referencia || ""}
+    ${chamado.prioridade || ""}
+    ${chamado.status || ""}
+    ${chamado.descricao || ""}
+  `.toLowerCase();
 
-    return texto.includes(busca.toLowerCase());
-  });
+  return texto.includes(busca.toLowerCase());
+});
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -435,11 +544,22 @@ carregarChamados();
     cor="green"
   />
 
+  <CardIndicador
+  titulo="Urgentes"
+  valor={
+    chamados.filter(
+      (c) => c.prioridade === "Urgente"
+    ).length
+  }
+  icone="🔥"
+  cor="red"
+/>
+
 </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {podeEditar && (
-  <div className="card">
+        {podeCriarChamado && (
+  <div className="card h-fit">
     <h2 className="text-xl md:text-2xl font-bold mb-4">
       Novo Chamado
     </h2>
@@ -598,7 +718,7 @@ carregarChamados();
                 onChange={(e) => setStatus(e.target.value)}
               >
                 <option>Aberto</option>
-                <option>Em atendimento</option>
+                <option>Em Atendimento</option>
                 <option>Finalizado</option>
               </select>
             </div>
@@ -681,6 +801,33 @@ carregarChamados();
                         {chamado.local}
                       </p>
 
+                      {chamado.bairro && (
+  <p>
+    <span className="text-slate-500">
+      Bairro:
+    </span>{" "}
+    {chamado.bairro}
+  </p>
+)}
+
+{chamado.numero && (
+  <p>
+    <span className="text-slate-500">
+      Número:
+    </span>{" "}
+    {chamado.numero}
+  </p>
+)}
+
+{chamado.referencia && (
+  <p>
+    <span className="text-slate-500">
+      Referência:
+    </span>{" "}
+    {chamado.referencia}
+  </p>
+)}
+
                       <p>
                         <span className="text-slate-500">Status: </span>
                         <Status status={chamado.status} />
@@ -691,39 +838,71 @@ carregarChamados();
                           {chamado.observacao}
                         </p>
                       )}
+
+{chamado.atendido_por && (
+  <p>
+    <span className="text-slate-500">
+      Atendido por:
+    </span>{" "}
+    {chamado.atendido_por}
+  </p>
+)}
+
+{chamado.finalizado_por && (
+  <p>
+    <span className="text-slate-500">
+      Finalizado por:
+    </span>{" "}
+    {chamado.finalizado_por}
+  </p>
+)}
+
                     </div>
 
-<button
-  type="button"
-  onClick={() =>
-    window.location.href =
-      `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+{podeGerarOcorrencia && (
+  <button
+    type="button"
+    onClick={() =>
+      router.push(
+        `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+      )
+    }
+    className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold mb-2"
+  >
+    Gerar Ocorrência
+  </button>
+)}
+
+{podeEditarChamado && (
+  <button
+    type="button"
+    onClick={() => {
+  if (chamado.status === "Finalizado") {
+    alert("Chamado finalizado não pode ser editado.");
+    return;
   }
-  className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold mb-2"
->
-  Gerar Ocorrência
-</button>
 
-<button
-  type="button"
-  onClick={() => editarChamado(chamado)}
-  className="bg-blue-700 hover:bg-blue-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
->
-  <Pencil className="w-4 h-4" />
-</button>
+  editarChamado(chamado);
+}}
+    className="bg-blue-700 hover:bg-blue-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
+  >
+    <Pencil className="w-4 h-4" />
+  </button>
+)}
 
-{chamado.status !== "Em atendimento" &&
-  chamado.status !== "Finalizado" && (
-    <button
-      type="button"
-      onClick={() => atenderChamado(chamado.id)}
-      className="bg-yellow-700 hover:bg-yellow-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
-    >
-      <Play className="w-4 h-4" />
-    </button>
-  )}
+{podeAtenderChamado &&
+  chamado.status === "Aberto" && (
+  <button
+    type="button"
+    onClick={() => atenderChamado(chamado.id)}
+    className="bg-yellow-700 hover:bg-yellow-800 text-white w-10 h-10 flex items-center justify-center rounded-lg text-xs mr-2"
+  >
+    <Play className="w-4 h-4" />
+  </button>
+)}
 
-{chamado.status !== "Finalizado" && (
+{podeFinalizarChamado &&
+  chamado.status === "Em Atendimento" && (
   <button
     type="button"
     onClick={() => finalizarChamado(chamado.id)}
@@ -733,7 +912,7 @@ carregarChamados();
   </button>
 )}
 
-                    {podeEditar && (
+{podeExcluirChamado && (
   <button
     type="button"
     onClick={() => excluirChamado(chamado.id)}
@@ -780,39 +959,55 @@ carregarChamados();
                         </td>
 
                         <td className="text-center">
-  <div className="flex items-center justify-center gap-2">
+  <div className="flex items-center justify-center gap-3 flex-wrap">
 
-    <BotaoAcao
-      title="Gerar Ocorrência"
-      cor="green"
-      onClick={() =>
-        window.location.href =
-          `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+    {podeGerarOcorrencia && (
+  <BotaoAcao
+    title="Gerar Ocorrência"
+    cor="green"
+    onClick={() =>
+      router.push(
+        `/sistema/ocorrencias/nova?chamado=${chamado.id}`
+      )
+    }
+  >
+    <Eye size={18} />
+  </BotaoAcao>
+)}
+
+    {podeEditarChamado && (
+  <BotaoAcao
+    title="Editar"
+    cor="blue"
+    onClick={() => {
+      if (chamado.status === "Finalizado") {
+        alert("Chamado finalizado não pode ser editado.");
+        return;
       }
-    >
-      <Eye size={18} />
-    </BotaoAcao>
 
-    <BotaoAcao
-      title="Editar"
-      cor="blue"
-      onClick={() => editarChamado(chamado)}
-    >
-      <Pencil size={18} />
-    </BotaoAcao>
+      editarChamado(chamado);
+    }}
+  >
+    <Pencil size={18} />
+  </BotaoAcao>
+)}
 
-    {chamado.status !== "Em atendimento" &&
-      chamado.status !== "Finalizado" && (
+    {podeAtenderChamado &&
+  chamado.status === "Aberto" && (
         <BotaoAcao
-          title="Atender"
-          cor="yellow"
-          onClick={() => atenderChamado(chamado.id)}
-        >
-          <Play size={18} />
-        </BotaoAcao>
+  title="Atender"
+  cor="yellow"
+  onClick={() => {
+    console.log("CHAMADO:", chamado);
+    atenderChamado(chamado.id);
+  }}
+>
+  <Play size={18} />
+</BotaoAcao>
       )}
 
-    {chamado.status !== "Finalizado" && (
+    {podeFinalizarChamado &&
+  chamado.status === "Em Atendimento" && (
       <BotaoAcao
         title="Finalizar"
         cor="green"
@@ -822,7 +1017,7 @@ carregarChamados();
       </BotaoAcao>
     )}
 
-    {podeEditar && (
+    {podeExcluirChamado && (
       <BotaoAcao
         title="Excluir"
         cor="red"
@@ -866,7 +1061,7 @@ function Status({ status }: { status: string }) {
   let cor = "bg-yellow-600 text-yellow-100";
 
   if (status === "Aberto") cor = "bg-yellow-600 text-yellow-100";
-  if (status === "Em atendimento") cor = "bg-blue-700 text-blue-100";
+  if (status === "Em Atendimento") cor = "bg-blue-700 text-blue-100";
   if (status === "Finalizado") cor = "bg-green-700 text-green-100";
 
   return (

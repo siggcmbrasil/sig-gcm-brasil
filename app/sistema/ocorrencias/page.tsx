@@ -155,6 +155,18 @@ export default function Ocorrencias() {
   alert("Município não identificado.");
   return;
 }
+
+const ocorrencia = ocorrencias.find(
+  (o) => o.id === id
+);
+
+if (ocorrencia?.status === "Finalizada") {
+  alert(
+    "Ocorrências finalizadas não podem ser excluídas."
+  );
+  return;
+}
+
     if (!podeEditar) {
       alert("Você não possui permissão para excluir ocorrências.");
       return;
@@ -659,13 +671,21 @@ await carregarOcorrencias(municipioId);
                     </Link>
 
                     {podeEditar && (
-                      <Link
-                        href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
-                      >
-                        Editar
-                      </Link>
-                    )}
+  <Link
+    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+    onClick={(e) => {
+      if (ocorrencia.status === "Finalizada") {
+        e.preventDefault();
+        alert(
+          "Ocorrências finalizadas não podem ser editadas."
+        );
+      }
+    }}
+    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
+  >
+    Editar
+  </Link>
+)}
                   </div>
                 </div>
               ))}
@@ -747,14 +767,22 @@ await carregarOcorrencias(municipioId);
                           </Link>
 
                           {podeEditar && (
-                            <Link
-                              href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-yellow-700 flex items-center justify-center"
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Link>
-                          )}
+  <Link
+    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+    onClick={(e) => {
+      if (ocorrencia.status === "Finalizada") {
+        e.preventDefault();
+        alert(
+          "Ocorrências finalizadas não podem ser editadas."
+        );
+      }
+    }}
+    className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-yellow-700 flex items-center justify-center"
+    title="Editar"
+  >
+    <Edit className="w-4 h-4" />
+  </Link>
+)}
 
                           {podeEditar && ocorrencia.status === "Aberta" && (
                             <button
@@ -770,7 +798,7 @@ await carregarOcorrencias(municipioId);
                           )}
 
                           {podeEditar &&
-                            ocorrencia.status !== "Finalizada" && (
+                              ocorrencia.status === "Em andamento" && (
                               <button
                                 type="button"
                                 onClick={() =>

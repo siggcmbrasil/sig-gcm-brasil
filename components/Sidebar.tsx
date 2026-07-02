@@ -23,6 +23,7 @@ import {
   Scale,
   Shield,
   ShieldCheck,
+  PhoneCall,
   Users,
 } from "lucide-react";
 
@@ -220,6 +221,15 @@ w-80
   fecharMenu={fecharMenu}
   compacto={menuCompacto}
   ativo={pathname.startsWith("/sistema/operacional")}
+/>
+
+<ItemMenu
+  href="/sistema/chamados"
+  icone={PhoneCall}
+  titulo="Central de Chamados"
+  fecharMenu={fecharMenu}
+  compacto={menuCompacto}
+  ativo={pathname.startsWith("/sistema/chamados")}
 />
 
 <ItemMenu

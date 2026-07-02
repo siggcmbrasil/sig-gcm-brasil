@@ -1,13 +1,25 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const token = request.headers.get("x-backup-token");
+
+    if (token !== process.env.BACKUP_CRON_SECRET) {
+      return NextResponse.json(
+        { ok: false, erro: "Não autorizado." },
+        { status: 401 }
+      );
+    }
+
     const { data: municipios, error } = await supabaseAdmin
       .from("municipios")
-      .select("id, nome");
+      .select("id, nome")
+      .eq("ativo", true);
 
     if (error) throw error;
+
+    let total = 0;
 
     for (const municipio of municipios || []) {
       const municipioId = municipio.id;
@@ -28,9 +40,10 @@ export async function GET() {
         .eq("municipio_id", municipioId);
 
       const backup = {
+        sistema: "SIG-GCM Brasil",
         municipio_id: municipioId,
         municipio_nome: municipio.nome,
-        data: new Date().toISOString(),
+        criado_em: new Date().toISOString(),
         guardas: guardas || [],
         ocorrencias: ocorrencias || [],
         viaturas: viaturas || [],
@@ -44,6 +57,7 @@ export async function GET() {
         .from("backups")
         .upload(caminho, conteudo, {
           contentType: "application/json",
+          upsert: false,
         });
 
       if (uploadError) throw uploadError;
@@ -57,23 +71,31 @@ export async function GET() {
         .insert({
           municipio_id: municipioId,
           usuario_id: null,
-          nome: nomeArquivo,
-          tipo: "AUTOMATICO",
-          modulo: "COMPLETO",
-          formato: "JSON",
-          status: "GERADO",
+          nome_arquivo: nomeArquivo,
+          caminho,
+          automatico: true,
           tamanho: `${Math.ceil(conteudo.length / 1024)} KB`,
           arquivo_url: urlData.publicUrl,
           observacao: "Backup automático diário gerado pelo sistema.",
         });
 
       if (insertError) throw insertError;
+
+      await supabaseAdmin.from("auditoria_sistema").insert({
+        municipio_id: municipioId,
+        usuario_id: null,
+        modulo: "BACKUP",
+        acao: "BACKUP_AUTOMATICO",
+        detalhes: `Backup automático gerado: ${nomeArquivo}`,
+      });
+
+      total++;
     }
 
     return NextResponse.json({
       ok: true,
       mensagem: "Backups automáticos gerados com sucesso.",
-      total: municipios?.length || 0,
+      total,
     });
   } catch (error: any) {
     console.error(error);
