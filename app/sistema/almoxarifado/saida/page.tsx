@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const destinosRapidos = [
   "Guarnição de serviço",
@@ -146,9 +147,17 @@ export default function SaidaAlmoxarifadoPage() {
 
     setSalvando(false);
 
-    if (error) return alert(error.message);
+if (error) {
+  return alert(error.message);
+}
 
-    setItemSelecionado("");
+await registrarAuditoria({
+  modulo: "Almoxarifado",
+  acao: "SAIDA",
+  descricao: `Registrou saída de ${quantidade} ${itemAtual.unidade} de ${itemAtual.item} para ${destino || "destino não informado"}.`,
+});
+
+setItemSelecionado("");
     setQuantidade("");
     setDestino("");
     setResponsavel("");

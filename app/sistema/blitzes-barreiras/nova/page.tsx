@@ -47,6 +47,18 @@ export default function NovaBlitzPage() {
     );
   }
 
+  async function registrarAuditoria(acao: string, detalhes: string) {
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+  await supabase.from("auditoria_sistema").insert({
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+    modulo: "BLITZES_BARREIRAS",
+    acao,
+    detalhes,
+  });
+}
+
   async function salvar() {
     if (!local.trim()) {
       alert("Informe o local da operação.");
@@ -81,6 +93,11 @@ export default function NovaBlitzPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria(
+  "CRIAR_OPERACAO",
+  `Criou ${tipo} no local ${local.trim()}`
+);
 
     alert("Operação cadastrada.");
     router.push("/sistema/blitzes-barreiras");

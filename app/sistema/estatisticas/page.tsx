@@ -74,26 +74,37 @@ const [mes, setMes] = useState(String(new Date().getMonth() + 1).padStart(2, "0"
 const [ano, setAno] = useState(String(new Date().getFullYear()));
 
   async function carregar() {
-    setCarregando(true);
+  setCarregando(true);
 
-    const { data: ocorrenciasData } = await supabase
-      .from("ocorrencias")
-      .select("id, data, status, tipo, bairro, local, veiculos_envolvidos, envolvidos, armas_objetos");
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
 
-    const { data: patrulhamentosData } = await supabase
-      .from("patrulhamentos")
-      .select("id, data");
+  const municipioId = usuario.municipio_id;
 
-    const { data: guardasData } = await supabase
-      .from("guardas")
-      .select("id, status");
+  const { data: ocorrenciasData } = await supabase
+    .from("ocorrencias")
+    .select(
+      "id, data, status, tipo, bairro, local, veiculos_envolvidos, envolvidos, armas_objetos"
+    )
+    .eq("municipio_id", municipioId);
 
-    setOcorrencias(ocorrenciasData || []);
-    setPatrulhamentos(patrulhamentosData || []);
-    setGuardas(guardasData || []);
+  const { data: patrulhamentosData } = await supabase
+    .from("patrulhamentos")
+    .select("id, data")
+    .eq("municipio_id", municipioId);
 
-    setCarregando(false);
-  }
+  const { data: guardasData } = await supabase
+    .from("guardas")
+    .select("id, status")
+    .eq("municipio_id", municipioId);
+
+  setOcorrencias(ocorrenciasData || []);
+  setPatrulhamentos(patrulhamentosData || []);
+  setGuardas(guardasData || []);
+
+  setCarregando(false);
+}
 
   useEffect(() => {
     carregar();

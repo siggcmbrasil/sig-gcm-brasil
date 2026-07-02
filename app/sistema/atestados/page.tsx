@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarda = {
   id: number;
@@ -98,6 +99,16 @@ export default function AtestadosPage() {
       alert(error.message);
       return;
     }
+
+    const guarda = guardas.find(
+  (g) => String(g.id) === String(guardaId)
+);
+
+await registrarAuditoria({
+  modulo: "Atestados",
+  acao: "CRIAR",
+  descricao: `Registrou atestado ${tipo} para ${guarda?.nome || "guarda não informado"}, período ${dataInicio} até ${dataFim || "não informado"}, ${dias} dia(s).`,
+});
 
     alert("Atestado registrado.");
 

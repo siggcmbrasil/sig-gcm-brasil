@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Escala = {
   id: number;
@@ -162,6 +163,12 @@ if (jaEscalado) {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "CRIAR",
+  descricao: `Cadastrou escala para ${guardaNome} em ${dataServico}.`,
+});
+
     alert("Escala cadastrada com sucesso!");
 
     setDataServico("");
@@ -188,19 +195,27 @@ if (!municipioId) {
 
     if (!confirmar) return;
 
-    const { error } = await supabase
-      .from("escalas_servico")
-      .delete()
-.eq("id", id)
-.eq("municipio_id", municipioId);
+    const escala = escalas.find((e) => e.id === id);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao excluir escala.");
-      return;
-    }
+const { error } = await supabase
+  .from("escalas_servico")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", municipioId);
 
-    await carregarDados();
+if (error) {
+  console.error(error);
+  alert("Erro ao excluir escala.");
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "EXCLUIR",
+  descricao: `Excluiu a escala de ${escala?.guarda_nome || "Guarda"} em ${escala?.data_servico || ""}.`,
+});
+
+await carregarDados();
   }
 
   useEffect(() => {

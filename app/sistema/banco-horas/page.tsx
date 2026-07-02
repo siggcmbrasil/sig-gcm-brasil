@@ -103,29 +103,51 @@ if (!id) {
     }, 0);
   }
 
+  async function registrarAuditoria(acao: string, detalhes: string) {
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+  await supabase.from("auditoria_sistema").insert({
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+    modulo: "BANCO_HORAS",
+    acao,
+    detalhes,
+  });
+}
+
   async function salvarMovimento() {
     if (!guardaId || !dataMovimento || !horas || !motivo) {
       alert("Preencha guarda, data, horas e motivo.");
       return;
     }
 
-    const { error } = await supabase.from("banco_horas").insert([
-      {
-        municipio_id: municipioId,
-        guarda_id: Number(guardaId),
-        data_movimento: dataMovimento,
-        tipo,
-        horas: Number(horas),
-        motivo,
-        observacao,
-      },
-    ]);
+    const { data, error } = await supabase
+  .from("banco_horas")
+  .insert([
+    {
+      municipio_id: municipioId,
+      guarda_id: Number(guardaId),
+      data_movimento: dataMovimento,
+      tipo,
+      horas: Number(horas),
+      motivo,
+      observacao,
+    },
+  ])
+  .select()
+  .single();
 
     if (error) {
       alert("Erro ao salvar lançamento.");
       console.error(error);
       return;
     }
+
+    
+    await registrarAuditoria(
+  "CRIAR_LANCAMENTO",
+  `Criou lançamento de ${horas}h no banco de horas`
+);
 
     alert("Lançamento salvo com sucesso!");
 

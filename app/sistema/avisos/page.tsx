@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Aviso = {
   id: number;
@@ -65,9 +66,15 @@ if (!usuarioLogado.municipio_id) {
     ]);
 
     if (error) {
-      alert("Erro ao salvar aviso.");
-      return;
-    }
+  alert("Erro ao salvar aviso.");
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Avisos",
+  acao: "CRIAR",
+  descricao: `Criou o aviso: ${titulo}.`,
+});
 
     alert("Aviso cadastrado com sucesso!");
 
@@ -81,6 +88,8 @@ if (!usuarioLogado.municipio_id) {
 
     if (!confirmar) return;
 
+    const aviso = avisos.find((a) => a.id === id);
+
     const { error } = await supabase
       .from("avisos")
       .delete()
@@ -91,6 +100,12 @@ if (!usuarioLogado.municipio_id) {
       alert("Erro ao excluir aviso.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Avisos",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o aviso: ${aviso?.titulo || id}.`,
+});
 
     alert("Aviso excluído com sucesso.");
     carregarAvisos();

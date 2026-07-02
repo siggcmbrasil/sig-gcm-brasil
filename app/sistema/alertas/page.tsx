@@ -6,6 +6,7 @@ import { Activity, AlertTriangle, CheckCircle, ShieldAlert } from "lucide-react"
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function AlertasPage() {
   const [alertas, setAlertas] = useState<any[]>([]);
@@ -42,21 +43,35 @@ export default function AlertasPage() {
   }
 
   async function resolverAlerta(id: number) {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
 
-    const { error } = await supabase
-      .from("alertas_operacionais")
-      .update({ ativo: false })
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+  const alerta = alertas.find(
+    (a) => a.id === id
+  );
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  const { error } = await supabase
+    .from("alertas_operacionais")
+    .update({ ativo: false })
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
 
-    carregar();
+  if (error) {
+    alert(error.message);
+    return;
   }
+
+  await registrarAuditoria({
+    modulo: "Alertas Operacionais",
+    acao: "RESOLVER",
+    descricao: `Resolveu o alerta ${
+      alerta?.titulo || id
+    }.`,
+  });
+
+  carregar();
+}
 
   function corNivel(nivel: string) {
     if (nivel === "ALTO") return "text-red-400 border-red-500/30 bg-red-500/10";

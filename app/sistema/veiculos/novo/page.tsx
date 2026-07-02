@@ -9,6 +9,7 @@ import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import { CORES_VEICULO } from "@/lib/bases/cores";
 import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 function mascaraPlaca(valor: string) {
   return valor.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 7);
@@ -86,6 +87,14 @@ export default function NovoVeiculoPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Veículos",
+  acao: "CRIAR",
+  descricao: `Cadastrou o veículo ${placa.toUpperCase()} ${
+    marca || ""
+  } ${modelo || ""}.`,
+});
 
     alert("Veículo cadastrado com sucesso.");
     router.push("/sistema/veiculos");

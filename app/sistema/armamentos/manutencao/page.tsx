@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { Wrench, CheckCircle, Clock, AlertTriangle, Search } from "lucide-react";
 
 const observacoesRapidas = [
@@ -100,43 +101,74 @@ export default function ManutencaoArmamentoPage() {
   }
 
   async function salvar() {
-    if (!armamentoId) return alert("Selecione o armamento.");
-    if (!descricao.trim()) return alert("Descreva a manutenção.");
+  if (!armamentoId) return alert("Selecione o armamento.");
+  if (!descricao.trim()) return alert("Descreva a manutenção.");
 
-    setSalvando(true);
+  setSalvando(true);
 
-    const { error } = await supabase.from("manutencoes_armamento").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        armamento_id: Number(armamentoId),
-        tipo,
-        status,
-        oficina: oficina.trim() || null,
-        valor: valor ? Number(valor) : 0,
-        descricao: descricao.trim(),
-      },
-    ]);
+  const { error } = await supabase.from("manutencoes_armamento").insert([
+    {
+      municipio_id: usuario.municipio_id,
+      criado_por: usuario.id,
+      armamento_id: Number(armamentoId),
+      tipo,
+      status,
+      oficina: oficina.trim() || null,
+      valor: valor ? Number(valor) : 0,
+      descricao: descricao.trim(),
+    },
+  ]);
 
-    if (!error) {
-      await supabase
-        .from("armamentos")
-        .update({
-          status: status === "FINALIZADA" ? "DISPONIVEL" : "MANUTENCAO",
-          localizacao: status === "FINALIZADA" ? "ARMARIA" : "MANUTENCAO",
-        })
-        .eq("id", Number(armamentoId))
-        .eq("municipio_id", usuario.municipio_id);
-    }
+  setSalvando(false);
 
-    setSalvando(false);
-
-    if (error) return alert(error.message);
-
-    limpar();
-    carregar();
-    alert("Manutenção registrada com sucesso.");
+  if (error) {
+    alert(error.message);
+    return;
   }
+
+  await supabase
+    .from("armamentos")
+    .update({
+      status:
+        status === "FINALIZADA"
+          ? "DISPONIVEL"
+          : "MANUTENCAO",
+      localizacao:
+        status === "FINALIZADA"
+          ? "ARMARIA"
+          : "MANUTENCAO",
+    })
+    .eq("id", Number(armamentoId))
+    .eq("municipio_id", usuario.municipio_id);
+
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "ALTERAR_STATUS_ARMAMENTO",
+    descricao: `Status do armamento ${nomeArmamento(
+      Number(armamentoId)
+    )} alterado para ${
+      status === "FINALIZADA" ? "DISPONIVEL" : "MANUTENCAO"
+    }.`,
+  });
+
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "REGISTRAR_MANUTENCAO",
+    descricao: `Registrou manutenção ${nomeTipo(
+      tipo
+    )} do armamento ${nomeArmamento(
+      Number(armamentoId)
+    )}. Status: ${nomeStatus(
+      status
+    )}. Oficina: ${
+      oficina || "Não informada"
+    }. Valor: R$ ${valor || "0"}.`,
+  });
+
+  limpar();
+  carregar();
+  alert("Manutenção registrada com sucesso.");
+}
 
   function nomeTipo(valor: string) {
     const nomes: Record<string, string> = {

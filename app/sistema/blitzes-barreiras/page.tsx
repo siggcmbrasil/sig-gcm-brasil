@@ -118,7 +118,7 @@ export default function BlitzesBarreirasPage() {
             className="btn-primary inline-flex items-center gap-2"
           >
             <Plus size={18} />
-            Nova Blitz
+            Nova Operação
           </Link>
 
           <Link
@@ -132,8 +132,13 @@ export default function BlitzesBarreirasPage() {
       </SigCard>
 
       <SigCard>
-        <div className="space-y-4">
-          {lista.map((item) => (
+        {lista.length === 0 ? (
+  <p className="text-slate-400 text-center py-10">
+    Nenhuma operação encontrada.
+  </p>
+) : (
+  <div className="space-y-4">
+    {lista.map((item) => (
             <div
               key={item.id}
               className="border border-slate-800 rounded-xl p-4"
@@ -150,8 +155,9 @@ export default function BlitzesBarreirasPage() {
                 {item.data}
               </p>
             </div>
-          ))}
-        </div>
+              ))}
+  </div>
+)}
       </SigCard>
     </div>
   );

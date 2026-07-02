@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   MessageSquare,
   Clock,
@@ -9,11 +11,53 @@ import {
   Search,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import SigButton from "@/components/sig/SigButton";
 
 export default function OuvidoriaPage() {
+  const [registros, setRegistros] = useState<any[]>([]);
+  const [busca, setBusca] = useState("");
+  const [status, setStatus] = useState("TODOS");
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    carregar();
+  }, []);
+
+  async function carregar() {
+    setCarregando(true);
+
+    const usuario = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    let query = supabase
+      .from("ouvidoria_cidadao")
+      .select("*")
+      .eq("municipio_id", usuario.municipio_id)
+      .order("criado_em", { ascending: false });
+
+    if (status !== "TODOS") {
+      query = query.eq("status", status);
+    }
+
+    if (busca.trim()) {
+      query = query.ilike("protocolo", `%${busca.trim()}%`);
+    }
+
+    const { data, error } = await query;
+
+    if (!error) setRegistros(data || []);
+
+    setCarregando(false);
+  }
+
+  const pendentes = registros.filter((r) => r.status === "PENDENTE").length;
+  const analise = registros.filter((r) => r.status === "EM_ANALISE").length;
+  const respondidos = registros.filter((r) => r.status === "RESPONDIDO").length;
+
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
@@ -23,29 +67,10 @@ export default function OuvidoriaPage() {
       />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card
-          titulo="Registros"
-          valor="0"
-          icone={<MessageSquare className="w-7 h-7 text-blue-400" />}
-        />
-
-        <Card
-          titulo="Pendentes"
-          valor="0"
-          icone={<Clock className="w-7 h-7 text-yellow-400" />}
-        />
-
-        <Card
-          titulo="Respondidos"
-          valor="0"
-          icone={<CheckCircle className="w-7 h-7 text-green-400" />}
-        />
-
-        <Card
-          titulo="Em Análise"
-          valor="0"
-          icone={<AlertCircle className="w-7 h-7 text-red-400" />}
-        />
+        <Card titulo="Registros" valor={registros.length} icone={<MessageSquare className="w-7 h-7 text-blue-400" />} />
+        <Card titulo="Pendentes" valor={pendentes} icone={<Clock className="w-7 h-7 text-yellow-400" />} />
+        <Card titulo="Respondidos" valor={respondidos} icone={<CheckCircle className="w-7 h-7 text-green-400" />} />
+        <Card titulo="Em Análise" valor={analise} icone={<AlertCircle className="w-7 h-7 text-red-400" />} />
       </div>
 
       <SigCard>
@@ -53,53 +78,78 @@ export default function OuvidoriaPage() {
           <input
             className="input flex-1"
             placeholder="Pesquisar protocolo..."
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
           />
 
-          <select className="input md:w-60">
-            <option>Todos</option>
-            <option>PENDENTE</option>
-            <option>EM_ANALISE</option>
-            <option>RESPONDIDO</option>
-            <option>ARQUIVADO</option>
+          <select
+            className="input md:w-60"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="TODOS">Todos</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="EM_ANALISE">Em análise</option>
+            <option value="RESPONDIDO">Respondido</option>
+            <option value="ARQUIVADO">Arquivado</option>
           </select>
 
-          <SigButton type="gold">
+          <SigButton type="gold" onClick={carregar}>
             <Search className="w-4 h-4" />
             Consultar
           </SigButton>
 
-          <SigButton type="blue">
-            <Plus className="w-4 h-4" />
-            Novo Registro
-          </SigButton>
+          <Link href="/sistema/portal-cidadao/ouvidoria/nova">
+            <SigButton type="blue">
+              <Plus className="w-4 h-4" />
+              Novo Registro
+            </SigButton>
+          </Link>
         </div>
       </SigCard>
 
       <SigCard>
-        <div className="text-center py-16">
-          <MessageSquare className="w-16 h-16 mx-auto text-slate-600 mb-4" />
+        {carregando ? (
+          <p className="text-slate-400">Carregando registros...</p>
+        ) : registros.length === 0 ? (
+          <div className="text-center py-16">
+            <MessageSquare className="w-16 h-16 mx-auto text-slate-600 mb-4" />
+            <h2 className="text-xl font-black text-white">
+              Nenhum registro encontrado
+            </h2>
+            <p className="text-slate-400 mt-2">
+              As manifestações da ouvidoria aparecerão aqui.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {registros.map((r) => (
+              <div
+                key={r.id}
+                className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <p className="text-white font-black">
+                      {r.protocolo || "Sem protocolo"}
+                    </p>
+                    <p className="text-slate-400 text-sm">
+                      {r.tipo} • {r.assunto || "Sem assunto"}
+                    </p>
+                  </div>
 
-          <h2 className="text-xl font-black text-white">
-            Nenhum registro encontrado
-          </h2>
+                  <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                    {r.status}
+                  </span>
+                </div>
 
-          <p className="text-slate-400 mt-2">
-            As manifestações da ouvidoria aparecerão aqui.
-          </p>
-        </div>
-      </SigCard>
-
-      <SigCard>
-        <h2 className="text-xl font-black text-white mb-4">
-          Tipos de manifestação
-        </h2>
-
-        <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <Item texto="📢 Reclamação" />
-          <Item texto="💡 Sugestão" />
-          <Item texto="👏 Elogio" />
-          <Item texto="⚠️ Denúncia Administrativa" />
-        </div>
+                <p className="text-slate-300 mt-3 line-clamp-2">
+                  {r.mensagem}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </SigCard>
     </div>
   );
@@ -111,32 +161,18 @@ function Card({
   icone,
 }: {
   titulo: string;
-  valor: string;
+  valor: number;
   icone: React.ReactNode;
 }) {
   return (
     <div className="painel-premium p-5">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-slate-400 text-sm">
-            {titulo}
-          </p>
-
-          <h2 className="text-3xl font-black text-white">
-            {valor}
-          </h2>
+          <p className="text-slate-400 text-sm">{titulo}</p>
+          <h2 className="text-3xl font-black text-white">{valor}</h2>
         </div>
-
         {icone}
       </div>
-    </div>
-  );
-}
-
-function Item({ texto }: { texto: string }) {
-  return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 text-slate-200">
-      {texto}
     </div>
   );
 }

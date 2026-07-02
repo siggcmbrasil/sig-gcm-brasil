@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarda = {
   id: number;
@@ -74,6 +75,8 @@ export default function GuardasPage() {
 
     if (!confirm("Tem certeza que deseja excluir este guarda?")) return;
 
+    const guardaExcluido = guardas.find((g) => g.id === id);
+
     const { error } = await supabase
       .from("guardas")
       .delete()
@@ -81,12 +84,18 @@ export default function GuardasPage() {
       .eq("municipio_id", municipioId);
 
     if (error) {
-      console.error(error);
-      alert("Erro ao excluir guarda.");
-      return;
-    }
+  console.error(error);
+  alert("Erro ao excluir guarda.");
+  return;
+}
 
-    carregarGuardas();
+await registrarAuditoria({
+  modulo: "Guardas",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o guarda ${guardaExcluido?.nome || `ID ${id}`}.`,
+});
+
+carregarGuardas();
   }
 
   function formatarData(data: string | null) {

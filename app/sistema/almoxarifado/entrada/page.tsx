@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const itensRapidos = [
   "Papel A4",
@@ -125,16 +126,25 @@ export default function EntradaAlmoxarifadoPage() {
 
     setSalvando(false);
 
-    if (error) return alert(error.message);
+    if (error) {
+  setSalvando(false);
+  return alert(error.message);
+}
 
-    setItem("");
-    setCategoria("MATERIAL_CONSUMO");
-    setQuantidade("");
-    setUnidade("UN");
-    setFornecedor("");
-    setDocumento("");
-    setLocal("ALMOXARIFADO");
-    setObservacao("");
+await registrarAuditoria({
+  modulo: "Almoxarifado",
+  acao: "ENTRADA",
+  descricao: `Registrou entrada de ${quantidade} ${unidade} de ${item} no local ${local}.`,
+});
+
+setItem("");
+setCategoria("MATERIAL_CONSUMO");
+setQuantidade("");
+setUnidade("UN");
+setFornecedor("");
+setDocumento("");
+setLocal("ALMOXARIFADO");
+setObservacao("");
 
     carregar();
     alert("Entrada registrada com sucesso.");

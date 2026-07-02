@@ -1,142 +1,112 @@
 "use client";
 
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import {
   MessageSquareWarning,
-  Plus,
-  Search,
-  Clock,
-  CheckCircle,
-  AlertTriangle,
+  PlusCircle,
+  RefreshCw,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
-import SigButton from "@/components/sig/SigButton";
+import SigStatusBadge from "@/components/sig/SigStatusBadge";
 
-export default function DenunciasPage() {
+export default function DenunciasCidadaoPage() {
+  const [denuncias, setDenuncias] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    carregarDenuncias();
+  }, []);
+
+  async function carregarDenuncias() {
+    setCarregando(true);
+
+    const usuario = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    const { data, error } = await supabase
+      .from("denuncias_cidadao")
+      .select("*")
+      .eq("municipio_id", usuario.municipio_id)
+      .order("criado_em", { ascending: false });
+
+    if (!error) {
+      setDenuncias(data || []);
+    }
+
+    setCarregando(false);
+  }
+
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
-      <SigPageHeader
-        titulo="Denúncias"
-        subtitulo="Recebimento e acompanhamento de denúncias da população."
-        icone={MessageSquareWarning}
-      />
+     <SigPageHeader
+  titulo="Denúncias do Cidadão"
+  subtitulo="Registro e acompanhamento das denúncias enviadas pela população."
+  icone={MessageSquareWarning}
+/>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card
-          titulo="Total"
-          valor="0"
-          icone={<MessageSquareWarning className="w-7 h-7 text-red-400" />}
-        />
-
-        <Card
-          titulo="Pendentes"
-          valor="0"
-          icone={<Clock className="w-7 h-7 text-yellow-400" />}
-        />
-
-        <Card
-          titulo="Em Atendimento"
-          valor="0"
-          icone={<AlertTriangle className="w-7 h-7 text-blue-400" />}
-        />
-
-        <Card
-          titulo="Concluídas"
-          valor="0"
-          icone={<CheckCircle className="w-7 h-7 text-green-400" />}
-        />
-      </div>
+<Link
+  href="/sistema/portal-cidadao/denuncias/nova"
+  className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 font-bold text-white hover:bg-emerald-500"
+>
+  <PlusCircle size={18} />
+  Nova Denúncia
+</Link>
 
       <SigCard>
-        <div className="flex flex-col md:flex-row gap-3">
-          <input
-            className="input flex-1"
-            placeholder="Pesquisar denúncia..."
-          />
-
-          <select className="input md:w-60">
-            <option>Todas</option>
-            <option>PENDENTE</option>
-            <option>EM_ATENDIMENTO</option>
-            <option>CONCLUIDA</option>
-            <option>ARQUIVADA</option>
-          </select>
-
-          <SigButton type="gold">
-            <Search className="w-4 h-4" />
-            Consultar
-          </SigButton>
-
-          <SigButton type="blue">
-            <Plus className="w-4 h-4" />
-            Nova Denúncia
-          </SigButton>
-        </div>
-      </SigCard>
-
-      <SigCard>
-        <div className="text-center py-16">
-          <MessageSquareWarning className="w-16 h-16 mx-auto text-slate-600 mb-4" />
-
-          <h2 className="text-xl font-black text-white">
-            Nenhuma denúncia cadastrada
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-black text-white">
+            Denúncias registradas
           </h2>
 
-          <p className="text-slate-400 mt-2">
-            As denúncias recebidas pelo Portal do Cidadão aparecerão aqui.
-          </p>
+          <button
+            onClick={carregarDenuncias}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+          >
+            <RefreshCw size={16} />
+            Atualizar
+          </button>
         </div>
+
+        {carregando ? (
+          <p className="text-slate-400">Carregando denúncias...</p>
+        ) : denuncias.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/50 p-6 text-center text-slate-400">
+  Nenhuma denúncia registrada ainda.
+</div>
+        ) : (
+          <div className="space-y-3">
+            {denuncias.map((d) => (
+              <div
+                key={d.id}
+                className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <p className="text-white font-black">
+                      {d.protocolo || "Sem protocolo"}
+                    </p>
+                    <p className="text-slate-400 text-sm">
+                      {d.tipo || "Tipo não informado"} •{" "}
+                      {d.local || "Local não informado"}
+                    </p>
+                  </div>
+
+                  <SigStatusBadge status={d.status || "PENDENTE"} />
+                </div>
+
+                <p className="text-slate-300 mt-3 line-clamp-2">
+                  {d.relato}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
       </SigCard>
-
-      <SigCard>
-        <h2 className="text-xl font-black text-white mb-4">
-          Funcionalidades previstas
-        </h2>
-
-        <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-          <Item texto="Denúncia anônima" />
-          <Item texto="Envio de fotos" />
-          <Item texto="Envio de vídeos" />
-          <Item texto="Geolocalização automática" />
-          <Item texto="Classificação por prioridade" />
-          <Item texto="Protocolo automático" />
-          <Item texto="Acompanhamento pelo cidadão" />
-          <Item texto="Encaminhamento para guarnição" />
-          <Item texto="Notificações em tempo real" />
-        </div>
-      </SigCard>
-    </div>
-  );
-}
-
-function Card({
-  titulo,
-  valor,
-  icone,
-}: {
-  titulo: string;
-  valor: string;
-  icone: React.ReactNode;
-}) {
-  return (
-    <div className="painel-premium p-5">
-      <div className="flex justify-between items-center">
-        <div>
-          <p className="text-slate-400 text-sm">{titulo}</p>
-          <h2 className="text-3xl font-black text-white">{valor}</h2>
-        </div>
-
-        {icone}
-      </div>
-    </div>
-  );
-}
-
-function Item({ texto }: { texto: string }) {
-  return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 text-slate-200">
-      {texto}
     </div>
   );
 }

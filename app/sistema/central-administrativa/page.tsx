@@ -74,6 +74,41 @@ const cards = [
     descricao:
       "Exportação de dados e relatórios do sistema.",
   },
+  {
+  titulo: "Configurações",
+  icone: Settings,
+  href: "/sistema/configuracoes",
+  descricao:
+    "Configurações gerais, dados institucionais e parâmetros do sistema.",
+},
+{
+  titulo: "Créditos IA",
+  icone: Cog,
+  href: "/sistema/ia-creditos",
+  descricao:
+    "Gerenciamento dos créditos e consumo da inteligência artificial.",
+},
+{
+  titulo: "Logs do Sistema",
+  icone: ClipboardCheck,
+  href: "/sistema/logs",
+  descricao:
+    "Monitoramento de erros, eventos e atividades internas do sistema.",
+},
+{
+  titulo: "Notificações",
+  icone: Shield,
+  href: "/sistema/notificacoes",
+  descricao:
+    "Gerenciamento das notificações e alertas do sistema.",
+},
+{
+  titulo: "Dados Institucionais",
+  icone: Building2,
+  href: "/sistema/dados-institucionais",
+  descricao:
+    "Brasão, comandante, dados da corporação e informações do município.",
+},
 ];
 
 export default function CentralAdministrativaPage() {

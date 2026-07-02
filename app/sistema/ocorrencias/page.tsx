@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   FileText,
   AlertTriangle,
@@ -174,7 +175,13 @@ export default function Ocorrencias() {
       return;
     }
 
-    alert("Ocorrência excluída com sucesso.");
+    await registrarAuditoria({
+  modulo: "Ocorrências",
+  acao: "EXCLUIR",
+  descricao: `Excluiu a ocorrência ${id}.`,
+});
+
+alert("Ocorrência excluída com sucesso.");
 await carregarOcorrencias(municipioId);
   }
 
@@ -197,6 +204,12 @@ await carregarOcorrencias(municipioId);
       alert("Erro ao atualizar status.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Ocorrências",
+  acao: "ALTERAR_STATUS",
+  descricao: `Alterou a ocorrência ${id} para ${status}.`,
+});
 
     await carregarOcorrencias(municipioId);
   }

@@ -57,10 +57,24 @@ export default function PerfilPage() {
       return;
     }
 
-    const usuarioAtualizado = {
-      ...usuario,
-      foto_url: novaFotoUrl,
-    };
+    const usuarioSalvo = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const usuarioAtualizado = {
+  ...usuarioSalvo,
+  ...usuario,
+  foto_url: novaFotoUrl,
+  municipio_nome:
+    usuarioSalvo?.municipio_nome ||
+    usuario?.municipio_nome ||
+    "",
+};
+
+localStorage.setItem(
+  "usuarioLogado",
+  JSON.stringify(usuarioAtualizado)
+);
 
     localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtualizado));
     setUsuario(usuarioAtualizado);

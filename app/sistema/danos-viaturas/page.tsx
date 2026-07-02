@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2 } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function DanosViaturasPage() {
   const [registros, setRegistros] = useState<any[]>([]);
   const [viaturas, setViaturas] = useState<any[]>([]);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
@@ -56,11 +61,21 @@ export default function DanosViaturasPage() {
   }, [registros]);
 
   function limparFormulario() {
+    setEditandoId(null);
     setViaturaId("");
     setTipoProblema("AVARIA");
     setPrioridade("NORMAL");
     setStatus("ABERTO");
     setDescricao("");
+  }
+
+  function editarRegistro(item: any) {
+    setEditandoId(item.id);
+    setViaturaId(String(item.viatura_id || ""));
+    setTipoProblema(item.tipo_problema || "AVARIA");
+    setPrioridade(item.prioridade || "NORMAL");
+    setStatus(item.status || "ABERTO");
+    setDescricao(item.descricao || "");
   }
 
   async function salvar() {
@@ -76,17 +91,23 @@ export default function DanosViaturasPage() {
 
     setSalvando(true);
 
-    const { error } = await supabase.from("danos_viaturas").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        viatura_id: Number(viaturaId),
-        tipo_problema: tipoProblema,
-        prioridade,
-        status,
-        descricao: descricao.trim(),
-      },
-    ]);
+    const dados = {
+      municipio_id: usuario.municipio_id,
+      criado_por: usuario.id,
+      viatura_id: Number(viaturaId),
+      tipo_problema: tipoProblema,
+      prioridade,
+      status,
+      descricao: descricao.trim(),
+    };
+
+    const { error } = editandoId
+      ? await supabase
+          .from("danos_viaturas")
+          .update(dados)
+          .eq("id", editandoId)
+          .eq("municipio_id", usuario.municipio_id)
+      : await supabase.from("danos_viaturas").insert([dados]);
 
     setSalvando(false);
 
@@ -95,9 +116,75 @@ export default function DanosViaturasPage() {
       return;
     }
 
+    const viatura = viaturas.find((v) => String(v.id) === viaturaId);
+
+    await registrarAuditoria({
+      modulo: "Viaturas",
+      acao: editandoId ? "EDITAR_DANO" : "CRIAR_DANO",
+      descricao: editandoId
+        ? `Atualizou problema da viatura ${
+            viatura?.prefixo || viaturaId
+          } (${nomeTipo(tipoProblema)}).`
+        : `Registrou problema na viatura ${
+            viatura?.prefixo || viaturaId
+          } (${nomeTipo(tipoProblema)}).`,
+    });
+
     limparFormulario();
     carregar();
-    alert("Problema registrado com sucesso.");
+    alert(editandoId ? "Problema atualizado com sucesso." : "Problema registrado com sucesso.");
+  }
+
+  async function alterarStatus(id: number, novoStatus: string) {
+    const registro = registros.find((r) => r.id === id);
+
+    const { error } = await supabase
+      .from("danos_viaturas")
+      .update({ status: novoStatus })
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Viaturas",
+      acao: "ALTERAR_STATUS_DANO",
+      descricao: `Alterou o status do problema da viatura ${
+        registro?.viaturas?.prefixo || registro?.viatura_id || id
+      } para ${novoStatus}.`,
+    });
+
+    carregar();
+  }
+
+  async function excluirRegistro(id: number) {
+    if (!confirm("Deseja excluir este registro de problema?")) return;
+
+    const registro = registros.find((r) => r.id === id);
+
+    const { error } = await supabase
+      .from("danos_viaturas")
+      .delete()
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Viaturas",
+      acao: "EXCLUIR_DANO",
+      descricao: `Excluiu problema da viatura ${
+        registro?.viaturas?.prefixo || registro?.viatura_id || id
+      }.`,
+    });
+
+    carregar();
   }
 
   function nomeTipo(valor: string) {
@@ -154,7 +241,7 @@ export default function DanosViaturasPage() {
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="painel-premium p-6 lg:col-span-1">
           <h2 className="text-xl font-black text-white">
-            Novo Registro
+            {editandoId ? "Editar Registro" : "Novo Registro"}
           </h2>
 
           <p className="text-slate-400 text-sm mb-5">
@@ -162,115 +249,96 @@ export default function DanosViaturasPage() {
           </p>
 
           <div className="space-y-4">
-            <div>
-              <label className="label">Viatura</label>
-              <select
-                className="input"
-                value={viaturaId}
-                onChange={(e) => setViaturaId(e.target.value)}
-              >
-                <option value="">Selecione a viatura</option>
+            <select
+              className="input"
+              value={viaturaId}
+              onChange={(e) => setViaturaId(e.target.value)}
+            >
+              <option value="">Selecione a viatura</option>
+              {viaturas.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.prefixo || "Sem prefixo"} - {v.placa || "Sem placa"}{" "}
+                  {v.modelo ? `• ${v.modelo}` : ""}
+                </option>
+              ))}
+            </select>
 
-                {viaturas.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.prefixo || "Sem prefixo"} - {v.placa || "Sem placa"}{" "}
-                    {v.modelo ? `• ${v.modelo}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              className="input"
+              value={tipoProblema}
+              onChange={(e) => setTipoProblema(e.target.value)}
+            >
+              <option value="AVARIA">Avaria</option>
+              <option value="MANUTENCAO">Manutenção</option>
+              <option value="PNEU">Pneu</option>
+              <option value="FREIO">Freio</option>
+              <option value="MOTOR">Motor</option>
+              <option value="ELETRICA">Elétrica</option>
+              <option value="GIROFLEX">Giroflex</option>
+              <option value="SIRENE">Sirene</option>
+              <option value="LIMPEZA">Limpeza</option>
+              <option value="OUTRO">Outro</option>
+            </select>
 
-            <div>
-              <label className="label">Tipo de problema</label>
-              <select
-                className="input"
-                value={tipoProblema}
-                onChange={(e) => setTipoProblema(e.target.value)}
-              >
-                <option value="AVARIA">Avaria</option>
-                <option value="MANUTENCAO">Manutenção</option>
-                <option value="PNEU">Pneu</option>
-                <option value="FREIO">Freio</option>
-                <option value="MOTOR">Motor</option>
-                <option value="ELETRICA">Elétrica</option>
-                <option value="GIROFLEX">Giroflex</option>
-                <option value="SIRENE">Sirene</option>
-                <option value="LIMPEZA">Limpeza</option>
-                <option value="OUTRO">Outro</option>
-              </select>
-            </div>
+            <select
+              className="input"
+              value={prioridade}
+              onChange={(e) => setPrioridade(e.target.value)}
+            >
+              <option value="NORMAL">Normal</option>
+              <option value="ALTA">Alta</option>
+              <option value="URGENTE">Urgente</option>
+            </select>
 
-            <div>
-              <label className="label">Prioridade</label>
-              <select
-                className="input"
-                value={prioridade}
-                onChange={(e) => setPrioridade(e.target.value)}
-              >
-                <option value="NORMAL">Normal</option>
-                <option value="ALTA">Alta</option>
-                <option value="URGENTE">Urgente</option>
-              </select>
-            </div>
+            <select
+              className="input"
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+            >
+              <option value="ABERTO">Aberto</option>
+              <option value="EM_ANALISE">Em análise</option>
+              <option value="EM_MANUTENCAO">Em manutenção</option>
+              <option value="RESOLVIDO">Resolvido</option>
+            </select>
 
-            <div>
-              <label className="label">Status</label>
-              <select
-                className="input"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-              >
-                <option value="ABERTO">Aberto</option>
-                <option value="EM_ANALISE">Em análise</option>
-                <option value="EM_MANUTENCAO">Em manutenção</option>
-                <option value="RESOLVIDO">Resolvido</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="label">Descrição do problema</label>
-              <textarea
-                className="input min-h-[130px]"
-                placeholder="Ex: pneu dianteiro danificado, giroflex sem funcionar, falha no freio..."
-                value={descricao}
-                onChange={(e) => setDescricao(e.target.value)}
-              />
-            </div>
+            <textarea
+              className="input min-h-[130px]"
+              placeholder="Descrição do problema"
+              value={descricao}
+              onChange={(e) => setDescricao(e.target.value)}
+            />
 
             <button
               onClick={salvar}
               disabled={salvando}
               className="sig-btn-gold w-full disabled:opacity-50"
             >
-              {salvando ? "Salvando..." : "Registrar Problema"}
+              {salvando
+                ? "Salvando..."
+                : editandoId
+                ? "Atualizar Problema"
+                : "Registrar Problema"}
             </button>
+
+            {editandoId && (
+              <button
+                onClick={limparFormulario}
+                className="btn-secondary w-full"
+              >
+                Cancelar edição
+              </button>
+            )}
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-4">
-          <div className="painel-premium p-6">
-            <h2 className="text-xl font-black text-white">
-              Histórico de Danos e Problemas
-            </h2>
-
-            <p className="text-slate-400 text-sm">
-              Acompanhe os registros abertos, em análise, manutenção ou resolvidos.
-            </p>
-          </div>
-
           {carregando ? (
             <div className="painel-premium p-6 text-slate-400">
               Carregando registros...
             </div>
           ) : registros.length === 0 ? (
             <div className="painel-premium p-10 text-center">
-              <p className="text-6xl mb-3">🚔</p>
-              <h2 className="text-white font-black text-xl">
-                Nenhum problema registrado
-              </h2>
-              <p className="text-slate-400 text-sm mt-2">
-                Os registros aparecerão aqui após o primeiro lançamento.
-              </p>
+              Nenhum problema registrado.
             </div>
           ) : (
             <div className="grid xl:grid-cols-2 gap-4">
@@ -279,54 +347,53 @@ export default function DanosViaturasPage() {
                   key={item.id}
                   className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-slate-400 text-sm">
-                        {item.viaturas?.prefixo || `Viatura #${item.viatura_id}`}
-                      </p>
+                  <p className="text-slate-400 text-sm">
+                    {item.viaturas?.prefixo || `Viatura #${item.viatura_id}`}
+                  </p>
 
-                      <h3 className="text-xl font-black text-white">
-                        🚔 {item.viaturas?.modelo || "Modelo não informado"}
-                      </h3>
-
-                      <p className="text-slate-500 text-sm">
-                        Placa: {item.viaturas?.placa || "Não informada"}
-                      </p>
-                    </div>
-
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-bold border ${
-                        item.prioridade === "URGENTE"
-                          ? "bg-red-950 text-red-300 border-red-800"
-                          : item.prioridade === "ALTA"
-                          ? "bg-yellow-950 text-yellow-300 border-yellow-800"
-                          : "bg-slate-900 text-slate-300 border-slate-700"
-                      }`}
-                    >
-                      {item.prioridade}
-                    </span>
-                  </div>
+                  <h3 className="text-xl font-black text-white">
+                    🚔 {item.viaturas?.modelo || "Modelo não informado"}
+                  </h3>
 
                   <div className="grid grid-cols-2 gap-3 mt-4">
                     <Info titulo="Tipo" valor={nomeTipo(item.tipo_problema)} />
                     <Info titulo="Status" valor={nomeStatus(item.status)} />
+                    <Info titulo="Prioridade" valor={item.prioridade} />
+                    <Info titulo="Placa" valor={item.viaturas?.placa || "-"} />
                   </div>
 
-                  <div className="mt-4 rounded-2xl bg-slate-900/70 p-4">
-                    <p className="text-slate-500 text-xs mb-1">
-                      Descrição
-                    </p>
-
-                    <p className="text-slate-300 text-sm whitespace-pre-wrap">
-                      {item.descricao || "Sem descrição."}
-                    </p>
-                  </div>
-
-                  <p className="text-xs text-slate-500 mt-4">
-                    {item.criado_em
-                      ? new Date(item.criado_em).toLocaleString("pt-BR")
-                      : "Data não informada"}
+                  <p className="text-slate-300 text-sm mt-4 whitespace-pre-wrap">
+                    {item.descricao || "Sem descrição."}
                   </p>
+
+                  <div className="grid grid-cols-2 gap-2 mt-5">
+                    <button
+                      onClick={() => editarRegistro(item)}
+                      className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-xl font-bold inline-flex items-center justify-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Editar
+                    </button>
+
+                    <button
+                      onClick={() => excluirRegistro(item.id)}
+                      className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-xl font-bold inline-flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Excluir
+                    </button>
+
+                    <select
+                      className="input col-span-2"
+                      value={item.status}
+                      onChange={(e) => alterarStatus(item.id, e.target.value)}
+                    >
+                      <option value="ABERTO">Aberto</option>
+                      <option value="EM_ANALISE">Em análise</option>
+                      <option value="EM_MANUTENCAO">Em manutenção</option>
+                      <option value="RESOLVIDO">Resolvido</option>
+                    </select>
+                  </div>
                 </div>
               ))}
             </div>
@@ -341,9 +408,7 @@ function Card({ titulo, valor }: { titulo: string; valor: string }) {
   return (
     <div className="painel-premium p-5">
       <p className="text-slate-400 text-sm">{titulo}</p>
-      <h2 className="text-2xl md:text-3xl font-black text-white">
-        {valor}
-      </h2>
+      <h2 className="text-2xl md:text-3xl font-black text-white">{valor}</h2>
     </div>
   );
 }

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 import {
   TIPOS_ARMA_FOGO,
@@ -134,18 +135,19 @@ export default function CadastroArmamentosPage() {
     setSalvando(true);
 
     const dados = {
-      municipio_id: usuario.municipio_id,
-      criado_por: usuario.id,
-      tipo,
-      marca,
-      modelo,
-      calibre: calibre || null,
-      numero_serie: numeroSerie.trim().toUpperCase(),
-      patrimonio: patrimonio.trim().toUpperCase() || null,
-      status,
-      localizacao,
-      observacao: observacao.trim() || null,
-    };
+  municipio_id: usuario.municipio_id,
+  criado_por: usuario.id,
+  atualizado_por: usuario.id,
+  tipo,
+  marca,
+  modelo,
+  calibre: calibre || null,
+  numero_serie: numeroSerie.trim().toUpperCase(),
+  patrimonio: patrimonio.trim().toUpperCase() || null,
+  status,
+  localizacao,
+  observacao: observacao.trim() || null,
+};
 
     const { error } = editando
       ? await supabase
@@ -162,6 +164,16 @@ export default function CadastroArmamentosPage() {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Armamentos",
+  acao: editando
+    ? "EDITAR_ARMAMENTO"
+    : "CRIAR_ARMAMENTO",
+  descricao: editando
+    ? `Atualizou o armamento ${marca} ${modelo} - Série ${numeroSerie}.`
+    : `Cadastrou o armamento ${marca} ${modelo} - Série ${numeroSerie}.`,
+});
+
     alert(
       editando
         ? "Armamento atualizado com sucesso."
@@ -175,6 +187,10 @@ export default function CadastroArmamentosPage() {
   async function excluir(id: number) {
     if (!confirm("Deseja excluir este armamento?")) return;
 
+    const armamento = armamentos.find(
+  (a) => a.id === id
+);
+
     const { error } = await supabase
       .from("armamentos")
       .delete()
@@ -185,6 +201,18 @@ export default function CadastroArmamentosPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Armamentos",
+  acao: "EXCLUIR_ARMAMENTO",
+  descricao: `Excluiu o armamento ${
+    armamento?.marca || ""
+  } ${
+    armamento?.modelo || ""
+  } - Série ${
+    armamento?.numero_serie || id
+  }.`,
+});
 
     carregar();
   }

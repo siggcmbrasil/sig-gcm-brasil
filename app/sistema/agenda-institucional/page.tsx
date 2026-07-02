@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function AgendaInstitucionalPage() {
   const [eventos, setEventos] = useState<any[]>([]);
@@ -27,18 +28,43 @@ export default function AgendaInstitucionalPage() {
   }, []);
 
   async function salvar() {
-    await supabase
-      .from("agenda_institucional")
-      .insert([
-        {
-          municipio_id: usuario.municipio_id,
-          titulo,
-          data_evento: dataEvento,
-        },
-      ]);
-
-    carregar();
+  if (!titulo.trim()) {
+    alert("Informe o título.");
+    return;
   }
+
+  if (!dataEvento) {
+    alert("Informe a data.");
+    return;
+  }
+
+  const { error } = await supabase
+    .from("agenda_institucional")
+    .insert([
+      {
+        municipio_id: usuario.municipio_id,
+        titulo,
+        data_evento: dataEvento,
+        criado_por: usuario.id,
+      },
+    ]);
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Agenda Institucional",
+    acao: "CRIAR",
+    descricao: `Criou o evento "${titulo}" para ${dataEvento}.`,
+  });
+
+  setTitulo("");
+  setDataEvento("");
+
+  carregar();
+}
 
   return (
     <div className="p-6">

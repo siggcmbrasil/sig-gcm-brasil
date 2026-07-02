@@ -44,6 +44,16 @@ export default function BuscaPessoaPage() {
       return;
     }
 
+    await supabase.from("consultas_operacionais").insert({
+  municipio_id: usuario.municipio_id,
+  tipo: "PESSOA",
+  consulta: busca.trim(),
+  motivo: "Pesquisa de pessoa no SIG",
+  resultado: data && data.length > 0 ? "ENCONTRADO" : "NÃO ENCONTRADO",
+  usuario_nome: usuario.nome || usuario.email || "Usuário não identificado",
+  criado_em: new Date().toISOString(),
+});
+
     setResultado(data || []);
   }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { FileCheck, Search } from "lucide-react";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const tiposDocumento = [
   "Registro",
@@ -104,11 +105,21 @@ export default function DocumentosArmamentoPage() {
 
     setSalvando(false);
 
-    if (error) return alert(error.message);
+    if (error) {
+  return alert(error.message);
+}
 
-    limpar();
-    carregar();
-    alert("Documento registrado com sucesso.");
+await registrarAuditoria({
+  modulo: "Armamentos",
+  acao: "REGISTRAR_DOCUMENTO",
+  descricao: `Registrou o documento ${nome} para ${nomeArmamento(
+    Number(armamentoId)
+  )}.`,
+});
+
+limpar();
+carregar();
+alert("Documento registrado com sucesso.");
   }
 
   return (

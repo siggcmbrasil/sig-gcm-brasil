@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import BotaoAcao from "@/components/BotaoAcao";
 import { Trash2 } from "lucide-react";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarda = {
   id: number;
@@ -88,6 +89,12 @@ export default function FeriasLicencasPage() {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Férias e Licenças",
+  acao: "CRIAR",
+  descricao: `Registrou ${tipo} para ${guarda?.nome || "guarda"}.`,
+});
+
     setGuardaId("");
     setTipo("Férias");
     setDataInicio("");
@@ -101,6 +108,8 @@ export default function FeriasLicencasPage() {
     const confirmar = confirm("Deseja excluir este registro?");
     if (!confirmar) return;
 
+    const afastamento = afastamentos.find((a) => a.id === id);
+
     const { error } = await supabase
       .from("ferias_licencas")
       .delete()
@@ -112,6 +121,14 @@ export default function FeriasLicencasPage() {
       alert("Erro ao excluir.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Férias e Licenças",
+  acao: "EXCLUIR",
+  descricao: `Excluiu ${afastamento?.tipo || "registro"} de ${
+    afastamento?.guarda_nome || `ID ${id}`
+  }.`,
+});
 
     await carregarDados();
   }

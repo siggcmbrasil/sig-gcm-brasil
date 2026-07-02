@@ -84,6 +84,18 @@ export default function BarreirasPage() {
   );
 }
 
+async function registrarAuditoria(acao: string, detalhes: string) {
+  const usuario = pegarUsuario();
+
+  await supabase.from("auditoria_sistema").insert({
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+    modulo: "BARREIRAS",
+    acao,
+    detalhes,
+  });
+}
+
   async function salvarBarreira() {
     const usuario = pegarUsuario();
 
@@ -111,7 +123,7 @@ export default function BarreirasPage() {
         objetivo,
         observacoes,
         status: "PLANEJADA",
-        criado_por: null,
+        criado_por: usuario.id,
       },
     ]);
 
@@ -120,6 +132,11 @@ export default function BarreirasPage() {
       console.error(error);
       return;
     }
+
+    await registrarAuditoria(
+  "CRIAR_BARREIRA",
+  `Criou a barreira: ${nome} no local ${local}`
+);
 
     setNome("");
     setTipo("SEGURANCA");
@@ -135,17 +152,28 @@ export default function BarreirasPage() {
     carregarBarreiras();
   }
 
-  async function atualizarStatus(id: string, status: string) {
-    const usuario = pegarUsuario();
+ async function atualizarStatus(id: string, status: string) {
+  const usuario = pegarUsuario();
 
-    await supabase
-      .from("barreiras")
-      .update({ status })
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+  const { error } = await supabase
+    .from("barreiras")
+    .update({ status })
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
 
-    carregarBarreiras();
+  if (error) {
+    alert("Erro ao atualizar status.");
+    console.error(error);
+    return;
   }
+
+  await registrarAuditoria(
+    "ALTERAR_STATUS_BARREIRA",
+    `Alterou a barreira ${id} para ${status}`
+  );
+
+  carregarBarreiras();
+}
 
   async function apagarTestes() {
   const usuario = pegarUsuario();
@@ -163,6 +191,11 @@ export default function BarreirasPage() {
     console.error(error);
     return;
   }
+
+  await registrarAuditoria(
+  "APAGAR_TESTES_BARREIRAS",
+  "Apagou barreiras de teste do município"
+);
 
   alert("Barreiras de teste apagadas.");
   carregarBarreiras();

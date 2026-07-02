@@ -7,6 +7,7 @@ import { Plus, Search, Trash2, Users } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Pessoa = {
   id: number;
@@ -69,23 +70,37 @@ export default function PessoasAbordadasPage() {
       return;
     }
 
-    const confirmar = confirm("Deseja excluir este registro?");
+    async function excluirPessoa(id: number) {
+  if (!podeEditar) {
+    alert("Você não possui permissão para excluir registros.");
+    return;
+  }
 
-    if (!confirmar) return;
+  const confirmar = confirm("Deseja excluir este registro?");
+  if (!confirmar) return;
 
-    const { error } = await supabase
-      .from("pessoas_abordadas")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuarioLogado.municipio_id);
+  const pessoa = pessoas.find((p) => p.id === id);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao excluir registro.");
-      return;
-    }
+  const { error } = await supabase
+    .from("pessoas_abordadas")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuarioLogado.municipio_id);
 
-    carregarPessoas();
+  if (error) {
+    console.error(error);
+    alert("Erro ao excluir registro.");
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Pessoas",
+    acao: "EXCLUIR",
+    descricao: `Excluiu o registro de ${pessoa?.nome || id}.`,
+  });
+
+  carregarPessoas();
+}
   }
 
   useEffect(() => {

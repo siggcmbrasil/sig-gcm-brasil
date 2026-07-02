@@ -17,6 +17,7 @@ import EnvolvidosOcorrencia from "@/components/ocorrencias/EnvolvidosOcorrencia"
 import DadosOcorrencia from "@/components/ocorrencias/DadosOcorrencia";
 import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
 import { SITUACOES_VEICULO } from "@/lib/modelosOcorrencia";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   buscarPessoaPorDocumento,
   buscarVeiculoPorPlaca,
@@ -458,12 +459,19 @@ const hora = agora.toLocaleTimeString("pt-BR", {
     setSalvando(false);
 
     if (error) {
-      console.error(error);
-      alert("Erro ao salvar ocorrência.");
-      return;
-    }
+  console.error(error);
+  alert("Erro ao salvar ocorrência.");
+  return;
+}
 
-    for (const veiculo of veiculosEnvolvidos) {
+await registrarAuditoria({
+  modulo: "Ocorrências",
+  acao: "CRIAR",
+  descricao: `Registrou a ocorrência ${protocolo}.`,
+});
+
+for (const veiculo of veiculosEnvolvidos) {
+
   if (!veiculo.placa && !veiculo.renavam) continue;
 
   const { data: existente } = await supabase

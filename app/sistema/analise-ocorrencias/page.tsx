@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Ocorrencia = {
   id: number;
@@ -170,6 +171,12 @@ export default function AnaliseOcorrenciasPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Análise de Ocorrências",
+  acao: "GERAR_ALERTAS",
+  descricao: `Gerou ${novosAlertas.length} alerta(s) operacionais a partir da análise de ocorrências.`,
+});
 
     alert(`${novosAlertas.length} alerta(s) gerado(s).`);
   }

@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function NovaFeriasPage() {
   const router = useRouter();
@@ -82,6 +83,16 @@ export default function NovaFeriasPage() {
       alert(error.message);
       return;
     }
+
+    const guarda = guardas.find(
+  (g) => String(g.id) === String(guardaId)
+);
+
+await registrarAuditoria({
+  modulo: "Férias e Licenças",
+  acao: "CRIAR",
+  descricao: `Registrou ${tipo} para ${guarda?.nome || "guarda"}.`,
+});
 
     alert("Registro salvo.");
     router.push(

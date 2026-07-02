@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Usuario = {
   id: number;
@@ -134,6 +135,12 @@ function editarUsuario(usuario: Usuario) {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Usuários",
+  acao: "EDITAR",
+  descricao: `Atualizou o usuário ${nome}.`,
+});
+
     alert("Usuário atualizado com sucesso!");
 
     setEditandoId(null);
@@ -195,6 +202,12 @@ if (!resposta.ok) {
   return;
 }
 
+await registrarAuditoria({
+  modulo: "Usuários",
+  acao: "CRIAR",
+  descricao: `Cadastrou o usuário ${nome}.`,
+});
+
     alert("Usuário cadastrado com sucesso!");
 
   setNome("");
@@ -216,16 +229,29 @@ if (!resposta.ok) {
 
     if (!confirmar) return;
 
+    const usuarioExcluido = usuarios.find(
+  (u) => u.id === id
+);
+
     const { error } = await supabase
       .from("usuarios")
       .delete()
 .eq("id", id)
 .eq("municipio_id", usuarioLogado.municipio_id);
+
     if (error) {
       console.error(error);
       alert("Erro ao excluir usuário.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Usuários",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o usuário ${
+    usuarioExcluido?.nome || `ID ${id}`
+  }.`,
+});
 
     carregarUsuarios();
   }

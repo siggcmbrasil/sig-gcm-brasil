@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import jsPDF from "jspdf";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function OficiosPage() {
   const [editandoId, setEditandoId] = useState<number | null>(null);
@@ -39,11 +40,19 @@ export default function OficiosPage() {
 
   if (!confirmar) return;
 
+const oficio = oficios.find((o) => o.id === id);
+
   await supabase
   .from("oficios")
   .delete()
   .eq("id", id)
   .eq("municipio_id", usuario.municipio_id);
+
+  await registrarAuditoria({
+  modulo: "Ofícios",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o ofício ${oficio?.numero || id}.`,
+});
 
   carregarOficios();
 }
@@ -88,6 +97,12 @@ const numero =
     return;
   }
 
+  await registrarAuditoria({
+  modulo: "Ofícios",
+  acao: "EDITAR",
+  descricao: `Atualizou o ofício ${numero}.`,
+});
+
   alert("Ofício atualizado com sucesso!");
 
   setEditandoId(null);
@@ -119,6 +134,12 @@ const numero =
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Ofícios",
+  acao: "CRIAR",
+  descricao: `Criou o ofício ${numero}.`,
+});
+
     alert("Ofício criado com sucesso!");
 
 setNumeroEditavel("");
@@ -139,6 +160,12 @@ carregarOficios();
   .update({ status })
   .eq("id", id)
   .eq("municipio_id", usuario.municipio_id);
+
+  await registrarAuditoria({
+  modulo: "Ofícios",
+  acao: "ALTERAR_STATUS",
+  descricao: `Alterou o status do ofício ID ${id} para ${status}.`,
+});
 
   carregarOficios();
 }

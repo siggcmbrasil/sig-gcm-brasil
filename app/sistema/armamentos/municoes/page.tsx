@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { Package, PlusCircle, MinusCircle, AlertTriangle, Search } from "lucide-react";
 import { CALIBRES_ARMA_FOGO } from "@/lib/bases/armas";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const observacoesRapidas = [
   "Entrada registrada para controle administrativo.",
@@ -111,32 +112,70 @@ export default function MunicoesArmamentoPage() {
   }
 
   async function salvar() {
-    if (!calibre) return alert("Selecione o calibre.");
-    if (!quantidade || Number(quantidade) <= 0) return alert("Informe a quantidade.");
+  if (!calibre)
+    return alert("Selecione o calibre.");
 
-    setSalvando(true);
+  if (
+    !quantidade ||
+    Number(quantidade) <= 0
+  ) {
+    return alert(
+      "Informe a quantidade."
+    );
+  }
 
-    const { error } = await supabase.from("municoes_armamento").insert([
+  setSalvando(true);
+
+  const { error } = await supabase
+    .from("municoes_armamento")
+    .insert([
       {
-        municipio_id: usuario.municipio_id,
+        municipio_id:
+          usuario.municipio_id,
         criado_por: usuario.id,
         calibre,
-        quantidade: Number(quantidade),
-        tipo_movimento: tipoMovimento,
-        lote: lote.trim() || null,
-        validade: validade || null,
-        observacao: observacao.trim() || null,
+        quantidade: Number(
+          quantidade
+        ),
+        tipo_movimento:
+          tipoMovimento,
+        lote:
+          lote.trim() || null,
+        validade:
+          validade || null,
+        observacao:
+          observacao.trim() ||
+          null,
       },
     ]);
 
-    setSalvando(false);
+  setSalvando(false);
 
-    if (error) return alert(error.message);
-
-    limpar();
-    carregar();
-    alert("Movimentação de munição registrada com sucesso.");
+  if (error) {
+    alert(error.message);
+    return;
   }
+
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "MOVIMENTACAO_MUNICAO",
+    descricao: `${
+      tipoMovimento ===
+      "ENTRADA"
+        ? "Entrada"
+        : "Saída"
+    } de ${quantidade} munições calibre ${calibre}. Lote: ${
+      lote || "Sem lote"
+    }.`,
+  });
+
+  limpar();
+  carregar();
+
+  alert(
+    "Movimentação de munição registrada com sucesso."
+  );
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

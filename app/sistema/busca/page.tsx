@@ -11,11 +11,6 @@ export default function BuscaPage() {
   const q = params.get("q") || "";
   const router = useRouter();
 
-  const usuarioLogado =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
-
   const [termoBusca, setTermoBusca] = useState(q);
   const [resultados, setResultados] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
@@ -24,21 +19,40 @@ export default function BuscaPage() {
     setTermoBusca(q);
 
     if (q.trim()) {
-      buscar();
+      buscar(q);
     } else {
       setResultados([]);
     }
   }, [q]);
 
-  async function buscar() {
+  function pegarUsuario() {
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  }
+
+  async function registrarAuditoria(termo: string) {
+    const usuario = pegarUsuario();
+
+    await supabase.from("auditoria_sistema").insert({
+      municipio_id: usuario.municipio_id,
+      usuario_id: usuario.id,
+      modulo: "BUSCA_GLOBAL",
+      acao: "REALIZAR_BUSCA",
+      detalhes: `Pesquisou por: ${termo}`,
+    });
+  }
+
+  async function buscar(termoDigitado: string) {
+    const usuarioLogado = pegarUsuario();
+
     if (!usuarioLogado.municipio_id) {
       alert("Município não identificado.");
       return;
     }
 
-    const termoLimpo = q.toLowerCase().trim();
-    const nomeUsuario =
-      usuarioLogado?.nome?.toLowerCase().trim() || "";
+    const termoLimpo = termoDigitado.toLowerCase().trim();
+    const nomeUsuario = usuarioLogado?.nome?.toLowerCase().trim() || "";
+
+    await registrarAuditoria(termoDigitado);
 
     if (termoLimpo === nomeUsuario) {
       router.push("/sistema/perfil");
@@ -69,7 +83,7 @@ export default function BuscaPage() {
 
     setCarregando(true);
 
-    const termo = `%${q}%`;
+    const termo = `%${termoDigitado}%`;
 
     try {
       const { data: guardas } = await supabase
@@ -83,9 +97,7 @@ export default function BuscaPage() {
         .from("ocorrencias")
         .select("id, protocolo, tipo, local, status")
         .eq("municipio_id", usuarioLogado.municipio_id)
-        .or(
-          `tipo.ilike.${termo},local.ilike.${termo},protocolo.ilike.${termo}`
-        )
+        .or(`tipo.ilike.${termo},local.ilike.${termo},protocolo.ilike.${termo}`)
         .limit(5);
 
       const { data: viaturas } = await supabase
@@ -143,9 +155,7 @@ export default function BuscaPage() {
   return (
     <section className="p-6 text-white space-y-6">
       <div>
-        <h1 className="text-3xl font-black">
-          Busca Global
-        </h1>
+        <h1 className="text-3xl font-black">Busca Global</h1>
 
         <p className="text-slate-400 mt-2">
           Pesquise por guardas, ocorrências, viaturas e locais.
@@ -159,9 +169,7 @@ export default function BuscaPage() {
           if (!termoBusca.trim()) return;
 
           router.push(
-            `/sistema/busca?q=${encodeURIComponent(
-              termoBusca.trim()
-            )}`
+            `/sistema/busca?q=${encodeURIComponent(termoBusca.trim())}`
           );
         }}
         className="painel-premium p-4 flex gap-3"
@@ -170,15 +178,10 @@ export default function BuscaPage() {
           className="input flex-1"
           placeholder="Digite sua pesquisa..."
           value={termoBusca}
-          onChange={(e) =>
-            setTermoBusca(e.target.value)
-          }
+          onChange={(e) => setTermoBusca(e.target.value)}
         />
 
-        <button
-          type="submit"
-          className="btn-primary inline-flex items-center gap-2"
-        >
+        <button type="submit" className="btn-primary inline-flex items-center gap-2">
           <Search className="w-5 h-5" />
           Buscar
         </button>
@@ -186,17 +189,12 @@ export default function BuscaPage() {
 
       {q && (
         <p className="text-slate-400">
-          Resultado para:{" "}
-          <strong className="text-white">
-            {q}
-          </strong>
+          Resultado para: <strong className="text-white">{q}</strong>
         </p>
       )}
 
       {carregando ? (
-        <div className="painel-premium p-6">
-          Buscando...
-        </div>
+        <div className="painel-premium p-6">Buscando...</div>
       ) : resultados.length === 0 ? (
         <div className="painel-premium p-6 text-slate-400">
           Nenhum resultado encontrado.
@@ -205,26 +203,20 @@ export default function BuscaPage() {
         <div className="space-y-3">
           {resultados.map((item, index) => (
             <Link
-              key={index}
+              key={`${item.tipo}-${index}`}
               href={item.href}
               className="painel-premium p-4 flex items-center gap-4 hover:bg-blue-950/30 transition"
             >
-              <span className="text-3xl">
-                {item.icone}
-              </span>
+              <span className="text-3xl">{item.icone}</span>
 
               <div>
                 <p className="text-xs text-blue-400 font-bold uppercase">
                   {item.tipo}
                 </p>
 
-                <h2 className="font-black text-lg">
-                  {item.titulo}
-                </h2>
+                <h2 className="font-black text-lg">{item.titulo}</h2>
 
-                <p className="text-slate-400 text-sm">
-                  {item.detalhe}
-                </p>
+                <p className="text-slate-400 text-sm">{item.detalhe}</p>
               </div>
             </Link>
           ))}

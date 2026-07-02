@@ -26,41 +26,52 @@ type Ocorrencia = {
 
 export default function ManchaCriminalPage() {
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
-  const [busca, setBusca] = useState("");
-  const [carregando, setCarregando] = useState(true);
+  const hoje = new Date().toISOString().split("T")[0];
+
+const [busca, setBusca] = useState("");
+const [dataInicio, setDataInicio] = useState(hoje);
+const [dataFim, setDataFim] = useState(hoje);
+const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    carregar();
-  }, []);
+  carregar();
+}, [dataInicio, dataFim]);
 
   async function carregar() {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  setCarregando(true);
 
-    if (!usuario?.municipio_id) {
-      alert("Município não identificado.");
-      setCarregando(false);
-      return;
-    }
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
-    const { data, error } = await supabase
-      .from("ocorrencias")
-      .select("id, protocolo, tipo, local, data, status, latitude, longitude")
-      .eq("municipio_id", usuario.municipio_id)
-      .not("latitude", "is", null)
-      .not("longitude", "is", null)
-      .order("id", { ascending: false })
-      .limit(300);
-
+  if (!usuario?.municipio_id) {
+    alert("Município não identificado.");
     setCarregando(false);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar mancha criminal.");
-      return;
-    }
-
-    setOcorrencias(data || []);
+    return;
   }
+
+  let query = supabase
+    .from("ocorrencias")
+    .select("id, protocolo, tipo, local, data, status, latitude, longitude")
+    .eq("municipio_id", usuario.municipio_id)
+    .not("latitude", "is", null)
+    .not("longitude", "is", null)
+    .order("id", { ascending: false })
+    .limit(300);
+
+  if (dataInicio) query = query.gte("data", dataInicio);
+  if (dataFim) query = query.lte("data", dataFim);
+
+  const { data, error } = await query;
+
+  setCarregando(false);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao carregar mancha criminal.");
+    return;
+  }
+
+  setOcorrencias(data || []);
+}
 
   const lista = ocorrencias.filter((o) => {
     const texto = `
@@ -122,6 +133,35 @@ export default function ManchaCriminalPage() {
           />
         </div>
       </SigCard>
+
+      <SigCard>
+  <div className="grid md:grid-cols-3 gap-3">
+    <input
+      type="date"
+      className="input"
+      value={dataInicio}
+      onChange={(e) => setDataInicio(e.target.value)}
+    />
+
+    <input
+      type="date"
+      className="input"
+      value={dataFim}
+      onChange={(e) => setDataFim(e.target.value)}
+    />
+
+    <button
+      type="button"
+      onClick={() => {
+        setDataInicio("");
+        setDataFim("");
+      }}
+      className="rounded-2xl bg-slate-700 hover:bg-slate-600 px-4 py-3 font-bold text-white"
+    >
+      Ver todos
+    </button>
+  </div>
+</SigCard>
 
       <SigCard>
         <h2 className="text-xl font-black text-white mb-4">

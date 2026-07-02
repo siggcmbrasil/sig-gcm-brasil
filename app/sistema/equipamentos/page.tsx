@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Equipamento = {
   id: number;
@@ -228,6 +229,14 @@ const [controleTipo, setControleTipo] =
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Equipamentos",
+  acao: editando ? "EDITAR" : "CRIAR",
+  descricao: editando
+  ? `Atualizou o equipamento ${tipo} (${responsavel || "sem responsável"}).`
+  : `Cadastrou o equipamento ${tipo}.`,
+});
+
     alert(editando ? "Equipamento atualizado com sucesso." : "Equipamento cadastrado com sucesso.");
     limparFormulario();
     carregarEquipamentos();
@@ -235,6 +244,10 @@ const [controleTipo, setControleTipo] =
 
   async function excluirEquipamento(id: number) {
     if (!confirm("Deseja excluir este equipamento?")) return;
+
+    const equipamento = equipamentos.find(
+  (e) => e.id === id
+);
 
     const { error } = await supabase
       .from("equipamentos")
@@ -247,6 +260,14 @@ const [controleTipo, setControleTipo] =
       alert("Erro ao excluir equipamento.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Equipamentos",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o equipamento ${
+    equipamento?.tipo || id
+  }.`,
+});
 
     carregarEquipamentos();
   }

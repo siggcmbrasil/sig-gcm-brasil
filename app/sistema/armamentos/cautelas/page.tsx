@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   ClipboardList,
   CheckCircle,
@@ -208,6 +209,25 @@ export default function CautelasArmamentoPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Armamentos",
+  acao:
+    tipo === "RETIRADA"
+      ? "CAUTELA_RETIRADA"
+      : "CAUTELA_DEVOLUCAO",
+  descricao: `${
+    tipo === "RETIRADA"
+      ? "Retirada"
+      : "Devolução"
+  } do armamento ${nomeArmamento(
+    Number(armamentoId)
+  )} para ${nomeGuarda(
+    Number(guardaId)
+  )}. Munições: ${
+    quantidadeMunicao || 0
+  }.`,
+});
 
     limpar();
     carregar();

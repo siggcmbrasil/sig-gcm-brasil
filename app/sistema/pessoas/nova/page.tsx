@@ -7,6 +7,7 @@ import { Save, UserPlus, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 function mascaraCPF(valor: string) {
   return valor
@@ -75,6 +76,12 @@ export default function NovaPessoaPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Pessoas",
+  acao: "CRIAR",
+  descricao: `Cadastrou a pessoa ${nome}.`,
+});
 
     alert("Pessoa cadastrada com sucesso.");
     router.push("/sistema/pessoas");

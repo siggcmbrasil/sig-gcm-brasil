@@ -1,0 +1,13 @@
+import ExportadorModulo from "@/components/exportacao/ExportadorModulo";
+
+export default function Page() {
+  return (
+    <ExportadorModulo
+      titulo="Exportação de Ocorrências"
+      subtitulo="Exportar ocorrências em JSON."
+      tabela="ocorrencias"
+      arquivo="ocorrencias.json"
+      acao="EXPORTAR_OCORRENCIAS"
+    />
+  );
+}

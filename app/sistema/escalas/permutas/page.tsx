@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarda = {
   id: number;
@@ -179,6 +180,12 @@ if (!id) {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Permutas",
+  acao: "CRIAR",
+  descricao: `Criou solicitação de ${nomeTipo(tipoSolicitacao)}.`,
+});
+
     alert("Solicitação cadastrada com sucesso!");
 
     setTipoSolicitacao("PERMUTA");
@@ -213,12 +220,20 @@ if (!id) {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Permutas",
+  acao: status,
+  descricao: `Alterou a solicitação #${id} para ${status}.`,
+});
+
     carregarPermutas(municipioId);
   }
 
   async function excluirPermuta(id: number) {
     const confirmar = confirm("Deseja realmente excluir esta solicitação?");
     if (!confirmar) return;
+
+    const permuta = permutas.find((p) => p.id === id);
 
     const { error } = await supabase
   .from("permutas_plantao")
@@ -231,6 +246,14 @@ if (!id) {
       console.error(error);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Permutas",
+  acao: "EXCLUIR",
+  descricao: `Excluiu solicitação de ${nomeTipo(
+    permuta?.tipo_solicitacao
+  )}.`,
+});
 
     carregarPermutas(municipioId);
   }

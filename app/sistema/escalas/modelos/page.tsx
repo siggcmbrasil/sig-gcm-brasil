@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type ModeloEscala = {
   id: number;
@@ -90,6 +91,12 @@ if (!usuarioLogado.municipio_id) {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "CRIAR_MODELO",
+  descricao: `Cadastrou o modelo de escala ${nome}.`,
+});
+
     alert("Modelo de escala cadastrado com sucesso!");
 
     setNome("");
@@ -116,6 +123,12 @@ if (!usuarioLogado.municipio_id) {
       alert("Erro ao atualizar modelo.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "ALTERAR_STATUS_MODELO",
+  descricao: `${!modelo.ativo ? "Ativou" : "Inativou"} o modelo de escala ${modelo.nome}.`,
+});
 
     carregarModelos();
   }

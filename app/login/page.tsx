@@ -27,7 +27,7 @@ useEffect(() => {
 if (config?.municipio_padrao_id) {
   const { data } = await supabase
     .from("municipios")
-    .select("nome, estado, brasao, bandeira_municipio, bandeira_estado")
+    .select("nome, estado, bandeira_municipio, bandeira_estado")
     .eq("id", config.municipio_padrao_id)
     .single();
 
@@ -49,33 +49,60 @@ if (config?.municipio_padrao_id) {
   setCarregando(true);
 
   const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: senha,
-  });
+  email,
+  password: senha,
+});
 
-   setCarregando(false);
+setCarregando(false);
 
-  if (error || !data.user) {
-    alert("Usuário ou senha inválidos.");
-    return;
-  }
+if (error || !data.user) {
+  alert("Usuário ou senha inválidos.");
+  return;
+}
 
-  const { data: usuarioSistema, error: usuarioError } = await supabase
-  .from("usuarios")
-  .select("id, nome, matricula, email, perfil, status, municipio_id, foto_url")
-  .eq("auth_id", data.user.id)
-  .single();
+const { data: usuarioSistema, error: usuarioError } =
+  await supabase
+    .from("usuarios")
+    .select(
+      `
+        id,
+        nome,
+        matricula,
+        email,
+        perfil,
+        status,
+        municipio_id,
+        foto_url
+      `
+    )
+    .eq("auth_id", data.user.id)
+    .single();
 
-  if (usuarioError || !usuarioSistema) {
-  alert("Usuário não encontrado no sistema. Aguarde cadastro/aprovação.");
+if (usuarioError || !usuarioSistema) {
+  alert(
+    "Usuário não encontrado no sistema. Aguarde cadastro/aprovação."
+  );
 
   await supabase.auth.signOut();
   localStorage.removeItem("usuarioLogado");
   return;
 }
-    
-  if (usuarioSistema.perfil?.toUpperCase() === "DESENVOLVEDOR") {
- 
+
+const { data: municipioUsuario } =
+  await supabase
+    .from("municipios")
+    .select("nome")
+    .eq("id", usuarioSistema.municipio_id)
+    .single();
+
+    console.log("usuarioSistema", usuarioSistema);
+console.log("municipioUsuario", municipioUsuario);
+    console.log("Municipio:", municipioUsuario);
+
+if (
+  usuarioSistema.perfil?.toUpperCase() ===
+  "DESENVOLVEDOR"
+) {
   const dadosUsuario = {
   id: usuarioSistema.id,
   auth_id: data.user.id,
@@ -85,10 +112,11 @@ if (config?.municipio_padrao_id) {
   perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
   status: usuarioSistema.status || "Ativo",
   municipio_id: usuarioSistema.municipio_id || null,
+  municipio_nome: municipioUsuario?.nome || "",
   foto_url: usuarioSistema.foto_url || "",
 };
 
-   localStorage.setItem(
+  localStorage.setItem(
     "usuarioLogado",
     JSON.stringify(dadosUsuario)
   );
@@ -96,29 +124,50 @@ if (config?.municipio_padrao_id) {
   router.push("/sistema");
   return;
 }
-  if (String(usuarioSistema.status || "").toUpperCase() !== "ATIVO") {
-    alert(`Acesso não liberado. Status atual: ${usuarioSistema.status}`);
 
-    await supabase.auth.signOut();
-    localStorage.removeItem("usuarioLogado");
-    return;
-  }
-
-  localStorage.setItem(
-    "usuarioLogado",
-    JSON.stringify({
-      id: usuarioSistema.id,
-auth_id: data.user.id,
-nome: usuarioSistema.nome || data.user.email,
-email: data.user.email,
-perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
-status: usuarioSistema.status || "Ativo",
-municipio_id: usuarioSistema.municipio_id || 1,
-foto_url: usuarioSistema.foto_url || "",
-    })
+if (
+  String(
+    usuarioSistema.status || ""
+  ).toUpperCase() !== "ATIVO"
+) {
+  alert(
+    `Acesso não liberado. Status atual: ${usuarioSistema.status}`
   );
 
-  router.push("/sistema");
+  await supabase.auth.signOut();
+  localStorage.removeItem(
+    "usuarioLogado"
+  );
+  return;
+}
+
+localStorage.setItem(
+  "usuarioLogado",
+  JSON.stringify({
+    id: usuarioSistema.id,
+    auth_id: data.user.id,
+    nome:
+      usuarioSistema.nome ||
+      data.user.email,
+    matricula:
+      usuarioSistema.matricula || "",
+    email: data.user.email,
+    perfil: (
+      usuarioSistema.perfil ||
+      "GUARDA"
+    ).toUpperCase(),
+    status:
+      usuarioSistema.status || "Ativo",
+    municipio_id:
+      usuarioSistema.municipio_id ?? null,
+    municipio_nome:
+      municipioUsuario?.nome || "",
+    foto_url:
+      usuarioSistema.foto_url || "",
+  })
+);
+
+router.push("/sistema");
 }
 
   return (

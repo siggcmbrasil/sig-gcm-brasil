@@ -7,6 +7,7 @@ import { CarFront, Plus, Search, Trash2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Veiculo = {
   id: number;
@@ -69,28 +70,38 @@ export default function VeiculosAbordadosPage() {
   }
 
   async function excluirVeiculo(id: number) {
-    if (!podeEditar) {
-      alert("Você não possui permissão para excluir veículos.");
-      return;
-    }
-
-    const confirmar = confirm("Deseja excluir este registro?");
-    if (!confirmar) return;
-
-    const { error } = await supabase
-      .from("veiculos_abordados")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuarioLogado.municipio_id);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao excluir veículo.");
-      return;
-    }
-
-    carregarVeiculos();
+  if (!podeEditar) {
+    alert("Você não possui permissão para excluir veículos.");
+    return;
   }
+
+  const confirmar = confirm("Deseja excluir este registro?");
+  if (!confirmar) return;
+
+  const veiculo = veiculos.find((v) => v.id === id);
+
+  const { error } = await supabase
+    .from("veiculos_abordados")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuarioLogado.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao excluir veículo.");
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Veículos",
+    acao: "EXCLUIR",
+    descricao: `Excluiu o veículo ${
+      veiculo?.placa || veiculo?.modelo || id
+    }.`,
+  });
+
+  carregarVeiculos();
+}
 
   useEffect(() => {
     carregarVeiculos();
@@ -249,17 +260,26 @@ export default function VeiculosAbordadosPage() {
                     </td>
 
                     <td className="text-right">
-                      {podeEditar && (
-                        <button
-                          type="button"
-                          onClick={() => excluirVeiculo(veiculo.id)}
-                          className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800 transition"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Excluir
-                        </button>
-                      )}
-                    </td>
+  {podeEditar && (
+    <div className="flex justify-end gap-2">
+      <Link
+        href={`/sistema/veiculos/editar/${veiculo.id}`}
+        className="inline-flex items-center justify-center rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white hover:bg-blue-800 transition"
+      >
+        Editar
+      </Link>
+
+      <button
+        type="button"
+        onClick={() => excluirVeiculo(veiculo.id)}
+        className="inline-flex items-center justify-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800 transition"
+      >
+        <Trash2 className="w-4 h-4" />
+        Excluir
+      </button>
+    </div>
+  )}
+</td>
                   </tr>
                 ))}
               </tbody>

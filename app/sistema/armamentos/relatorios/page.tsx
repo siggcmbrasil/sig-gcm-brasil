@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   FileText,
   Shield,
@@ -83,9 +84,15 @@ export default function RelatoriosArmamentoPage() {
     };
   }, [armamentos, cautelas, inventarios, manutencoes, municoes]);
 
-  function imprimir() {
-    window.print();
-  }
+  async function imprimir() {
+  window.print();
+
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "IMPRIMIR_RELATORIO",
+    descricao: "Imprimiu o relatório geral de armamentos.",
+  });
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

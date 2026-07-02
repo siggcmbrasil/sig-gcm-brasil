@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { obterLocalizacao } from "@/lib/gps";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   iniciarBackgroundRastreamento,
   pararBackgroundRastreamento,
@@ -250,6 +251,20 @@ async function carregarPatrulhamentos() {
       return;
     }
 
+    let latitudeFinal = latitude;
+let longitudeFinal = longitude;
+
+if (!latitudeFinal || !longitudeFinal) {
+  try {
+    const localizacao = await obterLocalizacao();
+    latitudeFinal = String(localizacao.latitude);
+    longitudeFinal = String(localizacao.longitude);
+  } catch {
+    latitudeFinal = "";
+    longitudeFinal = "";
+  }
+}
+
    const { data: novoPatrulhamento, error } = await supabase
   .from("patrulhamentos")
   .insert([
@@ -261,8 +276,8 @@ async function carregarPatrulhamentos() {
     guarda: guardaPrincipal,
     equipe,
     viatura,
-    latitude,
-    longitude,
+    latitude: latitudeFinal,
+    longitude: longitudeFinal,
     observacao,
     status: "EM_ANDAMENTO",
   },
@@ -276,6 +291,12 @@ async function carregarPatrulhamentos() {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Patrulhamento",
+  acao: "CRIAR",
+  descricao: `Iniciou patrulhamento em ${local}.`,
+});
+
     if (novoPatrulhamento?.id) {
   setPatrulhamentoAtivoId(
     novoPatrulhamento.id
@@ -286,11 +307,23 @@ async function carregarPatrulhamentos() {
     String(novoPatrulhamento.id)
   );
 
+  try {
   await iniciarBackgroundRastreamento({
-  municipio_id: usuarioLogado.municipio_id,
-  usuario_id: String(usuarioLogado.id),
-  patrulhamento_id: novoPatrulhamento.id,
-});
+    municipio_id: usuarioLogado.municipio_id,
+    usuario_id: String(usuarioLogado.id),
+    patrulhamento_id: novoPatrulhamento.id,
+  });
+
+  setRastreamentoAtivo(true);
+} catch (error) {
+  console.error("Erro ao iniciar rastreamento:", error);
+
+  alert(
+    "Patrulhamento registrado, mas o rastreamento GPS não iniciou. Verifique a permissão de localização do celular."
+  );
+
+  setRastreamentoAtivo(false);
+}
 
 setRastreamentoAtivo(true);
 }
@@ -331,6 +364,12 @@ setRastreamentoAtivo(true);
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Patrulhamento",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o patrulhamento ${id}.`,
+});
+
     carregarPatrulhamentos();
   }
 
@@ -349,6 +388,12 @@ async function finalizarPatrulhamento(id: number) {
     console.error(error);
     return;
   }
+
+  await registrarAuditoria({
+  modulo: "Patrulhamento",
+  acao: "FINALIZAR",
+  descricao: `Finalizou o patrulhamento ${id}.`,
+});
 
   setRastreamentoAtivo(false);
   setPatrulhamentoAtivoId(null);

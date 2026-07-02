@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarda = {
   id: string;
@@ -27,35 +28,60 @@ export default function NovaAdvertenciaPage() {
     const { data } = await supabase
       .from("guardas")
       .select("id, nome, matricula")
-      .select("id, nome, matricula")
-.order("nome")
       .order("nome");
 
     setGuardas(data || []);
   }
 
   async function salvar() {
-    const { error } = await supabase
-      .from("advertencias")
-      .insert({
-        guarda_id: guardaId,
-        tipo,
-        motivo,
-        descricao,
-        data_advertencia: data,
-        status: "ATIVA",
-      });
-
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    alert("Advertência cadastrada!");
-    setGuardaId("");
-    setMotivo("");
-    setDescricao("");
+  if (!guardaId) {
+    alert("Selecione um guarda.");
+    return;
   }
+
+  if (!motivo.trim()) {
+    alert("Informe o motivo.");
+    return;
+  }
+
+  const guarda = guardas.find(
+    (g) => String(g.id) === guardaId
+  );
+
+  const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+const { error } = await supabase
+  .from("advertencias")
+  .insert({
+    municipio_id: usuario.municipio_id,
+    criado_por: usuario.id,
+    guarda_id: guardaId,
+    tipo,
+    motivo,
+    descricao,
+    data_advertencia: data,
+    status: "ATIVA",
+  });
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Advertências",
+    acao: "CRIAR",
+    descricao: `Criou uma advertência ${tipo} para ${guarda?.nome || guardaId}.`,
+  });
+
+  alert("Advertência cadastrada!");
+
+  setGuardaId("");
+  setMotivo("");
+  setDescricao("");
+}
 
   return (
     <div className="space-y-6">

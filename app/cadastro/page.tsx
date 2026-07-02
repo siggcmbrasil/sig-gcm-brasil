@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 function formatarCpf(valor: string) {
   return valor
@@ -84,6 +85,12 @@ export default function Cadastro() {
       console.error("ERRO USUÁRIO:", erroUsuario);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Cadastro",
+  acao: "SOLICITAR_ACESSO",
+  descricao: `Solicitação de acesso criada para ${nome.trim()} (${email.trim()}).`,
+});
 
     alert("Solicitação enviada com sucesso. Aguarde aprovação do administrador.");
     router.push("/login");

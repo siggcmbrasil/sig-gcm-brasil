@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Municipio = {
   id: number;
@@ -71,6 +72,12 @@ export default function InstitucionalPage() {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Institucional",
+  acao: "ALTERAR_MUNICIPIO_PADRAO",
+  descricao: `Alterou o município padrão para ID ${municipioPadraoId}.`,
+});
+
     alert("Município padrão atualizado com sucesso!");
     carregarConfiguracoes();
   }
@@ -97,6 +104,12 @@ if (!municipioPadraoId) {
       alert("Erro ao salvar.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Institucional",
+  acao: "EDITAR_DADOS",
+  descricao: `Atualizou os dados institucionais do município ID ${municipioPadraoId}.`,
+});
 
     alert("Dados institucionais salvos com sucesso!");
   }
@@ -137,6 +150,12 @@ if (!nomeGuarda.trim()) {
       alert("Erro ao criar município.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Institucional",
+  acao: "CRIAR_MUNICIPIO",
+  descricao: `Criou o município ${novoMunicipio}-${novoEstado}.`,
+});
 
     let urlPrefeitura = "";
     let urlGcm = "";

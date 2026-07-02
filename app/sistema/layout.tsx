@@ -14,16 +14,17 @@ type UsuarioLogado = {
   matricula?: string;
   email: string;
   perfil:
-  | "DESENVOLVEDOR"
-  | "ADMIN"
-  | "COMANDANTE"
-  | "DIRETOR"
-  | "CMT_GUARNICAO"
-  | "PLANTONISTA"
-  | "GUARDA"
-  | "CONSULTA";
+    | "DESENVOLVEDOR"
+    | "ADMIN"
+    | "COMANDANTE"
+    | "DIRETOR"
+    | "CMT_GUARNICAO"
+    | "PLANTONISTA"
+    | "GUARDA"
+    | "CONSULTA";
   status?: string;
   municipio_id?: number;
+  municipio_nome?: string;
   foto_url?: string;
 };
 
@@ -68,6 +69,12 @@ if (usuarioSistema.status !== "Ativo") {
   return;
 }
 
+const { data: municipioUsuario } = await supabase
+  .from("municipios")
+  .select("nome")
+  .eq("id", usuarioSistema?.municipio_id)
+  .single();
+
 const usuarioAtual = {
   id: usuarioSistema?.id,
   auth_id: data.user.id,
@@ -77,6 +84,7 @@ const usuarioAtual = {
   perfil: (usuarioSistema?.perfil || "GUARDA").toUpperCase(),
   status: usuarioSistema?.status || "Ativo",
   municipio_id: usuarioSistema?.municipio_id || 1,
+  municipio_nome: municipioUsuario?.nome || "",
   foto_url: usuarioSistema?.foto_url || "",
 };
 

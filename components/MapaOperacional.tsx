@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
 type OcorrenciaMapa = {
@@ -188,9 +190,24 @@ const operacoesComCoordenadas = operacoesEspeciais.filter(
   (o) => Number(o.latitude) && Number(o.longitude)
 );
 
+const [pronto, setPronto] = useState(false);
+
+useEffect(() => {
+  setPronto(true);
+}, []);
+
+if (!pronto) {
+  return (
+    <div className="h-full w-full rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400">
+      Carregando mapa...
+    </div>
+  );
+}
+
   return (
     <MapContainer
-      center={[-11.621296322631357, -38.80684199142887]}
+  key="mapa-operacional"
+  center={[-11.621296322631357, -38.80684199142887]}
       zoom={15}
       scrollWheelZoom={true}
       style={{ width: "100%", height: "100%", minHeight: "100%" }}

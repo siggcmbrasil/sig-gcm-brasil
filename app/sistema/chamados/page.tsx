@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import BotaoAcao from "@/components/BotaoAcao";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 import {
   Eye,
@@ -132,6 +133,18 @@ if (!usuarioLogado.municipio_id) {
     return;
   }
 
+  const chamado = chamados.find(
+  (c) => c.id === editandoId
+);
+
+await registrarAuditoria({
+  modulo: "Chamados",
+  acao: "EDITAR",
+  descricao: `Atualizou o chamado ${
+    chamado?.protocolo || editandoId
+  }.`,
+});
+
   alert("Chamado atualizado com sucesso!");
 
   setEditandoId(null);
@@ -174,6 +187,12 @@ if (!usuarioLogado.municipio_id) {
       alert("Erro ao salvar chamado.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Chamados",
+  acao: "CRIAR",
+  descricao: `Registrou o chamado ${protocolo}.`,
+});
 
     alert("Chamado registrado com sucesso!");
 
@@ -225,6 +244,18 @@ async function atenderChamado(id: number) {
     return;
   }
 
+  const chamado = chamados.find(
+  (c) => c.id === id
+);
+
+await registrarAuditoria({
+  modulo: "Chamados",
+  acao: "ATENDER",
+  descricao: `Iniciou atendimento do chamado ${
+    chamado?.protocolo || id
+  }.`,
+});
+
   carregarChamados();
 }
 
@@ -252,6 +283,18 @@ async function finalizarChamado(id: number) {
     return;
   }
 
+const chamado = chamados.find(
+  (c) => c.id === id
+);
+
+await registrarAuditoria({
+  modulo: "Chamados",
+  acao: "FINALIZAR",
+  descricao: `Finalizou o chamado ${
+    chamado?.protocolo || id
+  }.`,
+});
+
   carregarChamados();
 }
 
@@ -270,19 +313,30 @@ if (!usuarioLogado.municipio_id) {
 
     if (!confirmar) return;
 
-    const { error } = await supabase
+    const chamado = chamados.find((c) => c.id === id);
+
+const { error } = await supabase
   .from("chamados")
   .delete()
   .eq("id", id)
   .eq("municipio_id", usuarioLogado.municipio_id);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao excluir chamado.");
-      return;
-    }
+if (error) {
+  console.error(error);
+  alert("Erro ao excluir chamado.");
+  return;
+}
 
-    carregarChamados();
+await registrarAuditoria({
+  modulo: "Chamados",
+  acao: "EXCLUIR",
+  descricao: `Excluiu o chamado ${
+    chamado?.protocolo || id
+  }.`,
+});
+
+carregarChamados();
+
   }
 
   async function carregarLocais() {

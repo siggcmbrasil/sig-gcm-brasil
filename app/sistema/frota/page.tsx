@@ -17,7 +17,7 @@ const cards = [
   {
     titulo: "Viaturas",
     icone: CarFront,
-    href: "/sistema/viatura",
+    href: "/sistema/viaturas",
     descricao:
       "Cadastro, consulta e controle da frota operacional.",
   },

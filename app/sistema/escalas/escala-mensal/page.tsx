@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Municipio = {
   id: number;
@@ -300,11 +301,20 @@ switch (tipoEscala) {
   }
 
   alert("Escala gerada com sucesso.");
+
+await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "GERAR",
+  descricao: `Gerou a escala ${tipoEscala} referente a ${mes}/${ano}.`,
+});
+
   carregarDados();
 }
 
   async function excluirRegistro(id: number) {
     if (!confirm("Excluir este registro?")) return;
+
+    const registro = registros.find((r) => r.id === id);
 
     const { error } = await supabase
       .from("escala_mensal")
@@ -317,6 +327,12 @@ switch (tipoEscala) {
       alert("Erro ao excluir registro.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "EXCLUIR",
+  descricao: `Excluiu a escala do dia ${registro?.data_servico || id}.`,
+});
 
     carregarDados();
   }

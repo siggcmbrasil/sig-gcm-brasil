@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function RelatorioGeralPlantao() {
   const [inicio, setInicio] = useState("");
@@ -90,12 +91,26 @@ if (!municipioId) {
       veiculos: filtrar(veiculos.data || []),
     });
 
+    await registrarAuditoria({
+  modulo: "Relatórios",
+  acao: "GERAR_RELATORIO_PLANTAO",
+  descricao: `Gerou relatório operacional integrado do período ${
+    inicio || "Todos"
+  } até ${fim || "Todos"}.`,
+});
+
     setCarregando(false);
   }
 
-  function imprimirRelatorio() {
-    window.print();
-  }
+  async function imprimirRelatorio() {
+  await registrarAuditoria({
+    modulo: "Relatórios",
+    acao: "IMPRIMIR_RELATORIO_PLANTAO",
+    descricao: `Imprimiu/exportou o relatório operacional integrado.`,
+  });
+
+  window.print();
+}
 
   return (
     <div className="min-h-screen bg-slate-100 p-4">
@@ -111,6 +126,14 @@ if (!municipioId) {
 
 <p className="font-semibold">
   Município: {usuarioLogado?.municipio_nome || "Não informado"}
+</p>
+
+<p className="font-semibold">
+  Emitido por: {usuarioLogado?.nome || "Não informado"}
+</p>
+
+<p className="font-semibold">
+  Perfil: {usuarioLogado?.perfil || "-"}
 </p>
 
 <p className="text-sm">
@@ -151,9 +174,10 @@ if (!municipioId) {
               </button>
 
               <button
-                onClick={imprimirRelatorio}
-                className="w-full bg-green-700 text-white rounded-xl p-3 font-bold"
-              >
+  onClick={imprimirRelatorio}
+  disabled={!dados}
+  className="w-full bg-green-700 text-white rounded-xl p-3 font-bold disabled:opacity-50"
+>
                 PDF
               </button>
             </div>
@@ -196,10 +220,38 @@ if (!municipioId) {
             <Secao titulo="Pessoas Abordadas" itens={dados.pessoas} />
             <Secao titulo="Veículos Abordados" itens={dados.veiculos} />
 
-            <div className="mt-10 border-t pt-6 text-sm">
-              <p>Responsável pelo plantão: _______________________________</p>
-              <p className="mt-4">Assinatura: _______________________________</p>
-            </div>
+            <div className="mt-16 grid grid-cols-2 gap-10 text-center">
+  <div>
+    <div className="border-t border-black pt-2">
+      Responsável pelo Plantão
+    </div>
+  </div>
+
+  <div>
+    <div className="border-t border-black pt-2">
+      Comandante / Supervisor
+    </div>
+  </div>
+</div>
+
+<div className="mt-16 border-t pt-6 text-center">
+  <p className="text-sm text-slate-600">
+    Documento gerado pelo SIG-GCM Brasil
+  </p>
+
+  <p className="text-xs text-slate-500 mt-2">
+    Emitido em: {new Date().toLocaleString("pt-BR")}
+  </p>
+
+  <p className="text-xs text-slate-500">
+    Usuário: {usuarioLogado?.nome || "Não informado"}
+  </p>
+
+  <p className="text-xs text-slate-500">
+  Município ID: {usuarioLogado?.municipio_id || "-"}
+</p>
+</div>
+
           </div>
         )}
       </div>
@@ -305,7 +357,7 @@ function Secao({ titulo, itens }: { titulo: string; itens: any[] }) {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 x1:grid-cols-4 gap-4 p-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 p-5">
                   <Campo label="Tipo" valor={item.tipo} />
                   <Campo label="Data" valor={formatarData(item.criado_em || item.data)} />
                   <Campo label="Local" valor={item.local} />

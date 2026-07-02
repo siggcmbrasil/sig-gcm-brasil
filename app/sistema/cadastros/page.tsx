@@ -1,4 +1,3 @@
-
 import Link from "next/link";
 import {
   Users,
@@ -9,6 +8,8 @@ import {
   Car,
   HardHat,
   Cake,
+  Package,
+  Crosshair,
 } from "lucide-react";
 
 const cards = [
@@ -21,7 +22,7 @@ const cards = [
   {
     titulo: "Viaturas",
     icone: CarFront,
-    href: "/sistema/viatura",
+    href: "/sistema/viaturas",
     descricao: "Controle e gerenciamento da frota",
   },
   {
@@ -60,26 +61,25 @@ const cards = [
     href: "/sistema/aniversariantes",
     descricao: "Aniversários dos servidores",
   },
-
   {
-  titulo: "Patrimônio",
-  icone: HardHat,
-  href: "/sistema/patrimonio",
-  descricao: "Cadastro de bens e patrimônio institucional",
-},
-{
-  titulo: "Armamento",
-  icone: Shield,
-  href: "/sistema/gestao-armamento",
-  descricao: "Cadastro e controle de armamentos",
-},
+    titulo: "Patrimônio",
+    icone: Package,
+    href: "/sistema/patrimonio",
+    descricao: "Cadastro de bens e patrimônio institucional",
+  },
+  {
+    titulo: "Armamento",
+    icone: Crosshair,
+    href: "/sistema/gestao-armamento",
+    descricao: "Cadastro e controle de armamentos",
+  },
 ];
 
 export default function CadastrosPage() {
   return (
-    <section className="p-6 space-y-6">
+    <section className="p-4 md:p-6 space-y-6">
       <div className="painel-premium p-6">
-        <h1 className="text-4xl font-black text-white">
+        <h1 className="text-3xl md:text-4xl font-black text-white">
           👥 Central de Cadastros
         </h1>
 
@@ -96,26 +96,10 @@ export default function CadastrosPage() {
             <Link
               key={card.href}
               href={card.href}
-              className="
-                painel-premium
-                p-6
-                hover:scale-[1.02]
-                hover:border-blue-500/40
-                transition-all
-                duration-300
-                group
-              "
+              className="painel-premium p-6 hover:scale-[1.02] hover:border-blue-500/40 transition-all duration-300 group"
             >
               <div className="flex items-center justify-between mb-5">
-                <div
-                  className="
-                  w-16 h-16
-                  rounded-2xl
-                  bg-blue-500/10
-                  border border-blue-500/20
-                  flex items-center justify-center
-                "
-                >
+                <div className="w-16 h-16 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center">
                   <Icone className="w-9 h-9 text-cyan-400" />
                 </div>
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import jsPDF from "jspdf";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function EstoqueAlmoxarifadoPage() {
   const [entradas, setEntradas] = useState<any[]>([]);
@@ -36,6 +38,39 @@ export default function EstoqueAlmoxarifadoPage() {
     setSaidas(listaSaidas || []);
     setCarregando(false);
   }
+
+  async function exportarPDF() {
+  const doc = new jsPDF();
+
+  doc.setFontSize(18);
+  doc.text("Relatório de Estoque - Almoxarifado", 14, 20);
+
+  let linha = 35;
+
+  estoqueFiltrado.forEach((item) => {
+    doc.text(
+      `${item.item} - ${item.quantidade} ${item.unidade}`,
+      14,
+      linha
+    );
+
+    linha += 8;
+
+    if (linha > 280) {
+      doc.addPage();
+      linha = 20;
+    }
+  });
+
+  doc.save("estoque-almoxarifado.pdf");
+
+  await registrarAuditoria({
+    modulo: "Almoxarifado",
+    acao: "EXPORTAR_PDF",
+    descricao:
+      "Exportou o relatório de estoque do almoxarifado em PDF.",
+  });
+}
 
   useEffect(() => {
     carregar();
@@ -200,7 +235,18 @@ export default function EstoqueAlmoxarifadoPage() {
       </div>
 
       <div className="painel-premium p-6 space-y-4">
-        <h2 className="text-xl font-black text-white">Filtros rápidos</h2>
+  <div className="flex items-center justify-between">
+    <h2 className="text-xl font-black text-white">
+      Filtros rápidos
+    </h2>
+
+    <button
+      onClick={exportarPDF}
+      className="btn-primary"
+    >
+      Exportar PDF
+    </button>
+  </div>
 
         <input
           className="input"

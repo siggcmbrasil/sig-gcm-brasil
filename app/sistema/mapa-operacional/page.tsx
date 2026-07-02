@@ -2,7 +2,22 @@
 
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
+import {
+  AlertTriangle,
+  CalendarDays,
+  CheckCircle,
+  Crosshair,
+  Map,
+  RefreshCw,
+  Shield,
+  Siren,
+  Truck,
+} from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
+import SigPageHeader from "@/components/sig/SigPageHeader";
+import SigCard from "@/components/sig/SigCard";
+import SigButton from "@/components/sig/SigButton";
 
 const MapaOperacional = dynamic(
   () => import("@/components/MapaOperacional"),
@@ -18,7 +33,9 @@ export default function MapaOperacionalPage() {
   const [operacoesEspeciais, setOperacoesEspeciais] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-  const [dataFiltro, setDataFiltro] = useState("");
+
+  const hoje = new Date().toISOString().split("T")[0];
+  const [dataFiltro, setDataFiltro] = useState(hoje);
 
   async function carregarDados() {
     try {
@@ -37,8 +54,15 @@ export default function MapaOperacionalPage() {
         return;
       }
 
-      const { data: ocorrenciasData, error: ocorrenciasError } =
-        await supabase
+      const [
+        ocorrenciasRes,
+        viaturasRes,
+        gpsRes,
+        blitzesRes,
+        barreirasRes,
+        operacoesRes,
+      ] = await Promise.all([
+        supabase
           .from("ocorrencias")
           .select(`
             *,
@@ -50,80 +74,76 @@ export default function MapaOperacionalPage() {
             )
           `)
           .eq("municipio_id", municipioId)
-          .order("id", { ascending: false });
+          .order("id", { ascending: false }),
 
-      if (ocorrenciasError) throw ocorrenciasError;
+        supabase
+          .from("viaturas")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .order("id", { ascending: false }),
 
-      const { data: viaturasData, error: viaturasError } = await supabase
-        .from("viaturas")
-        .select("*")
-        .eq("municipio_id", municipioId)
-        .order("id", { ascending: false });
+        supabase
+          .from("localizacoes_tempo_real")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .order("atualizado_em", { ascending: false }),
 
-      if (viaturasError) throw viaturasError;
+        supabase
+          .from("blitzes")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .order("created_at", { ascending: false }),
 
-      const { data: gpsData, error: gpsError } = await supabase
-        .from("localizacoes_tempo_real")
-        .select("*")
-        .eq("municipio_id", municipioId)
-        .order("atualizado_em", { ascending: false });
+        supabase
+          .from("barreiras")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .order("created_at", { ascending: false }),
 
-      if (gpsError) throw gpsError;
+        supabase
+          .from("operacoes_especiais")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .not("latitude", "is", null)
+          .not("longitude", "is", null)
+          .order("created_at", { ascending: false }),
+      ]);
 
-      const { data: blitzesData, error: blitzesError } = await supabase
-        .from("blitzes")
-        .select("*")
-        .eq("municipio_id", municipioId)
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
-        .order("created_at", { ascending: false });
+      if (ocorrenciasRes.error) throw ocorrenciasRes.error;
+      if (viaturasRes.error) throw viaturasRes.error;
+      if (gpsRes.error) throw gpsRes.error;
+      if (blitzesRes.error) throw blitzesRes.error;
+      if (barreirasRes.error) throw barreirasRes.error;
+      if (operacoesRes.error) throw operacoesRes.error;
 
-      if (blitzesError) throw blitzesError;
+      const ocorrenciasData = ocorrenciasRes.data || [];
+      const viaturasData = viaturasRes.data || [];
+      const gpsData = gpsRes.data || [];
+      const blitzesData = blitzesRes.data || [];
+      const barreirasData = barreirasRes.data || [];
+      const operacoesData = operacoesRes.data || [];
 
-      const { data: barreirasData, error: barreirasError } = await supabase
-        .from("barreiras")
-        .select("*")
-        .eq("municipio_id", municipioId)
-        .not("latitude", "is", null)
-        .not("longitude", "is", null)
-        .order("created_at", { ascending: false });
+      const filtrarPorData = (lista: any[], campos: string[]) => {
+        if (!dataFiltro) return lista;
 
-      if (barreirasError) throw barreirasError;
+        return lista.filter((item) =>
+          campos.some((campo) => {
+            const valor = item?.[campo];
+            return valor?.split("T")[0] === dataFiltro;
+          })
+        );
+      };
 
-      const { data: operacoesData, error: operacoesError } = await supabase
-  .from("operacoes_especiais")
-  .select("*")
-  .eq("municipio_id", municipioId)
-  .not("latitude", "is", null)
-  .not("longitude", "is", null)
-  .order("created_at", { ascending: false });
-
-if (operacoesError) throw operacoesError;
-
-      setOcorrencias(ocorrenciasData || []);
-      setViaturas(viaturasData || []);
-      setLocalizacoes(gpsData || []);
-      const blitzesFiltradas = dataFiltro
-  ? (blitzesData || []).filter(
-      (b) => b.data?.split("T")[0] === dataFiltro
-    )
-  : blitzesData || [];
-
-const barreirasFiltradas = dataFiltro
-  ? (barreirasData || []).filter(
-      (b) => b.data?.split("T")[0] === dataFiltro
-    )
-  : barreirasData || [];
-
-  const operacoesFiltradas = dataFiltro
-  ? (operacoesData || []).filter(
-      (o) => o.data?.split("T")[0] === dataFiltro
-    )
-  : operacoesData || [];
-
-setBlitzes(blitzesFiltradas);
-setBarreiras(barreirasFiltradas);
-setOperacoesEspeciais(operacoesFiltradas);
+      setOcorrencias(filtrarPorData(ocorrenciasData, ["data", "criado_em", "created_at"]));
+      setViaturas(filtrarPorData(viaturasData, ["updated_at", "atualizado_em", "criado_em", "created_at"]));
+      setLocalizacoes(filtrarPorData(gpsData, ["atualizado_em", "created_at"]));
+      setBlitzes(filtrarPorData(blitzesData, ["data", "created_at", "criado_em"]));
+      setBarreiras(filtrarPorData(barreirasData, ["data", "created_at", "criado_em"]));
+      setOperacoesEspeciais(filtrarPorData(operacoesData, ["data", "created_at", "criado_em"]));
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
       setErro("Erro ao carregar dados do mapa operacional.");
@@ -140,18 +160,11 @@ setOperacoesEspeciais(operacoesFiltradas);
     }, 30000);
 
     return () => clearInterval(intervalo);
-  }, []);
+  }, [dataFiltro]);
 
-  useEffect(() => {
-  carregarDados();
-}, [dataFiltro]);
-
-  const hoje = new Date().toISOString().split("T")[0];
-
-  const ocorrenciasHoje = ocorrencias.filter((o) => {
-    const dataOcorrencia = o.data?.split("T")[0];
-    return dataOcorrencia === hoje;
-  }).length;
+  const ocorrenciasHoje = ocorrencias.filter(
+    (o) => o.data?.split("T")[0] === hoje
+  ).length;
 
   const abertas = ocorrencias.filter(
     (o) => o.status === "Aberta" || o.status === "ABERTA"
@@ -161,103 +174,122 @@ setOperacoesEspeciais(operacoesFiltradas);
     (o) => o.status === "Finalizada" || o.status === "FINALIZADA"
   ).length;
 
-  return (
-    <div className="p-4 md:p-6 space-y-5">
-      <div className="flex flex-wrap gap-3">
-  <input
-    type="date"
-    className="input-premium max-w-[220px]"
-    value={dataFiltro}
-    onChange={(e) => setDataFiltro(e.target.value)}
-  />
+  const totalPontos =
+    ocorrencias.length +
+    viaturas.length +
+    localizacoes.length +
+    blitzes.length +
+    barreiras.length +
+    operacoesEspeciais.length;
 
-  <button
-    onClick={carregarDados}
-    className="
-      bg-blue-700
-      hover:bg-blue-600
-      text-white
-      px-4
-      py-2
-      rounded-xl
-      font-bold
-    "
-  >
-    Atualizar
-  </button>
-</div>
+  return (
+    <div className="p-4 md:p-6 pb-24 space-y-6">
+      <SigPageHeader
+        titulo="Mapa Operacional"
+        subtitulo="Visualização em tempo real de ocorrências, GPS, viaturas, blitzes, barreiras e operações especiais."
+        icone={Map}
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+        <CardInfo titulo="Pontos" valor={totalPontos} icone={Crosshair} />
+        <CardInfo titulo="Ocorrências" valor={ocorrencias.length} icone={AlertTriangle} />
+        <CardInfo titulo="Hoje" valor={ocorrenciasHoje} icone={CalendarDays} />
+        <CardInfo titulo="Abertas" valor={abertas} icone={Siren} />
+        <CardInfo titulo="Finalizadas" valor={finalizadas} icone={CheckCircle} />
+        <CardInfo titulo="Viaturas" valor={viaturas.length} icone={Truck} />
+        <CardInfo titulo="GPS" valor={localizacoes.length} icone={Shield} />
+        <CardInfo titulo="Operações" valor={operacoesEspeciais.length + blitzes.length + barreiras.length} icone={Map} />
+      </div>
+
+      <SigCard>
+        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-black text-white">
+              Filtros do mapa
+            </h2>
+            <p className="text-sm text-slate-400">
+              Por padrão o mapa abre com os dados de hoje. Use “Todos” apenas quando precisar consultar histórico.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <input
+              type="date"
+              className="input-premium max-w-[220px]"
+              value={dataFiltro}
+              onChange={(e) => setDataFiltro(e.target.value)}
+            />
+
+            <SigButton
+              type="green"
+              onClick={() => setDataFiltro(hoje)}
+            >
+              Hoje
+            </SigButton>
+
+            <SigButton
+              type="gray"
+              onClick={() => setDataFiltro("")}
+            >
+              Todos
+            </SigButton>
+
+            <SigButton
+              type="blue"
+              onClick={carregarDados}
+            >
+              <RefreshCw className="w-4 h-4" />
+              Atualizar
+            </SigButton>
+          </div>
+        </div>
+      </SigCard>
 
       {erro && (
-        <div className="bg-red-950/60 border border-red-800 text-red-300 rounded-xl p-4">
+        <div className="rounded-2xl border border-red-800 bg-red-950/60 p-4 text-red-300">
           {erro}
         </div>
       )}
 
       {carregando ? (
-        <div className="painel-premium p-6 text-slate-300">
-          Carregando mapa operacional...
-        </div>
+        <SigCard>
+          <div className="h-[65vh] min-h-[420px] flex items-center justify-center text-slate-400">
+            Carregando mapa operacional...
+          </div>
+        </SigCard>
       ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5 min-h-[calc(100vh-160px)]">
-          <section className="xl:col-span-9 painel-premium p-3 h-[70vh] min-h-[420px]">
-            <MapaOperacional
-              ocorrencias={ocorrencias}
-              viaturas={viaturas}
-              localizacoes={localizacoes}
-              blitzes={blitzes}
-              barreiras={barreiras}
-              operacoesEspeciais={operacoesEspeciais}
-            />
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
+          <section className="xl:col-span-9">
+            <SigCard className="p-3 h-[70vh] min-h-[460px] overflow-hidden">
+              <MapaOperacional
+                ocorrencias={ocorrencias}
+                viaturas={viaturas}
+                localizacoes={localizacoes}
+                blitzes={blitzes}
+                barreiras={barreiras}
+                operacoesEspeciais={operacoesEspeciais}
+              />
+            </SigCard>
           </section>
 
-          <aside className="xl:col-span-3 space-y-4 overflow-y-auto">
-            <div className="painel-premium p-4">
-              <h2 className="font-bold mb-4 text-white">📊 Estatísticas</h2>
+          <aside className="xl:col-span-3 space-y-4">
+            <PainelLista
+              titulo="🚧 Blitzes e Barreiras"
+              vazio="Nenhuma blitz ou barreira com GPS."
+              itens={[...blitzes, ...barreiras]}
+            />
 
-              <div className="space-y-3">
-                <CardInfo titulo="Ocorrências Hoje" valor={ocorrenciasHoje} />
-                <CardInfo titulo="Ocorrências Abertas" valor={abertas} />
-                <CardInfo titulo="Finalizadas" valor={finalizadas} />
-                <CardInfo titulo="Viaturas" valor={viaturas.length} />
-                <CardInfo titulo="GPS Ativos" valor={localizacoes.length} />
-                <CardInfo titulo="Blitzes no Mapa" valor={blitzes.length} />
-                <CardInfo titulo="Barreiras no Mapa" valor={barreiras.length} />
-                <CardInfo titulo="Operações no Mapa" valor={operacoesEspeciais.length} />
-              </div>
-            </div>
+            <PainelLista
+              titulo="⭐ Operações Especiais"
+              vazio="Nenhuma operação especial com GPS."
+              itens={operacoesEspeciais}
+            />
 
-            <div className="painel-premium p-4">
-              <h2 className="font-bold mb-4 text-white">
-                🚧 Blitzes e Barreiras
-              </h2>
-
-              <div className="space-y-3">
-                {[...blitzes, ...barreiras].length === 0 ? (
-                  <p className="text-slate-400 text-sm">
-                    Nenhuma blitz ou barreira com GPS.
-                  </p>
-                ) : (
-                  [...blitzes, ...barreiras].slice(0, 6).map((item) => (
-                    <div
-                      key={item.id}
-                      className="border border-slate-700 rounded-xl p-3 bg-slate-950/50"
-                    >
-                      <p className="font-bold text-yellow-400">
-                        {item.nome || "Operação"}
-                      </p>
-
-                      <p className="text-sm text-slate-400">
-                        {item.local || "Local não informado"}
-                      </p>
-
-                      <p className="text-xs text-slate-500">
-                        {item.status || "Sem status"}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
+            <PainelLista
+              titulo="🚓 GPS Ativo"
+              vazio="Nenhum GPS ativo no período."
+              itens={localizacoes}
+            />
           </aside>
         </div>
       )}
@@ -268,14 +300,67 @@ setOperacoesEspeciais(operacoesFiltradas);
 function CardInfo({
   titulo,
   valor,
+  icone: Icone,
 }: {
   titulo: string;
   valor: number;
+  icone: any;
 }) {
   return (
-    <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-4">
-      <p className="text-slate-400 text-sm">{titulo}</p>
-      <h3 className="text-3xl font-black text-white">{valor}</h3>
+    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+          {titulo}
+        </p>
+        <Icone className="w-5 h-5 text-slate-400" />
+      </div>
+
+      <h3 className="mt-3 text-3xl font-black text-white">
+        {valor}
+      </h3>
     </div>
+  );
+}
+
+function PainelLista({
+  titulo,
+  vazio,
+  itens,
+}: {
+  titulo: string;
+  vazio: string;
+  itens: any[];
+}) {
+  return (
+    <SigCard>
+      <h2 className="font-black mb-4 text-white">
+        {titulo}
+      </h2>
+
+      <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
+        {itens.length === 0 ? (
+          <p className="text-slate-400 text-sm">{vazio}</p>
+        ) : (
+          itens.slice(0, 8).map((item) => (
+            <div
+              key={item.id}
+              className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
+            >
+              <p className="font-bold text-white">
+                {item.nome || item.prefixo || "Registro"}
+              </p>
+
+              <p className="text-sm text-slate-400">
+                {item.local || item.observacao || "Local não informado"}
+              </p>
+
+              <p className="text-xs text-slate-500 mt-1">
+                {item.status || "Sem status"}
+              </p>
+            </div>
+          ))
+        )}
+      </div>
+    </SigCard>
   );
 }

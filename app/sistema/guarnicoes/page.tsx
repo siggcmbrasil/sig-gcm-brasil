@@ -12,6 +12,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Guarnicao = {
   id: number;
@@ -155,7 +156,37 @@ export default function GuarnicoesPage() {
       return;
     }
 
-    carregarDados();
+   const guarnicao = guarnicoes.find((g) => g.id === id);
+
+let descricao = `Atualizou a guarnição ${guarnicao?.nome || id}.`;
+
+if (campo === "comandante_id") {
+  descricao = `Alterou o comandante da guarnição ${guarnicao?.nome || id}.`;
+}
+
+if (campo === "viatura_id") {
+  descricao = `Alterou a viatura da guarnição ${guarnicao?.nome || id}.`;
+}
+
+if (campo === "tipo_guarnicao") {
+  descricao = `Alterou o tipo da guarnição ${guarnicao?.nome || id} para ${valor}.`;
+}
+
+if (campo === "area_atuacao") {
+  descricao = `Alterou a área de atuação da guarnição ${guarnicao?.nome || id} para ${valor}.`;
+}
+
+if (campo === "status_operacional") {
+  descricao = `Alterou o status operacional da guarnição ${guarnicao?.nome || id} para ${valor}.`;
+}
+
+await registrarAuditoria({
+  modulo: "Guarnições",
+  acao: "EDITAR",
+  descricao,
+});
+
+carregarDados();
   }
 
   async function adicionarMembro(guarnicaoId: number) {
@@ -189,6 +220,20 @@ export default function GuarnicoesPage() {
       return;
     }
 
+    const guarda = guardas.find(
+  (g) => g.id === Number(guardaId)
+);
+
+const guarnicao = guarnicoes.find(
+  (g) => g.id === guarnicaoId
+);
+
+await registrarAuditoria({
+  modulo: "Guarnições",
+  acao: "ADICIONAR_MEMBRO",
+  descricao: `Adicionou ${guarda?.nome} na guarnição ${guarnicao?.nome}.`,
+});
+
     setSelecionados((prev) => ({
       ...prev,
       [guarnicaoId]: "",
@@ -209,11 +254,25 @@ export default function GuarnicoesPage() {
       return;
     }
 
+    const membro = membros.find(
+  (m) => m.id === membroId
+);
+
+await registrarAuditoria({
+  modulo: "Guarnições",
+  acao: "ALTERAR_FUNCAO",
+  descricao: `Alterou a função de ${membro?.guardas?.nome || "guarda"} para ${funcao}.`,
+});
+
     carregarDados();
   }
 
   async function removerMembro(id: number) {
     if (!confirm("Remover este guarda da guarnição?")) return;
+
+    const membro = membros.find(
+  (m) => m.id === id
+);
 
     const { error } = await supabase
       .from("guarnicao_membros")
@@ -225,6 +284,12 @@ export default function GuarnicoesPage() {
       alert("Erro ao remover guarda.");
       return;
     }
+
+await registrarAuditoria({
+  modulo: "Guarnições",
+  acao: "REMOVER_MEMBRO",
+  descricao: `Removeu ${membro?.guardas?.nome || "guarda"} da guarnição.`,
+});
 
     carregarDados();
   }

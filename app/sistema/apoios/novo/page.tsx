@@ -7,6 +7,7 @@ import { MapPin, PhoneCall, Save, XCircle } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function NovoApoioPage() {
   const router = useRouter();
@@ -144,6 +145,12 @@ export default function NovoApoioPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Apoios",
+  acao: "CRIAR",
+  descricao: `Registrou um apoio ${tipo} em ${local}.`,
+});
 
     alert("Apoio cadastrado com sucesso.");
     router.push("/sistema/apoios");

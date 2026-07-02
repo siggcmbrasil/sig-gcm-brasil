@@ -8,6 +8,7 @@ import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 function formatarCPF(valor: string) {
   return valor
@@ -194,12 +195,25 @@ export default function NovoGuardaPage() {
     setSalvando(false);
 
     if (error) {
-      alert(error.message);
-      return;
-    }
+  alert(error.message);
+  return;
+}
 
-    alert(idEditar ? "Guarda atualizado com sucesso." : "Guarda cadastrado com sucesso.");
-    router.push("/sistema/guardas");
+await registrarAuditoria({
+  modulo: "Guardas",
+  acao: idEditar ? "EDITAR" : "CRIAR",
+  descricao: idEditar
+    ? `Atualizou o cadastro do guarda ${nome}.`
+    : `Cadastrou o guarda ${nome}.`,
+});
+
+alert(
+  idEditar
+    ? "Guarda atualizado com sucesso."
+    : "Guarda cadastrado com sucesso."
+);
+
+router.push("/sistema/guardas");
   }
 
   function alternarEspecialidade(item: string) {

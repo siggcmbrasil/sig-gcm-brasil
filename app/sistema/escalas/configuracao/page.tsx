@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Municipio = {
   id: number;
@@ -145,6 +146,12 @@ alert(
 
     alert("Modelo de escala criado com sucesso!");
 
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "CRIAR_MODELO",
+  descricao: `Criou o modelo de escala ${nomeModelo}.`,
+});
+
     setNomeModelo("");
     setTipo("Plantão");
     setHorarioInicio("07:00");
@@ -169,6 +176,12 @@ alert(
       alert("Erro ao renomear grupo.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Escalas",
+  acao: "RENOMEAR_GRUPO",
+  descricao: `Renomeou o grupo ${nomeAtual} para ${novoNome}.`,
+});
 
     carregarDados();
   }

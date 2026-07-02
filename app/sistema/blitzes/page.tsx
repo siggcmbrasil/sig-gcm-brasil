@@ -94,6 +94,22 @@ const [longitude, setLongitude] = useState("");
     }
   );
 }
+
+async function registrarAuditoria(
+  acao: string,
+  detalhes: string
+) {
+  const usuario = pegarUsuario();
+
+  await supabase.from("auditoria_sistema").insert({
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+    modulo: "BLITZES",
+    acao,
+    detalhes,
+  });
+}
+
   async function salvarBlitz() {
     const usuario = pegarUsuario();
 
@@ -121,7 +137,7 @@ const [longitude, setLongitude] = useState("");
           objetivo,
           observacoes,
           status: "PLANEJADA",
-          criado_por: null,
+          criado_por: usuario.id,
           latitude: latitude ? Number(latitude) : null,
 longitude: longitude ? Number(longitude) : null,
         },
@@ -134,6 +150,11 @@ longitude: longitude ? Number(longitude) : null,
       console.error(error);
       return;
     }
+
+    await registrarAuditoria(
+  "CRIAR_BLITZ",
+  `Criou a blitz ${nome} em ${local}`
+);
 
     if (blitzCriada?.id) {
       await supabase.from("resultados_blitz").insert([
@@ -172,6 +193,11 @@ longitude: longitude ? Number(longitude) : null,
       .eq("id", id)
       .eq("municipio_id", usuario.municipio_id);
 
+      await registrarAuditoria(
+  "ALTERAR_STATUS_BLITZ",
+  `Alterou a blitz ${id} para ${status}`
+);
+
     carregarBlitzes();
   }
 
@@ -195,6 +221,11 @@ longitude: longitude ? Number(longitude) : null,
     console.error(error);
     return;
   }
+
+  await registrarAuditoria(
+  "APAGAR_TESTES_BLITZ",
+  "Apagou blitzes de teste do município"
+);
 
   alert("Blitzes de teste apagadas.");
   carregarBlitzes();
@@ -298,12 +329,12 @@ longitude: longitude ? Number(longitude) : null,
 </div>
 
           <div className="relative">
-  <input
-    className="input-premium pr-12"
-    type="time"
-    value={horaInicio}
-    onChange={(e) => setHoraInicio(e.target.value)}
-  />
+ <input
+  className="input-premium pr-12"
+  type="time"
+  value={horaFim}
+  onChange={(e) => setHoraFim(e.target.value)}
+/>
 
   <Clock3
     className="

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   Archive,
   CheckCircle,
@@ -160,6 +161,18 @@ export default function InventarioArmamentoPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Armamentos",
+  acao: "REGISTRAR_INVENTARIO",
+  descricao: `Realizou inventário do armamento ${nomeArmamento(
+    Number(armamentoId)
+  )}. Status: ${nomeStatus(
+    statusConferencia
+  )}. Estado: ${nomeEstado(
+    estado
+  )}. Localização: ${localizacao}.`,
+});
 
     limpar();
     carregar();

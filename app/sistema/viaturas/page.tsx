@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Viatura = {
   id: number;
@@ -136,11 +137,20 @@ export default function ViaturasPage() {
     setSalvando(false);
 
     if (error) {
-      console.error(error);
-      return alert("Erro ao salvar viatura.");
-    }
+  console.error(error);
+  return alert("Erro ao salvar viatura.");
+}
 
-    alert(editando ? "Viatura atualizada." : "Viatura cadastrada.");
+await registrarAuditoria({
+  modulo: "Viaturas",
+  acao: editando ? "EDITAR" : "CRIAR",
+  descricao: editando
+    ? `Atualizou a viatura ${prefixo}.`
+    : `Cadastrou a viatura ${prefixo}.`,
+});
+
+alert(editando ? "Viatura atualizada." : "Viatura cadastrada.");
+
     limparFormulario();
     carregarViaturas();
   }
@@ -150,6 +160,10 @@ export default function ViaturasPage() {
 
     if (!confirm("Deseja excluir esta viatura?")) return;
 
+    const viaturaExcluida = viaturas.find(
+  (v) => v.id === id
+);
+
     const { error } = await supabase
       .from("viaturas")
       .delete()
@@ -157,11 +171,19 @@ export default function ViaturasPage() {
       .eq("municipio_id", municipioId);
 
     if (error) {
-      console.error(error);
-      return alert("Erro ao excluir.");
-    }
+  console.error(error);
+  return alert("Erro ao excluir.");
+}
 
-    carregarViaturas();
+await registrarAuditoria({
+  modulo: "Viaturas",
+  acao: "EXCLUIR",
+  descricao: `Excluiu a viatura ${
+    viaturaExcluida?.prefixo || `ID ${id}`
+  }.`,
+});
+
+carregarViaturas();
   }
 
   return (
@@ -274,7 +296,12 @@ export default function ViaturasPage() {
                 >
                   <div className="relative h-44 bg-slate-900">
                     <Image
-                      src={v.foto_url || "/viatura-gcm.png"}
+                      src={
+  v.foto_url &&
+  (v.foto_url.startsWith("/") || v.foto_url.startsWith("http"))
+    ? v.foto_url
+    : "/viatura-gcm.png"
+}
                       alt={v.prefixo}
                       fill
                       className="object-cover"

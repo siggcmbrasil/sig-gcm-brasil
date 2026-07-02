@@ -17,6 +17,11 @@ type Municipio = {
   telefone: string | null;
   email: string | null;
   endereco: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  zoom_mapa?: number | null;
+  latitude_base?: number | null;
+  longitude_base?: number | null;
 };
 
 export default function MunicipiosPage() {
@@ -32,6 +37,11 @@ export default function MunicipiosPage() {
   const [endereco, setEndereco] = useState("");
   const [brasao, setBrasao] = useState("");
   const [corPrincipal, setCorPrincipal] = useState("#1e40af");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  const [zoomMapa, setZoomMapa] = useState("15");
+  const [latitudeBase, setLatitudeBase] = useState("");
+  const [longitudeBase, setLongitudeBase] = useState("");
   const [editandoId, setEditandoId] = useState<number | null>(null);
 
   useEffect(() => {
@@ -65,6 +75,11 @@ function editarMunicipio(municipio: Municipio) {
   setEndereco(municipio.endereco || "");
   setBrasao(municipio.brasao || "");
   setCorPrincipal(municipio.cor_principal || "#1e40af");
+  setLatitude(municipio.latitude?.toString() || "");
+  setLongitude(municipio.longitude?.toString() || "");
+  setZoomMapa(municipio.zoom_mapa?.toString() || "15");
+  setLatitudeBase(municipio.latitude_base?.toString() || "");
+  setLongitudeBase(municipio.longitude_base?.toString() || "");
 }
 
   async function salvarMunicipio() {
@@ -84,6 +99,11 @@ function editarMunicipio(municipio: Municipio) {
     endereco,
     brasao,
     cor_principal: corPrincipal,
+    latitude: latitude ? parseFloat(latitude) : null,
+    longitude: longitude ? parseFloat(longitude) : null,
+    zoom_mapa: zoomMapa ? parseInt(zoomMapa) : null,
+    latitude_base: latitudeBase ? parseFloat(latitudeBase) : null,
+    longitude_base: longitudeBase ? parseFloat(longitudeBase) : null,
     ativo: true,
   };
 
@@ -239,6 +259,41 @@ function editarMunicipio(municipio: Municipio) {
               value={brasao}
               onChange={(e) => setBrasao(e.target.value)}
             />
+
+            <input
+  className="input"
+  placeholder="Latitude do município"
+  value={latitude}
+  onChange={(e) => setLatitude(e.target.value)}
+/>
+
+<input
+  className="input"
+  placeholder="Longitude do município"
+  value={longitude}
+  onChange={(e) => setLongitude(e.target.value)}
+/>
+
+<input
+  className="input"
+  placeholder="Zoom inicial do mapa"
+  value={zoomMapa}
+  onChange={(e) => setZoomMapa(e.target.value)}
+/>
+
+<input
+  className="input"
+  placeholder="Latitude da Base GCM"
+  value={latitudeBase}
+  onChange={(e) => setLatitudeBase(e.target.value)}
+/>
+
+<input
+  className="input"
+  placeholder="Longitude da Base GCM"
+  value={longitudeBase}
+  onChange={(e) => setLongitudeBase(e.target.value)}
+/>
 
             <div>
               <label className="label">Cor principal</label>

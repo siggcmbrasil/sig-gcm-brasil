@@ -10,6 +10,14 @@ import {
   ShieldCheck,
   Table,
   Upload,
+  History,
+  FileJson,
+  Users,
+  CarFront,
+  MapPin,
+  ClipboardList,
+  User,
+  Shield,
 } from "lucide-react";
 
 import SigCard from "@/components/sig/SigCard";
@@ -32,23 +40,22 @@ export default function ImportadorDadosPage() {
 
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-yellow-400 font-bold">
-              Área do Desenvolvedor
+              Área Administrativa
             </p>
 
             <h2 className="text-2xl md:text-3xl font-black text-white mt-1">
-              Importação Segura
+              Importação Segura de Dados
             </h2>
 
             <p className="text-slate-400 mt-2 max-w-3xl leading-relaxed">
-              Área preparada para importar planilhas, cadastros e dados
-              administrativos de forma controlada, com validação, auditoria e
-              separação por município.
+              Importe planilhas, cadastros e dados administrativos de forma
+              controlada, com validação, auditoria, pré-visualização e
+              separação automática por município.
             </p>
           </div>
         </div>
       </SigCard>
 
-      {/* Recursos */}
       <div className="grid md:grid-cols-3 gap-4">
         <SigCard>
           <FileSpreadsheet className="w-8 h-8 text-yellow-400 mb-3" />
@@ -58,7 +65,7 @@ export default function ImportadorDadosPage() {
           </h3>
 
           <p className="text-sm text-slate-400 mt-2">
-            Preparado para arquivos CSV, XLSX e modelos padronizados.
+            Suporte para CSV, XLS, XLSX e modelos padronizados.
           </p>
         </SigCard>
 
@@ -70,7 +77,7 @@ export default function ImportadorDadosPage() {
           </h3>
 
           <p className="text-sm text-slate-400 mt-2">
-            Conferência de campos obrigatórios antes de gravar no banco.
+            Verificação de dados antes da gravação no banco.
           </p>
         </SigCard>
 
@@ -82,13 +89,12 @@ export default function ImportadorDadosPage() {
           </h3>
 
           <p className="text-sm text-slate-400 mt-2">
-            Toda importação deverá gerar registro de segurança.
+            Toda importação gera registros de segurança.
           </p>
         </SigCard>
       </div>
 
-      {/* Módulos */}
-      <div className="grid md:grid-cols-3 gap-4">
+      <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-4">
         <Link
           href="/sistema/importador-dados/csv"
           className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-yellow-500/60 transition"
@@ -100,15 +106,15 @@ export default function ImportadorDadosPage() {
           </h3>
 
           <p className="text-sm text-slate-400 mt-2">
-            Importar e exportar arquivos CSV.
+            Importar arquivos CSV.
           </p>
         </Link>
 
         <Link
           href="/sistema/importador-dados/excel"
-          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-yellow-500/60 transition"
+          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-emerald-500/60 transition"
         >
-          <Table className="w-8 h-8 text-yellow-400 mb-3" />
+          <Table className="w-8 h-8 text-emerald-400 mb-3" />
 
           <h3 className="text-lg font-black text-white">
             Excel
@@ -120,10 +126,25 @@ export default function ImportadorDadosPage() {
         </Link>
 
         <Link
-          href="/sistema/importador-dados/preview"
-          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-yellow-500/60 transition"
+          href="/sistema/importador-dados/json"
+          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-cyan-500/60 transition"
         >
-          <Eye className="w-8 h-8 text-yellow-400 mb-3" />
+          <FileJson className="w-8 h-8 text-cyan-400 mb-3" />
+
+          <h3 className="text-lg font-black text-white">
+            JSON
+          </h3>
+
+          <p className="text-sm text-slate-400 mt-2">
+            Importar arquivos JSON.
+          </p>
+        </Link>
+
+        <Link
+          href="/sistema/importador-dados/preview"
+          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-purple-500/60 transition"
+        >
+          <Eye className="w-8 h-8 text-purple-400 mb-3" />
 
           <h3 className="text-lg font-black text-white">
             Pré-visualização
@@ -133,9 +154,23 @@ export default function ImportadorDadosPage() {
             Conferir os dados antes de importar.
           </p>
         </Link>
+
+        <Link
+          href="/sistema/importador-dados/historico"
+          className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-orange-500/60 transition"
+        >
+          <History className="w-8 h-8 text-orange-400 mb-3" />
+
+          <h3 className="text-lg font-black text-white">
+            Histórico
+          </h3>
+
+          <p className="text-sm text-slate-400 mt-2">
+            Consultar importações realizadas.
+          </p>
+        </Link>
       </div>
 
-      {/* Upload rápido */}
       <SigCard>
         <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-8 text-center">
           <Upload className="w-14 h-14 mx-auto text-slate-500 mb-4" />
@@ -145,7 +180,7 @@ export default function ImportadorDadosPage() {
           </h3>
 
           <p className="text-slate-400 mt-2">
-            Selecione uma planilha para preparar a importação.
+            Selecione um arquivo para iniciar a importação.
           </p>
 
           <input
@@ -161,25 +196,61 @@ export default function ImportadorDadosPage() {
         </div>
       </SigCard>
 
-      {/* Futuro */}
       <SigCard>
-        <h3 className="text-lg font-black text-white">
-          Dados que poderão ser importados futuramente
+        <h3 className="text-xl font-black text-white">
+          Tipos de Dados Suportados
         </h3>
 
-        <div className="mt-4 grid md:grid-cols-2 gap-3 text-sm text-slate-400">
-          <p>• Guardas Municipais</p>
-          <p>• Usuários</p>
-          <p>• Viaturas</p>
-          <p>• Equipamentos</p>
-          <p>• Pessoas Abordadas</p>
-          <p>• Veículos Abordados</p>
-          <p>• Locais Estratégicos</p>
-          <p>• Escalas</p>
-          <p>• Guarnições</p>
-          <p>• Patrulhamentos</p>
-          <p>• Ocorrências</p>
-          <p>• Dados de outros sistemas</p>
+        <div className="mt-5 grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <Users className="text-cyan-400" />
+            Guardas Municipais
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <User className="text-cyan-400" />
+            Usuários
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <CarFront className="text-cyan-400" />
+            Viaturas
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <Shield className="text-cyan-400" />
+            Equipamentos
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <MapPin className="text-cyan-400" />
+            Locais Estratégicos
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            <ClipboardList className="text-cyan-400" />
+            Escalas e Guarnições
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            🚔 Patrulhamentos
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            🚨 Ocorrências
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            🧍 Pessoas Abordadas
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            🚗 Veículos Abordados
+          </div>
+
+          <div className="rounded-xl bg-slate-900 p-4 border border-slate-800 flex items-center gap-3">
+            🔄 Dados de Outros Sistemas
+          </div>
         </div>
       </SigCard>
     </div>

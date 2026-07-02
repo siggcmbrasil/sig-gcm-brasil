@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Pencil, Trash2, X } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function AbastecimentosPage() {
   const [viaturas, setViaturas] = useState<any[]>([]);
   const [abastecimentos, setAbastecimentos] = useState<any[]>([]);
+  const [editandoId, setEditandoId] = useState<number | null>(null);
+
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
@@ -14,7 +19,12 @@ export default function AbastecimentosPage() {
   const [valor, setValor] = useState("");
   const [km, setKm] = useState("");
   const [posto, setPosto] = useState("");
+  const [motorista, setMotorista] = useState("");
+  const [numeroCupom, setNumeroCupom] = useState("");
   const [observacao, setObservacao] = useState("");
+
+  const [dataInicio, setDataInicio] = useState("");
+  const [dataFim, setDataFim] = useState("");
 
   const usuario =
     typeof window !== "undefined"
@@ -32,11 +42,21 @@ export default function AbastecimentosPage() {
       .eq("municipio_id", usuario.municipio_id)
       .order("prefixo", { ascending: true });
 
-    const { data: listaAbastecimentos } = await supabase
+    let query = supabase
       .from("abastecimentos")
       .select("*, viaturas(prefixo, placa)")
       .eq("municipio_id", usuario.municipio_id)
       .order("data_abastecimento", { ascending: false });
+
+    if (dataInicio) {
+      query = query.gte("data_abastecimento", dataInicio);
+    }
+
+    if (dataFim) {
+      query = query.lte("data_abastecimento", `${dataFim}T23:59:59`);
+    }
+
+    const { data: listaAbastecimentos } = await query;
 
     setViaturas(listaViaturas || []);
     setAbastecimentos(listaAbastecimentos || []);
@@ -62,53 +82,62 @@ export default function AbastecimentosPage() {
       registros: abastecimentos.length,
       totalLitros,
       totalValor,
+      mediaLitro: totalLitros > 0 ? totalValor / totalLitros : 0,
     };
   }, [abastecimentos]);
 
   function limparFormulario() {
+    setEditandoId(null);
     setViaturaId("");
     setLitros("");
     setValor("");
     setKm("");
     setPosto("");
+    setMotorista("");
+    setNumeroCupom("");
     setObservacao("");
   }
 
+  function editar(item: any) {
+    setEditandoId(item.id);
+    setViaturaId(String(item.viatura_id || ""));
+    setLitros(String(item.litros || ""));
+    setValor(String(item.valor || ""));
+    setKm(String(item.km || ""));
+    setPosto(item.posto || "");
+    setMotorista(item.motorista || "");
+    setNumeroCupom(item.numero_cupom || "");
+    setObservacao(item.observacao || "");
+  }
+
   async function salvar() {
-    if (!viaturaId) {
-      alert("Selecione a viatura.");
-      return;
-    }
-
-    if (!litros || Number(litros) <= 0) {
-      alert("Informe a quantidade de litros.");
-      return;
-    }
-
-    if (!valor || Number(valor) <= 0) {
-      alert("Informe o valor do abastecimento.");
-      return;
-    }
-
-    if (!km || Number(km) <= 0) {
-      alert("Informe o KM atual da viatura.");
-      return;
-    }
+    if (!viaturaId) return alert("Selecione a viatura.");
+    if (!litros || Number(litros) <= 0) return alert("Informe os litros.");
+    if (!valor || Number(valor) <= 0) return alert("Informe o valor.");
+    if (!km || Number(km) <= 0) return alert("Informe o KM.");
 
     setSalvando(true);
 
-    const { error } = await supabase.from("abastecimentos").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        viatura_id: Number(viaturaId),
-        litros: Number(litros),
-        valor: Number(valor),
-        km: Number(km),
-        posto: posto.trim(),
-        observacao: observacao.trim(),
-        criado_por: usuario.id,
-      },
-    ]);
+    const dados = {
+      municipio_id: usuario.municipio_id,
+      viatura_id: Number(viaturaId),
+      litros: Number(litros),
+      valor: Number(valor),
+      km: Number(km),
+      posto: posto.trim(),
+      motorista: motorista.trim(),
+      numero_cupom: numeroCupom.trim(),
+      observacao: observacao.trim(),
+      criado_por: usuario.id,
+    };
+
+    const { error } = editandoId
+      ? await supabase
+          .from("abastecimentos")
+          .update(dados)
+          .eq("id", editandoId)
+          .eq("municipio_id", usuario.municipio_id)
+      : await supabase.from("abastecimentos").insert([dados]);
 
     setSalvando(false);
 
@@ -117,191 +146,218 @@ export default function AbastecimentosPage() {
       return;
     }
 
+    const viatura = viaturas.find((v) => String(v.id) === viaturaId);
+
+    await registrarAuditoria({
+      modulo: "Abastecimentos",
+      acao: editandoId ? "EDITAR" : "CRIAR",
+      descricao: editandoId
+        ? `Editou abastecimento da viatura ${viatura?.prefixo || viaturaId}.`
+        : `Registrou abastecimento da viatura ${viatura?.prefixo || viaturaId}.`,
+    });
+
     limparFormulario();
-    carregar();
-    alert("Abastecimento registrado com sucesso.");
+    await carregar();
+
+    alert(editandoId ? "Abastecimento atualizado." : "Abastecimento registrado.");
+  }
+
+  async function excluir(id: number) {
+    if (!confirm("Deseja excluir este abastecimento?")) return;
+
+    const item = abastecimentos.find((a) => a.id === id);
+
+    const { error } = await supabase
+      .from("abastecimentos")
+      .delete()
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
+
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Abastecimentos",
+      acao: "EXCLUIR",
+      descricao: `Excluiu abastecimento da viatura ${
+        item?.viaturas?.prefixo || item?.viatura_id || id
+      }.`,
+    });
+
+    await carregar();
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 pb-24">
       <div className="painel-premium p-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-400 font-semibold">
-              Controle de Frota
-            </p>
+        <p className="text-sm text-slate-400 font-semibold">Controle de Frota</p>
 
-            <h1 className="text-2xl md:text-3xl font-black text-white">
-              ⛽ Abastecimentos
-            </h1>
+        <h1 className="text-2xl md:text-3xl font-black text-white">
+          ⛽ Abastecimentos
+        </h1>
 
-            <p className="text-slate-400 mt-2">
-              Registre abastecimentos, quilometragem, posto e observações da viatura.
-            </p>
-          </div>
-
-          <button onClick={carregar} className="sig-btn-gold">
-            Atualizar
-          </button>
-        </div>
+        <p className="text-slate-400 mt-2">
+          Registre abastecimentos, quilometragem, posto, motorista e cupom.
+        </p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <div className="painel-premium p-5">
-          <p className="text-slate-400 text-sm">Registros</p>
-          <h2 className="text-3xl font-black text-white">{resumo.registros}</h2>
-        </div>
+      <div className="grid md:grid-cols-4 gap-4">
+        <Card titulo="Registros" valor={String(resumo.registros)} />
+        <Card titulo="Total Litros" valor={`${resumo.totalLitros.toFixed(2)} L`} />
+        <Card titulo="Valor Total" valor={`R$ ${resumo.totalValor.toFixed(2)}`} />
+        <Card titulo="Média/Litro" valor={`R$ ${resumo.mediaLitro.toFixed(2)}`} />
+      </div>
 
-        <div className="painel-premium p-5">
-          <p className="text-slate-400 text-sm">Total de Litros</p>
-          <h2 className="text-3xl font-black text-white">
-            {resumo.totalLitros.toFixed(2)} L
-          </h2>
-        </div>
+      <div className="painel-premium p-5">
+        <div className="grid md:grid-cols-4 gap-3">
+          <input
+            type="date"
+            className="input"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+          />
 
-        <div className="painel-premium p-5">
-          <p className="text-slate-400 text-sm">Valor Total</p>
-          <h2 className="text-3xl font-black text-white">
-            R$ {resumo.totalValor.toFixed(2)}
-          </h2>
+          <input
+            type="date"
+            className="input"
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+          />
+
+          <button onClick={carregar} className="sig-btn-gold">
+            Filtrar
+          </button>
+
+          <button
+            onClick={() => {
+              setDataInicio("");
+              setDataFim("");
+              setTimeout(carregar, 100);
+            }}
+            className="btn-secondary"
+          >
+            Limpar
+          </button>
         </div>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="painel-premium p-6 lg:col-span-1">
-          <h2 className="text-xl font-black text-white mb-1">
-            Novo Abastecimento
-          </h2>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-black text-white">
+                {editandoId ? "Editar Abastecimento" : "Novo Abastecimento"}
+              </h2>
 
-          <p className="text-slate-400 text-sm mb-5">
-            Preencha os dados básicos do abastecimento.
-          </p>
+              <p className="text-slate-400 text-sm">
+                Preencha os dados do abastecimento.
+              </p>
+            </div>
+
+            {editandoId && (
+              <button onClick={limparFormulario} className="text-slate-400">
+                <X />
+              </button>
+            )}
+          </div>
 
           <div className="space-y-4">
-            <div>
-              <label className="text-sm text-slate-300 font-bold">
-                Viatura
-              </label>
-
-              <select
-                className="input mt-1"
-                value={viaturaId}
-                onChange={(e) => setViaturaId(e.target.value)}
-              >
-                <option value="">Selecione a viatura</option>
-
-                {viaturas.map((v) => (
-                  <option key={v.id} value={v.id}>
-                    {v.prefixo} {v.placa ? `- ${v.placa}` : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              className="input"
+              value={viaturaId}
+              onChange={(e) => setViaturaId(e.target.value)}
+            >
+              <option value="">Selecione a viatura</option>
+              {viaturas.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.prefixo} {v.placa ? `- ${v.placa}` : ""}
+                </option>
+              ))}
+            </select>
 
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-sm text-slate-300 font-bold">
-                  Litros
-                </label>
-
-                <input
-                  className="input mt-1"
-                  placeholder="Ex: 35.5"
-                  value={litros}
-                  onChange={(e) => setLitros(e.target.value)}
-                  type="number"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm text-slate-300 font-bold">
-                  Valor
-                </label>
-
-                <input
-                  className="input mt-1"
-                  placeholder="Ex: 250"
-                  value={valor}
-                  onChange={(e) => setValor(e.target.value)}
-                  type="number"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-sm text-slate-300 font-bold">
-                KM Atual
-              </label>
+              <input
+                className="input"
+                placeholder="Litros"
+                value={litros}
+                onChange={(e) => setLitros(e.target.value)}
+                type="number"
+              />
 
               <input
-                className="input mt-1"
-                placeholder="Quilometragem da viatura"
-                value={km}
-                onChange={(e) => setKm(e.target.value)}
+                className="input"
+                placeholder="Valor"
+                value={valor}
+                onChange={(e) => setValor(e.target.value)}
                 type="number"
               />
             </div>
 
-            <div>
-              <label className="text-sm text-slate-300 font-bold">
-                Posto
-              </label>
+            <input
+              className="input"
+              placeholder="KM atual"
+              value={km}
+              onChange={(e) => setKm(e.target.value)}
+              type="number"
+            />
 
-              <input
-                className="input mt-1"
-                placeholder="Nome do posto"
-                value={posto}
-                onChange={(e) => setPosto(e.target.value)}
-              />
-            </div>
+            <input
+              className="input"
+              placeholder="Posto"
+              value={posto}
+              onChange={(e) => setPosto(e.target.value)}
+            />
 
-            <div>
-              <label className="text-sm text-slate-300 font-bold">
-                Observações
-              </label>
+            <input
+              className="input"
+              placeholder="Motorista / responsável"
+              value={motorista}
+              onChange={(e) => setMotorista(e.target.value)}
+            />
 
-              <textarea
-                className="input mt-1 min-h-[100px]"
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Ex: abastecimento autorizado, cupom fiscal, motorista responsável..."
-              />
-            </div>
+            <input
+              className="input"
+              placeholder="Número do cupom"
+              value={numeroCupom}
+              onChange={(e) => setNumeroCupom(e.target.value)}
+            />
+
+            <textarea
+              className="input min-h-[100px]"
+              value={observacao}
+              onChange={(e) => setObservacao(e.target.value)}
+              placeholder="Observações"
+            />
 
             <button
               onClick={salvar}
               disabled={salvando}
               className="sig-btn-gold w-full disabled:opacity-50"
             >
-              {salvando ? "Registrando..." : "Registrar Abastecimento"}
+              {salvando
+                ? "Salvando..."
+                : editandoId
+                ? "Atualizar Abastecimento"
+                : "Registrar Abastecimento"}
             </button>
           </div>
         </div>
 
         <div className="painel-premium p-6 lg:col-span-2">
-          <div className="flex items-center justify-between mb-5">
-            <div>
-              <h2 className="text-xl font-black text-white">
-                Histórico de Abastecimentos
-              </h2>
+          <h2 className="text-xl font-black text-white mb-1">
+            Histórico de Abastecimentos
+          </h2>
 
-              <p className="text-slate-400 text-sm">
-                Últimos registros lançados no sistema.
-              </p>
-            </div>
-          </div>
+          <p className="text-slate-400 text-sm mb-5">
+            Últimos registros lançados no sistema.
+          </p>
 
           {carregando ? (
             <p className="text-slate-400">Carregando abastecimentos...</p>
           ) : abastecimentos.length === 0 ? (
-            <div className="border border-dashed border-slate-700 rounded-2xl p-8 text-center">
-              <p className="text-slate-300 font-bold">
-                Nenhum abastecimento registrado.
-              </p>
-              <p className="text-slate-500 text-sm mt-1">
-                Os registros aparecerão aqui após o primeiro lançamento.
-              </p>
-            </div>
+            <p className="text-slate-400">Nenhum abastecimento registrado.</p>
           ) : (
             <div className="space-y-3">
               {abastecimentos.map((a) => (
@@ -309,7 +365,7 @@ export default function AbastecimentosPage() {
                   key={a.id}
                   className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                     <div>
                       <h3 className="text-white font-black">
                         🚔 {a.viaturas?.prefixo || "Viatura não informada"}
@@ -318,6 +374,14 @@ export default function AbastecimentosPage() {
                       <p className="text-slate-400 text-sm">
                         Placa: {a.viaturas?.placa || "Não informada"} • KM:{" "}
                         {a.km || "Não informado"}
+                      </p>
+
+                      <p className="text-slate-400 text-sm">
+                        Posto: {a.posto || "-"} • Motorista: {a.motorista || "-"}
+                      </p>
+
+                      <p className="text-slate-500 text-sm">
+                        Cupom: {a.numero_cupom || "-"}
                       </p>
                     </div>
 
@@ -329,33 +393,13 @@ export default function AbastecimentosPage() {
                       <p className="text-slate-400 text-sm">
                         {Number(a.litros || 0).toFixed(2)} litros
                       </p>
-                    </div>
-                  </div>
 
-                  <div className="grid md:grid-cols-3 gap-3 mt-4 text-sm">
-                    <div className="bg-slate-900/60 rounded-xl p-3">
-                      <p className="text-slate-500">Posto</p>
-                      <p className="text-slate-200 font-semibold">
-                        {a.posto || "Não informado"}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-900/60 rounded-xl p-3">
-                      <p className="text-slate-500">Data</p>
-                      <p className="text-slate-200 font-semibold">
-                        {a.data_abastecimento
-                          ? new Date(a.data_abastecimento).toLocaleString("pt-BR")
-                          : "Não informada"}
-                      </p>
-                    </div>
-
-                    <div className="bg-slate-900/60 rounded-xl p-3">
-                      <p className="text-slate-500">Valor por litro</p>
-                      <p className="text-slate-200 font-semibold">
+                      <p className="text-slate-500 text-sm">
                         R${" "}
                         {Number(a.litros || 0) > 0
                           ? (Number(a.valor || 0) / Number(a.litros || 0)).toFixed(2)
-                          : "0.00"}
+                          : "0.00"}{" "}
+                        / litro
                       </p>
                     </div>
                   </div>
@@ -366,12 +410,45 @@ export default function AbastecimentosPage() {
                       {a.observacao}
                     </p>
                   )}
+
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      onClick={() => editar(a)}
+                      className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-xl font-bold inline-flex items-center gap-2"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Editar
+                    </button>
+
+                    <button
+                      onClick={() => excluir(a.id)}
+                      className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-xl font-bold inline-flex items-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Excluir
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function Card({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="painel-premium p-5">
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className="text-2xl md:text-3xl font-black text-white">{valor}</h2>
     </div>
   );
 }

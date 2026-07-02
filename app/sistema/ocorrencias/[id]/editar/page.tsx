@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function EditarOcorrencia() {
   const router = useRouter();
@@ -10,6 +12,7 @@ export default function EditarOcorrencia() {
   const id = params.id;
 
   const [carregando, setCarregando] = useState(true);
+  const [protocolo, setProtocolo] = useState("");
 
   const [tipo, setTipo] = useState("");
   const [status, setStatus] = useState("");
@@ -40,6 +43,7 @@ export default function EditarOcorrencia() {
     setNumero(data.numero || "");
     setEnvolvidos(data.envolvidos || "");
     setDescricao(data.descricao || "");
+    setProtocolo(data.protocolo || `ID ${id}`);
 
     setCarregando(false);
   }
@@ -68,6 +72,18 @@ export default function EditarOcorrencia() {
       alert("Erro ao atualizar ocorrência.");
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Ocorrências",
+  acao: "EDITAR",
+  descricao: `Atualizou a ocorrência ${id}.`,
+});
+
+    await registrarAuditoria({
+      modulo: "Ocorrências",
+      acao: "EDITAR",
+      descricao: `Atualizou a ocorrência ${protocolo || `ID ${id}`}.`,
+    });
 
     alert("Ocorrência atualizada com sucesso!");
     router.push("/sistema/ocorrencias");
@@ -104,12 +120,16 @@ export default function EditarOcorrencia() {
               onChange={(e) => setTipo(e.target.value)}
             >
               <option value="">Selecione</option>
-              <option value="Perturbação do sossego">Perturbação do sossego</option>
+              <option value="Perturbação do sossego">
+                Perturbação do sossego
+              </option>
               <option value="Apoio ao cidadão">Apoio ao cidadão</option>
               <option value="Patrulhamento preventivo">
                 Patrulhamento preventivo
               </option>
-              <option value="Apoio a outro órgão">Apoio a outro órgão</option>
+              <option value="Apoio a outro órgão">
+                Apoio a outro órgão
+              </option>
               <option value="Fiscalização">Fiscalização</option>
               <option value="Acidente">Acidente</option>
               <option value="Outro">Outro</option>
