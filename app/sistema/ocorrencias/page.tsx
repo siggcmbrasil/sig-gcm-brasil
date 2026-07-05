@@ -2,9 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import CardIndicador from "@/components/CardIndicador";
-import { registrarAuditoria } from "@/lib/auditoria";
 import {
   FileText,
   AlertTriangle,
@@ -20,6 +17,25 @@ import {
   Play,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
+import CardIndicador from "@/components/CardIndicador";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: string;
+  nome?: string;
+  perfil:
+    | "DESENVOLVEDOR"
+    | "ADMIN"
+    | "COMANDANTE"
+    | "DIRETOR"
+    | "CMT_GUARNICAO"
+    | "PLANTONISTA"
+    | "GUARDA"
+    | "CONSULTA";
+  municipio_id: number;
+};
+
 type Ocorrencia = {
   id: number;
   municipio_id: number;
@@ -28,12 +44,13 @@ type Ocorrencia = {
   local: string;
   bairro: string | null;
   data: string;
-  hora?: string | null;
+  hora: string | null;
   status: string;
-  prioridade?: string;
+  prioridade: string | null;
   guarnicao_id: number | null;
   viatura_id: number | null;
   guarda_responsavel_id: number | null;
+  criado_por: string | null;
 };
 
 type Guarnicao = {
@@ -51,10 +68,38 @@ type Guarda = {
   nome: string;
 };
 
+const PERFIS_OPERACIONAIS = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+];
+
+const PERFIS_CRITICOS = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+];
+
+const STATUS_VALIDOS = [
+  "Aberta",
+  "Em andamento",
+  "Finalizada",
+  "Cancelada",
+];
+
+const LIMITE_REGISTROS = 100;
+
 export default function Ocorrencias() {
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [erroTela, setErroTela] = useState("");
 
   const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
@@ -67,36 +112,66 @@ export default function Ocorrencias() {
   const [filtroResponsavel, setFiltroResponsavel] = useState("");
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
-  
-  const [municipioId, setMunicipioId] = useState<number | null>(null);
+  const [somenteMinhas, setSomenteMinhas] = useState(false);
 
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : null;
+  const podeCriarEditar =
+    !!usuario && PERFIS_OPERACIONAIS.includes(usuario.perfil);
 
-  const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
-  const podeEditar = perfilUsuario !== "CONSULTA";
+  const podeExcluir =
+    !!usuario && PERFIS_CRITICOS.includes(usuario.perfil);
 
-  async function carregarOcorrencias(municipio: number) {
-    if (!municipio) {
-  setCarregando(false);
-  return;
-}
+  function obterUsuarioLogado(): UsuarioLogado | null {
+    try {
+      const salvo = localStorage.getItem("usuarioLogado");
+
+      if (!salvo) return null;
+
+      const dados = JSON.parse(salvo);
+
+      if (!dados?.id || !dados?.perfil || !dados?.municipio_id) {
+        return null;
+      }
+
+      return {
+        id: String(dados.id),
+        nome: dados.nome,
+        perfil: dados.perfil,
+        municipio_id: Number(dados.municipio_id),
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  async function carregarOcorrencias(usuarioAtual: UsuarioLogado) {
     setCarregando(true);
+    setErroTela("");
 
     const { data, error } = await supabase
       .from("ocorrencias")
       .select(
-  "id, municipio_id, protocolo, tipo, local, bairro, data, hora, status, prioridade, guarnicao_id, viatura_id, guarda_responsavel_id"
-)
-      .eq("municipio_id", municipio)
+        "id, municipio_id, protocolo, tipo, local, bairro, data, hora, status, prioridade, guarnicao_id, viatura_id, guarda_responsavel_id, criado_por"
+      )
+      .eq("municipio_id", usuarioAtual.municipio_id)
       .order("data", { ascending: false })
-.order("hora", { ascending: false });
+      .order("hora", { ascending: false })
+      .limit(LIMITE_REGISTROS);
 
     if (error) {
       console.error(error);
-      alert("Erro ao carregar ocorrências.");
+
+      await registrarAuditoria({
+        modulo: "Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao carregar lista de ocorrências.",
+        tabela: "ocorrencias",
+        detalhes: {
+          erro: error.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
+      setErroTela("Erro ao carregar ocorrências.");
       setCarregando(false);
       return;
     }
@@ -105,143 +180,263 @@ export default function Ocorrencias() {
     setCarregando(false);
   }
 
-  async function carregarDadosApoio(municipio: number) {
-    if (!municipio) {
-  return;
-}
-    const { data: guarnicoesData } = await supabase
-      .from("guarnicoes")
-      .select("id, nome")
-      .eq("municipio_id", municipio)
-      .order("nome");
+  async function carregarDadosApoio(usuarioAtual: UsuarioLogado) {
+    const [guarnicoesResp, viaturasResp, guardasResp] = await Promise.all([
+      supabase
+        .from("guarnicoes")
+        .select("id, nome")
+        .eq("municipio_id", usuarioAtual.municipio_id)
+        .order("nome")
+        .limit(100),
 
-    const { data: viaturasData } = await supabase
-      .from("viaturas")
-      .select("id, prefixo")
-      .eq("municipio_id", municipio)
-      .order("prefixo");
+      supabase
+        .from("viaturas")
+        .select("id, prefixo")
+        .eq("municipio_id", usuarioAtual.municipio_id)
+        .order("prefixo")
+        .limit(100),
 
-    const { data: guardasData } = await supabase
-      .from("guardas")
-      .select("id, nome")
-      .eq("municipio_id", municipio)
-      .order("nome");
+      supabase
+        .from("guardas")
+        .select("id, nome")
+        .eq("municipio_id", usuarioAtual.municipio_id)
+        .order("nome")
+        .limit(200),
+    ]);
 
-    setGuarnicoes(guarnicoesData || []);
-    setViaturas(viaturasData || []);
-    setGuardas(guardasData || []);
+    if (guarnicoesResp.error || viaturasResp.error || guardasResp.error) {
+      await registrarAuditoria({
+        modulo: "Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao carregar dados de apoio da Central de Ocorrências.",
+        tabela: "ocorrencias",
+        detalhes: {
+          guarnicoes: guarnicoesResp.error?.message,
+          viaturas: viaturasResp.error?.message,
+          guardas: guardasResp.error?.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+    }
+
+    setGuarnicoes(guarnicoesResp.data || []);
+    setViaturas(viaturasResp.data || []);
+    setGuardas(guardasResp.data || []);
   }
 
-     async function carregarSistema() {
-  const id = usuarioLogado?.municipio_id;
+  async function carregarSistema() {
+    const usuarioAtual = obterUsuarioLogado();
 
-  if (!id) {
-    alert("Município não identificado.");
-    return;
+    if (!usuarioAtual) {
+      setErroTela("Sessão inválida. Faça login novamente.");
+      setCarregando(false);
+      return;
+    }
+
+    if (!usuarioAtual.municipio_id) {
+      setErroTela("Município não identificado.");
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(usuarioAtual);
+
+    await registrarAuditoria({
+      modulo: "Ocorrências",
+      acao: "ACESSO",
+      descricao: "Acessou a Central de Ocorrências.",
+      tabela: "ocorrencias",
+      detalhes: {
+        municipio_id: usuarioAtual.municipio_id,
+        usuario_id: usuarioAtual.id,
+        perfil: usuarioAtual.perfil,
+      },
+    });
+
+    await carregarDadosApoio(usuarioAtual);
+    await carregarOcorrencias(usuarioAtual);
   }
-
-  setMunicipioId(id);
-
-  await carregarOcorrencias(id);
-  await carregarDadosApoio(id);
-}
 
   useEffect(() => {
-  void carregarSistema();
-}, []);
+    void carregarSistema();
+  }, []);
 
   async function excluirOcorrencia(id: number) {
-    if (!municipioId) {
-  alert("Município não identificado.");
-  return;
-}
+    if (!usuario) {
+      alert("Sessão inválida.");
+      return;
+    }
 
-const ocorrencia = ocorrencias.find(
-  (o) => o.id === id
-);
-
-if (ocorrencia?.status === "Finalizada") {
-  alert(
-    "Ocorrências finalizadas não podem ser excluídas."
-  );
-  return;
-}
-
-    if (!podeEditar) {
+    if (!PERFIS_CRITICOS.includes(usuario.perfil)) {
       alert("Você não possui permissão para excluir ocorrências.");
       return;
     }
 
-    const confirmar = confirm("Tem certeza que deseja excluir esta ocorrência?");
+    const ocorrencia = ocorrencias.find((o) => o.id === id);
+
+    if (!ocorrencia) {
+      alert("Ocorrência não encontrada.");
+      return;
+    }
+
+    if (ocorrencia.municipio_id !== usuario.municipio_id) {
+      alert("Acesso negado entre municípios.");
+      return;
+    }
+
+    if (ocorrencia.status === "Finalizada") {
+      alert("Ocorrências finalizadas não podem ser excluídas.");
+      return;
+    }
+
+    const motivo = prompt("Informe o motivo da exclusão:");
+
+    if (!motivo?.trim()) {
+      alert("Informe o motivo da exclusão.");
+      return;
+    }
+
+    const confirmar = confirm(
+      "Confirma a exclusão desta ocorrência? Esta ação será auditada."
+    );
+
     if (!confirmar) return;
 
-    const { error } = await supabase.from("ocorrencias")
-    
-    .delete()
-    .eq("id", id)
-    .eq("municipio_id", municipioId);
+    const { error } = await supabase
+      .from("ocorrencias")
+      .delete()
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
       console.error(error);
+
+      await registrarAuditoria({
+        modulo: "Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao excluir ocorrência.",
+        tabela: "ocorrencias",
+        registro_id: id,
+        detalhes: {
+          erro: error.message,
+          motivo,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
       alert("Erro ao excluir ocorrência.");
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Ocorrências",
-  acao: "EXCLUIR",
-  descricao: `Excluiu a ocorrência ${id}.`,
-});
+      modulo: "Ocorrências",
+      acao: "EXCLUIR",
+      descricao: `Excluiu a ocorrência ${ocorrencia.protocolo}.`,
+      tabela: "ocorrencias",
+      registro_id: id,
+      detalhes: {
+        motivo,
+        ocorrencia,
+        municipio_id: usuario.municipio_id,
+      },
+    });
 
-alert("Ocorrência excluída com sucesso.");
-await carregarOcorrencias(municipioId);
+    alert("Ocorrência excluída com sucesso.");
+    await carregarOcorrencias(usuario);
   }
 
-  async function alterarStatus(id: number, status: string) {
-    if (!municipioId) {
-  alert("Município não identificado.");
-  return;
-}
-    if (!podeEditar) {
-  alert("Você não possui permissão.");
-  return;
-}
+  async function alterarStatus(id: number, novoStatus: string) {
+    if (!usuario) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    if (!PERFIS_OPERACIONAIS.includes(usuario.perfil)) {
+      alert("Você não possui permissão.");
+      return;
+    }
+
+    if (!STATUS_VALIDOS.includes(novoStatus)) {
+      alert("Status inválido.");
+      return;
+    }
+
+    const ocorrencia = ocorrencias.find((o) => o.id === id);
+
+    if (!ocorrencia) {
+      alert("Ocorrência não encontrada.");
+      return;
+    }
+
+    if (ocorrencia.municipio_id !== usuario.municipio_id) {
+      alert("Acesso negado entre municípios.");
+      return;
+    }
+
+    if (ocorrencia.status === "Finalizada") {
+      alert("Ocorrências finalizadas não podem ter status alterado.");
+      return;
+    }
+
     const { error } = await supabase
       .from("ocorrencias")
-      .update({ status })
-.eq("id", id)
-.eq("municipio_id", municipioId);
+      .update({
+        status: novoStatus,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
+      console.error(error);
+
+      await registrarAuditoria({
+        modulo: "Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao alterar status da ocorrência.",
+        tabela: "ocorrencias",
+        registro_id: id,
+        detalhes: {
+          erro: error.message,
+          status_anterior: ocorrencia.status,
+          status_novo: novoStatus,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
       alert("Erro ao atualizar status.");
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Ocorrências",
-  acao: "ALTERAR_STATUS",
-  descricao: `Alterou a ocorrência ${id} para ${status}.`,
-});
+      modulo: "Ocorrências",
+      acao: "EDITAR",
+      descricao: `Alterou o status da ocorrência ${ocorrencia.protocolo} para ${novoStatus}.`,
+      tabela: "ocorrencias",
+      registro_id: id,
+      detalhes: {
+        status_anterior: ocorrencia.status,
+        status_novo: novoStatus,
+        municipio_id: usuario.municipio_id,
+      },
+    });
 
-    await carregarOcorrencias(municipioId);
+    await carregarOcorrencias(usuario);
   }
 
   function nomeGuarnicao(id: number | null) {
     if (!id) return "-";
-    const guarnicao = guarnicoes.find((g) => g.id === id);
-    return guarnicao?.nome || "-";
+    return guarnicoes.find((g) => g.id === id)?.nome || "-";
   }
 
   function prefixoViatura(id: number | null) {
     if (!id) return "-";
-    const viatura = viaturas.find((v) => v.id === id);
-    return viatura?.prefixo || "-";
+    return viaturas.find((v) => v.id === id)?.prefixo || "-";
   }
 
   function nomeGuarda(id: number | null) {
     if (!id) return "-";
-    const guarda = guardas.find((g) => g.id === id);
-    return guarda?.nome || "-";
+    return guardas.find((g) => g.id === id)?.nome || "-";
   }
 
   function limparFiltros() {
@@ -253,6 +448,7 @@ await carregarOcorrencias(municipioId);
     setFiltroResponsavel("");
     setDataInicial("");
     setDataFinal("");
+    setSomenteMinhas(false);
   }
 
   function aplicarHoje() {
@@ -279,10 +475,14 @@ await carregarOcorrencias(municipioId);
   }
 
   const tiposOcorrencia = useMemo(() => {
-    return Array.from(new Set(ocorrencias.map((o) => o.tipo).filter(Boolean)));
+    return Array.from(
+      new Set(ocorrencias.map((o) => o.tipo).filter(Boolean))
+    );
   }, [ocorrencias]);
 
   const ocorrenciasFiltradas = ocorrencias.filter((o) => {
+    const termoBusca = busca.trim().toLowerCase();
+
     const texto = `
       ${o.protocolo}
       ${o.tipo}
@@ -294,21 +494,27 @@ await carregarOcorrencias(municipioId);
       ${nomeGuarda(o.guarda_responsavel_id)}
     `.toLowerCase();
 
-    const passaBusca = texto.includes(busca.toLowerCase());
+    const passaBusca = termoBusca ? texto.includes(termoBusca) : true;
     const passaStatus = filtroStatus ? o.status === filtroStatus : true;
     const passaTipo = filtroTipo ? o.tipo === filtroTipo : true;
+
     const passaGuarnicao = filtroGuarnicao
       ? String(o.guarnicao_id) === filtroGuarnicao
       : true;
+
     const passaViatura = filtroViatura
       ? String(o.viatura_id) === filtroViatura
       : true;
+
     const passaResponsavel = filtroResponsavel
       ? String(o.guarda_responsavel_id) === filtroResponsavel
       : true;
 
     const passaDataInicial = dataInicial ? o.data >= dataInicial : true;
     const passaDataFinal = dataFinal ? o.data <= dataFinal : true;
+
+    const passaMinhas =
+      somenteMinhas && usuario ? o.criado_por === usuario.id : true;
 
     return (
       passaBusca &&
@@ -318,7 +524,8 @@ await carregarOcorrencias(municipioId);
       passaViatura &&
       passaResponsavel &&
       passaDataInicial &&
-      passaDataFinal
+      passaDataFinal &&
+      passaMinhas
     );
   });
 
@@ -335,12 +542,16 @@ await carregarOcorrencias(municipioId);
               Registro, acompanhamento e gerenciamento operacional das
               ocorrências da Guarda Civil Municipal.
             </p>
+
+            {usuario && (
+              <p className="text-xs text-slate-500 mt-3">
+                Município ID: {usuario.municipio_id} • Perfil: {usuario.perfil}
+              </p>
+            )}
           </div>
 
-          {podeEditar && (
+          {podeCriarEditar && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:w-[760px]">
-
-
               <Link
                 href="/sistema/ocorrencias/nova"
                 className="rounded-2xl bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 hover:scale-[1.02] transition p-5"
@@ -361,11 +572,20 @@ await carregarOcorrencias(municipioId);
         </div>
       </header>
 
+      {erroTela && (
+        <section className="painel-premium p-6 border border-red-500/40">
+          <div className="flex items-center gap-3 text-red-300 font-bold">
+            <AlertTriangle className="w-6 h-6" />
+            {erroTela}
+          </div>
+        </section>
+      )}
+
       <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <CardIndicador
           titulo="Total de Ocorrências"
           valor={ocorrencias.length}
-          descricao="Todas registradas"
+          descricao={`Últimos ${LIMITE_REGISTROS} registros`}
           icone={<FileText className="w-9 h-9" />}
           cor="blue"
         />
@@ -406,9 +626,7 @@ await carregarOcorrencias(municipioId);
       <section className="painel-premium p-6">
         <div className="flex items-center gap-3 mb-5">
           <Search className="w-8 h-8 text-blue-400 shrink-0" />
-<h2 className="text-3xl font-black">
-  Filtros de Ocorrências
-</h2>
+          <h2 className="text-3xl font-black">Filtros de Ocorrências</h2>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -419,27 +637,24 @@ await carregarOcorrencias(municipioId);
               placeholder="Protocolo, tipo, local, bairro..."
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
+              maxLength={80}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-2">
-              Prioridade
-            </label>
-            <div>
-              <label className="label">Status</label>
-              <select
-                className="input"
-                value={filtroStatus}
-                onChange={(e) => setFiltroStatus(e.target.value)}
-              >
-                <option value="">Todos</option>
-                <option value="Aberta">Aberta</option>
-                <option value="Em andamento">Em andamento</option>
-                <option value="Finalizada">Finalizada</option>
-                <option value="Cancelada">Cancelada</option>
-              </select>
-            </div>
+            <label className="label">Status</label>
+            <select
+              className="input"
+              value={filtroStatus}
+              onChange={(e) => setFiltroStatus(e.target.value)}
+            >
+              <option value="">Todos</option>
+              {STATUS_VALIDOS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
@@ -530,18 +745,14 @@ await carregarOcorrencias(municipioId);
         </div>
 
         <div className="flex flex-wrap gap-3 mt-5">
-          <button
-            type="button"
-            onClick={aplicarHoje}
-            className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm whitespace-nowrap"
-          >
+          <button type="button" onClick={aplicarHoje} className="btn-secondary">
             Hoje
           </button>
 
           <button
             type="button"
             onClick={aplicarUltimos7Dias}
-            className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm whitespace-nowrap"
+            className="btn-secondary"
           >
             Últimos 7 dias
           </button>
@@ -549,14 +760,15 @@ await carregarOcorrencias(municipioId);
           <button
             type="button"
             onClick={aplicarEsteMes}
-            className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm whitespace-nowrap"
+            className="btn-secondary"
           >
             Este mês
           </button>
 
           <button
             type="button"
-            className="px-4 py-2 rounded-xl border border-slate-700 hover:bg-slate-800 text-sm whitespace-nowrap"
+            onClick={() => setSomenteMinhas((valor) => !valor)}
+            className={somenteMinhas ? "sig-btn-gold" : "btn-secondary"}
           >
             Minhas ocorrências
           </button>
@@ -643,7 +855,7 @@ await carregarOcorrencias(municipioId);
 
                     <p>
                       <span className="text-slate-500">Data: </span>
-                      {ocorrencia.data}
+                      {ocorrencia.data} {ocorrencia.hora || "--:--"}
                     </p>
 
                     <p>
@@ -670,22 +882,32 @@ await carregarOcorrencias(municipioId);
                       Ver
                     </Link>
 
-                    {podeEditar && (
-  <Link
-    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-    onClick={(e) => {
-      if (ocorrencia.status === "Finalizada") {
-        e.preventDefault();
-        alert(
-          "Ocorrências finalizadas não podem ser editadas."
-        );
-      }
-    }}
-    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
-  >
-    Editar
-  </Link>
-)}
+                    {podeCriarEditar && (
+                      <Link
+                        href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+                        onClick={(e) => {
+                          if (ocorrencia.status === "Finalizada") {
+                            e.preventDefault();
+                            alert(
+                              "Ocorrências finalizadas não podem ser editadas."
+                            );
+                          }
+                        }}
+                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
+                      >
+                        Editar
+                      </Link>
+                    )}
+
+                    {podeExcluir && (
+                      <button
+                        type="button"
+                        onClick={() => excluirOcorrencia(ocorrencia.id)}
+                        className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl text-center font-semibold"
+                      >
+                        Excluir
+                      </button>
+                    )}
                   </div>
                 </div>
               ))}
@@ -730,8 +952,8 @@ await carregarOcorrencias(municipioId);
                       </td>
 
                       <td className="py-4 px-4">
-  <Prioridade prioridade={ocorrencia.prioridade} />
-</td>
+                        <Prioridade prioridade={ocorrencia.prioridade} />
+                      </td>
 
                       <td className="py-4 px-4 text-slate-400">
                         <div>{ocorrencia.local}</div>
@@ -766,39 +988,40 @@ await carregarOcorrencias(municipioId);
                             <Eye className="w-4 h-4" />
                           </Link>
 
-                          {podeEditar && (
-  <Link
-    href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-    onClick={(e) => {
-      if (ocorrencia.status === "Finalizada") {
-        e.preventDefault();
-        alert(
-          "Ocorrências finalizadas não podem ser editadas."
-        );
-      }
-    }}
-    className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-yellow-700 flex items-center justify-center"
-    title="Editar"
-  >
-    <Edit className="w-4 h-4" />
-  </Link>
-)}
-
-                          {podeEditar && ocorrencia.status === "Aberta" && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                alterarStatus(ocorrencia.id, "Em andamento")
-                              }
-                              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-purple-700 flex items-center justify-center"
-                              title="Aceitar"
+                          {podeCriarEditar && (
+                            <Link
+                              href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
+                              onClick={(e) => {
+                                if (ocorrencia.status === "Finalizada") {
+                                  e.preventDefault();
+                                  alert(
+                                    "Ocorrências finalizadas não podem ser editadas."
+                                  );
+                                }
+                              }}
+                              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-yellow-700 flex items-center justify-center"
+                              title="Editar"
                             >
-                              <Play className="w-4 h-4" />
-                            </button>
+                              <Edit className="w-4 h-4" />
+                            </Link>
                           )}
 
-                          {podeEditar &&
-                              ocorrencia.status === "Em andamento" && (
+                          {podeCriarEditar &&
+                            ocorrencia.status === "Aberta" && (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  alterarStatus(ocorrencia.id, "Em andamento")
+                                }
+                                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-purple-700 flex items-center justify-center"
+                                title="Aceitar"
+                              >
+                                <Play className="w-4 h-4" />
+                              </button>
+                            )}
+
+                          {podeCriarEditar &&
+                            ocorrencia.status === "Em andamento" && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -811,7 +1034,7 @@ await carregarOcorrencias(municipioId);
                               </button>
                             )}
 
-                          {podeEditar && (
+                          {podeExcluir && (
                             <button
                               type="button"
                               onClick={() => excluirOcorrencia(ocorrencia.id)}
@@ -835,42 +1058,31 @@ await carregarOcorrencias(municipioId);
   );
 }
 
-function Prioridade({
-  prioridade,
-}: {
-  prioridade?: string;
-}) {
+function Prioridade({ prioridade }: { prioridade?: string | null }) {
   let cor =
     "bg-yellow-500/20 text-yellow-300 border border-yellow-500/40";
 
   let texto = "MÉDIA";
 
   if (prioridade === "ALTA") {
-    cor =
-      "bg-red-500/20 text-red-300 border border-red-500/40";
-
+    cor = "bg-red-500/20 text-red-300 border border-red-500/40";
     texto = "ALTA";
   }
 
   if (prioridade === "BAIXA") {
-    cor =
-      "bg-green-500/20 text-green-300 border border-green-500/40";
-
+    cor = "bg-green-500/20 text-green-300 border border-green-500/40";
     texto = "BAIXA";
   }
 
   return (
-    <span
-      className={`${cor} px-3 py-1 rounded-full text-xs font-black`}
-    >
+    <span className={`${cor} px-3 py-1 rounded-full text-xs font-black`}>
       {texto}
     </span>
   );
 }
 
 function Status({ status }: { status: string }) {
-  let cor =
-    "bg-blue-500/20 text-blue-300 border border-blue-500/40";
+  let cor = "bg-blue-500/20 text-blue-300 border border-blue-500/40";
 
   if (status === "Aberta") {
     cor = "bg-red-500/20 text-red-300 border border-red-500/40";

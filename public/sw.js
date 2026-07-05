@@ -4,7 +4,7 @@ const URLS_TO_CACHE = [
   "/",
   "/login",
   "/sistema/offline",
-  "/brasao-gcm-v2.png",
+  "/brasoes/sig-gcm-logo.png",
 ];
 
 self.addEventListener("install", function (event) {
@@ -39,8 +39,8 @@ self.addEventListener("push", function (event) {
   const titulo = data.titulo || "SIG-GCM Brasil";
   const opcoes = {
     body: data.mensagem || "Nova notificação do sistema.",
-    icon: "/brasao-gcm-v2.png",
-    badge: "/brasao-gcm-v2.png",
+    icon: "/brasoes/sig-gcm-logo.png",
+    badge: "/brasoes/sig-gcm-logo.png",
   };
 
   event.waitUntil(

@@ -61,7 +61,12 @@ export default function ConveniosPage() {
   }
 
   async function salvar() {
-    if (!nome.trim()) {
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!nome.trim()) {
       alert("Informe o convênio.");
       return;
     }
@@ -70,18 +75,17 @@ export default function ConveniosPage() {
       await supabase
         .from("convenios")
         .insert({
-          municipio_id:
-            usuario.municipio_id,
-          nome,
-          instituicao,
-          responsavel,
-          telefone,
-          email,
-          data_inicio: inicio,
-          data_fim: fim,
-          status,
-          observacao,
-        });
+  municipio_id: usuario.municipio_id,
+  nome: nome.trim(),
+  instituicao: instituicao.trim() || null,
+  responsavel: responsavel.trim() || null,
+  telefone: telefone.trim() || null,
+  email: email.trim() || null,
+  data_inicio: inicio || null,
+  data_fim: fim || null,
+  status,
+  observacao: observacao.trim() || null,
+});
 
     if (error) {
       alert(error.message);
@@ -111,6 +115,10 @@ export default function ConveniosPage() {
     id: number,
     nome: string
   ) {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
     if (
       !confirm(
         "Deseja excluir este convênio?"
@@ -118,14 +126,16 @@ export default function ConveniosPage() {
     )
       return;
 
-    await supabase
-      .from("convenios")
-      .delete()
-      .eq("id", id)
-      .eq(
-        "municipio_id",
-        usuario.municipio_id
-      );
+    const { error } = await supabase
+  .from("convenios")
+  .delete()
+  .eq("id", id)
+  .eq("municipio_id", usuario.municipio_id);
+
+if (error) {
+  alert(error.message);
+  return;
+}
 
     await registrarAuditoria({
       modulo: "Convênios",

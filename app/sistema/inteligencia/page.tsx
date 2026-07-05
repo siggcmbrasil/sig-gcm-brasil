@@ -21,24 +21,27 @@ const cards = [
     href: "/sistema/ia-juridica",
     descricao: "Consultas jurídicas e apoio legal",
   },
-  {
-    titulo: "IA Legislação",
-    icone: BookOpen,
-    href: "/sistema/legislacao",
-    descricao: "Pesquisa inteligente na legislação",
-  },
-  {
-    titulo: "IA Relatórios",
-    icone: FileText,
-    href: "/sistema/relatorios",
-    descricao: "Auxílio na elaboração de relatórios",
-  },
-  {
-    titulo: "IA Estatística",
-    icone: BarChart3,
-    href: "/sistema/estatisticas",
-    descricao: "Análise inteligente de indicadores",
-  },
+{
+  titulo: "IA Legislação",
+  icone: BookOpen,
+  href: "/sistema/inteligencia",
+  descricao: "Pesquisa inteligente na legislação",
+  emBreve: true,
+},
+{
+  titulo: "IA Relatórios",
+  icone: FileText,
+  href: "/sistema/inteligencia",
+  descricao: "Auxílio na elaboração de relatórios",
+  emBreve: true,
+},
+{
+  titulo: "IA Estatística",
+  icone: BarChart3,
+  href: "/sistema/inteligencia",
+  descricao: "Análise inteligente de indicadores",
+  emBreve: true,
+},
 ];
 
 export default function InteligenciaPage() {
@@ -63,9 +66,9 @@ export default function InteligenciaPage() {
           const Icone = card.icone;
 
           return (
-            <Link
-              key={card.href}
-              href={card.href}
+<Link
+  key={card.titulo}
+  href={card.href}
               className="
                 painel-premium
                 p-6
@@ -93,9 +96,15 @@ export default function InteligenciaPage() {
                     <Icone className="w-9 h-9 text-cyan-400" />
                   </div>
 
-                  <span className="text-cyan-400 text-xs font-black">
-                    IA
-                  </span>
+                  <span
+  className={`text-xs font-black px-2 py-1 rounded-full ${
+    card.emBreve
+      ? "bg-yellow-500/20 text-yellow-400"
+      : "bg-cyan-500/20 text-cyan-400"
+  }`}
+>
+  {card.emBreve ? "EM BREVE" : "IA"}
+</span>
                 </div>
 
                 <h2 className="text-2xl font-black text-white">

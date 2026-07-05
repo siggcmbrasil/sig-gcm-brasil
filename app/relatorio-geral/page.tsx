@@ -20,9 +20,15 @@ const municipioId = usuarioLogado?.municipio_id;
 const perfil = usuarioLogado?.perfil;
 
   async function gerarRelatorio() {
+  try {
 
 if (!municipioId) {
   alert("Município não identificado.");
+  return;
+}
+
+if (!inicio || !fim) {
+  alert("Informe o início e o fim do plantão.");
   return;
 }
 
@@ -68,6 +74,8 @@ if (!municipioId) {
 
       const dataInicio = new Date(inicio);
       const dataFim = new Date(fim);
+      dataFim.setSeconds(59);
+      dataFim.setMilliseconds(999);
 
       return lista.filter((item) => {
         const criadoEm = item.criado_em ? new Date(item.criado_em) : null;
@@ -99,10 +107,21 @@ if (!municipioId) {
   } até ${fim || "Todos"}.`,
 });
 
+  } catch (error) {
+    console.error(error);
+    alert("Erro ao gerar relatório.");
+  } finally {
+
+}
+
     setCarregando(false);
   }
 
   async function imprimirRelatorio() {
+    if (!dados) {
+  alert("Gere o relatório primeiro.");
+  return;
+}
   await registrarAuditoria({
     modulo: "Relatórios",
     acao: "IMPRIMIR_RELATORIO_PLANTAO",
@@ -397,7 +416,7 @@ function Campo({ label, valor }: { label: string; valor: any }) {
         {label}
       </p>
 
-      <p className="mt-1 wrap-break-words text-sm font-bold text-slate-900">
+      <p className="mt-1 break-words text-sm font-bold text-slate-900">
         {valor !== null && valor !== undefined && valor !== ""
           ? String(valor)
           : "Não informado"}

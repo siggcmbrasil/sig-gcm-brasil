@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
 
 export default function PerfilPage() {
   const [usuario, setUsuario] = useState<any>(null);
@@ -17,16 +19,34 @@ export default function PerfilPage() {
   }, []);
 
   async function salvarFoto() {
-    if (!usuario) return;
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
 
     if (!foto) {
       alert("Selecione uma foto primeiro.");
       return;
     }
 
+    if (!foto.type.startsWith("image/")) {
+  alert("Selecione apenas arquivos de imagem.");
+  return;
+}
+
+if (foto.size > 5 * 1024 * 1024) {
+  alert("A foto deve ter no máximo 5MB.");
+  return;
+}
+
     setSalvando(true);
 
-    const nomeArquivo = `${usuario.id}-${Date.now()}-${foto.name}`;
+    const nomeSeguro = foto.name
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-zA-Z0-9.]/g, "-");
+
+const nomeArquivo = `${usuario.municipio_id}/${usuario.id}-${Date.now()}-${nomeSeguro}`;
 
     const { error: uploadError } = await supabase.storage
       .from("fotos-guardas")
@@ -48,7 +68,8 @@ export default function PerfilPage() {
     const { error } = await supabase
   .from("usuarios")
   .update({ foto_url: novaFotoUrl })
-  .eq("email", usuario.email);
+  .eq("id", usuario.id)
+.eq("municipio_id", usuario.municipio_id);
 
     if (error) {
       console.error(error);
@@ -75,13 +96,18 @@ localStorage.setItem(
   "usuarioLogado",
   JSON.stringify(usuarioAtualizado)
 );
+await registrarAuditoria({
+  modulo: "PERFIL",
+  acao: "ATUALIZAR_FOTO",
+  descricao: "Atualizou a foto do perfil.",
+  registro_id: String(usuario.id),
+});
 
-    localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtualizado));
-    setUsuario(usuarioAtualizado);
-    setFoto(null);
-    setSalvando(false);
+setUsuario(usuarioAtualizado);
+setFoto(null);
+setSalvando(false);
 
-    alert("Foto atualizada com sucesso!");
+alert("Foto atualizada com sucesso!");
   }
 
 async function ativarNotificacoes() {
@@ -90,6 +116,11 @@ async function ativarNotificacoes() {
     return;
   }
 
+  if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+
   const permissao = await Notification.requestPermission();
 
   if (permissao !== "granted") {
@@ -97,9 +128,8 @@ async function ativarNotificacoes() {
     return;
   }
 
-  const registro = await navigator.serviceWorker.register("/sw.js");
-
-  await navigator.serviceWorker.ready;
+await navigator.serviceWorker.register("/sw.js");
+await navigator.serviceWorker.ready;
 
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
 
@@ -115,20 +145,32 @@ async function ativarNotificacoes() {
     applicationServerKey: urlBase64ToUint8Array(publicKey),
   });
 
-  await fetch("/api/push/subscribe", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      ...subscription.toJSON(),
-      municipio_id: usuario?.municipio_id || 1,
-      usuario_id: usuario?.id,
-      perfil: usuario?.perfil,
-    }),
-  });
+const resposta = await fetch("/api/push/subscribe", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    ...subscription.toJSON(),
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+    perfil: usuario.perfil,
+  }),
+});
 
-  alert("Notificações push ativadas com sucesso!");
+if (!resposta.ok) {
+  alert("Erro ao salvar inscrição de notificação.");
+  return;
+}
+
+  await registrarAuditoria({
+  modulo: "PERFIL",
+  acao: "ATIVAR_NOTIFICACOES",
+  descricao: "Ativou notificações push no dispositivo.",
+  registro_id: String(usuario.id),
+});
+
+alert("Notificações push ativadas com sucesso!");
 }
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -228,15 +270,24 @@ function urlBase64ToUint8Array(base64String: string) {
               📝 Editar Dados
             </button>
 
-             <button
-              className="bg-red-600 px-5 py-3 rounded-xl font-bold"
-              onClick={() => {
-                localStorage.removeItem("usuarioLogado");
-                window.location.href = "/login";
-              }}
-            >
-              🚪 Sair do Sistema
-            </button>
+<button
+  className="bg-red-600 px-5 py-3 rounded-xl font-bold"
+  onClick={async () => {
+    if (usuario?.id) {
+      await registrarAuditoria({
+        modulo: "PERFIL",
+        acao: "LOGOUT",
+        descricao: "Usuário saiu do sistema pelo perfil.",
+        registro_id: String(usuario.id),
+      });
+    }
+
+    localStorage.removeItem("usuarioLogado");
+    window.location.href = "/login";
+  }}
+>
+  🚪 Sair do Sistema
+</button>
           </div>
         </div>
       </div>

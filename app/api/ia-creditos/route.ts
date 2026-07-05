@@ -3,7 +3,9 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req: Request) {
   try {
-    const token = req.headers.get("authorization")?.replace("Bearer ", "");
+    const token = req.headers
+      .get("authorization")
+      ?.replace("Bearer ", "");
 
     if (!token) {
       return NextResponse.json(
@@ -22,22 +24,29 @@ export async function POST(req: Request) {
       );
     }
 
-    const { data: usuario, error: usuarioError } = await supabaseAdmin
-      .from("usuarios")
-      .select("id, municipio_id, status")
-      .eq("auth_id", authData.user.id)
-      .single();
+    const { data: usuario, error: usuarioError } =
+      await supabaseAdmin
+        .from("usuarios")
+        .select("id, municipio_id, status")
+        .eq("auth_id", authData.user.id)
+        .single();
 
     if (usuarioError || !usuario) {
       return NextResponse.json(
-        { saldo: 0, erro: "Usuário não encontrado no sistema." },
+        {
+          saldo: 0,
+          erro: "Usuário não encontrado no sistema.",
+        },
         { status: 403 }
       );
     }
 
     if (usuario.status !== "Ativo") {
       return NextResponse.json(
-        { saldo: 0, erro: "Usuário sem permissão de acesso." },
+        {
+          saldo: 0,
+          erro: "Usuário sem permissão de acesso.",
+        },
         { status: 403 }
       );
     }
@@ -46,19 +55,30 @@ export async function POST(req: Request) {
 
     if (!municipioId) {
       return NextResponse.json(
-        { saldo: 0, erro: "Usuário sem município vinculado." },
+        {
+          saldo: 0,
+          erro: "Usuário sem município vinculado.",
+        },
         { status: 400 }
       );
     }
 
     const { data, error } = await supabaseAdmin
       .from("ia_creditos_municipio")
-      .select("saldo")
+      .select("saldo, atualizado_em")
       .eq("municipio_id", municipioId)
       .maybeSingle();
 
     if (error) {
       console.error("Erro ao buscar créditos IA:", error);
+
+      await supabaseAdmin.from("auditoria_sistema").insert({
+        municipio_id: municipioId,
+        usuario_id: usuario.id,
+        modulo: "IA",
+        acao: "ERRO_CONSULTAR_CREDITOS",
+        detalhes: "Erro ao buscar saldo de créditos IA.",
+      });
 
       return NextResponse.json(
         { saldo: 0, erro: "Erro ao buscar créditos." },
@@ -69,12 +89,14 @@ export async function POST(req: Request) {
     if (!data) {
       return NextResponse.json({
         saldo: 0,
+        atualizado_em: null,
         erro: "Município sem créditos cadastrados.",
       });
     }
 
     return NextResponse.json({
-      saldo: data.saldo || 0,
+      saldo: Number(data.saldo || 0),
+      atualizado_em: data.atualizado_em || null,
     });
   } catch (error) {
     console.error("Erro geral créditos IA:", error);

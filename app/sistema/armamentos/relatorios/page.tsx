@@ -1,56 +1,139 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { supabase } from "@/lib/supabase";
 import {
-  FileText,
-  Shield,
-  ClipboardList,
-  Wrench,
-  Package,
   Archive,
+  ClipboardList,
+  FileText,
+  Lock,
+  Package,
+  Shield,
+  Wrench,
 } from "lucide-react";
 
 export default function RelatoriosArmamentoPage() {
+  const [usuario, setUsuario] = useState<any>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
+
   const [armamentos, setArmamentos] = useState<any[]>([]);
   const [cautelas, setCautelas] = useState<any[]>([]);
   const [manutencoes, setManutencoes] = useState<any[]>([]);
   const [municoes, setMunicoes] = useState<any[]>([]);
   const [inventarios, setInventarios] = useState<any[]>([]);
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  useEffect(() => {
+    async function iniciar() {
+      const dados = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+      if (!dados?.id || !dados?.municipio_id) {
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
 
-    const { data: listaArmamentos } = await supabase
+      if (!["ADMIN", "COMANDANTE", "DIRETOR", "DESENVOLVEDOR"].includes(dados.perfil || "")) {
+        await registrarAuditoria({
+          modulo: "Armamentos",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso aos relatórios de armamento.",
+          tabela: "armamentos",
+          detalhes: {
+            usuario_id: dados.id,
+            perfil: dados.perfil,
+            municipio_id: dados.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ACESSO",
+        descricao: "Acessou os relatórios de armamento.",
+        tabela: "armamentos",
+        detalhes: {
+          usuario_id: dados.id,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregar(dados);
+    }
+
+    iniciar();
+  }, []);
+
+  async function carregar(usuarioAtual: any) {
+    setCarregando(true);
+
+    const { data: listaArmamentos, error: erroArmamentos } = await supabase
       .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+      .select("id, tipo, marca, modelo, numero_serie, calibre, status")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .range(0, 499);
 
-    const { data: listaCautelas } = await supabase
+    const { data: listaCautelas, error: erroCautelas } = await supabase
       .from("cautelas_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+      .select("id, armamento_id, guarda_id, tipo, quantidade_municao, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
 
-    const { data: listaManutencoes } = await supabase
+    const { data: listaManutencoes, error: erroManutencoes } = await supabase
       .from("manutencoes_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+      .select("id, armamento_id, tipo, status, descricao, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
 
-    const { data: listaMunicoes } = await supabase
+    const { data: listaMunicoes, error: erroMunicoes } = await supabase
       .from("municoes_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+      .select("id, tipo_movimento, calibre, quantidade, lote, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
 
-    const { data: listaInventarios } = await supabase
+    const { data: listaInventarios, error: erroInventarios } = await supabase
       .from("inventario_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+      .select("id, armamento_id, status_conferencia, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
+
+    setCarregando(false);
+
+    if (
+      erroArmamentos ||
+      erroCautelas ||
+      erroManutencoes ||
+      erroMunicoes ||
+      erroInventarios
+    ) {
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ERRO",
+        descricao: "Erro ao carregar relatório geral de armamentos.",
+        tabela: "armamentos",
+        detalhes: {
+          erro_armamentos: erroArmamentos?.message,
+          erro_cautelas: erroCautelas?.message,
+          erro_manutencoes: erroManutencoes?.message,
+          erro_municoes: erroMunicoes?.message,
+          erro_inventarios: erroInventarios?.message,
+        },
+      });
+
+      alert("Erro ao carregar relatório.");
+      return;
+    }
 
     setArmamentos(listaArmamentos || []);
     setCautelas(listaCautelas || []);
@@ -58,10 +141,6 @@ export default function RelatoriosArmamentoPage() {
     setMunicoes(listaMunicoes || []);
     setInventarios(listaInventarios || []);
   }
-
-  useEffect(() => {
-    carregar();
-  }, []);
 
   const resumo = useMemo(() => {
     const entradasMunicao = municoes
@@ -85,14 +164,49 @@ export default function RelatoriosArmamentoPage() {
   }, [armamentos, cautelas, inventarios, manutencoes, municoes]);
 
   async function imprimir() {
-  window.print();
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
 
-  await registrarAuditoria({
-    modulo: "Armamentos",
-    acao: "IMPRIMIR_RELATORIO",
-    descricao: "Imprimiu o relatório geral de armamentos.",
-  });
-}
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "EXPORTAR",
+      descricao: "Imprimiu o relatório geral de armamentos.",
+      tabela: "armamentos",
+      detalhes: {
+        usuario_id: usuario.id,
+        municipio_id: usuario.municipio_id,
+        resumo,
+      },
+    });
+
+    window.print();
+  }
+
+  if (carregando) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="painel-premium p-10 text-center">
+          <p className="text-slate-400">Carregando relatório de armamentos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="painel-premium p-10 text-center">
+          <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+          <h2 className="text-2xl font-black text-white">Acesso Restrito</h2>
+          <p className="text-slate-400 mt-2">
+            Você não possui permissão para acessar os relatórios de armamento.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
@@ -230,15 +344,7 @@ export default function RelatoriosArmamentoPage() {
   );
 }
 
-function Card({
-  titulo,
-  valor,
-  icone: Icone,
-}: {
-  titulo: string;
-  valor: string;
-  icone: any;
-}) {
+function Card({ titulo, valor, icone: Icone }: { titulo: string; valor: string; icone: any }) {
   return (
     <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4">
       <div className="flex justify-between items-center">
@@ -252,13 +358,7 @@ function Card({
   );
 }
 
-function Bloco({
-  titulo,
-  children,
-}: {
-  titulo: string;
-  children: React.ReactNode;
-}) {
+function Bloco({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
     <div className="painel-premium p-6">
       <h2 className="text-xl font-black text-white mb-4">{titulo}</h2>

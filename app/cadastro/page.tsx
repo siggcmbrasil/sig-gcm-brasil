@@ -34,9 +34,15 @@ export default function Cadastro() {
   const [carregando, setCarregando] = useState(false);
 
   async function cadastrar() {
-    const cpfLimpo = cpf.replace(/\D/g, "");
+    if (carregando) return;
 
-    if (!nome.trim() || !email.trim() || !senha.trim()) {
+    const nomeLimpo = nome.trim();
+    const emailLimpo = email.trim().toLowerCase();
+    const cargoLimpo = cargo.trim();
+    const cpfLimpo = cpf.replace(/\D/g, "");
+    const telefoneLimpo = telefone.replace(/\D/g, "");
+
+    if (!nomeLimpo || !emailLimpo || !senha.trim()) {
       alert("Preencha nome, e-mail e senha.");
       return;
     }
@@ -53,47 +59,62 @@ export default function Cadastro() {
 
     setCarregando(true);
 
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password: senha,
-    });
+    try {
+      const { data: usuarioExistente } = await supabase
+        .from("usuarios")
+        .select("id")
+        .or(`email.eq.${emailLimpo},cpf.eq.${cpfLimpo}`)
+        .maybeSingle();
 
-    if (error || !data.user) {
+      if (usuarioExistente) {
+        alert("Já existe uma solicitação ou cadastro com este e-mail ou CPF.");
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signUp({
+        email: emailLimpo,
+        password: senha,
+      });
+
+      if (error || !data.user) {
+        alert(error?.message || "Erro ao criar usuário.");
+        return;
+      }
+
+      const { error: erroUsuario } = await supabase.from("usuarios").insert([
+        {
+          auth_id: data.user.id,
+          nome: nomeLimpo,
+          cpf: cpfLimpo,
+          email: emailLimpo,
+          telefone: telefoneLimpo,
+          cargo: cargoLimpo,
+          perfil: "CONSULTA",
+          status: "PENDENTE",
+          municipio_id: null,
+        },
+      ]);
+
+      if (erroUsuario) {
+        alert(`Erro ao cadastrar usuário: ${erroUsuario.message}`);
+        console.error("ERRO USUÁRIO:", erroUsuario);
+        return;
+      }
+
+      await registrarAuditoria({
+        modulo: "Cadastro",
+        acao: "SOLICITAR_ACESSO",
+        descricao: `Solicitação de acesso criada para ${nomeLimpo} (${emailLimpo}).`,
+      });
+
+      alert("Solicitação enviada com sucesso. Aguarde aprovação do administrador.");
+      router.push("/login");
+    } catch (error) {
+      console.error("ERRO CADASTRO:", error);
+      alert("Erro inesperado ao solicitar acesso.");
+    } finally {
       setCarregando(false);
-      alert(error?.message || "Erro ao criar usuário.");
-      return;
     }
-
-    const { error: erroUsuario } = await supabase.from("usuarios").insert([
-      {
-        auth_id: data.user.id,
-        nome: nome.trim(),
-        cpf,
-        email: email.trim(),
-        telefone,
-        cargo: cargo.trim(),
-        perfil: "CONSULTA",
-        status: "Pendente",
-        municipio_id: null,
-      },
-    ]);
-
-    setCarregando(false);
-
-    if (erroUsuario) {
-      alert(`Erro ao cadastrar usuário: ${erroUsuario.message}`);
-      console.error("ERRO USUÁRIO:", erroUsuario);
-      return;
-    }
-
-    await registrarAuditoria({
-  modulo: "Cadastro",
-  acao: "SOLICITAR_ACESSO",
-  descricao: `Solicitação de acesso criada para ${nome.trim()} (${email.trim()}).`,
-});
-
-    alert("Solicitação enviada com sucesso. Aguarde aprovação do administrador.");
-    router.push("/login");
   }
 
   return (

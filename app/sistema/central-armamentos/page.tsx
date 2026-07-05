@@ -81,7 +81,7 @@ export default function CentralArmamentosPage() {
         </p>
       </div>
 
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {modulos.map((modulo) => {
           const Icon = modulo.icon;
 
@@ -89,7 +89,7 @@ export default function CentralArmamentosPage() {
             <Link
               key={modulo.href}
               href={modulo.href}
-              className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl hover:border-amber-500/60 hover:bg-slate-900 transition"
+              className="painel-premium p-5 hover:border-amber-500/60 hover:bg-slate-900 transition"
             >
               <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mb-4">
                 <Icon className="text-amber-400" size={26} />

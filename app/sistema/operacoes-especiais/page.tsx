@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   Plus,
   ShieldCheck,
@@ -35,9 +36,25 @@ export default function OperacoesEspeciaisPage() {
   const [orgaosEnvolvidos, setOrgaosEnvolvidos] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
-  function pegarUsuario() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+function pegarUsuario() {
+  try {
+    const usuario = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (
+      !usuario?.id ||
+      !usuario?.municipio_id ||
+      !usuario?.perfil
+    ) {
+      return null;
+    }
+
+    return usuario;
+  } catch {
+    return null;
   }
+}
 
   useEffect(() => {
     carregarOperacoes();
@@ -45,11 +62,34 @@ export default function OperacoesEspeciaisPage() {
 
   async function carregarOperacoes() {
     setCarregando(true);
-    const usuario = pegarUsuario();
+const usuario = pegarUsuario();
 
-    const { data, error } = await supabase
+if (!usuario) {
+  setCarregando(false);
+  return;
+}
+
+const { data, error } = await supabase
       .from("operacoes_especiais")
-      .select("*")
+      .select(`
+id,
+nome,
+tipo,
+objetivo,
+local,
+data,
+hora_inicio,
+hora_fim,
+latitude,
+longitude,
+comandante,
+efetivo,
+orgaos_envolvidos,
+observacoes,
+status,
+created_at
+`)
+.limit(100)
       .eq("municipio_id", usuario.municipio_id)
       .order("created_at", { ascending: false });
 
@@ -93,10 +133,51 @@ export default function OperacoesEspeciaisPage() {
   async function salvarOperacao() {
     const usuario = pegarUsuario();
 
+    if (!usuario) {
+  alert("Sessão inválida.");
+  return;
+}
+
+if (
+  ![
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "PLANTONISTA",
+  ].includes(usuario.perfil)
+) {
+  alert("Você não possui permissão.");
+  return;
+}
+
     if (!usuario?.municipio_id) {
       alert("Município do usuário não identificado.");
       return;
     }
+
+    if (
+  Number(efetivo) < 0
+) {
+  alert("Efetivo inválido.");
+  return;
+}
+
+if (
+  latitude &&
+  isNaN(Number(latitude))
+) {
+  alert("Latitude inválida.");
+  return;
+}
+
+if (
+  longitude &&
+  isNaN(Number(longitude))
+) {
+  alert("Longitude inválida.");
+  return;
+}
 
     if (!nome || !local || !data || !horaInicio) {
       alert("Preencha nome, local, data e hora inicial.");
@@ -117,18 +198,51 @@ export default function OperacoesEspeciaisPage() {
         longitude: longitude ? Number(longitude) : null,
         comandante,
         efetivo: Number(efetivo || 0),
-        orgaos_envovidos: orgaosEnvolvidos,
+        orgaos_envolvidos:
+  orgaosEnvolvidos,
         observacoes,
         status: "PLANEJADA",
-        criado_por: null,
+        criado_por: usuario.id,
+criado_em: new Date().toISOString(),
+atualizado_em: new Date().toISOString(),
       },
     ]);
 
-    if (error) {
-      alert("Erro ao salvar operação especial.");
-      console.error(error);
-      return;
-    }
+if (error) {
+  console.error(error);
+
+  await registrarAuditoria({
+    modulo: "Operações Especiais",
+    acao: "ERRO",
+    descricao:
+      "Erro ao cadastrar operação especial.",
+    tabela: "operacoes_especiais",
+    detalhes: {
+      erro: error.message,
+      municipio_id:
+        usuario.municipio_id,
+    },
+  });
+
+  alert("Erro ao salvar operação especial.");
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Operações Especiais",
+  acao: "CRIAR",
+  descricao:
+    `Criou a operação ${nome}.`,
+  tabela: "operacoes_especiais",
+  detalhes: {
+    nome,
+    tipo,
+    local,
+    data,
+    municipio_id:
+      usuario.municipio_id,
+  },
+});
 
     setNome("");
     setTipo("SATURACAO");
@@ -150,23 +264,69 @@ export default function OperacoesEspeciaisPage() {
   async function atualizarStatus(id: string, status: string) {
     const usuario = pegarUsuario();
 
-    await supabase
-      .from("operacoes_especiais")
-      .update({
-        status,
-        latitude: status === "FINALIZADA" ? null : undefined,
-        longitude: status === "FINALIZADA" ? null : undefined,
-      })
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+const { error } =
+  await supabase
+    .from("operacoes_especiais")
+    .update({
+      status,
+      atualizado_em:
+        new Date().toISOString(),
+      latitude:
+        status === "FINALIZADA"
+          ? null
+          : undefined,
+      longitude:
+        status === "FINALIZADA"
+          ? null
+          : undefined,
+    })
+    .eq("id", id)
+    .eq(
+      "municipio_id",
+      usuario.municipio_id
+    );
 
-    carregarOperacoes();
-  }
+if (error) {
+  alert("Erro ao atualizar.");
+  return;
+}
 
-  async function apagarTestes() {
+await registrarAuditoria({
+  modulo: "Operações Especiais",
+  acao: "EDITAR",
+  descricao: `Alterou status para ${status}.`,
+  tabela: "operacoes_especiais",
+  registro_id: id,
+  detalhes: {
+    status,
+    municipio_id: usuario.municipio_id,
+  },
+});
+
+await carregarOperacoes();
+}
+
+async function apagarTestes() {
     const usuario = pegarUsuario();
 
-    if (!confirm("Apagar operações especiais de teste deste município?")) return;
+const motivo = prompt(
+  "Informe o motivo da exclusão:"
+);
+
+if (!motivo?.trim()) {
+  alert(
+    "Informe o motivo."
+  );
+  return;
+}
+
+if (
+  !confirm(
+    "Apagar operações especiais de teste deste município?"
+  )
+) {
+  return;
+}
 
     const { error } = await supabase
       .from("operacoes_especiais")
@@ -175,12 +335,36 @@ export default function OperacoesEspeciaisPage() {
       .or("nome.ilike.%teste%,local.ilike.%teste%,observacoes.ilike.%teste%");
 
     if (error) {
-      alert("Erro ao apagar testes.");
-      console.error(error);
-      return;
-    }
+  alert("Erro ao apagar testes.");
+  console.error(error);
 
-    alert("Operações de teste apagadas.");
+  await registrarAuditoria({
+    modulo: "Operações Especiais",
+    acao: "ERRO",
+    descricao: "Erro ao apagar operações de teste.",
+    tabela: "operacoes_especiais",
+    detalhes: {
+      erro: error.message,
+      motivo,
+      municipio_id: usuario.municipio_id,
+    },
+  });
+
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Operações Especiais",
+  acao: "EXCLUIR",
+  descricao: "Apagou operações de teste.",
+  tabela: "operacoes_especiais",
+  detalhes: {
+    motivo,
+    municipio_id: usuario.municipio_id,
+  },
+});
+
+alert("Operações de teste apagadas.");
     carregarOperacoes();
   }
 

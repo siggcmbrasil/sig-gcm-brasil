@@ -2,35 +2,104 @@
 
 import { useEffect, useState } from "react";
 import {
+  Clock,
   Database,
   Download,
-  Upload,
-  ShieldCheck,
-  Clock,
-  Lock,
   FileJson,
+  Lock,
+  ShieldCheck,
   Trash2,
+  Upload,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { gerarBackupAutomatico } from "@/lib/backup";
+
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigActionCard from "@/components/sig/SigActionCard";
-import { gerarBackupAutomatico } from "@/lib/backup";
+
+type UsuarioLogado = {
+  id: number;
+  perfil?: string;
+  municipio_id: number;
+};
+
+type Backup = {
+  id: number;
+  nome: string | null;
+  arquivo_url: string | null;
+  tipo: string | null;
+  tamanho: string | null;
+  criado_em: string | null;
+};
 
 export default function BackupPage() {
-  const [backups, setBackups] = useState<any[]>([]);
-  const [carregando, setCarregando] = useState(false);
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [backups, setBackups] = useState<Backup[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [gerando, setGerando] = useState(false);
+  const [bloqueado, setBloqueado] = useState(false);
 
   useEffect(() => {
-    carregarBackups();
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      ) as UsuarioLogado;
+
+      if (!dados?.id || !dados?.municipio_id) {
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      if (
+        ![
+          "ADMIN",
+          "COMANDANTE",
+          "DIRETOR",
+          "DESENVOLVEDOR",
+        ].includes(dados.perfil || "")
+      ) {
+        await registrarAuditoria({
+          modulo: "Backup",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso ao módulo de backup sem permissão.",
+          tabela: "backups_sistema",
+          detalhes: {
+            usuario_id: dados.id,
+            perfil: dados.perfil,
+            municipio_id: dados.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ACESSO",
+        descricao: "Acessou a Central de Backup.",
+        tabela: "backups_sistema",
+        detalhes: {
+          usuario_id: dados.id,
+          perfil: dados.perfil,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregarBackups(dados);
+    }
+
+    iniciar();
   }, []);
 
-  function usuarioLogado() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-  }
-
-  function formatarDataHora(data: string) {
+  function formatarDataHora(data: string | null) {
     if (!data) return "Data não informada";
 
     return new Date(data).toLocaleString("pt-BR", {
@@ -38,70 +107,138 @@ export default function BackupPage() {
     });
   }
 
-  async function registrarAuditoria(acao: string, detalhes: string) {
-    const usuario = usuarioLogado();
+  async function carregarBackups(usuarioAtual: UsuarioLogado) {
+    setCarregando(true);
 
-    await supabase.from("auditoria_sistema").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario.id,
-      modulo: "BACKUP",
-      acao,
-      detalhes,
-    });
-  }
-
-  async function carregarBackups() {
-    const usuario = usuarioLogado();
-
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("backups_sistema")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      .select("id, nome, arquivo_url, tipo, tamanho, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 99);
+
+    setCarregando(false);
+
+    if (error) {
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ERRO",
+        descricao: "Erro ao carregar backups.",
+        tabela: "backups_sistema",
+        detalhes: {
+          erro: error.message,
+          usuario_id: usuarioAtual.id,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar backups.");
+      return;
+    }
 
     setBackups(data || []);
   }
 
   async function criarBackup() {
-    setCarregando(true);
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    setGerando(true);
 
     try {
-      const usuario = usuarioLogado();
-
       await gerarBackupAutomatico(usuario, "backup_manual");
 
-      await registrarAuditoria("CRIAR_BACKUP", "Backup manual criado.");
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "CRIAR",
+        descricao: "Criou backup manual do sistema.",
+        tabela: "backups_sistema",
+        detalhes: {
+          usuario_id: usuario.id,
+          municipio_id: usuario.municipio_id,
+          tipo: "backup_manual",
+        },
+      });
 
       alert("Backup criado com sucesso.");
-      await carregarBackups();
-    } catch (error) {
-      console.error(error);
-
-      await registrarAuditoria("ERRO_BACKUP", "Erro ao criar backup.");
+      await carregarBackups(usuario);
+    } catch (error: any) {
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ERRO",
+        descricao: "Erro ao criar backup manual.",
+        tabela: "backups_sistema",
+        detalhes: {
+          erro: error?.message || String(error),
+          usuario_id: usuario.id,
+          municipio_id: usuario.municipio_id,
+        },
+      });
 
       alert("Erro ao criar backup.");
     }
 
-    setCarregando(false);
+    setGerando(false);
   }
 
-  async function registrarDownload(item: any) {
-    await registrarAuditoria(
-      "DOWNLOAD_BACKUP",
-      `Baixou o backup ${item.nome}`
-    );
+  async function registrarDownload(item: Backup) {
+    if (!usuario?.id || !usuario?.municipio_id) return;
+
+    await registrarAuditoria({
+      modulo: "Backup",
+      acao: "EXPORTAR",
+      descricao: `Baixou o backup ${item.nome || item.id}.`,
+      tabela: "backups_sistema",
+      registro_id: item.id,
+      detalhes: {
+        usuario_id: usuario.id,
+        municipio_id: usuario.municipio_id,
+        backup: item,
+      },
+    });
   }
 
-  async function excluirBackup(item: any) {
-    const confirmar = confirm(`Deseja excluir o backup ${item.nome}?`);
+  async function excluirBackup(item: Backup) {
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
 
-    if (!confirmar) return;
+    const motivo = prompt("Informe o motivo da exclusão do backup:");
 
-    const usuario = usuarioLogado();
+    if (!motivo?.trim()) {
+      alert("Informe o motivo da exclusão.");
+      return;
+    }
 
-    await supabase.storage
+    if (!item.nome) {
+      alert("Backup sem nome de arquivo.");
+      return;
+    }
+
+    const { error: erroStorage } = await supabase.storage
       .from("backups")
       .remove([`${usuario.municipio_id}/${item.nome}`]);
+
+    if (erroStorage) {
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ERRO",
+        descricao: "Erro ao excluir arquivo do backup no Storage.",
+        tabela: "backups_sistema",
+        registro_id: item.id,
+        detalhes: {
+          erro: erroStorage.message,
+          motivo,
+          backup: item,
+        },
+      });
+
+      alert("Erro ao excluir arquivo do backup.");
+      return;
+    }
 
     const { error } = await supabase
       .from("backups_sistema")
@@ -110,18 +247,73 @@ export default function BackupPage() {
       .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
-      console.error(error);
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ERRO",
+        descricao: "Erro ao excluir registro do backup.",
+        tabela: "backups_sistema",
+        registro_id: item.id,
+        detalhes: {
+          erro: error.message,
+          motivo,
+          backup: item,
+        },
+      });
+
       alert("Erro ao excluir backup.");
       return;
     }
 
-    await registrarAuditoria(
-      "EXCLUIR_BACKUP",
-      `Excluiu o backup ${item.nome}`
-    );
+    await registrarAuditoria({
+      modulo: "Backup",
+      acao: "EXCLUIR",
+      descricao: `Excluiu o backup ${item.nome}.`,
+      tabela: "backups_sistema",
+      registro_id: item.id,
+      detalhes: {
+        motivo,
+        backup: item,
+      },
+    });
 
     alert("Backup excluído.");
-    await carregarBackups();
+    await carregarBackups(usuario);
+  }
+
+  if (carregando) {
+    return (
+      <div className="p-4 md:p-6">
+        <SigCard>
+          <p className="text-slate-400">Carregando backups...</p>
+        </SigCard>
+      </div>
+    );
+  }
+
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6 pb-24 space-y-6">
+        <SigPageHeader
+          titulo="Acesso Restrito"
+          subtitulo="Você não possui permissão para acessar Backup."
+          icone={Lock}
+        />
+
+        <SigCard>
+          <div className="text-center py-12">
+            <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+
+            <h2 className="text-2xl font-black text-white">
+              Acesso negado
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+              Apenas perfis autorizados podem acessar backups do sistema.
+            </p>
+          </div>
+        </SigCard>
+      </div>
+    );
   }
 
   return (
@@ -144,8 +336,7 @@ export default function BackupPage() {
             </h2>
 
             <p className="text-slate-400 mt-2">
-              Todo backup respeita o município logado e gera registro de
-              auditoria para segurança dos dados.
+              Todo backup respeita o município logado e gera auditoria para segurança dos dados.
             </p>
           </div>
         </div>
@@ -154,7 +345,7 @@ export default function BackupPage() {
       <div className="grid md:grid-cols-3 gap-4">
         <button
           onClick={criarBackup}
-          disabled={carregando}
+          disabled={gerando}
           className="rounded-2xl border border-slate-700 bg-slate-900 p-5 text-left hover:border-blue-500 transition disabled:opacity-50"
         >
           <Download className="w-8 h-8 text-blue-400 mb-3" />
@@ -162,7 +353,7 @@ export default function BackupPage() {
           <h3 className="font-black text-white">Criar Backup</h3>
 
           <p className="text-sm text-slate-400 mt-1">
-            {carregando ? "Gerando backup..." : "Gerar backup manual em JSON."}
+            {gerando ? "Gerando backup..." : "Gerar backup manual em JSON."}
           </p>
         </button>
 
@@ -194,22 +385,22 @@ export default function BackupPage() {
           <div className="text-center py-12">
             <Database className="w-16 h-16 mx-auto text-slate-600 mb-4" />
 
-            <p className="text-slate-400">
-              Nenhum backup criado ainda.
-            </p>
+            <p className="text-slate-400">Nenhum backup criado ainda.</p>
           </div>
         ) : (
           <div className="space-y-3">
-            {backups.slice(0, 5).map((item) => (
+            {backups.map((item) => (
               <div
                 key={item.id}
                 className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 rounded-2xl border border-slate-700 bg-slate-950/40 p-4"
               >
-                <div className="flex items-start gap-3">
-                  <FileJson className="w-6 h-6 text-green-400 mt-1" />
+                <div className="flex items-start gap-3 min-w-0">
+                  <FileJson className="w-6 h-6 text-green-400 mt-1 shrink-0" />
 
-                  <div>
-                    <p className="font-bold text-white">{item.nome}</p>
+                  <div className="min-w-0">
+                    <p className="font-bold text-white break-words">
+                      {item.nome || "Backup sem nome"}
+                    </p>
 
                     <p className="text-sm text-slate-400">
                       {formatarDataHora(item.criado_em)} •{" "}

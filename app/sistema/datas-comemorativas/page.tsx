@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function DatasComemorativasPage() {
   const [datas, setDatas] = useState<any[]>([]);
@@ -39,7 +40,12 @@ export default function DatasComemorativasPage() {
   }, []);
 
   async function salvar() {
-    if (!titulo || !dataInicio) {
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!titulo.trim() || !dataInicio) {
       alert("Preencha título e data inicial.");
       return;
     }
@@ -50,13 +56,13 @@ export default function DatasComemorativasPage() {
       {
         municipio_id: usuario.municipio_id,
         criado_por: usuario.id,
-        titulo,
-        categoria,
-        data_inicio: dataInicio,
-        data_fim: dataFim || null,
-        visibilidade,
-        descricao,
-        ativo: true,
+       titulo: titulo.trim(),
+categoria,
+data_inicio: dataInicio,
+data_fim: dataFim || null,
+visibilidade,
+descricao: descricao.trim() || null,
+ativo: true,
       },
     ]);
 
@@ -66,6 +72,12 @@ export default function DatasComemorativasPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Datas Comemorativas",
+  acao: "CRIAR",
+  descricao: `Cadastrou a data/campanha: ${titulo.trim()}.`,
+});
 
     setTitulo("");
     setCategoria("CAMPANHA");

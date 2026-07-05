@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   BarChart3,
@@ -11,9 +11,16 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
-import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: number;
+  nome?: string;
+  perfil?: string;
+  municipio_id: number;
+};
 
 type Ocorrencia = {
   id: number;
@@ -26,34 +33,72 @@ type Ocorrencia = {
 };
 
 export default function AnaliseOcorrenciasPage() {
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [gerando, setGerando] = useState(false);
 
   useEffect(() => {
-    carregar();
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      );
+
+      if (!dados?.id || !dados?.municipio_id) {
+        alert("Sessão inválida. Faça login novamente.");
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Análise de Ocorrências",
+        acao: "ACESSO",
+        descricao: "Acessou a análise operacional de ocorrências.",
+        tabela: "ocorrencias",
+        detalhes: {
+          usuario_id: dados.id,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregar(dados);
+    }
+
+    iniciar();
   }, []);
 
-  async function carregar() {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-
-    if (!usuario?.municipio_id) {
+  async function carregar(usuarioAtual: UsuarioLogado) {
+    if (!usuarioAtual?.municipio_id) {
       alert("Município não identificado.");
       setCarregando(false);
       return;
     }
 
+    setCarregando(true);
+
     const { data, error } = await supabase
       .from("ocorrencias")
       .select("id, tipo, bairro, local, data, hora, status")
-      .eq("municipio_id", usuario.municipio_id)
+      .eq("municipio_id", usuarioAtual.municipio_id)
       .order("id", { ascending: false })
       .limit(500);
 
     setCarregando(false);
 
     if (error) {
-      console.error(error);
+      await registrarAuditoria({
+        modulo: "Análise de Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao carregar ocorrências para análise.",
+        tabela: "ocorrencias",
+        detalhes: {
+          erro: error.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
       alert("Erro ao carregar ocorrências.");
       return;
     }
@@ -94,10 +139,22 @@ export default function AnaliseOcorrenciasPage() {
   }
 
   async function gerarAlertas() {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida. Faça login novamente.");
+      return;
+    }
 
-    if (!usuario?.municipio_id) {
-      alert("Município não identificado.");
+    if (
+      !["ADMIN", "COMANDANTE", "DIRETOR", "DESENVOLVEDOR"].includes(
+        usuario.perfil || ""
+      )
+    ) {
+      alert("Você não possui permissão para gerar alertas.");
+      return;
+    }
+
+    if (ocorrencias.length === 0) {
+      alert("Não existem ocorrências para analisar.");
       return;
     }
 
@@ -110,7 +167,7 @@ export default function AnaliseOcorrenciasPage() {
 
     const novosAlertas: any[] = [];
 
-    if (tipos[0] && tipos[0][1] >= 5) {
+    if (tipos[0] && tipos[0][0] !== "Não informado" && tipos[0][1] >= 5) {
       novosAlertas.push({
         municipio_id: usuario.municipio_id,
         tipo: "TIPO_RECORRENTE",
@@ -118,10 +175,12 @@ export default function AnaliseOcorrenciasPage() {
         mensagem: `${tipos[0][0]} aparece em ${tipos[0][1]} registros recentes.`,
         nivel: tipos[0][1] >= 10 ? "ALTO" : "MEDIO",
         origem: "ANALISE_OCORRENCIAS",
+        ativo: true,
+        criado_por: usuario.id,
       });
     }
 
-    if (bairros[0] && bairros[0][0] !== "Não informado" && bairros[0][1] >= 1) {
+    if (bairros[0] && bairros[0][0] !== "Não informado" && bairros[0][1] >= 3) {
       novosAlertas.push({
         municipio_id: usuario.municipio_id,
         tipo: "BAIRRO_CRITICO",
@@ -129,10 +188,12 @@ export default function AnaliseOcorrenciasPage() {
         mensagem: `${bairros[0][0]} possui ${bairros[0][1]} ocorrências recentes.`,
         nivel: bairros[0][1] >= 10 ? "ALTO" : "MEDIO",
         origem: "ANALISE_OCORRENCIAS",
+        ativo: true,
+        criado_por: usuario.id,
       });
     }
 
-    if (locais[0] && locais[0][0] !== "Não informado" && locais[0][1] >= 1) {
+    if (locais[0] && locais[0][0] !== "Não informado" && locais[0][1] >= 3) {
       novosAlertas.push({
         municipio_id: usuario.municipio_id,
         tipo: "LOCAL_REINCIDENTE",
@@ -140,10 +201,12 @@ export default function AnaliseOcorrenciasPage() {
         mensagem: `${locais[0][0]} aparece em ${locais[0][1]} registros.`,
         nivel: locais[0][1] >= 6 ? "ALTO" : "MEDIO",
         origem: "ANALISE_OCORRENCIAS",
+        ativo: true,
+        criado_por: usuario.id,
       });
     }
 
-    if (horarios[0] && horarios[0][1] >= 1) {
+    if (horarios[0] && horarios[0][1] >= 5) {
       novosAlertas.push({
         municipio_id: usuario.municipio_id,
         tipo: "HORARIO_CRITICO",
@@ -151,6 +214,8 @@ export default function AnaliseOcorrenciasPage() {
         mensagem: `${horarios[0][0]} concentra ${horarios[0][1]} ocorrências recentes.`,
         nivel: horarios[0][1] >= 10 ? "ALTO" : "MEDIO",
         origem: "ANALISE_OCORRENCIAS",
+        ativo: true,
+        criado_por: usuario.id,
       });
     }
 
@@ -160,23 +225,67 @@ export default function AnaliseOcorrenciasPage() {
       return;
     }
 
-    const { error } = await supabase
+    const { error: erroExcluir } = await supabase
       .from("alertas_operacionais")
-      .insert(novosAlertas);
+      .update({
+        ativo: false,
+        atualizado_em: new Date().toISOString(),
+      })
+      .eq("municipio_id", usuario.municipio_id)
+      .eq("origem", "ANALISE_OCORRENCIAS")
+      .eq("ativo", true);
+
+    if (erroExcluir) {
+      setGerando(false);
+
+      await registrarAuditoria({
+        modulo: "Análise de Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao desativar alertas antigos da análise.",
+        tabela: "alertas_operacionais",
+        detalhes: {
+          erro: erroExcluir.message,
+        },
+      });
+
+      alert("Erro ao atualizar alertas antigos.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("alertas_operacionais")
+      .insert(novosAlertas)
+      .select("id");
 
     setGerando(false);
 
     if (error) {
-      console.error(error);
-      alert(error.message);
+      await registrarAuditoria({
+        modulo: "Análise de Ocorrências",
+        acao: "ERRO",
+        descricao: "Erro ao gerar alertas operacionais.",
+        tabela: "alertas_operacionais",
+        detalhes: {
+          erro: error.message,
+          alertas: novosAlertas,
+        },
+      });
+
+      alert("Erro ao gerar alertas.");
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Análise de Ocorrências",
-  acao: "GERAR_ALERTAS",
-  descricao: `Gerou ${novosAlertas.length} alerta(s) operacionais a partir da análise de ocorrências.`,
-});
+      modulo: "Análise de Ocorrências",
+      acao: "CRIAR",
+      descricao: `Gerou ${novosAlertas.length} alerta(s) operacionais a partir da análise de ocorrências.`,
+      tabela: "alertas_operacionais",
+      detalhes: {
+        alertas_gerados: data,
+        total_ocorrencias_analisadas: ocorrencias.length,
+        municipio_id: usuario.municipio_id,
+      },
+    });
 
     alert(`${novosAlertas.length} alerta(s) gerado(s).`);
   }
@@ -199,7 +308,7 @@ export default function AnaliseOcorrenciasPage() {
           <AlertTriangle className="w-8 h-8 text-cyan-400 mb-3" />
           <p className="text-slate-400 text-sm">Ocorrências analisadas</p>
           <h2 className="text-4xl font-black text-white mt-2">
-            {ocorrencias.length}
+            {carregando ? "..." : ocorrencias.length}
           </h2>
         </SigCard>
 
@@ -209,7 +318,9 @@ export default function AnaliseOcorrenciasPage() {
           <h2 className="text-xl font-black text-white mt-2">
             {tipos[0]?.[0] || "-"}
           </h2>
-          <p className="text-cyan-400 text-sm mt-1">{tipos[0]?.[1] || 0} registros</p>
+          <p className="text-cyan-400 text-sm mt-1">
+            {tipos[0]?.[1] || 0} registros
+          </p>
         </SigCard>
 
         <SigCard>
@@ -218,7 +329,9 @@ export default function AnaliseOcorrenciasPage() {
           <h2 className="text-xl font-black text-white mt-2">
             {bairros[0]?.[0] || "-"}
           </h2>
-          <p className="text-yellow-400 text-sm mt-1">{bairros[0]?.[1] || 0} registros</p>
+          <p className="text-yellow-400 text-sm mt-1">
+            {bairros[0]?.[1] || 0} registros
+          </p>
         </SigCard>
 
         <SigCard>
@@ -227,7 +340,9 @@ export default function AnaliseOcorrenciasPage() {
           <h2 className="text-xl font-black text-white mt-2">
             {horarios[0]?.[0] || "-"}
           </h2>
-          <p className="text-orange-400 text-sm mt-1">{horarios[0]?.[1] || 0} registros</p>
+          <p className="text-orange-400 text-sm mt-1">
+            {horarios[0]?.[1] || 0} registros
+          </p>
         </SigCard>
       </div>
 

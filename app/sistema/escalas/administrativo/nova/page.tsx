@@ -46,8 +46,11 @@ export default function EscalasAdministrativasPage() {
     setRegistros(registrosData || []);
   }
 
-  async function salvar() {
-    if (!municipioId) return alert("Município não identificado.");
+async function salvar() {
+  if (!usuario?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
+  }
     if (!guardaId || !data || !setor) {
       return alert("Preencha guarda, data e setor.");
     }
@@ -58,11 +61,11 @@ export default function EscalasAdministrativasPage() {
       municipio_id: municipioId,
       guarda_id: Number(guardaId),
       guarda_nome: guarda?.nome || "",
-      setor,
-      data,
-      hora_inicio: horaInicio,
-      hora_fim: horaFim,
-      observacao,
+      setor: setor.trim(),
+data,
+hora_inicio: horaInicio,
+hora_fim: horaFim,
+observacao: observacao.trim() || null,
       status: "ATIVA",
     });
 
@@ -88,7 +91,12 @@ export default function EscalasAdministrativasPage() {
   }
 
   async function excluir(id: number) {
-    if (!confirm("Excluir esta escala administrativa?")) return;
+  if (!usuario?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!confirm("Excluir esta escala administrativa?")) return;
 
     const registro = registros.find((r) => r.id === id);
 
@@ -104,7 +112,7 @@ export default function EscalasAdministrativasPage() {
     }
 
     await registrarAuditoria({
-      modulo: "Escalas",
+      modulo: "Escalas Administrativas",
       acao: "EXCLUIR_ADMINISTRATIVA",
       descricao: `Excluiu escala administrativa de ${
         registro?.guarda_nome || `ID ${id}`

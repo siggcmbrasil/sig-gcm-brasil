@@ -20,11 +20,11 @@ const cards = [
     icone: ShieldCheck,
   },
   {
-    titulo: "Nova Operação",
-    href: "/sistema/operacoes-especiais",
-    descricao: "Cadastrar nova operação especial.",
-    icone: PlusCircle,
-  },
+  titulo: "Nova Operação",
+  href: "/sistema/operacoes-especiais/nova",
+  descricao: "Cadastrar nova operação especial.",
+  icone: PlusCircle,
+},
   {
     titulo: "Planejamento",
     href: "/sistema/ordens-servico",

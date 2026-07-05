@@ -22,6 +22,7 @@ type Guarda = {
   foto_url: string | null;
   graduacao?: string | null;
   lotacao?: string | null;
+  ativo?: boolean | null;
 };
 
 export default function GuardasPage() {
@@ -54,6 +55,7 @@ export default function GuardasPage() {
       .from("guardas")
       .select("*")
       .eq("municipio_id", municipioId)
+      .eq("ativo", true)
       .order("id", { ascending: false });
 
     setCarregando(false);
@@ -67,35 +69,57 @@ export default function GuardasPage() {
     setGuardas(data || []);
   }
 
-  async function excluirGuarda(id: number) {
+  async function desativarGuarda(id: number) {
     if (!podeEditar) {
-      alert("Você não possui permissão para excluir guardas.");
+      alert("Você não possui permissão para desativar guardas.");
       return;
     }
 
-    if (!confirm("Tem certeza que deseja excluir este guarda?")) return;
+    const guardaDesativado = guardas.find((g) => g.id === id);
 
-    const guardaExcluido = guardas.find((g) => g.id === id);
+    if (
+      !confirm(
+        `Desativar o guarda ${
+          guardaDesativado?.nome || `ID ${id}`
+        }?\n\nEle não será apagado do banco. O histórico ficará preservado.`
+      )
+    ) {
+      return;
+    }
 
     const { error } = await supabase
       .from("guardas")
-      .delete()
+      .update({
+        ativo: false,
+        status: "INATIVO",
+        desativado_em: new Date().toISOString(),
+        desativado_por: usuarioLogado?.id || null,
+      })
       .eq("id", id)
       .eq("municipio_id", municipioId);
 
     if (error) {
-  console.error(error);
-  alert("Erro ao excluir guarda.");
-  return;
-}
+      console.error(error);
+      alert("Erro ao desativar guarda.");
+      return;
+    }
 
-await registrarAuditoria({
-  modulo: "Guardas",
-  acao: "EXCLUIR",
-  descricao: `Excluiu o guarda ${guardaExcluido?.nome || `ID ${id}`}.`,
-});
+    await registrarAuditoria({
+      modulo: "Guardas",
+      acao: "DESATIVAR",
+      tabela: "guardas",
+      descricao: `Desativou o guarda ${
+        guardaDesativado?.nome || `ID ${id}`
+      }.`,
+      detalhes: {
+        guarda_id: id,
+        nome: guardaDesativado?.nome || null,
+        matricula: guardaDesativado?.matricula || null,
+        municipio_id: municipioId,
+      },
+    });
 
-carregarGuardas();
+    carregarGuardas();
   }
 
   function formatarData(data: string | null) {
@@ -255,11 +279,11 @@ carregarGuardas();
 
                         <button
                           type="button"
-                          onClick={() => excluirGuarda(guarda.id)}
+                          onClick={() => desativarGuarda(guarda.id)}
                           className="inline-flex items-center gap-2 rounded-lg bg-red-700 px-3 py-2 text-sm font-bold text-white hover:bg-red-800 transition"
                         >
                           <Trash2 className="w-4 h-4" />
-                          Excluir
+                          Desativar
                         </button>
                       </>
                     )}
@@ -277,12 +301,22 @@ carregarGuardas();
 function Status({ status }: { status: string }) {
   let cor = "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
 
-  if (status === "Folga") cor = "bg-yellow-500/10 text-yellow-400 border-yellow-500/30";
-  if (status === "Férias") cor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
-  if (status === "Afastado") cor = "bg-red-500/10 text-red-400 border-red-500/30";
+  if (status === "Folga") {
+    cor = "bg-yellow-500/10 text-yellow-400 border-yellow-500/30";
+  }
+
+  if (status === "Férias") {
+    cor = "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+  }
+
+  if (status === "Afastado" || status === "INATIVO") {
+    cor = "bg-red-500/10 text-red-400 border-red-500/30";
+  }
 
   return (
-    <span className={`inline-block rounded-full border px-3 py-1 text-xs font-black ${cor}`}>
+    <span
+      className={`inline-block rounded-full border px-3 py-1 text-xs font-black ${cor}`}
+    >
       {status}
     </span>
   );

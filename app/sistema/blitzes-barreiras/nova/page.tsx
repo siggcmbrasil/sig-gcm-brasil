@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { MapPin, Save, Shield } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 
@@ -21,6 +22,10 @@ export default function NovaBlitzPage() {
   const [capturandoGps, setCapturandoGps] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
+  function usuarioLogado() {
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  }
+
   function capturarGps() {
     if (!navigator.geolocation) {
       alert("GPS não suportado neste dispositivo.");
@@ -31,10 +36,19 @@ export default function NovaBlitzPage() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setLatitude(position.coords.latitude.toString());
-        setLongitude(position.coords.longitude.toString());
+        const precisao = Math.round(position.coords.accuracy);
+
+        if (precisao > 100) {
+          setCapturandoGps(false);
+          alert(`Localização imprecisa: ${precisao} metros.`);
+          return;
+        }
+
+        setLatitude(String(position.coords.latitude));
+        setLongitude(String(position.coords.longitude));
         setCapturandoGps(false);
-        alert("GPS capturado com sucesso.");
+
+        alert(`GPS capturado com precisão de ${precisao} metros.`);
       },
       () => {
         setCapturandoGps(false);
@@ -42,62 +56,103 @@ export default function NovaBlitzPage() {
       },
       {
         enableHighAccuracy: true,
-        timeout: 10000,
+        timeout: 20000,
+        maximumAge: 0,
       }
     );
   }
 
-  async function registrarAuditoria(acao: string, detalhes: string) {
-  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-
-  await supabase.from("auditoria_sistema").insert({
-    municipio_id: usuario.municipio_id,
-    usuario_id: usuario.id,
-    modulo: "BLITZES_BARREIRAS",
-    acao,
-    detalhes,
-  });
-}
-
   async function salvar() {
+    const usuario = usuarioLogado();
+
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
     if (!local.trim()) {
       alert("Informe o local da operação.");
       return;
     }
 
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+    if (local.length > 200) {
+      alert("Local muito grande.");
+      return;
+    }
 
-    if (!usuario?.municipio_id) {
-      alert("Município não identificado.");
+    if (responsavel.length > 150) {
+      alert("Responsável muito grande.");
+      return;
+    }
+
+    if (observacoes.length > 3000) {
+      alert("Observações muito grandes.");
+      return;
+    }
+
+    if (
+      latitude &&
+      (Number(latitude) < -90 || Number(latitude) > 90)
+    ) {
+      alert("Latitude inválida.");
+      return;
+    }
+
+    if (
+      longitude &&
+      (Number(longitude) < -180 || Number(longitude) > 180)
+    ) {
+      alert("Longitude inválida.");
       return;
     }
 
     setSalvando(true);
 
-    const { error } = await supabase.from("blitzes_barreiras").insert({
+    const dadosOperacao = {
       municipio_id: usuario.municipio_id,
       tipo,
       local: local.trim(),
-      responsavel: responsavel.trim(),
-      observacoes: observacoes.trim(),
-      latitude: latitude || null,
-      longitude: longitude || null,
+      responsavel: responsavel.trim() || null,
+      observacoes: observacoes.trim() || null,
+      latitude: latitude ? Number(latitude) : null,
+      longitude: longitude ? Number(longitude) : null,
       data: new Date().toISOString().split("T")[0],
-    });
+      status: "PLANEJADA",
+      criado_por: usuario.id,
+    };
+
+    const { data, error } = await supabase
+      .from("blitzes_barreiras")
+      .insert([dadosOperacao])
+      .select("id")
+      .single();
 
     setSalvando(false);
 
     if (error) {
+      await registrarAuditoria({
+        modulo: "Blitzes e Barreiras",
+        acao: "ERRO",
+        descricao: "Erro ao criar operação.",
+        tabela: "blitzes_barreiras",
+        detalhes: {
+          erro: error.message,
+          dados: dadosOperacao,
+        },
+      });
+
       alert(error.message);
       return;
     }
 
-    await registrarAuditoria(
-  "CRIAR_OPERACAO",
-  `Criou ${tipo} no local ${local.trim()}`
-);
+    await registrarAuditoria({
+      modulo: "Blitzes e Barreiras",
+      acao: "CRIAR",
+      descricao: `Criou ${tipo} no local ${local.trim()}.`,
+      tabela: "blitzes_barreiras",
+      registro_id: data?.id,
+      detalhes: dadosOperacao,
+    });
 
     alert("Operação cadastrada.");
     router.push("/sistema/blitzes-barreiras");
@@ -106,7 +161,7 @@ export default function NovaBlitzPage() {
   return (
     <div className="p-4 md:p-6 space-y-6">
       <SigPageHeader
-        titulo="Nova Blitz"
+        titulo="Nova Operação"
         subtitulo="Cadastro de blitz ou barreira operacional."
         icone={Shield}
       />
@@ -155,6 +210,7 @@ export default function NovaBlitzPage() {
               <a
                 href={`https://www.google.com/maps?q=${latitude},${longitude}`}
                 target="_blank"
+                rel="noreferrer"
                 className="mt-2 inline-block text-cyan-400 font-bold hover:underline"
               >
                 Abrir no mapa

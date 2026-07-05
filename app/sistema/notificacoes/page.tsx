@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+
 import {
   Bell,
   CheckCircle2,
   AlertTriangle,
   Info,
   Trash2,
+  Plus,
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
@@ -24,6 +27,10 @@ export default function NotificacoesPage() {
   const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
   const [carregando, setCarregando] = useState(true);
 
+  const [filtro, setFiltro] = useState<
+  "TODAS" | "NAO_LIDAS"
+>("TODAS");
+
   const usuario =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
@@ -33,8 +40,12 @@ export default function NotificacoesPage() {
     carregar();
   }, []);
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+async function carregar() {
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Usuário ou município não identificado.");
+    setCarregando(false);
+    return;
+  }
 
     setCarregando(true);
 
@@ -55,27 +66,60 @@ export default function NotificacoesPage() {
     setCarregando(false);
   }
 
-  async function marcarComoLida(id: number) {
-    await supabase
-      .from("notificacoes")
-      .update({ lida: true })
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+async function marcarComoLida(id: number) {
+  const { error } = await supabase
+    .from("notificacoes")
+    .update({ lida: true })
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
 
-    carregar();
+  if (error) {
+    console.error(error);
+    alert("Erro ao marcar notificação como lida.");
+    return;
   }
 
-  async function excluir(id: number) {
-    if (!confirm("Deseja excluir esta notificação?")) return;
+  carregar();
+}
 
-    await supabase
-      .from("notificacoes")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+async function marcarTodasComoLidas() {
+  const { error } = await supabase
+    .from("notificacoes")
+    .update({ lida: true })
+    .eq("municipio_id", usuario.municipio_id)
+    .eq("lida", false);
 
-    carregar();
+  if (error) {
+    console.error(error);
+    alert("Erro ao marcar notificações.");
+    return;
   }
+
+  carregar();
+}
+
+async function excluir(id: number) {
+  if (!confirm("Deseja excluir esta notificação?")) return;
+
+  const { error } = await supabase
+    .from("notificacoes")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao excluir notificação.");
+    return;
+  }
+
+  carregar();
+}
+
+const notificacoesFiltradas =
+  filtro === "NAO_LIDAS"
+    ? notificacoes.filter((n) => !n.lida)
+    : notificacoes;
 
   const resumo = useMemo(() => {
     return {
@@ -99,13 +143,52 @@ export default function NotificacoesPage() {
         <p className="text-slate-400 mt-2">
           Avisos, alertas operacionais, mensagens do comando e notificações do sistema.
         </p>
+        <Link
+  href="/sistema/notificacoes/nova"
+  className="inline-flex items-center gap-2 mt-5 rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800"
+>
+  <Plus className="w-4 h-4" />
+  Nova Notificação
+</Link>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
+        <div className="flex justify-end">
+  <button
+    onClick={marcarTodasComoLidas}
+    className="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded-xl text-sm font-bold text-white"
+  >
+    Marcar todas como lidas
+  </button>
+</div>
         <Card titulo="Total" valor={resumo.total} cor="azul" />
         <Card titulo="Não lidas" valor={resumo.naoLidas} cor="amarelo" />
         <Card titulo="Lidas" valor={resumo.lidas} cor="verde" />
       </div>
+
+      <div className="flex gap-2">
+  <button
+    onClick={() => setFiltro("TODAS")}
+    className={`px-4 py-2 rounded-xl text-sm font-bold ${
+      filtro === "TODAS"
+        ? "bg-blue-700 text-white"
+        : "bg-slate-800 text-slate-300"
+    }`}
+  >
+    Todas
+  </button>
+
+  <button
+    onClick={() => setFiltro("NAO_LIDAS")}
+    className={`px-4 py-2 rounded-xl text-sm font-bold ${
+      filtro === "NAO_LIDAS"
+        ? "bg-yellow-700 text-white"
+        : "bg-slate-800 text-slate-300"
+    }`}
+  >
+    Não lidas
+  </button>
+</div>
 
       {carregando ? (
         <div className="painel-premium p-6 text-slate-400">
@@ -124,8 +207,8 @@ export default function NotificacoesPage() {
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {notificacoes.map((item) => (
+  <div className="space-y-4">
+    {notificacoesFiltradas.map((item) => (
             <div
               key={item.id}
               className={`painel-premium p-5 border ${
@@ -156,6 +239,15 @@ export default function NotificacoesPage() {
                     <p className="text-xs text-slate-500 mt-3">
                       {new Date(item.criado_em).toLocaleString("pt-BR")}
                     </p>
+
+                    {item.link && (
+  <a
+    href={item.link}
+    className="inline-block mt-3 text-sm font-bold text-blue-400 hover:text-blue-300"
+  >
+    Abrir notificação →
+  </a>
+)}
                   </div>
                 </div>
 

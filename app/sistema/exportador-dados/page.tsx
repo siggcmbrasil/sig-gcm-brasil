@@ -14,9 +14,11 @@ import {
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigActionCard from "@/components/sig/SigActionCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function ExportadorDadosPage() {
   return (
+  <ProtecaoModulo modulo="exportador_dados">
     <div className="p-4 md:p-6 space-y-6">
       <SigPageHeader
         titulo="Exportador de Dados"
@@ -135,6 +137,7 @@ export default function ExportadorDadosPage() {
           </div>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

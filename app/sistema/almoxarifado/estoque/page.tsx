@@ -14,30 +14,118 @@ export default function EstoqueAlmoxarifadoPage() {
   const [ordenacao, setOrdenacao] = useState("ITEM");
   const [carregando, setCarregando] = useState(true);
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+useEffect(() => {
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
 
-    setCarregando(true);
+    if (!dados?.id || !dados?.municipio_id) {
+      alert("Sessão inválida.");
+      setCarregando(false);
+      return;
+    }
 
-    const { data: listaEntradas } = await supabase
-      .from("almoxarifado_entradas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+    setUsuario(dados);
 
-    const { data: listaSaidas } = await supabase
-      .from("almoxarifado_saidas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
-
-    setEntradas(listaEntradas || []);
-    setSaidas(listaSaidas || []);
-    setCarregando(false);
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "ACESSO",
+      descricao: "Acessou a consulta de estoque.",
+      tabela: "almoxarifado_entradas",
+      detalhes: {
+        municipio_id: dados.municipio_id,
+        usuario_id: dados.id,
+      },
+    });
   }
+
+  iniciar();
+}, []);
+  async function carregar() {
+  if (!usuario?.municipio_id) {
+    setCarregando(false);
+    return;
+  }
+
+  setCarregando(true);
+
+  const {
+  data: listaEntradas,
+  error: erroEntradas,
+} = await supabase
+  .from("almoxarifado_entradas")
+  .select(`
+    id,
+    item,
+    categoria,
+    quantidade,
+    unidade,
+    local,
+    observacao,
+    criado_em
+  `)
+  .eq("municipio_id", usuario.municipio_id)
+  .order("criado_em", { ascending: false })
+  .limit(500);
+
+  if (erroEntradas) {
+    setCarregando(false);
+
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "ERRO",
+      descricao: "Erro ao carregar entradas do estoque.",
+      tabela: "almoxarifado_entradas",
+      detalhes: {
+        erro: erroEntradas.message,
+      },
+    });
+
+    alert("Erro ao carregar entradas.");
+    return;
+  }
+
+ const {
+  data: listaSaidas,
+  error: erroSaidas,
+} = await supabase
+  .from("almoxarifado_saidas")
+  .select(`
+    id,
+    item,
+    categoria,
+    quantidade,
+    unidade,
+    criado_em
+  `)
+  .eq("municipio_id", usuario.municipio_id)
+  .order("criado_em", { ascending: false })
+  .limit(500);
+
+  if (erroSaidas) {
+    setCarregando(false);
+
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "ERRO",
+      descricao: "Erro ao carregar saídas do estoque.",
+      tabela: "almoxarifado_saidas",
+      detalhes: {
+        erro: erroSaidas.message,
+      },
+    });
+
+    alert("Erro ao carregar saídas.");
+    return;
+  }
+
+setEntradas(listaEntradas || []);
+setSaidas(listaSaidas || []);
+setCarregando(false);
+}
 
   async function exportarPDF() {
   const doc = new jsPDF();
@@ -46,6 +134,16 @@ export default function EstoqueAlmoxarifadoPage() {
   doc.text("Relatório de Estoque - Almoxarifado", 14, 20);
 
   let linha = 35;
+
+  if (!usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
+
+if (estoqueFiltrado.length === 0) {
+  alert("Nenhum item para exportar.");
+  return;
+}
 
   estoqueFiltrado.forEach((item) => {
     doc.text(
@@ -65,16 +163,22 @@ export default function EstoqueAlmoxarifadoPage() {
   doc.save("estoque-almoxarifado.pdf");
 
   await registrarAuditoria({
-    modulo: "Almoxarifado",
-    acao: "EXPORTAR_PDF",
-    descricao:
-      "Exportou o relatório de estoque do almoxarifado em PDF.",
-  });
+  modulo: "Almoxarifado",
+  acao: "EXPORTAR",
+  descricao:
+    "Exportou o relatório de estoque em PDF.",
+  tabela: "almoxarifado_entradas",
+  detalhes: {
+    quantidade_itens: estoqueFiltrado.length,
+  },
+});
 }
 
   useEffect(() => {
+  if (usuario?.municipio_id) {
     carregar();
-  }, []);
+  }
+}, [usuario]);
 
   const estoque = useMemo(() => {
     const mapa = new Map<string, any>();
@@ -319,12 +423,12 @@ export default function EstoqueAlmoxarifadoPage() {
         </div>
       ) : (
         <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {estoqueFiltrado.map((item, index) => {
+          {estoqueFiltrado.map((item) => {
             const status = statusEstoque(Number(item.quantidade || 0));
 
             return (
               <div
-                key={index}
+                key={`${item.item}-${item.categoria}-${item.unidade}`}
                 className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
               >
                 <div className="flex justify-between gap-3">

@@ -65,10 +65,24 @@ if (!usuarioLogado.municipio_id) {
   }
 
   async function salvarModelo() {
+    if (!usuarioLogado?.id || !usuarioLogado?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
     if (!nome.trim()) {
       alert("Informe o nome do modelo.");
       return;
     }
+
+    if (nome.length > 100) {
+  alert("Nome muito grande.");
+  return;
+}
+
+if (descricao.length > 1000) {
+  alert("Descrição muito grande.");
+  return;
+}
 
     const { error } = await supabase.from("escala_modelos").insert([
   {
@@ -91,10 +105,19 @@ if (!usuarioLogado.municipio_id) {
       return;
     }
 
-    await registrarAuditoria({
+   await registrarAuditoria({
   modulo: "Escalas",
   acao: "CRIAR_MODELO",
   descricao: `Cadastrou o modelo de escala ${nome}.`,
+  detalhes: {
+    nome,
+    tipo,
+    horas_trabalho: Number(horasTrabalho),
+    horas_descanso: Number(horasDescanso),
+    hora_inicio: horaInicio,
+    hora_fim: horaFim,
+    permite_permuta: permitePermuta,
+  },
 });
 
     alert("Modelo de escala cadastrado com sucesso!");
@@ -128,6 +151,11 @@ if (!usuarioLogado.municipio_id) {
   modulo: "Escalas",
   acao: "ALTERAR_STATUS_MODELO",
   descricao: `${!modelo.ativo ? "Ativou" : "Inativou"} o modelo de escala ${modelo.nome}.`,
+  detalhes: {
+    modelo_id: modelo.id,
+    nome: modelo.nome,
+    novo_status: !modelo.ativo,
+  },
 });
 
     carregarModelos();

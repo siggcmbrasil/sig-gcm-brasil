@@ -4,352 +4,794 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { useSearchParams } from "next/navigation";
+
+async function carregarImagemBase64(url: string) {
+  if (!url) return null;
+
+  try {
+    const resposta = await fetch(url);
+    const blob = await resposta.blob();
+
+    return await new Promise<{
+      base64: string;
+      formato: "PNG" | "JPEG";
+    }>((resolve) => {
+      const reader = new FileReader();
+
+      reader.onloadend = () => {
+        resolve({
+          base64: String(reader.result),
+          formato: blob.type.includes("jpeg") || blob.type.includes("jpg")
+            ? "JPEG"
+            : "PNG",
+        });
+      };
+
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
 
 export default function RelatorioPlantaoPage() {
 
-  const [data, setData] = useState("");
+  const searchParams = useSearchParams();
+
+const tipoRelatorio =
+  searchParams.get("tipo") ||
+  "plantao";
+
+  const [data, setData] =useState ( new Date() .toISOString() .split("T")[0]);
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [patrulhamentos, setPatrulhamentos] = useState<any[]>([]);
   const [chamados, setChamados] = useState<any[]>([]);
   const [visitas, setVisitas] = useState<any[]>([]);
+  const [apoios, setApoios] = useState<any[]>([]);
+const [eventos, setEventos] = useState<any[]>([]);
+const [operacoes, setOperacoes] = useState<any[]>([]);
+const [pessoas, setPessoas] = useState<any[]>([]);
+const [veiculos, setVeiculos] = useState<any[]>([]);
+const [abastecimentos, setAbastecimentos] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(false);
 
-  async function carregarRelatorio() {
-  if (!data) return;
-
-  setCarregando(true);
-
-  const dataInicio = data;
-  const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
+  const [inicio, setInicio] = useState("");
+const [fim, setFim] = useState("");
+const [mesReferencia, setMesReferencia] = useState(
+  new Date().toISOString().slice(0, 7)
+);
+const [anoReferencia, setAnoReferencia] = useState(
+  String(new Date().getFullYear())
 );
 
-const municipioId = usuario.municipio_id;
+const [incluirOcorrencias, setIncluirOcorrencias] = useState(true);
+const [incluirChamados, setIncluirChamados] = useState(true);
+const [incluirPatrulhamentos, setIncluirPatrulhamentos] = useState(true);
+const [incluirVisitas, setIncluirVisitas] = useState(true);
+const [incluirApoios, setIncluirApoios] = useState(false);
+const [incluirEventos, setIncluirEventos] = useState(false);
+const [incluirOperacoes, setIncluirOperacoes] = useState(false);
+const [incluirPessoas, setIncluirPessoas] = useState(false);
+const [incluirVeiculos, setIncluirVeiculos] = useState(false);
+const [incluirAbastecimentos, setIncluirAbastecimentos] = useState(false);
 
-if (!municipioId) {
-  alert("Município não identificado.");
-  setCarregando(false);
-  return;
-}
+  async function carregarRelatorio() {
+  setCarregando(true);
 
-  const proximoDia = new Date(`${data}T00:00:00`);
-  proximoDia.setDate(proximoDia.getDate() + 1);
-  const dataFim = proximoDia.toISOString().split("T")[0];
+  const usuario = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
+
+  const municipioId = usuario.municipio_id;
+
+  if (!municipioId) {
+    alert("Município não identificado.");
+    setCarregando(false);
+    return;
+  }
+
+  let inicioPeriodo = "";
+  let fimPeriodo = "";
+
+  if (tipoRelatorio === "plantao") {
+    if (!inicio || !fim) {
+      setCarregando(false);
+      return;
+    }
+
+    inicioPeriodo = inicio;
+    fimPeriodo = fim;
+  }
+
+  if (tipoRelatorio === "diario") {
+    inicioPeriodo = `${data}T00:00:00`;
+    fimPeriodo = `${data}T23:59:59`;
+  }
+
+  if (tipoRelatorio === "semanal") {
+    const i = new Date(`${data}T00:00:00`);
+    const f = new Date(i);
+    f.setDate(f.getDate() + 7);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "quinzenal") {
+    const i = new Date(`${data}T00:00:00`);
+    const f = new Date(i);
+    f.setDate(f.getDate() + 15);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "mensal") {
+    const [ano, mes] = mesReferencia.split("-");
+    const i = new Date(Number(ano), Number(mes) - 1, 1);
+    const f = new Date(Number(ano), Number(mes), 0, 23, 59, 59);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "bimestral") {
+    const [ano, mes] = mesReferencia.split("-");
+    const i = new Date(Number(ano), Number(mes) - 1, 1);
+    const f = new Date(Number(ano), Number(mes) + 1, 0, 23, 59, 59);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "trimestral") {
+    const [ano, mes] = mesReferencia.split("-");
+    const i = new Date(Number(ano), Number(mes) - 1, 1);
+    const f = new Date(Number(ano), Number(mes) + 2, 0, 23, 59, 59);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "semestral") {
+    const [ano, mes] = mesReferencia.split("-");
+    const i = new Date(Number(ano), Number(mes) - 1, 1);
+    const f = new Date(Number(ano), Number(mes) + 5, 0, 23, 59, 59);
+
+    inicioPeriodo = i.toISOString();
+    fimPeriodo = f.toISOString();
+  }
+
+  if (tipoRelatorio === "anual") {
+    const ano = Number(anoReferencia);
+    inicioPeriodo = new Date(ano, 0, 1).toISOString();
+    fimPeriodo = new Date(ano, 11, 31, 23, 59, 59).toISOString();
+  }
+
+  const dataInicio = inicioPeriodo.split("T")[0];
+  const dataFim = fimPeriodo.split("T")[0];
 
   const { data: ocorr } = await supabase
     .from("ocorrencias")
-.select("*")
-.eq("municipio_id", municipioId)
-.or(
-      `and(data.eq.${dataInicio},hora.gte.07:00),and(data.eq.${dataFim},hora.lte.07:00)`
-    );
+    .select("*")
+    .eq("municipio_id", municipioId)
+    .gte("data", dataInicio)
+    .lte("data", dataFim);
 
   const { data: patr } = await supabase
     .from("patrulhamentos")
-.select("*")
-.eq("municipio_id", municipioId)
-.or(
-      `and(data.eq.${dataInicio},hora.gte.07:00),and(data.eq.${dataFim},hora.lte.07:00)`
-    );
-
-  const inicio = `${dataInicio} 07:00:00`;
-  const fim = `${dataFim} 07:00:00`;
+    .select("*")
+    .eq("municipio_id", municipioId)
+    .gte("data", dataInicio)
+    .lte("data", dataFim);
 
   const { data: cham } = await supabase
     .from("chamados")
-.select("*")
-.eq("municipio_id", municipioId)
-.gte("criado_em", inicio)
-    .lte("criado_em", fim);
+    .select("*")
+    .eq("municipio_id", municipioId)
+    .gte("criado_em", inicioPeriodo)
+    .lte("criado_em", fimPeriodo);
 
-    const { data: vis } = await supabase
-  .from("visitas")
-  .select(`
-    *,
-    guarnicoes(nome)
-  `)
-  .eq("municipio_id", municipioId)
-  .gte("data_visita", inicio)
-  .lte("data_visita", fim);
+  const { data: vis } = await supabase
+    .from("visitas")
+    .select(`
+      *,
+      guarnicoes(nome)
+    `)
+    .eq("municipio_id", municipioId)
+    .gte("data_visita", inicioPeriodo)
+    .lte("data_visita", fimPeriodo);
+
+    const { data: apoiosData } = incluirApoios
+  ? await supabase
+      .from("apoios")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .gte("criado_em", inicioPeriodo)
+      .lte("criado_em", fimPeriodo)
+  : { data: [] };
+
+const { data: eventosData } = incluirEventos
+  ? await supabase
+      .from("eventos")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .gte("data_evento", inicioPeriodo)
+      .lte("data_evento", fimPeriodo)
+  : { data: [] };
+
+const { data: operacoesData } = incluirOperacoes
+  ? await supabase
+      .from("operacoes")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .gte("criado_em", inicioPeriodo)
+      .lte("criado_em", fimPeriodo)
+  : { data: [] };
+
+const { data: pessoasData } = incluirPessoas
+  ? await supabase
+      .from("pessoas_abordadas")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .gte("data", dataInicio)
+      .lte("data", dataFim)
+  : { data: [] };
+
+const { data: veiculosData } = incluirVeiculos
+  ? await supabase
+      .from("veiculos_abordados")
+      .select("*")
+      .eq("municipio_id", municipioId)
+      .gte("data", dataInicio)
+      .lte("data", dataFim)
+  : { data: [] };
+
+const { data: abastecimentosData } = incluirAbastecimentos
+  ? await supabase
+      .from("abastecimentos")
+      .select("*, viaturas(prefixo, placa)")
+      .eq("municipio_id", municipioId)
+      .gte("data_abastecimento", inicioPeriodo)
+      .lte("data_abastecimento", fimPeriodo)
+  : { data: [] };
 
   setOcorrencias(ocorr || []);
   setPatrulhamentos(patr || []);
   setChamados(cham || []);
   setVisitas(vis || []);
+  setApoios(apoiosData || []);
+  setEventos(eventosData || []);
+  setOperacoes(operacoesData || []);
+  setPessoas(pessoasData || []);
+  setVeiculos(veiculosData || []);
+  setAbastecimentos(abastecimentosData || []);
   setCarregando(false);
 }
 
-  useEffect(() => {
-  void carregarRelatorio();
-}, [data]);
+useEffect(() => {
+  const hoje = new Date();
+  let dataBase = new Date();
 
+  switch (tipoRelatorio) {
+    case "diario":
+      break;
+
+    case "semanal":
+      dataBase.setDate(
+        hoje.getDate() - 7
+      );
+      break;
+
+    case "quinzenal":
+      dataBase.setDate(
+        hoje.getDate() - 15
+      );
+      break;
+
+    case "mensal":
+      dataBase = new Date(
+        hoje.getFullYear(),
+        hoje.getMonth(),
+        1
+      );
+      break;
+
+    case "bimestral":
+      dataBase.setMonth(
+        hoje.getMonth() - 2
+      );
+      break;
+
+    case "trimestral":
+      dataBase.setMonth(
+        hoje.getMonth() - 3
+      );
+      break;
+
+    case "semestral":
+      dataBase.setMonth(
+        hoje.getMonth() - 6
+      );
+      break;
+
+    case "anual":
+      dataBase = new Date(
+        hoje.getFullYear(),
+        0,
+        1
+      );
+      break;
+  }
+
+  if (tipoRelatorio !== "plantao") {
+    setData(
+      dataBase
+        .toISOString()
+        .split("T")[0]
+    );
+  }
+}, [tipoRelatorio]);
+
+ useEffect(() => {
+  void carregarRelatorio();
+}, [
+  data,
+  inicio,
+  fim,
+  mesReferencia,
+  anoReferencia,
+  tipoRelatorio,
+  incluirOcorrencias,
+  incluirChamados,
+  incluirPatrulhamentos,
+  incluirVisitas,
+  incluirApoios,
+  incluirEventos,
+  incluirOperacoes,
+  incluirPessoas,
+  incluirVeiculos,
+  incluirAbastecimentos,
+]);
   async function gerarPDF() {
-  if (!data) {
-    alert("Selecione a data do plantão.");
+  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+
+  if (!usuario.municipio_id) {
+    alert("Município não identificado.");
     return;
   }
 
-const usuario = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-
-if (!usuario.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
   const { data: municipioInfo, error } = await supabase
-  .from("municipios")
-  .select("*")
-  .eq("id", usuario.municipio_id)
-  .single();
+    .from("municipios")
+    .select("*")
+    .eq("id", usuario.municipio_id)
+    .single();
 
-if (error || !municipioInfo) {
-  alert("Erro ao carregar informações do município.");
-  return;
-}
+  if (error || !municipioInfo) {
+    alert("Erro ao carregar informações do município.");
+    return;
+  }
 
-if (error || !municipioInfo) {
-  alert("Erro ao carregar informações do município.");
-  return;
-}
+  const brasaoPrefeitura =
+    municipioInfo?.brasao_prefeitura ||
+    municipioInfo?.brasao_municipio ||
+    municipioInfo?.logo_prefeitura ||
+    "";
 
-const brasaoMunicipio = municipioInfo?.brasao_prefeitura || "";
-const brasaoGCM = municipioInfo?.brasao_gcm || "";
+  const brasaoGuarda =
+    municipioInfo?.brasao_gcm ||
+    municipioInfo?.brasao_guarda ||
+    municipioInfo?.logo_gcm ||
+    "";
 
-const doc = new jsPDF();
+  const imgPrefeitura = await carregarImagemBase64(brasaoPrefeitura);
+  const imgGuarda = await carregarImagemBase64(brasaoGuarda);
 
-const imgPrefeitura = new Image();
-imgPrefeitura.src = brasaoMunicipio;
+  const doc = new jsPDF("p", "mm", "a4");
 
-const imgGCM = new Image();
-imgGCM.src = brasaoGCM;
+  const larguraPagina = doc.internal.pageSize.getWidth();
+  const alturaPagina = doc.internal.pageSize.getHeight();
 
-const municipio = municipioInfo?.nome || "";
-const guarda = municipioInfo?.nome_guarda || "";
-  const numeroRelatorio = `RGP-${data.replaceAll("-", "")}`;
+  const nomeMunicipio = municipioInfo?.nome || "";
+  const nomeGuarda = municipioInfo?.nome_guarda || "Guarda Civil Municipal";
+  const comandante = municipioInfo?.comandante || "";
+  const emitidoPor = usuario.nome || "";
+
+  const tituloRelatorio =
+    tipoRelatorio === "plantao"
+      ? "RELATÓRIO GERAL DO PLANTÃO"
+      : `RELATÓRIO ${tipoRelatorio.toUpperCase()}`;
+
+  const numeroRelatorio = `RGP-${new Date()
+    .toISOString()
+    .slice(0, 10)
+    .replaceAll("-", "")}`;
+
   const dataEmissao = new Date().toLocaleString("pt-BR");
 
-  // Marca d'água
-  doc.setFontSize(30);
-  doc.setTextColor(230, 230, 230);
-  doc.text("SIG-GCM BRASIL", 105, 150, {
-    align: "center",
-    angle: 45,
-  });
+  function adicionarCabecalho() {
+    if (imgPrefeitura) {
+      doc.addImage(imgPrefeitura.base64, imgPrefeitura.formato, 12, 8, 22, 22);
+    }
 
-  try {
-  doc.addImage(imgPrefeitura, "PNG", 10, 5, 22, 22);
-  doc.addImage(imgGCM, "PNG", 178, 5, 22, 22);
-} catch {}
+    if (imgGuarda) {
+      doc.addImage(imgGuarda.base64, imgGuarda.formato, 176, 8, 22, 22);
+    }
 
-  // Cabeçalho
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(16);
-  doc.text(guarda, 105, 12, { align: "center" });
-doc.setFontSize(12);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(14);
+    doc.text(nomeGuarda, larguraPagina / 2, 13, { align: "center" });
 
-doc.text(
-  `Município de ${municipio}`,
-  105,
-  18,
-  { align: "center" }
-);
-doc.text("RELATÓRIO GERAL DO PLANTÃO", 105, 26, {
-  align: "center",
-});
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(11);
+    doc.text(`Município de ${nomeMunicipio}`, larguraPagina / 2, 19, {
+      align: "center",
+    });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text(tituloRelatorio, larguraPagina / 2, 27, { align: "center" });
+
+    doc.setLineWidth(0.3);
+    doc.line(12, 34, 198, 34);
+  }
+
+  function adicionarRodape(numeroPagina: number, totalPaginas: number) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(80, 80, 80);
+
+    doc.line(12, alturaPagina - 13, 198, alturaPagina - 13);
+
+    doc.text(
+      `SIG-GCM Brasil | Página ${numeroPagina} de ${totalPaginas}`,
+      larguraPagina / 2,
+      alturaPagina - 7,
+      { align: "center" }
+    );
+  }
+
+  function adicionarMarcaDagua() {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(32);
+    doc.setTextColor(235, 235, 235);
+
+    doc.text("SIG-GCM BRASIL", larguraPagina / 2, 150, {
+      align: "center",
+      angle: 45,
+    });
+
+    doc.setTextColor(0, 0, 0);
+  }
+
+  function novaPaginaComCabecalho() {
+    doc.addPage();
+    adicionarMarcaDagua();
+    adicionarCabecalho();
+  }
+
+  adicionarMarcaDagua();
+  adicionarCabecalho();
 
   doc.setFontSize(10);
-  doc.text(`Relatório nº: ${numeroRelatorio}`, 14, 32);
-  doc.text(`Plantão: ${data} - 07h às 07h`, 14, 38);
-  doc.text(`Emitido em: ${dataEmissao}`, 14, 44);
+  doc.setFont("helvetica", "normal");
 
+  doc.text(`Relatório nº: ${numeroRelatorio}`, 14, 42);
+  doc.text(`Emitido em: ${dataEmissao}`, 14, 48);
+  doc.text(`Emitido por: ${emitidoPor}`, 14, 54);
+
+  doc.setFont("helvetica", "bold");
   doc.setFontSize(13);
-  doc.text("Resumo Operacional", 14, 55);
+  doc.text("Resumo Operacional", 14, 66);
 
   autoTable(doc, {
-  startY: 62,
-
-  theme: "grid",
-
-  headStyles: {
-    fillColor: [15, 23, 42],
-    textColor: [255, 255, 255],
-  },
-
-  head: [["Item", "Quantidade"]],
-
- body: [
-  ["Ocorrências", ocorrencias.length],
-  ["Patrulhamentos", patrulhamentos.length],
-  ["Chamados", chamados.length],
-  ["Visitas", visitas.length],
-],
-});
-
-  const abertas = ocorrencias.filter(
-  (o) => o.status === "Aberta"
-).length;
-
-const andamento = ocorrencias.filter(
-  (o) => o.status === "Em andamento"
-).length;
-
-const finalizadas = ocorrencias.filter(
-  (o) => o.status === "Finalizada"
-).length;
-
-autoTable(doc, {
-  startY: (doc as any).lastAutoTable.finalY + 10,
-
-  theme: "grid",
-
-  headStyles: {
-    fillColor: [15, 23, 42],
-    textColor: [255, 255, 255],
-  },
-
-  head: [["Situação", "Quantidade"]],
-
-  body: [
-    ["Abertas", abertas],
-    ["Em andamento", andamento],
-    ["Finalizadas", finalizadas],
-  ],
-});
-
-  autoTable(doc, {
-    startY: (doc as any).lastAutoTable.finalY + 12,
-    head: [["Tipo", "Local", "Bairro", "Hora", "Status"]],
-    body: ocorrencias.map((o) => [
-      o.tipo || "-",
-      o.local || "-",
-      o.bairro || "-",
-      o.hora || "-",
-      o.status || "-",
-    ]),
-  });
-
-  doc.addPage();
-
-  doc.setFontSize(14);
-  doc.text("Patrulhamentos do Plantão", 14, 15);
-
-  autoTable(doc, {
-    startY: 22,
-    head: [["Local", "Guarda", "Hora", "Observação"]],
-    body: patrulhamentos.map((p) => [
-      p.local || "-",
-      p.guarda || "-",
-      p.hora || "-",
-      p.observacao || "-",
-    ]),
-  });
-
-  doc.addPage();
-
-  doc.setFontSize(14);
-  doc.text("Chamados do Plantão", 14, 15);
-
-  autoTable(doc, {
-    startY: 22,
-    head: [["Título", "Local", "Status", "Prioridade"]],
-    body: chamados.map((c) => [
-      c.titulo || c.descricao || "Chamado",
-      c.local || "-",
-      c.status || "-",
-      c.prioridade || "-",
-    ]),
-  });
-
-  doc.addPage();
-
-doc.setFontSize(14);
-doc.text(
-  "Visitas e Ações Preventivas",
-  14,
-  15
-);
-
-autoTable(doc, {
-  startY: 22,
-  head: [
-    [
-      "Tipo",
-      "Local",
-      "Guarnição",
-      "Data",
+    startY: 72,
+    theme: "grid",
+    headStyles: {
+      fillColor: [15, 23, 42],
+      textColor: [255, 255, 255],
+    },
+    head: [["Item", "Quantidade"]],
+    body: [
+      ...(incluirOcorrencias ? [["Ocorrências", ocorrencias.length]] : []),
+      ...(incluirPatrulhamentos
+        ? [["Patrulhamentos", patrulhamentos.length]]
+        : []),
+      ...(incluirChamados ? [["Chamados", chamados.length]] : []),
+      ...(incluirVisitas ? [["Visitas", visitas.length]] : []),
+      ...(incluirApoios ? [["Apoios", apoios.length]] : []),
+      ...(incluirEventos ? [["Eventos", eventos.length]] : []),
+      ...(incluirOperacoes ? [["Operações", operacoes.length]] : []),
+      ...(incluirPessoas ? [["Pessoas", pessoas.length]] : []),
+      ...(incluirVeiculos ? [["Veículos", veiculos.length]] : []),
+      ...(incluirAbastecimentos
+        ? [["Abastecimentos", abastecimentos.length]]
+        : []),
     ],
-  ],
-  body: visitas.map((v) => [
-    v.tipo || "-",
-    v.local || "-",
-    v.guarnicoes?.nome || "-",
-    new Date(
-      v.data_visita
-    ).toLocaleString("pt-BR"),
-  ]),
-});
+  });
 
-  doc.text("__________________________________", 14, 260);
-  doc.text(
-  `Comandante: ${municipioInfo?.comandante || ""}`,
-  25,
-  268
-);
+  function tabelaModulo(titulo: string, head: string[][], body: any[][]) {
+    if (body.length === 0) return;
 
-  doc.text("__________________________________", 120, 260);
-  doc.text(
-  `Plantonista: ${usuario.nome || ""}`,
-  130,
-  268
-);
+    novaPaginaComCabecalho();
 
-  const paginas = doc.getNumberOfPages();
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text(titulo, 14, 44);
 
-for (let i = 1; i <= paginas; i++) {
-  doc.setPage(i);
+    autoTable(doc, {
+      startY: 50,
+      theme: "grid",
+      headStyles: {
+        fillColor: [15, 23, 42],
+        textColor: [255, 255, 255],
+      },
+      head,
+      body,
+      margin: { top: 42, bottom: 22 },
+    });
+  }
 
-  doc.setFontSize(9);
+  if (incluirOcorrencias) {
+    tabelaModulo(
+      "Ocorrências",
+      [["Tipo", "Local", "Bairro", "Hora", "Status"]],
+      ocorrencias.map((o) => [
+        o.tipo || "-",
+        o.local || "-",
+        o.bairro || "-",
+        o.hora || "-",
+        o.status || "-",
+      ])
+    );
+  }
 
-  doc.text(
-    `SIG-GCM Brasil | Página ${i} de ${paginas}`,
-    105,
-    290,
-    { align: "center" }
-  );
-}
+  if (incluirPatrulhamentos) {
+    tabelaModulo(
+      "Patrulhamentos",
+      [["Local", "Guarda", "Hora", "Observação"]],
+      patrulhamentos.map((p) => [
+        p.local || "-",
+        p.guarda || "-",
+        p.hora || "-",
+        p.observacao || "-",
+      ])
+    );
+  }
 
-  doc.save(`relatorio-plantao-${data}.pdf`);
+  if (incluirChamados) {
+    tabelaModulo(
+      "Chamados",
+      [["Título", "Local", "Status", "Prioridade"]],
+      chamados.map((c) => [
+        c.titulo || c.descricao || "Chamado",
+        c.local || "-",
+        c.status || "-",
+        c.prioridade || "-",
+      ])
+    );
+  }
+
+  if (incluirVisitas) {
+    tabelaModulo(
+      "Visitas e Ações Preventivas",
+      [["Tipo", "Local", "Guarnição", "Data"]],
+      visitas.map((v) => [
+        v.tipo || "-",
+        v.local || "-",
+        v.guarnicoes?.nome || "-",
+        v.data_visita ? new Date(v.data_visita).toLocaleString("pt-BR") : "-",
+      ])
+    );
+  }
+
+  if (incluirApoios) {
+    tabelaModulo(
+      "Apoios Operacionais",
+      [["Tipo", "Local", "Descrição"]],
+      apoios.map((a) => [a.tipo || "-", a.local || "-", a.descricao || "-"])
+    );
+  }
+
+  if (incluirEventos) {
+    tabelaModulo(
+      "Eventos",
+      [["Nome", "Local", "Data"]],
+      eventos.map((e) => [
+        e.nome || "-",
+        e.local || "-",
+        e.data_evento
+          ? new Date(e.data_evento).toLocaleString("pt-BR")
+          : "-",
+      ])
+    );
+  }
+
+  if (incluirOperacoes) {
+    tabelaModulo(
+      "Operações",
+      [["Nome", "Local", "Descrição"]],
+      operacoes.map((o) => [o.nome || "-", o.local || "-", o.descricao || "-"])
+    );
+  }
+
+  if (incluirPessoas) {
+    tabelaModulo(
+      "Pessoas Abordadas",
+      [["Nome", "CPF", "Local", "Data"]],
+      pessoas.map((p) => [p.nome || "-", p.cpf || "-", p.local || "-", p.data || "-"])
+    );
+  }
+
+  if (incluirVeiculos) {
+    tabelaModulo(
+      "Veículos Abordados",
+      [["Placa", "Modelo", "Local", "Data"]],
+      veiculos.map((v) => [
+        v.placa || "-",
+        v.modelo || "-",
+        v.local || "-",
+        v.data || "-",
+      ])
+    );
+  }
+
+  if (incluirAbastecimentos) {
+    tabelaModulo(
+      "Abastecimentos",
+      [["Viatura", "Litros", "Valor", "Data"]],
+      abastecimentos.map((a) => [
+        a.viaturas?.prefixo || "-",
+        `${a.litros || 0} L`,
+        `R$ ${Number(a.valor || 0).toFixed(2)}`,
+        a.data_abastecimento
+          ? new Date(a.data_abastecimento).toLocaleDateString("pt-BR")
+          : "-",
+      ])
+    );
+  }
+
+  const ultimaY = (doc as any).lastAutoTable?.finalY || 0;
+
+  if (ultimaY > 220) {
+    novaPaginaComCabecalho();
+  }
+
+  const yAssinatura = alturaPagina - 42;
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(0, 0, 0);
+  doc.setFontSize(10);
+
+  doc.text("__________________________________", 18, yAssinatura);
+  doc.text(`Comandante: ${comandante}`, 24, yAssinatura + 8);
+
+  doc.text("__________________________________", 118, yAssinatura);
+  doc.text(`Plantonista: ${emitidoPor}`, 124, yAssinatura + 8);
+
+  const totalPaginas = doc.getNumberOfPages();
+
+  for (let i = 1; i <= totalPaginas; i++) {
+    doc.setPage(i);
+    adicionarRodape(i, totalPaginas);
+  }
+
+  doc.save(`relatorio-${tipoRelatorio}-${numeroRelatorio}.pdf`);
 }
 
   return (
     <div className="p-3 md:p-6 pb-24 space-y-6">
       <header className="border-b border-slate-800 pb-5">
         <h1 className="text-2xl md:text-3xl font-bold">
-          Relatório Geral do Plantão
-        </h1>
+  {tipoRelatorio === "plantao"
+    ? "Relatório Geral do Plantão"
+    : `Relatório ${
+        tipoRelatorio.charAt(0).toUpperCase() +
+        tipoRelatorio.slice(1)
+      }`}
+</h1>
 
         <p className="text-slate-400 text-sm md:text-base">
-          Resumo completo das atividades operacionais do plantão.
+          Resumo operacional integrado do SIG-GCM Brasil.
         </p>
 
         <div className="mt-4">
-          <label className="block text-sm text-slate-400 mb-1">
-            Data do plantão
-          </label>
+  {tipoRelatorio === "plantao" && (
+  <div className="grid md:grid-cols-2 gap-3">
+    <div>
+      <label className="block text-sm text-slate-400 mb-1">
+        Início
+      </label>
 
-          <input
-            type="date"
-            value={data}
-            onChange={(e) => setData(e.target.value)}
-            className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
-          />
+      <input
+        type="datetime-local"
+        value={inicio}
+        onChange={(e) => setInicio(e.target.value)}
+        className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white w-full"
+      />
+    </div>
 
-          <p className="text-xs text-slate-500 mt-2">
-  Período considerado: 07h do dia selecionado até 07h do dia seguinte.
-</p>
-        </div>
+    <div>
+      <label className="block text-sm text-slate-400 mb-1">
+        Fim
+      </label>
+
+      <input
+        type="datetime-local"
+        value={fim}
+        onChange={(e) => setFim(e.target.value)}
+        className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white w-full"
+      />
+    </div>
+  </div>
+)}
+
+{tipoRelatorio === "diario" && (
+  <input
+    type="date"
+    value={data}
+    onChange={(e) => setData(e.target.value)}
+    className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+  />
+)}
+
+{["semanal", "quinzenal"].includes(tipoRelatorio) && (
+  <input
+    type="date"
+    value={data}
+    onChange={(e) => setData(e.target.value)}
+    className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+  />
+)}
+
+{[
+  "mensal",
+  "bimestral",
+  "trimestral",
+  "semestral",
+].includes(tipoRelatorio) && (
+  <input
+    type="month"
+    value={mesReferencia}
+    onChange={(e) =>
+      setMesReferencia(e.target.value)
+    }
+    className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+  />
+)}
+
+{tipoRelatorio === "anual" && (
+  <input
+    type="number"
+    value={anoReferencia}
+    onChange={(e) =>
+      setAnoReferencia(e.target.value)
+    }
+    className="bg-slate-950 border border-slate-700 rounded-lg px-4 py-2 text-white"
+  />
+)}
+</div>
+
+<div className="mt-5 painel-premium p-4">
+  <h2 className="text-lg font-black text-white mb-3">
+    O que incluir no relatório
+  </h2>
+
+  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm text-slate-300">
+    <Check label="Ocorrências" checked={incluirOcorrencias} onChange={setIncluirOcorrencias} />
+    <Check label="Chamados" checked={incluirChamados} onChange={setIncluirChamados} />
+    <Check label="Patrulhamentos" checked={incluirPatrulhamentos} onChange={setIncluirPatrulhamentos} />
+    <Check label="Visitas" checked={incluirVisitas} onChange={setIncluirVisitas} />
+    <Check label="Apoios" checked={incluirApoios} onChange={setIncluirApoios} />
+    <Check label="Eventos" checked={incluirEventos} onChange={setIncluirEventos} />
+    <Check label="Operações" checked={incluirOperacoes} onChange={setIncluirOperacoes} />
+    <Check label="Pessoas" checked={incluirPessoas} onChange={setIncluirPessoas} />
+    <Check label="Veículos" checked={incluirVeiculos} onChange={setIncluirVeiculos} />
+    <Check label="Abastecimentos" checked={incluirAbastecimentos} onChange={setIncluirAbastecimentos} />
+  </div>
+</div>
       </header>
 
       {!data ? (
@@ -360,12 +802,87 @@ for (let i = 1; i <= paginas; i++) {
         <p className="text-slate-400">Carregando relatório...</p>
       ) : (
         <>
-          <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <Card titulo="Ocorrências" valor={ocorrencias.length} cor="blue" />
-            <Card titulo="Patrulhamentos" valor={patrulhamentos.length} cor="green" />
-            <Card titulo="Chamados" valor={chamados.length} cor="orange" />
-            <Card titulo="Visitas" valor={visitas.length} cor="green"/>
-          </section>
+          <section className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4">
+  {incluirOcorrencias && (
+    <Card
+      titulo="Ocorrências"
+      valor={ocorrencias.length}
+      cor="blue"
+    />
+  )}
+
+  {incluirPatrulhamentos && (
+    <Card
+      titulo="Patrulhamentos"
+      valor={patrulhamentos.length}
+      cor="green"
+    />
+  )}
+
+  {incluirChamados && (
+    <Card
+      titulo="Chamados"
+      valor={chamados.length}
+      cor="orange"
+    />
+  )}
+
+  {incluirVisitas && (
+    <Card
+      titulo="Visitas"
+      valor={visitas.length}
+      cor="green"
+    />
+  )}
+
+  {incluirApoios && (
+    <Card
+      titulo="Apoios"
+      valor={apoios.length}
+      cor="blue"
+    />
+  )}
+
+  {incluirEventos && (
+    <Card
+      titulo="Eventos"
+      valor={eventos.length}
+      cor="orange"
+    />
+  )}
+
+  {incluirOperacoes && (
+    <Card
+      titulo="Operações"
+      valor={operacoes.length}
+      cor="blue"
+    />
+  )}
+
+  {incluirPessoas && (
+    <Card
+      titulo="Pessoas"
+      valor={pessoas.length}
+      cor="green"
+    />
+  )}
+
+  {incluirVeiculos && (
+    <Card
+      titulo="Veículos"
+      valor={veiculos.length}
+      cor="orange"
+    />
+  )}
+
+  {incluirAbastecimentos && (
+    <Card
+      titulo="Abastecimentos"
+      valor={abastecimentos.length}
+      cor="green"
+    />
+  )}
+</section>
 
           <section className="flex justify-end">
   <button
@@ -376,10 +893,47 @@ for (let i = 1; i <= paginas; i++) {
 </button>
 </section>
 
-          <TabelaOcorrencias dados={ocorrencias} />
-          <TabelaPatrulhamentos dados={patrulhamentos} />
-          <TabelaChamados dados={chamados} />
-          <TabelaVisitas dados={visitas} />
+          {incluirOcorrencias && (
+  <TabelaOcorrencias dados={ocorrencias} />
+)}
+
+{incluirPatrulhamentos && (
+  <TabelaPatrulhamentos dados={patrulhamentos} />
+)}
+
+{incluirChamados && (
+  <TabelaChamados dados={chamados} />
+)}
+
+{incluirVisitas && (
+  <TabelaVisitas dados={visitas} />
+)}
+
+{incluirApoios && (
+  <TabelaApoios dados={apoios} />
+)}
+
+{incluirEventos && (
+  <TabelaEventos dados={eventos} />
+)}
+
+{incluirOperacoes && (
+  <TabelaOperacoes dados={operacoes} />
+)}
+
+{incluirPessoas && (
+  <TabelaPessoas dados={pessoas} />
+)}
+
+{incluirVeiculos && (
+  <TabelaVeiculos dados={veiculos} />
+)}
+
+{incluirAbastecimentos && (
+  <TabelaAbastecimentos
+    dados={abastecimentos}
+  />
+)}
         </>
       )}
     </div>
@@ -572,6 +1126,221 @@ function TabelaVisitas({
                   {new Date(
                     v.data_visita
                   ).toLocaleString("pt-BR")}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function Check({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (valor: boolean) => void;
+}) {
+  return (
+    <label className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/40 p-3 cursor-pointer">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+      />
+      <span>{label}</span>
+    </label>
+  );
+}
+
+function TabelaApoios({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Apoios Operacionais
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhum apoio registrado.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((a) => (
+              <tr key={a.id}>
+                <td>{a.tipo}</td>
+                <td>{a.local}</td>
+                <td>{a.descricao}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaEventos({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Eventos
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhum evento.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((e) => (
+              <tr key={e.id}>
+                <td>{e.nome}</td>
+                <td>{e.local}</td>
+                <td>{e.data_evento}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaOperacoes({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Operações
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhuma operação.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((o) => (
+              <tr key={o.id}>
+                <td>{o.nome}</td>
+                <td>{o.local}</td>
+                <td>{o.descricao}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaPessoas({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Pessoas Abordadas
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhuma pessoa abordada.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((p) => (
+              <tr key={p.id}>
+                <td>{p.nome}</td>
+                <td>{p.cpf}</td>
+                <td>{p.local}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaVeiculos({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Veículos Abordados
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhum veículo abordado.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((v) => (
+              <tr key={v.id}>
+                <td>{v.placa}</td>
+                <td>{v.modelo}</td>
+                <td>{v.local}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function TabelaAbastecimentos({
+  dados,
+}: {
+  dados: any[];
+}) {
+  return (
+    <section className="card overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4">
+        Abastecimentos
+      </h2>
+
+      {dados.length === 0 ? (
+        <p>Nenhum abastecimento.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <tbody>
+            {dados.map((a) => (
+              <tr key={a.id}>
+                <td>
+                  {a.viaturas?.prefixo}
+                </td>
+
+                <td>{a.litros} L</td>
+
+                <td>
+                  R$ {a.valor}
+                </td>
+
+                <td>
+                  {new Date(
+                    a.data_abastecimento
+                  ).toLocaleDateString(
+                    "pt-BR"
+                  )}
                 </td>
               </tr>
             ))}

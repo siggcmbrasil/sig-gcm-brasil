@@ -10,6 +10,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function HistoricoExportacoesPage() {
   const [dados, setDados] = useState<any[]>([]);
@@ -24,10 +25,16 @@ export default function HistoricoExportacoesPage() {
     setCarregando(true);
 
     const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+  localStorage.getItem("usuarioLogado") || "{}"
+);
 
-    const { data } = await supabase
+if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
+
+const { data } = await supabase
       .from("exportacoes_sistema")
       .select(`
         *,
@@ -53,6 +60,7 @@ export default function HistoricoExportacoesPage() {
   );
 
   return (
+  <ProtecaoModulo modulo="exportador_dados">
     <div className="p-4 md:p-6 space-y-6">
       <SigPageHeader
         titulo="Histórico de Exportações"
@@ -177,6 +185,7 @@ export default function HistoricoExportacoesPage() {
           </div>
         )}
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

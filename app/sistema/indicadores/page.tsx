@@ -16,6 +16,7 @@ import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
 export default function IndicadoresPage() {
+  const [carregando, setCarregando] = useState(true);
   const [dados, setDados] = useState({
     ocorrencias: 0,
     patrulhamentos: 0,
@@ -32,32 +33,64 @@ export default function IndicadoresPage() {
   }, []);
 
   async function contar(tabela: string, municipioId: number) {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from(tabela)
       .select("*", { count: "exact", head: true })
       .eq("municipio_id", municipioId);
+
+    if (error) {
+      console.error(`Erro ao contar ${tabela}:`, error);
+      return 0;
+    }
 
     return count || 0;
   }
 
   async function carregar() {
+    setCarregando(true);
+
     const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
     if (!usuario?.municipio_id) {
       alert("Município não identificado.");
+      setCarregando(false);
       return;
     }
 
+    const municipioId = usuario.municipio_id;
+
+    const [
+      ocorrencias,
+      patrulhamentos,
+      chamados,
+      apoios,
+      escoltas,
+      blitzes,
+      pessoas,
+      veiculos,
+    ] = await Promise.all([
+      contar("ocorrencias", municipioId),
+      contar("patrulhamentos", municipioId),
+      contar("chamados", municipioId),
+      contar("apoios", municipioId),
+      contar("escoltas", municipioId),
+      contar("blitzes_barreiras", municipioId),
+      contar("pessoas_abordadas", municipioId),
+      contar("veiculos_abordados", municipioId),
+    ]);
+
     setDados({
-      ocorrencias: await contar("ocorrencias", usuario.municipio_id),
-      patrulhamentos: await contar("patrulhamentos", usuario.municipio_id),
-      chamados: await contar("chamados", usuario.municipio_id),
-      apoios: await contar("apoios", usuario.municipio_id),
-      escoltas: await contar("escoltas", usuario.municipio_id),
-      blitzes: await contar("blitzes_barreiras", usuario.municipio_id),
-      pessoas: await contar("pessoas_abordadas", usuario.municipio_id),
-      veiculos: await contar("veiculos_abordados", usuario.municipio_id),
+      ocorrencias,
+      patrulhamentos,
+      chamados,
+      apoios,
+      escoltas,
+      blitzes,
+      pessoas,
+      veiculos,
     });
+
+    setCarregando(false);
   }
 
   const cards = [
@@ -111,25 +144,29 @@ export default function IndicadoresPage() {
         icone={Activity}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {cards.map((card) => {
-          const Icone = card.icone;
+      {carregando ? (
+        <SigCard>
+          <p className="text-slate-400">Carregando indicadores...</p>
+        </SigCard>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+          {cards.map((card) => {
+            const Icone = card.icone;
 
-          return (
-            <SigCard key={card.titulo}>
-              <Icone className="w-8 h-8 text-cyan-400 mb-3" />
+            return (
+              <SigCard key={card.titulo}>
+                <Icone className="w-8 h-8 text-cyan-400 mb-3" />
 
-              <p className="text-slate-400 text-sm">
-                {card.titulo}
-              </p>
+                <p className="text-slate-400 text-sm">{card.titulo}</p>
 
-              <h2 className="text-4xl font-black text-white mt-2">
-                {card.valor}
-              </h2>
-            </SigCard>
-          );
-        })}
-      </div>
+                <h2 className="text-4xl font-black text-white mt-2">
+                  {card.valor}
+                </h2>
+              </SigCard>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,7 @@ export default function LoaderSIG() {
     <div className="min-h-screen bg-[#061426] flex flex-col items-center justify-center">
 
       <img
-        src="/brasao-gcm-v2.png"
+        src="/brasoes/sig-gcm-logo.png"
         alt="SIG-GCM Brasil"
         className="w-36 h-36 animate-pulse"
       />

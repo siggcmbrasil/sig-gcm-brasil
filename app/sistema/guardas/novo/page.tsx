@@ -41,6 +41,22 @@ function formatarRG(valor: string) {
   return valor.replace(/[^0-9A-Za-z]/g, "").slice(0, 20);
 }
 
+function calcularAnos(data?: string) {
+  if (!data) return null;
+
+  const hoje = new Date();
+  const base = new Date(data);
+
+  let anos = hoje.getFullYear() - base.getFullYear();
+  const mes = hoje.getMonth() - base.getMonth();
+
+  if (mes < 0 || (mes === 0 && hoje.getDate() < base.getDate())) {
+    anos--;
+  }
+
+  return anos;
+}
+
 export default function NovoGuardaPage() {
   const router = useRouter();
   const params = useSearchParams();
@@ -71,7 +87,14 @@ export default function NovoGuardaPage() {
   const [observacao, setObservacao] = useState("");
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoUrl, setFotoUrl] = useState("");
+  const [previewFoto, setPreviewFoto] = useState("");
   const [salvando, setSalvando] = useState(false);
+
+  const idade = calcularAnos(dataNascimento);
+  const anosServico = calcularAnos(dataAdmissao);
+
+  const cnhVencida =
+    validadeCnh && new Date(validadeCnh + "T23:59:59") < new Date();
 
   const usuarioLogado =
     typeof window !== "undefined"
@@ -81,8 +104,10 @@ export default function NovoGuardaPage() {
   const municipioId = usuarioLogado?.municipio_id;
 
   useEffect(() => {
-    if (idEditar) carregarGuarda();
-  }, [idEditar]);
+    if (idEditar && municipioId) {
+      carregarGuarda();
+    }
+  }, [idEditar, municipioId]);
 
   async function carregarGuarda() {
     if (!municipioId || !idEditar) return;
@@ -134,12 +159,68 @@ export default function NovoGuardaPage() {
       return;
     }
 
+    if (cpf && cpf.replace(/\D/g, "").length !== 11) {
+      alert("CPF inválido.");
+      return;
+    }
+
+    if (email && !email.includes("@")) {
+      alert("E-mail inválido.");
+      return;
+    }
+
+    const { data: cpfExistente } = await supabase
+      .from("guardas")
+      .select("id")
+      .eq("municipio_id", municipioId)
+      .eq("cpf", cpf.replace(/\D/g, ""))
+      .neq("id", idEditar || 0)
+      .maybeSingle();
+
+    if (cpfExistente) {
+      alert("Já existe um guarda cadastrado com este CPF.");
+      return;
+    }
+
+    const { data: matriculaExistente } = await supabase
+      .from("guardas")
+      .select("id")
+      .eq("municipio_id", municipioId)
+      .eq("matricula", matricula.trim())
+      .neq("id", idEditar || 0)
+      .maybeSingle();
+
+    if (matriculaExistente) {
+      alert("Já existe um guarda com esta matrícula.");
+      return;
+    }
+
+    if (email.trim()) {
+      const { data: emailExistente } = await supabase
+        .from("guardas")
+        .select("id")
+        .eq("municipio_id", municipioId)
+        .eq("email", email.trim().toLowerCase())
+        .neq("id", idEditar || 0)
+        .maybeSingle();
+
+      if (emailExistente) {
+        alert("Já existe um guarda com este e-mail.");
+        return;
+      }
+    }
+
+    if (foto && foto.size > 5 * 1024 * 1024) {
+      alert("A foto deve ter no máximo 5MB.");
+      return;
+    }
+
     setSalvando(true);
 
     let urlFoto = fotoUrl;
 
     if (foto) {
-      const nomeArquivo = `${Date.now()}-${foto.name}`;
+      const nomeArquivo = `${municipioId}/${Date.now()}-${foto.name}`;
 
       const { error: uploadError } = await supabase.storage
         .from("fotos-guardas")
@@ -161,59 +242,83 @@ export default function NovoGuardaPage() {
     const payload = {
       municipio_id: municipioId,
       matricula: matricula.trim(),
-      nome: nome.trim(),
-      cargo: cargo.trim(),
-      telefone: telefone.trim(),
+      nome: nome.trim().toUpperCase(),
+      cargo: cargo.trim().toUpperCase(),
+      telefone: telefone.replace(/\D/g, ""),
       status,
-      cpf: cpf.trim(),
-      rg: rg.trim(),
-      email: email.trim(),
-      cnh: cnh.trim(),
-      graduacao,
-      tipo_sanguineo: tipoSanguineo,
-      contato_emergencia_nome: contatoEmergenciaNome.trim(),
-      contato_emergencia_parentesco: contatoEmergenciaParentesco.trim(),
-      contato_emergencia_telefone: contatoEmergenciaTelefone.trim(),
+      cpf: cpf.replace(/\D/g, ""),
+      rg: rg.trim().toUpperCase(),
+      cnh: cnh.replace(/\D/g, ""),
+      email: email.trim().toLowerCase(),
+      graduacao: graduacao?.toUpperCase() || null,
+      tipo_sanguineo: tipoSanguineo || null,
+      contato_emergencia_nome: contatoEmergenciaNome.trim() || null,
+      contato_emergencia_parentesco:
+        contatoEmergenciaParentesco.trim() || null,
+      contato_emergencia_telefone: contatoEmergenciaTelefone.replace(/\D/g, ""),
       especialidades,
-      categoria_cnh: categoriaCnh,
+      categoria_cnh: categoriaCnh || null,
       validade_cnh: validadeCnh || null,
       data_admissao: dataAdmissao || null,
       data_nascimento: dataNascimento || null,
       foto_url: urlFoto,
-      observacao: observacao.trim(),
-      lotacao,
+      observacao: observacao.trim() || null,
+      lotacao: lotacao?.toUpperCase() || null,
     };
 
-    const { error } = idEditar
+    const { data, error } = idEditar
       ? await supabase
           .from("guardas")
           .update(payload)
           .eq("id", idEditar)
           .eq("municipio_id", municipioId)
-      : await supabase.from("guardas").insert([payload]);
+          .select()
+          .single()
+      : await supabase.from("guardas").insert([payload]).select().single();
+
+    const novoId = data?.id;
+
+    if (error) {
+      setSalvando(false);
+      alert(error.message);
+      return;
+    }
 
     setSalvando(false);
 
-    if (error) {
-  alert(error.message);
-  return;
-}
+    await registrarAuditoria({
+      modulo: "Guardas",
+      acao: idEditar ? "EDITAR" : "CRIAR",
+      tabela: "guardas",
+      descricao: idEditar
+        ? `Atualizou o cadastro do guarda ${nome}.`
+        : `Cadastrou o guarda ${nome}.`,
+      detalhes: {
+        guarda_id: novoId,
+        nome,
+        matricula,
+        cpf,
+        graduacao,
+        lotacao,
+      },
+    });
 
-await registrarAuditoria({
-  modulo: "Guardas",
-  acao: idEditar ? "EDITAR" : "CRIAR",
-  descricao: idEditar
-    ? `Atualizou o cadastro do guarda ${nome}.`
-    : `Cadastrou o guarda ${nome}.`,
-});
+    alert(
+      idEditar
+        ? "Guarda atualizado com sucesso."
+        : "Guarda cadastrado com sucesso."
+    );
 
-alert(
-  idEditar
-    ? "Guarda atualizado com sucesso."
-    : "Guarda cadastrado com sucesso."
-);
+    if (novoId) {
+      const abrir = confirm("Deseja abrir o dossiê deste guarda agora?");
 
-router.push("/sistema/guardas");
+      if (abrir) {
+        router.push(`/sistema/guardas/${novoId}`);
+        return;
+      }
+    }
+
+    router.push("/sistema/guardas");
   }
 
   function alternarEspecialidade(item: string) {
@@ -310,6 +415,12 @@ router.push("/sistema/guardas");
                     value={dataNascimento}
                     onChange={(e) => setDataNascimento(e.target.value)}
                   />
+
+                  {idade !== null && (
+                    <p className="text-xs text-cyan-400 mt-1">
+                      Idade aproximada: {idade} anos
+                    </p>
+                  )}
                 </Campo>
 
                 <Campo label="Tipo Sanguíneo">
@@ -407,6 +518,12 @@ router.push("/sistema/guardas");
                     value={validadeCnh}
                     onChange={(e) => setValidadeCnh(e.target.value)}
                   />
+
+                  {cnhVencida && (
+                    <p className="text-xs text-red-400 mt-1">
+                      ⚠️ CNH vencida.
+                    </p>
+                  )}
                 </Campo>
 
                 <Campo label="Data de Admissão">
@@ -416,6 +533,12 @@ router.push("/sistema/guardas");
                     value={dataAdmissao}
                     onChange={(e) => setDataAdmissao(e.target.value)}
                   />
+
+                  {anosServico !== null && (
+                    <p className="text-xs text-yellow-400 mt-1">
+                      Tempo de serviço aproximado: {anosServico} anos
+                    </p>
+                  )}
                 </Campo>
               </div>
             </Bloco>
@@ -435,9 +558,7 @@ router.push("/sistema/guardas");
                   <input
                     className="input"
                     value={contatoEmergenciaParentesco}
-                    onChange={(e) =>
-                      setContatoEmergenciaParentesco(e.target.value)
-                    }
+                    onChange={(e) => setContatoEmergenciaParentesco(e.target.value)}
                     placeholder="Ex: esposa, mãe, pai"
                   />
                 </Campo>
@@ -471,6 +592,17 @@ router.push("/sistema/guardas");
                   "APH",
                   "Drone",
                   "Canil",
+                  "Patrulha Rural",
+                  "GOC",
+                  "Videomonitoramento",
+                  "Instrutor",
+                  "Corregedoria",
+                  "Ouvidoria",
+                  "Patrulha Comunitária",
+                  "Busca e Salvamento",
+                  "Operador de Rádio",
+                  "Patrulha Náutica",
+                  "Mediação de Conflitos",
                 ].map((item) => (
                   <label
                     key={item}
@@ -494,15 +626,22 @@ router.push("/sistema/guardas");
                     type="file"
                     accept="image/*"
                     className="input"
-                    onChange={(e) => setFoto(e.target.files?.[0] || null)}
+                    onChange={(e) => {
+                      const arquivo = e.target.files?.[0];
+
+                      if (!arquivo) return;
+
+                      setFoto(arquivo);
+                      setPreviewFoto(URL.createObjectURL(arquivo));
+                    }}
                   />
                 </Campo>
 
-                {fotoUrl && (
+                {(previewFoto || fotoUrl) && (
                   <div>
                     <label className="label">Foto atual</label>
                     <img
-                      src={fotoUrl}
+                      src={previewFoto || fotoUrl}
                       alt="Foto do guarda"
                       className="w-24 h-24 rounded-full object-cover border border-cyan-500/30"
                     />
@@ -545,7 +684,11 @@ router.push("/sistema/guardas");
                 className="btn-primary inline-flex items-center justify-center gap-2 disabled:opacity-50"
               >
                 <Save className="w-5 h-5" />
-                {salvando ? "Salvando..." : idEditar ? "Atualizar Guarda" : "Salvar Guarda"}
+                {salvando
+                  ? "Salvando..."
+                  : idEditar
+                  ? "Atualizar Guarda"
+                  : "Salvar Guarda"}
               </button>
 
               <button

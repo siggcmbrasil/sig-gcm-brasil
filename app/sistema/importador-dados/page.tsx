@@ -172,29 +172,19 @@ export default function ImportadorDadosPage() {
       </div>
 
       <SigCard>
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-8 text-center">
-          <Upload className="w-14 h-14 mx-auto text-slate-500 mb-4" />
+  <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-8 text-center">
+    <Upload className="w-14 h-14 mx-auto text-slate-500 mb-4" />
 
-          <h3 className="text-xl font-black text-white">
-            Enviar Arquivo
-          </h3>
+    <h3 className="text-xl font-black text-white">
+      Importação por Etapas
+    </h3>
 
-          <p className="text-slate-400 mt-2">
-            Selecione um arquivo para iniciar a importação.
-          </p>
-
-          <input
-            type="file"
-            accept=".csv,.xlsx,.xls,.json"
-            className="mt-6 block w-full max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-300"
-          />
-
-          <button className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-yellow-400 transition">
-            <Upload className="w-5 h-5" />
-            Importar Dados
-          </button>
-        </div>
-      </SigCard>
+    <p className="text-slate-400 mt-2 max-w-2xl mx-auto">
+      Para evitar erro em massa, a importação será feita pelas telas específicas:
+      CSV, Excel, JSON, Pré-visualização e Histórico.
+    </p>
+  </div>
+</SigCard>
 
       <SigCard>
         <h3 className="text-xl font-black text-white">

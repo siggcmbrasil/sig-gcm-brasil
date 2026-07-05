@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { MessageSquareText, Send, ShieldCheck } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 
@@ -17,8 +19,10 @@ export default function FeedSIGPage() {
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
       : {};
 
-  async function carregar() {
-    const { data } = await supabase
+ async function carregar() {
+  if (!usuario?.municipio_id) return;
+
+  const { data } = await supabase
       .from("feed_sig")
       .select("*")
       .eq("municipio_id", usuario?.municipio_id)
@@ -31,21 +35,43 @@ export default function FeedSIGPage() {
     carregar();
   }, []);
 
-  async function publicar() {
-    if (!texto.trim()) {
+ async function publicar() {
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!texto.trim()) {
       alert("Digite uma mensagem antes de publicar.");
       return;
     }
 
     setCarregando(true);
 
-    await supabase.from("feed_sig").insert([
-      {
-        usuario_id: usuario.id,
-        municipio_id: usuario.municipio_id,
-        texto: texto.trim(),
-      },
-    ]);
+    const { error } = await supabase.from("feed_sig").insert([
+  {
+    usuario_id: usuario.id,
+    municipio_id: usuario.municipio_id,
+    texto: texto.trim(),
+  },
+]);
+
+if (error) {
+  console.error(error);
+  alert("Erro ao publicar.");
+  setCarregando(false);
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Feed SIG",
+  acao: "PUBLICAR",
+  descricao: "Publicou no Feed SIG.",
+  tabela: "feed_sig",
+  detalhes: {
+    texto: texto.trim().slice(0, 200),
+  },
+});
 
     setTexto("");
     await carregar();
@@ -53,6 +79,7 @@ export default function FeedSIGPage() {
   }
 
   return (
+  <ProtecaoModulo modulo="feed_sig">
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Feed SIG-GCM Brasil"
@@ -126,6 +153,7 @@ export default function FeedSIGPage() {
           ))
         )}
       </div>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

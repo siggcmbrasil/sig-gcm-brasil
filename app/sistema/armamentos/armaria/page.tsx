@@ -1,71 +1,180 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import {
   Shield,
   CheckCircle,
   AlertTriangle,
   Wrench,
   Search,
+  Lock,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: number;
+  perfil?: string;
+  municipio_id: number;
+};
+
+type Armamento = {
+  id: number;
+  tipo: string | null;
+  marca: string | null;
+  modelo: string | null;
+  numero_serie: string | null;
+  calibre: string | null;
+  patrimonio: string | null;
+  localizacao: string | null;
+  status: string | null;
+  observacao: string | null;
+};
+
 export default function ArmariaPage() {
-  const [armamentos, setArmamentos] = useState<any[]>([]);
+  const [armamentos, setArmamentos] = useState<Armamento[]>([]);
   const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  useEffect(() => {
+    async function iniciar() {
+      const usuario = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      ) as UsuarioLogado;
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+      if (!usuario?.id || !usuario?.municipio_id) {
+        alert("Sessão inválida.");
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
 
-    const { data } = await supabase
+      if (
+        ![
+          "ADMIN",
+          "COMANDANTE",
+          "DIRETOR",
+          "DESENVOLVEDOR",
+        ].includes(usuario.perfil || "")
+      ) {
+        await registrarAuditoria({
+          modulo: "Armaria",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso à Armaria sem permissão.",
+          tabela: "armamentos",
+          detalhes: {
+            usuario_id: usuario.id,
+            perfil: usuario.perfil,
+            municipio_id: usuario.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      await registrarAuditoria({
+        modulo: "Armaria",
+        acao: "ACESSO",
+        descricao: "Acessou a Armaria.",
+        tabela: "armamentos",
+        detalhes: {
+          usuario_id: usuario.id,
+          perfil: usuario.perfil,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      await carregar(usuario);
+    }
+
+    iniciar();
+  }, []);
+
+  async function carregar(usuario: UsuarioLogado) {
+    setCarregando(true);
+
+    const { data, error } = await supabase
       .from("armamentos")
-      .select("*")
+      .select(
+        "id, tipo, marca, modelo, numero_serie, calibre, patrimonio, localizacao, status, observacao"
+      )
       .eq("municipio_id", usuario.municipio_id)
-      .order("marca");
+      .order("marca", { ascending: true })
+      .range(0, 499);
+
+    setCarregando(false);
+
+    if (error) {
+      await registrarAuditoria({
+        modulo: "Armaria",
+        acao: "ERRO",
+        descricao: "Erro ao carregar armamentos da armaria.",
+        tabela: "armamentos",
+        detalhes: {
+          erro: error.message,
+          usuario_id: usuario.id,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar armaria.");
+      return;
+    }
 
     setArmamentos(data || []);
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
-
   const resumo = useMemo(() => {
     return {
       total: armamentos.length,
-      disponiveis: armamentos.filter(
-        (a) => a.status === "DISPONIVEL"
-      ).length,
-      cauteladas: armamentos.filter(
-        (a) => a.status === "CAUTELADA"
-      ).length,
-      manutencao: armamentos.filter(
-        (a) => a.status === "MANUTENCAO"
-      ).length,
+      disponiveis: armamentos.filter((a) => a.status === "DISPONIVEL").length,
+      cauteladas: armamentos.filter((a) => a.status === "CAUTELADA").length,
+      manutencao: armamentos.filter((a) => a.status === "MANUTENCAO").length,
     };
   }, [armamentos]);
 
-  const lista = armamentos.filter((item) => {
-    const texto = `
-      ${item.tipo || ""}
-      ${item.marca || ""}
-      ${item.modelo || ""}
-      ${item.numero_serie || ""}
-      ${item.calibre || ""}
-      ${item.status || ""}
-    `.toLowerCase();
+  const lista = useMemo(() => {
+    return armamentos.filter((item) => {
+      const texto = `
+        ${item.tipo || ""}
+        ${item.marca || ""}
+        ${item.modelo || ""}
+        ${item.numero_serie || ""}
+        ${item.calibre || ""}
+        ${item.status || ""}
+      `.toLowerCase();
 
-    return texto.includes(busca.toLowerCase());
-  });
+      return texto.includes(busca.toLowerCase());
+    });
+  }, [armamentos, busca]);
+
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6 pb-24">
+        <div className="painel-premium p-10 text-center">
+          <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+          <h1 className="text-2xl font-black text-white">
+            Acesso restrito
+          </h1>
+          <p className="text-slate-400 mt-2">
+            Você não possui permissão para acessar a Armaria.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <div className="painel-premium p-6">
+        <p className="text-sm text-blue-400 font-bold uppercase">
+          Controle Administrativo Restrito
+        </p>
+
         <h1 className="text-3xl font-black text-white">
           🏛️ Armaria
         </h1>
@@ -78,25 +187,25 @@ export default function ArmariaPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Card
           titulo="Total"
-          valor={String(resumo.total)}
+          valor={carregando ? "..." : String(resumo.total)}
           icone={<Shield className="w-7 h-7" />}
         />
 
         <Card
           titulo="Disponíveis"
-          valor={String(resumo.disponiveis)}
+          valor={carregando ? "..." : String(resumo.disponiveis)}
           icone={<CheckCircle className="w-7 h-7 text-green-400" />}
         />
 
         <Card
           titulo="Cauteladas"
-          valor={String(resumo.cauteladas)}
+          valor={carregando ? "..." : String(resumo.cauteladas)}
           icone={<AlertTriangle className="w-7 h-7 text-yellow-400" />}
         />
 
         <Card
           titulo="Manutenção"
-          valor={String(resumo.manutencao)}
+          valor={carregando ? "..." : String(resumo.manutencao)}
           icone={<Wrench className="w-7 h-7 text-blue-400" />}
         />
       </div>
@@ -118,7 +227,11 @@ export default function ArmariaPage() {
         />
       </div>
 
-      {lista.length === 0 ? (
+      {carregando ? (
+        <div className="painel-premium p-10 text-center">
+          <p className="text-slate-400">Carregando armaria...</p>
+        </div>
+      ) : lista.length === 0 ? (
         <div className="painel-premium p-10 text-center">
           <p className="text-6xl mb-4">🛡️</p>
 
@@ -134,47 +247,32 @@ export default function ArmariaPage() {
               className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
             >
               <div className="flex justify-between gap-3">
-                <div>
-                  <p className="text-slate-400 text-sm">
-                    {item.tipo}
+                <div className="min-w-0">
+                  <p className="text-slate-400 text-sm break-words">
+                    {item.tipo || "N/I"}
                   </p>
 
-                  <h2 className="text-xl font-black text-white">
-                    {item.marca} {item.modelo}
+                  <h2 className="text-xl font-black text-white break-words">
+                    {item.marca || "N/I"} {item.modelo || ""}
                   </h2>
 
-                  <p className="text-slate-500 text-sm">
+                  <p className="text-slate-500 text-sm break-words">
                     Série: {item.numero_serie || "N/I"}
                   </p>
                 </div>
 
-                <Status status={item.status} />
+                <Status status={item.status || "N/I"} />
               </div>
 
               <div className="grid grid-cols-2 gap-3 mt-4">
-                <Info
-                  titulo="Calibre"
-                  valor={item.calibre || "N/I"}
-                />
-
-                <Info
-                  titulo="Patrimônio"
-                  valor={item.patrimonio || "N/I"}
-                />
-
-                <Info
-                  titulo="Local"
-                  valor={item.localizacao || "N/I"}
-                />
-
-                <Info
-                  titulo="Status"
-                  valor={item.status || "N/I"}
-                />
+                <Info titulo="Calibre" valor={item.calibre || "N/I"} />
+                <Info titulo="Patrimônio" valor={item.patrimonio || "N/I"} />
+                <Info titulo="Local" valor={item.localizacao || "N/I"} />
+                <Info titulo="Status" valor={item.status || "N/I"} />
               </div>
 
               {item.observacao && (
-                <p className="text-slate-300 text-sm mt-4 whitespace-pre-wrap">
+                <p className="text-slate-300 text-sm mt-4 whitespace-pre-wrap break-words">
                   {item.observacao}
                 </p>
               )}
@@ -199,13 +297,8 @@ function Card({
     <div className="painel-premium p-5">
       <div className="flex justify-between items-center">
         <div>
-          <p className="text-slate-400 text-sm">
-            {titulo}
-          </p>
-
-          <h2 className="text-3xl font-black text-white">
-            {valor}
-          </h2>
+          <p className="text-slate-400 text-sm">{titulo}</p>
+          <h2 className="text-3xl font-black text-white">{valor}</h2>
         </div>
 
         {icone}
@@ -223,11 +316,8 @@ function Info({
 }) {
   return (
     <div className="rounded-xl bg-slate-900/70 p-3">
-      <p className="text-slate-500 text-xs">
-        {titulo}
-      </p>
-
-      <p className="text-slate-200 font-bold text-sm">
+      <p className="text-slate-500 text-xs">{titulo}</p>
+      <p className="text-slate-200 font-bold text-sm break-words">
         {valor}
       </p>
     </div>
@@ -254,7 +344,9 @@ function Status({ status }: { status: string }) {
   }
 
   return (
-    <span className={`h-fit rounded-full border px-3 py-1 text-xs font-bold ${cor}`}>
+    <span
+      className={`h-fit rounded-full border px-3 py-1 text-xs font-bold shrink-0 ${cor}`}
+    >
       {status || "N/I"}
     </span>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const MapContainer = dynamic(
   () => import("react-leaflet").then((m) => m.MapContainer),
@@ -30,6 +31,12 @@ const Polyline = dynamic(
   { ssr: false }
 );
 
+type UsuarioLogado = {
+  id: string;
+  perfil: string;
+  municipio_id: number;
+};
+
 type PontoGps = {
   id: string;
   patrulhamento_id: number;
@@ -42,6 +49,7 @@ type PontoGps = {
 
 type Patrulhamento = {
   id: number;
+  municipio_id: number;
   data: string;
   hora: string;
   local: string;
@@ -52,9 +60,31 @@ type Patrulhamento = {
   status: string | null;
 };
 
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function RotaPatrulhamentoPage() {
   const params = useParams();
-  const id = Number(params.id);
+  const id = Number(params.id || 0);
 
   const [pontos, setPontos] = useState<PontoGps[]>([]);
   const [patrulhamento, setPatrulhamento] =
@@ -62,22 +92,93 @@ export default function RotaPatrulhamentoPage() {
   const [carregando, setCarregando] = useState(true);
 
   async function carregarDados() {
+    const usuario = obterUsuarioLogado();
+
+    if (!usuario) {
+      setPatrulhamento(null);
+      setPontos([]);
+      setCarregando(false);
+      return;
+    }
+
+    if (!Number.isFinite(id) || id <= 0) {
+      setPatrulhamento(null);
+      setPontos([]);
+      setCarregando(false);
+      return;
+    }
+
     setCarregando(true);
 
-    const { data: patrulhamentoData } = await supabase
-      .from("patrulhamentos")
-      .select("*")
-      .eq("id", id)
-      .single();
+    const { data: patrulhamentoData, error: erroPatrulhamento } =
+      await supabase
+        .from("patrulhamentos")
+        .select(
+          "id, municipio_id, data, hora, local, guarda, equipe, viatura, observacao, status"
+        )
+        .eq("id", id)
+        .eq("municipio_id", usuario.municipio_id)
+        .single();
 
-    const { data: pontosData, error } = await supabase
-  .from("gps_patrulhamento")
-  .select("*")
-  .eq("patrulhamento_id", id)
-  .order("criado_em", { ascending: true });
+    if (erroPatrulhamento || !patrulhamentoData) {
+      console.error(erroPatrulhamento);
 
-    if (error) {
-      console.error(error);
+      await registrarAuditoria({
+        modulo: "Patrulhamento",
+        acao: "ERRO",
+        descricao:
+          "Tentativa de acessar rota de patrulhamento inexistente ou de outro município.",
+        tabela: "patrulhamentos",
+        registro_id: id,
+        detalhes: {
+          erro: erroPatrulhamento?.message,
+          municipio_id: usuario.municipio_id,
+          usuario_id: usuario.id,
+        },
+      });
+
+      setPatrulhamento(null);
+      setPontos([]);
+      setCarregando(false);
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Patrulhamento",
+      acao: "ACESSO",
+      descricao: `Acessou a rota GPS do patrulhamento ${id}.`,
+      tabela: "patrulhamentos",
+      registro_id: id,
+      detalhes: {
+        municipio_id: usuario.municipio_id,
+        usuario_id: usuario.id,
+      },
+    });
+
+    const { data: pontosData, error: erroPontos } = await supabase
+      .from("gps_patrulhamento")
+      .select(
+        "id, patrulhamento_id, latitude, longitude, tipo, observacao, criado_em"
+      )
+      .eq("patrulhamento_id", id)
+      .order("criado_em", { ascending: true })
+      .limit(500);
+
+    if (erroPontos) {
+      console.error(erroPontos);
+
+      await registrarAuditoria({
+        modulo: "Patrulhamento",
+        acao: "ERRO",
+        descricao: "Erro ao carregar pontos GPS do patrulhamento.",
+        tabela: "gps_patrulhamento",
+        registro_id: id,
+        detalhes: {
+          erro: erroPontos.message,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
       alert("Erro ao carregar rota GPS.");
       setCarregando(false);
       return;
@@ -89,26 +190,29 @@ export default function RotaPatrulhamentoPage() {
   }
 
   useEffect(() => {
-    if (id) carregarDados();
+    void carregarDados();
   }, [id]);
 
   const pontosValidos = pontos.filter(
-  (p) =>
-    typeof p.latitude === "number" &&
-    typeof p.longitude === "number" &&
-    !isNaN(p.latitude) &&
-    !isNaN(p.longitude)
-);
+    (p: PontoGps) =>
+      typeof p.latitude === "number" &&
+      typeof p.longitude === "number" &&
+      !Number.isNaN(p.latitude) &&
+      !Number.isNaN(p.longitude)
+  );
 
-const posicoes = pontosValidos.map((p) => [
-  p.latitude,
-  p.longitude,
-]) as [number, number][];
+  const posicoes = pontosValidos.map((p: PontoGps) => [
+    p.latitude,
+    p.longitude,
+  ]) as [number, number][];
 
   const centro =
     posicoes.length > 0
       ? posicoes[0]
-      : ([-11.621296322631357, -38.80684199142887] as [number, number]);
+      : ([-11.621296322631357, -38.80684199142887] as [
+          number,
+          number
+        ]);
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -158,19 +262,19 @@ const posicoes = pontosValidos.map((p) => [
 
             <p>
               <span className="text-slate-500">Pontos GPS: </span>
-              {pontos.length}
+              {pontosValidos.length}
             </p>
 
             <p>
               <span className="text-slate-500">Status: </span>
-              {patrulhamento.status}
+              {patrulhamento.status || "-"}
             </p>
           </div>
 
           <div className="card xl:col-span-3">
-            {pontos.length === 0 ? (
+            {pontosValidos.length === 0 ? (
               <p className="text-slate-400">
-                Nenhum ponto GPS registrado para este patrulhamento.
+                Nenhum ponto GPS válido registrado para este patrulhamento.
               </p>
             ) : (
               <div className="h-[70vh] rounded-2xl overflow-hidden border border-slate-800">
@@ -184,9 +288,11 @@ const posicoes = pontosValidos.map((p) => [
                     url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   />
 
-                  <Polyline positions={posicoes} weight={5} />
+                  {posicoes.length > 1 && (
+                    <Polyline positions={posicoes} weight={5} />
+                  )}
 
-                  {pontosValidos.map((p, index) => (
+                  {pontosValidos.map((p: PontoGps, index: number) => (
                     <Marker key={p.id} position={[p.latitude, p.longitude]}>
                       <Popup>
                         <strong>
@@ -199,6 +305,12 @@ const posicoes = pontosValidos.map((p) => [
                         <br />
                         Data/Hora:{" "}
                         {new Date(p.criado_em).toLocaleString("pt-BR")}
+                        {p.observacao && (
+                          <>
+                            <br />
+                            Observação: {p.observacao}
+                          </>
+                        )}
                       </Popup>
                     </Marker>
                   ))}

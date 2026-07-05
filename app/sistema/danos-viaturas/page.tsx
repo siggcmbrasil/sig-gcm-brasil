@@ -36,11 +36,22 @@ export default function DanosViaturasPage() {
       .eq("municipio_id", usuario.municipio_id)
       .order("prefixo");
 
-    const { data: listaRegistros } = await supabase
+    const {
+  data: listaRegistros,
+  error,
+} = await supabase
       .from("danos_viaturas")
       .select("*, viaturas(prefixo, placa, modelo)")
       .eq("municipio_id", usuario.municipio_id)
       .order("criado_em", { ascending: false });
+
+      if (error) {
+  console.error(error);
+  alert("Erro ao carregar registros.");
+  setCarregando(false);
+  return;
+}
+
 
     setViaturas(listaViaturas || []);
     setRegistros(listaRegistros || []);
@@ -79,6 +90,10 @@ export default function DanosViaturasPage() {
   }
 
   async function salvar() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
     if (!viaturaId) {
       alert("Selecione a viatura.");
       return;
@@ -119,7 +134,7 @@ export default function DanosViaturasPage() {
     const viatura = viaturas.find((v) => String(v.id) === viaturaId);
 
     await registrarAuditoria({
-      modulo: "Viaturas",
+      modulo: "DANOS_VIATURAS",
       acao: editandoId ? "EDITAR_DANO" : "CRIAR_DANO",
       descricao: editandoId
         ? `Atualizou problema da viatura ${
@@ -150,8 +165,8 @@ export default function DanosViaturasPage() {
     }
 
     await registrarAuditoria({
-      modulo: "Viaturas",
-      acao: "ALTERAR_STATUS_DANO",
+      modulo: "DANOS_VIATURAS",
+acao: "ALTERAR_STATUS_DANO",
       descricao: `Alterou o status do problema da viatura ${
         registro?.viaturas?.prefixo || registro?.viatura_id || id
       } para ${novoStatus}.`,
@@ -177,8 +192,8 @@ export default function DanosViaturasPage() {
     }
 
     await registrarAuditoria({
-      modulo: "Viaturas",
-      acao: "EXCLUIR_DANO",
+      modulo: "DANOS_VIATURAS",
+acao: "EXCLUIR_DANO",
       descricao: `Excluiu problema da viatura ${
         registro?.viaturas?.prefixo || registro?.viatura_id || id
       }.`,

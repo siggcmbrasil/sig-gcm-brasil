@@ -3,12 +3,7 @@
 import {
   FileText,
   BarChart3,
-  FileSpreadsheet,
-  History,
   ClipboardList,
-  FileArchive,
-  Printer,
-  ScrollText,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
@@ -26,42 +21,6 @@ const cards = [
     icone: BarChart3,
     href: "/sistema/relatorios",
     descricao: "Relatórios gerenciais e estatísticos.",
-  },
-  {
-    titulo: "Histórico",
-    icone: History,
-    href: "/sistema/historico",
-    descricao: "Consulta ao histórico de atividades.",
-  },
-  {
-    titulo: "PDFs",
-    icone: FileArchive,
-    href: "/sistema/pdfs",
-    descricao: "Documentos PDF gerados pelo sistema.",
-  },
-  {
-    titulo: "Ofícios",
-    icone: FileText,
-    href: "/sistema/oficios",
-    descricao: "Emissão e gerenciamento de ofícios.",
-  },
-  {
-    titulo: "Ofícios Recebidos",
-    icone: ScrollText,
-    href: "/sistema/oficios-recebidos",
-    descricao: "Controle dos documentos recebidos.",
-  },
-  {
-    titulo: "Exportar Dados",
-    icone: FileSpreadsheet,
-    href: "/sistema/exportador-dados",
-    descricao: "Exportação de informações do sistema.",
-  },
-  {
-    titulo: "Impressões",
-    icone: Printer,
-    href: "/sistema/pdfs?tipo=impressoes",
-    descricao: "Central de impressão de documentos.",
   },
 ];
 

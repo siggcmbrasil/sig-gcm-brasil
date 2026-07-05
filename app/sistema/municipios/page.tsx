@@ -17,6 +17,10 @@ type Municipio = {
   telefone: string | null;
   email: string | null;
   endereco: string | null;
+  cnpj?: string | null;
+  site?: string | null;
+  prefeito?: string | null;
+  telefone_plantao?: string | null;
   latitude?: number | null;
   longitude?: number | null;
   zoom_mapa?: number | null;
@@ -35,6 +39,10 @@ export default function MunicipiosPage() {
   const [telefone, setTelefone] = useState("");
   const [email, setEmail] = useState("");
   const [endereco, setEndereco] = useState("");
+  const [cnpj, setCnpj] = useState("");
+  const [site, setSite] = useState("");
+  const [prefeito, setPrefeito] = useState("");
+  const [telefonePlantao, setTelefonePlantao] = useState("");
   const [brasao, setBrasao] = useState("");
   const [corPrincipal, setCorPrincipal] = useState("#1e40af");
   const [latitude, setLatitude] = useState("");
@@ -73,6 +81,10 @@ function editarMunicipio(municipio: Municipio) {
   setTelefone(municipio.telefone || "");
   setEmail(municipio.email || "");
   setEndereco(municipio.endereco || "");
+  setCnpj(municipio.cnpj || "");
+  setSite(municipio.site || "");
+  setPrefeito(municipio.prefeito || "");
+  setTelefonePlantao(municipio.telefone_plantao || "");
   setBrasao(municipio.brasao || "");
   setCorPrincipal(municipio.cor_principal || "#1e40af");
   setLatitude(municipio.latitude?.toString() || "");
@@ -88,6 +100,31 @@ function editarMunicipio(municipio: Municipio) {
     return;
   }
 
+  if (email && !email.includes("@")) {
+  alert("Email inválido.");
+  return;
+}
+
+if (latitude && isNaN(Number(latitude))) {
+  alert("Latitude inválida.");
+  return;
+}
+
+if (longitude && isNaN(Number(longitude))) {
+  alert("Longitude inválida.");
+  return;
+}
+
+if (latitudeBase && isNaN(Number(latitudeBase))) {
+  alert("Latitude da base inválida.");
+  return;
+}
+
+if (longitudeBase && isNaN(Number(longitudeBase))) {
+  alert("Longitude da base inválida.");
+  return;
+}
+
   const dados = {
     nome,
     estado,
@@ -97,6 +134,10 @@ function editarMunicipio(municipio: Municipio) {
     telefone,
     email,
     endereco,
+    cnpj,
+    site,
+    prefeito,
+    telefone_plantao: telefonePlantao,
     brasao,
     cor_principal: corPrincipal,
     latitude: latitude ? parseFloat(latitude) : null,
@@ -133,11 +174,20 @@ function editarMunicipio(municipio: Municipio) {
   setTelefone("");
   setEmail("");
   setEndereco("");
+  setCnpj("");
+  setSite("");
+  setPrefeito("");
+  setTelefonePlantao("");
   setBrasao("");
   setCorPrincipal("#1e40af");
+  setLatitude("");
+  setLongitude("");
+  setZoomMapa("15");
+  setLatitudeBase("");
+  setLongitudeBase("");
 
   carregarMunicipios();
-}
+  }
 
   async function alternarStatus(municipio: Municipio) {
     const { error } = await supabase
@@ -162,6 +212,32 @@ function editarMunicipio(municipio: Municipio) {
   );
 
   if (!confirmar) return;
+
+  const { count: usuariosVinculados } = await supabase
+  .from("usuarios")
+  .select("*", { count: "exact", head: true })
+  .eq("municipio_id", id);
+
+const { count: guardasVinculados } = await supabase
+  .from("guardas")
+  .select("*", { count: "exact", head: true })
+  .eq("municipio_id", id);
+
+const { count: ocorrenciasVinculadas } = await supabase
+  .from("ocorrencias")
+  .select("*", { count: "exact", head: true })
+  .eq("municipio_id", id);
+
+if (
+  (usuariosVinculados || 0) > 0 ||
+  (guardasVinculados || 0) > 0 ||
+  (ocorrenciasVinculadas || 0) > 0
+) {
+  alert(
+    "Não é possível excluir este município porque ele possui usuários, guardas ou ocorrências vinculadas."
+  );
+  return;
+}
 
   const { error } = await supabase
     .from("municipios")
@@ -246,6 +322,34 @@ function editarMunicipio(municipio: Municipio) {
               onChange={(e) => setEmail(e.target.value)}
             />
 
+            <input
+              className="input"
+              placeholder="CNPJ"
+              value={cnpj}
+              onChange={(e) => setCnpj(e.target.value)}
+            />
+
+            <input
+              className="input"
+              placeholder="Site"
+              value={site}
+              onChange={(e) => setSite(e.target.value)}
+            />
+
+            <input
+              className="input"
+              placeholder="Prefeito"
+              value={prefeito}
+              onChange={(e) => setPrefeito(e.target.value)}
+            />
+
+            <input
+              className="input"
+              placeholder="Telefone de plantão"
+              value={telefonePlantao}
+              onChange={(e) => setTelefonePlantao(e.target.value)}
+            />
+
             <textarea
               className="input h-24 resize-none"
               placeholder="Endereço"
@@ -305,6 +409,8 @@ function editarMunicipio(municipio: Municipio) {
               />
             </div>
 
+            
+
             <button
   type="button"
   onClick={salvarMunicipio}
@@ -312,6 +418,38 @@ function editarMunicipio(municipio: Municipio) {
 >
   {editandoId ? "Atualizar Município" : "Salvar Município"}
 </button>
+
+{editandoId && (
+  <button
+    type="button"
+    onClick={() => {
+      setEditandoId(null);
+      setNome("");
+      setEstado("BA");
+      setNomeCorporacao("");
+      setSiglaCorporacao("");
+      setComandante("");
+      setTelefone("");
+      setEmail("");
+      setEndereco("");
+      setCnpj("");
+      setSite("");
+      setPrefeito("");
+      setTelefonePlantao("");
+      setBrasao("");
+      setCorPrincipal("#1e40af");
+      setLatitude("");
+      setLongitude("");
+      setZoomMapa("15");
+      setLatitudeBase("");
+      setLongitudeBase("");
+    }}
+    className="w-full bg-slate-700 hover:bg-slate-600 p-3 rounded-xl font-bold mt-2"
+  >
+    Cancelar edição
+  </button>
+)}
+
           </div>
         </div>
 
@@ -367,8 +505,40 @@ function editarMunicipio(municipio: Municipio) {
                           Endereço: {municipio.endereco || "-"}
                         </p>
 
+                        {municipio.cnpj && (
+                          <p className="text-slate-400 text-sm">
+                            CNPJ: {municipio.cnpj}
+                          </p>
+                        )}
+
+                        {municipio.prefeito && (
+                          <p className="text-slate-400 text-sm">
+                            Prefeito: {municipio.prefeito}
+                          </p>
+                        )}
+
+                        {municipio.telefone_plantao && (
+                          <p className="text-slate-400 text-sm">
+                            Plantão: {municipio.telefone_plantao}
+                          </p>
+                        )}
+
+                        {municipio.site && (
+                          <p className="text-slate-400 text-sm">
+                            Site: {municipio.site}
+                          </p>
+                        )}
+
                         <p className="text-slate-500 text-xs mt-2">
                           Cor principal: {municipio.cor_principal || "-"}
+                        </p>
+
+                        <p className="text-slate-500 text-xs">
+                          Centro: {municipio.latitude || "-"}, {municipio.longitude || "-"}
+                        </p>
+
+                        <p className="text-slate-500 text-xs">
+                          Base GCM: {municipio.latitude_base || "-"}, {municipio.longitude_base || "-"}
                         </p>
                       </div>
                     </div>

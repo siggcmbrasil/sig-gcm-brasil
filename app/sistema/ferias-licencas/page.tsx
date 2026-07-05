@@ -15,6 +15,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function FeriasLicencasPage() {
   const [registros, setRegistros] = useState<any[]>([]);
@@ -113,17 +114,15 @@ export default function FeriasLicencasPage() {
   const licencas = registros.filter((r) =>
     String(r.tipo || "").includes("LICENÇA")
   ).length;
-  const vencendo = registros.filter(
-    (r) => r.status === "ATIVO" && r.data_fim && r.data_fim >= hoje
-  ).length;
 
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
-      <SigPageHeader
-        titulo="Férias e Licenças"
-        subtitulo="Controle de férias, licenças e afastamentos dos servidores."
-        icone={CalendarDays}
-      />
+    <ProtecaoModulo modulo="ferias_licencas">
+      <div className="p-4 md:p-6 pb-24 space-y-6">
+        <SigPageHeader
+          titulo="Férias e Licenças"
+          subtitulo="Controle de férias, licenças e afastamentos dos servidores."
+          icone={CalendarDays}
+        />
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <SigCard>
@@ -282,6 +281,7 @@ export default function FeriasLicencasPage() {
           </div>
         )}
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

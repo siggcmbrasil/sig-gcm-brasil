@@ -35,33 +35,143 @@ export default function InventarioArmamentoPage() {
   const [responsavel, setResponsavel] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
+const [carregando, setCarregando] = useState(true);
+const [bloqueado, setBloqueado] = useState(false);
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+  async function carregar(usuarioAtual: any) {
+  setCarregando(true);
 
-    const { data: listaArmamentos } = await supabase
-      .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
+  const {
+    data: listaArmamentos,
+    error: erroArmamentos,
+  } = await supabase
+    .from("armamentos")
+    .select(`
+      id,
+      tipo,
+      marca,
+      modelo,
+      numero_serie,
+      status
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("id", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    const { data: listaInventarios } = await supabase
-      .from("inventario_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+  const {
+    data: listaInventarios,
+    error: erroInventarios,
+  } = await supabase
+    .from("inventario_armamento")
+    .select(`
+      id,
+      armamento_id,
+      status_conferencia,
+      localizacao,
+      estado,
+      responsavel,
+      observacao,
+      criado_em
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("criado_em", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    setArmamentos(listaArmamentos || []);
-    setInventarios(listaInventarios || []);
+  setCarregando(false);
+
+  if (
+    erroArmamentos ||
+    erroInventarios
+  ) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao:
+        "Erro ao carregar inventário.",
+      tabela: "inventario_armamento",
+      detalhes: {
+        erro_armamentos:
+          erroArmamentos?.message,
+        erro_inventarios:
+          erroInventarios?.message,
+      },
+    });
+
+    alert("Erro ao carregar inventário.");
+    return;
   }
 
+  setArmamentos(listaArmamentos || []);
+  setInventarios(listaInventarios || []);
+}
+
   useEffect(() => {
-    carregar();
-  }, []);
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (!dados?.id || !dados?.municipio_id) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    if (
+      ![
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+        "DESENVOLVEDOR",
+      ].includes(dados.perfil || "")
+    ) {
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ACESSO_NEGADO",
+        descricao:
+          "Tentativa de acesso ao inventário de armamento.",
+        tabela: "inventario_armamento",
+        detalhes: {
+          usuario_id: dados.id,
+          perfil: dados.perfil,
+        },
+      });
+
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(dados);
+
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ACESSO",
+      descricao:
+        "Acessou o inventário de armamento.",
+      tabela: "inventario_armamento",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id: dados.municipio_id,
+      },
+    });
+
+    await carregar(dados);
+  }
+
+  iniciar();
+}, []);
 
   const resumo = useMemo(() => {
     return {
@@ -139,6 +249,23 @@ export default function InventarioArmamentoPage() {
       alert("Selecione o armamento.");
       return;
     }
+    if (
+  observacao.length > 3000
+) {
+  alert(
+    "Observação muito grande."
+  );
+  return;
+}
+
+if (
+  responsavel.length > 150
+) {
+  alert(
+    "Nome do responsável muito grande."
+  );
+  return;
+}
 
     setSalvando(true);
 
@@ -158,26 +285,78 @@ export default function InventarioArmamentoPage() {
     setSalvando(false);
 
     if (error) {
-      alert(error.message);
-      return;
-    }
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "ERRO",
+    descricao: "Erro ao registrar inventário de armamento.",
+    tabela: "inventario_armamento",
+    detalhes: {
+      erro: error.message,
+      armamento_id: Number(armamentoId),
+      status_conferencia: statusConferencia,
+      localizacao,
+      estado,
+    },
+  });
+
+  alert(error.message);
+  return;
+}
 
     await registrarAuditoria({
   modulo: "Armamentos",
-  acao: "REGISTRAR_INVENTARIO",
+  acao: "CRIAR",
   descricao: `Realizou inventário do armamento ${nomeArmamento(
     Number(armamentoId)
-  )}. Status: ${nomeStatus(
-    statusConferencia
-  )}. Estado: ${nomeEstado(
-    estado
-  )}. Localização: ${localizacao}.`,
+  )}.`,
+  tabela: "inventario_armamento",
+  detalhes: {
+    armamento_id: Number(
+      armamentoId
+    ),
+    status_conferencia:
+      statusConferencia,
+    localizacao,
+    estado,
+    responsavel,
+    observacao,
+  },
 });
 
     limpar();
-    carregar();
+await carregar(usuario);
     alert("Inventário registrado com sucesso.");
   }
+
+  if (carregando) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <p className="text-slate-400">
+          Carregando inventário de armamentos...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+  if (bloqueado) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <h2 className="text-2xl font-black text-white">
+          Acesso Restrito
+        </h2>
+
+        <p className="text-slate-400 mt-2">
+          Você não possui permissão
+          para acessar o inventário
+          de armamentos.
+        </p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

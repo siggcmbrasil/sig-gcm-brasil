@@ -13,7 +13,7 @@
     "productName": "SIG-GCM Brasil",
     "win": {
       "target": "nsis",
-      "icon": "public/brasao-gcm-v2.png"
+      "icon": "public/brasoes/sig-gcm-logo.png"
     }
   },
   "dependencies": {

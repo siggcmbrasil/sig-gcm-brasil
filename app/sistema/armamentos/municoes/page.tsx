@@ -29,26 +29,106 @@ export default function MunicoesArmamentoPage() {
   const [validade, setValidade] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
+const [carregando, setCarregando] = useState(true);
+const [bloqueado, setBloqueado] = useState(false);
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+  async function carregar(
+  usuarioAtual: any
+) {
+  setCarregando(true);
 
-    const { data } = await supabase
+  const { data, error } =
+    await supabase
       .from("municoes_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      .select(`
+        id,
+        calibre,
+        quantidade,
+        tipo_movimento,
+        lote,
+        validade,
+        observacao,
+        criado_em
+      `)
+      .eq(
+        "municipio_id",
+        usuarioAtual.municipio_id
+      )
+      .order("criado_em", {
+        ascending: false,
+      })
+      .range(0, 499);
 
-    setMovimentos(data || []);
+  setCarregando(false);
+
+  if (error) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao:
+        "Erro ao carregar munições.",
+      tabela:
+        "municoes_armamento",
+      detalhes: {
+        erro: error.message,
+      },
+    });
+
+    alert(
+      "Erro ao carregar munições."
+    );
+    return;
   }
 
+  setMovimentos(data || []);
+}
+
   useEffect(() => {
-    carregar();
-  }, []);
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (!dados?.id || !dados?.municipio_id) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    if (
+      ![
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+        "DESENVOLVEDOR",
+      ].includes(dados.perfil || "")
+    ) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(dados);
+
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ACESSO",
+      descricao:
+        "Acessou o módulo de munições.",
+      tabela: "municoes_armamento",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id:
+          dados.municipio_id,
+      },
+    });
+
+    await carregar(dados);
+  }
+
+  iniciar();
+}, []);
 
   const estoque = useMemo(() => {
     const mapa = new Map<string, any>();
@@ -112,71 +192,141 @@ export default function MunicoesArmamentoPage() {
   }
 
   async function salvar() {
-  if (!calibre)
-    return alert("Selecione o calibre.");
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
 
-  if (
-    !quantidade ||
-    Number(quantidade) <= 0
-  ) {
-    return alert(
-      "Informe a quantidade."
-    );
+  if (!calibre) {
+    alert("Selecione o calibre.");
+    return;
+  }
+
+  if (!quantidade || Number(quantidade) <= 0) {
+    alert("Informe a quantidade.");
+    return;
+  }
+
+  if (Number(quantidade) > 100000) {
+    alert("Quantidade muito alta.");
+    return;
+  }
+
+  if (observacao.length > 3000) {
+    alert("Observação muito grande.");
+    return;
+  }
+
+  if (lote.length > 100) {
+    alert("Lote muito grande.");
+    return;
+  }
+
+  if (tipoMovimento === "SAIDA") {
+    const saldoAtual = movimentos
+      .filter(
+        (m) =>
+          m.calibre === calibre &&
+          (m.lote || "") === (lote.trim() || "")
+      )
+      .reduce((acc, m) => {
+        const qtd = Number(m.quantidade || 0);
+
+        if (m.tipo_movimento === "ENTRADA") {
+          return acc + qtd;
+        }
+
+        return acc - qtd;
+      }, 0);
+
+    if (Number(quantidade) > saldoAtual) {
+      alert("Não há munição suficiente em estoque.");
+      return;
+    }
   }
 
   setSalvando(true);
 
-  const { error } = await supabase
+  const dadosMovimento = {
+    municipio_id: usuario.municipio_id,
+    criado_por: usuario.id,
+    calibre,
+    quantidade: Number(quantidade),
+    tipo_movimento: tipoMovimento,
+    lote: lote.trim() || null,
+    validade: validade || null,
+    observacao: observacao.trim() || null,
+  };
+
+  const { data, error } = await supabase
     .from("municoes_armamento")
-    .insert([
-      {
-        municipio_id:
-          usuario.municipio_id,
-        criado_por: usuario.id,
-        calibre,
-        quantidade: Number(
-          quantidade
-        ),
-        tipo_movimento:
-          tipoMovimento,
-        lote:
-          lote.trim() || null,
-        validade:
-          validade || null,
-        observacao:
-          observacao.trim() ||
-          null,
-      },
-    ]);
+    .insert([dadosMovimento])
+    .select("id")
+    .single();
 
   setSalvando(false);
 
   if (error) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao: "Erro ao registrar movimentação de munição.",
+      tabela: "municoes_armamento",
+      detalhes: {
+        erro: error.message,
+        dados: dadosMovimento,
+      },
+    });
+
     alert(error.message);
     return;
   }
 
   await registrarAuditoria({
     modulo: "Armamentos",
-    acao: "MOVIMENTACAO_MUNICAO",
+    acao: "CRIAR",
     descricao: `${
-      tipoMovimento ===
-      "ENTRADA"
-        ? "Entrada"
-        : "Saída"
-    } de ${quantidade} munições calibre ${calibre}. Lote: ${
-      lote || "Sem lote"
-    }.`,
+      tipoMovimento === "ENTRADA" ? "Entrada" : "Saída"
+    } de ${quantidade} munições calibre ${calibre}.`,
+    tabela: "municoes_armamento",
+    registro_id: data?.id,
+    detalhes: dadosMovimento,
   });
 
   limpar();
-  carregar();
+  await carregar(usuario);
 
-  alert(
-    "Movimentação de munição registrada com sucesso."
+  alert("Movimentação de munição registrada com sucesso.");
+}
+
+if (carregando) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <p className="text-slate-400">
+          Carregando munições...
+        </p>
+      </div>
+    </div>
   );
 }
 
+if (bloqueado) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <h2 className="text-2xl font-black text-white">
+          Acesso Restrito
+        </h2>
+
+        <p className="text-slate-400 mt-2">
+          Você não possui permissão
+          para acessar este módulo.
+        </p>
+      </div>
+    </div>
+  );
+}
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <div className="painel-premium p-6">

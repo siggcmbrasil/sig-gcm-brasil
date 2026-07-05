@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import SigButton from "@/components/sig/SigButton";
@@ -21,9 +22,20 @@ export default function PatrulhamentoGpsPage() {
   const [observacao, setObservacao] = useState("");
   const [enviando, setEnviando] = useState(false);
 
+  function pegarUsuario() {
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  }
+
   async function enviarLocalizacao() {
     if (!navigator.geolocation) {
       alert("GPS não suportado neste dispositivo.");
+      return;
+    }
+
+    const usuario = pegarUsuario();
+
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Usuário ou município não identificado.");
       return;
     }
 
@@ -32,24 +44,15 @@ export default function PatrulhamentoGpsPage() {
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         try {
-          const usuario = JSON.parse(
-            localStorage.getItem("usuarioLogado") || "{}"
-          );
-
-          if (!usuario?.id || !usuario?.municipio_id) {
-            alert("Usuário ou município não identificado.");
-            setEnviando(false);
-            return;
-          }
-
           const dados = {
             guarda_id: usuario.id,
             nome: usuario.nome || "Usuário sem nome",
             latitude: pos.coords.latitude,
             longitude: pos.coords.longitude,
+            precisao: pos.coords.accuracy || null,
             municipio_id: usuario.municipio_id,
             status: tipo,
-            observacao,
+            observacao: observacao.trim() || null,
             atualizado_em: new Date().toISOString(),
           };
 
@@ -68,30 +71,40 @@ export default function PatrulhamentoGpsPage() {
                 .update(dados)
                 .eq("id", existente.id)
                 .eq("municipio_id", usuario.municipio_id)
-            : await supabase
-                .from("localizacoes_tempo_real")
-                .insert(dados);
+            : await supabase.from("localizacoes_tempo_real").insert(dados);
 
           if (error) throw error;
+
+          await registrarAuditoria({
+            modulo: "Localização em Tempo Real",
+            acao: existente ? "ATUALIZAR_LOCALIZACAO" : "CRIAR_LOCALIZACAO",
+            tabela: "localizacoes_tempo_real",
+            descricao: `Atualizou localização em tempo real como ${tipo}.`,
+            detalhes: {
+              guarda_id: usuario.id,
+              municipio_id: usuario.municipio_id,
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              precisao: pos.coords.accuracy || null,
+              tipo,
+            },
+          });
 
           alert("Localização atualizada!");
           setObservacao("");
         } catch (error: any) {
-  console.error("Erro completo ao enviar localização:", JSON.stringify(error, null, 2));
-  console.error("Mensagem:", error?.message);
-  console.error("Detalhes:", error?.details);
-  console.error("Hint:", error?.hint);
-  console.error("Código:", error?.code);
+          console.error("Erro completo ao enviar localização:", error);
 
-  alert(
-    error?.message ||
-    "Erro ao enviar localização. Verifique o console."
-  );
-} finally {
-  setEnviando(false);
-}
+          alert(
+            error?.message ||
+              "Erro ao enviar localização. Verifique o console."
+          );
+        } finally {
+          setEnviando(false);
+        }
       },
-      () => {
+      (erro) => {
+        console.error(erro);
         alert("Não foi possível obter sua localização.");
         setEnviando(false);
       },
@@ -107,7 +120,7 @@ export default function PatrulhamentoGpsPage() {
     const confirmar = confirm("Deseja excluir sua localização do mapa?");
     if (!confirmar) return;
 
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    const usuario = pegarUsuario();
 
     if (!usuario?.id || !usuario?.municipio_id) {
       alert("Usuário ou município não identificado.");
@@ -125,6 +138,17 @@ export default function PatrulhamentoGpsPage() {
       alert("Erro ao excluir localização.");
       return;
     }
+
+    await registrarAuditoria({
+      modulo: "Localização em Tempo Real",
+      acao: "REMOVER_LOCALIZACAO",
+      tabela: "localizacoes_tempo_real",
+      descricao: "Removeu a própria localização do mapa operacional.",
+      detalhes: {
+        guarda_id: usuario.id,
+        municipio_id: usuario.municipio_id,
+      },
+    });
 
     alert("Localização removida do mapa.");
   }
@@ -207,10 +231,7 @@ export default function PatrulhamentoGpsPage() {
               {enviando ? "Enviando..." : "Atualizar localização"}
             </SigButton>
 
-            <SigButton
-              type="red"
-              onClick={limparMeusPontos}
-            >
+            <SigButton type="red" onClick={limparMeusPontos}>
               <Trash2 className="w-4 h-4" />
               Remover minha localização
             </SigButton>

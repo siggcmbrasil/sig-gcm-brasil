@@ -28,14 +28,38 @@ function dividirTexto(texto: string, tamanho = 1800) {
 
 export async function POST(req: Request) {
   let caminhoTemporario = "";
+  let documento_id: string | number | null = null;
 
   try {
-    const { documento_id } = await req.json();
+    const body = await req.json();
+    documento_id = body.documento_id;
+    const usuario = body.usuario;
 
     if (!documento_id) {
       return NextResponse.json(
         { erro: "documento_id é obrigatório" },
         { status: 400 }
+      );
+    }
+
+    if (!usuario?.id || !usuario?.municipio_id) {
+      return NextResponse.json(
+        { erro: "Usuário inválido. Faça login novamente." },
+        { status: 401 }
+      );
+    }
+
+    const { data: documento, error: erroDoc } = await supabaseAdmin
+      .from("sigia_documentos")
+      .select("*")
+      .eq("id", documento_id)
+      .eq("municipio_id", usuario.municipio_id)
+      .single();
+
+    if (erroDoc || !documento) {
+      return NextResponse.json(
+        { erro: "Documento não encontrado ou sem permissão." },
+        { status: 404 }
       );
     }
 
@@ -45,30 +69,15 @@ export async function POST(req: Request) {
         status: "PROCESSANDO",
         atualizado_em: new Date().toISOString(),
       })
-      .eq("id", documento_id);
-
-    const { data: documento, error: erroDoc } = await supabaseAdmin
-      .from("sigia_documentos")
-      .select("*")
       .eq("id", documento_id)
-      .single();
-
-    if (erroDoc || !documento) {
-      return NextResponse.json(
-        { erro: "Documento não encontrado", detalhe: erroDoc?.message },
-        { status: 404 }
-      );
-    }
+      .eq("municipio_id", usuario.municipio_id);
 
     const { data: arquivo, error: erroDownload } = await supabaseAdmin.storage
       .from("sigia-documentos")
       .download(documento.arquivo_url);
 
     if (erroDownload || !arquivo) {
-      return NextResponse.json(
-        { erro: "Erro ao baixar PDF", detalhe: erroDownload?.message },
-        { status: 500 }
-      );
+      throw new Error(erroDownload?.message || "Erro ao baixar PDF");
     }
 
     caminhoTemporario = path.join(tmpdir(), `${randomUUID()}.pdf`);
@@ -78,12 +87,11 @@ export async function POST(req: Request) {
 
     const script = path.join(process.cwd(), "scripts", "sigia_extract_pdf.py");
 
-    const { stdout } = await executar("py", [script, caminhoTemporario], {
+    const { stdout } = await executar("python3", [script, caminhoTemporario], {
       maxBuffer: 1024 * 1024 * 20,
     });
 
     const resultado = JSON.parse(stdout);
-
     const paginas = resultado.paginas || [];
 
     if (paginas.length === 0) {
@@ -93,7 +101,8 @@ export async function POST(req: Request) {
           status: "ERRO",
           atualizado_em: new Date().toISOString(),
         })
-        .eq("id", documento_id);
+        .eq("id", documento_id)
+        .eq("municipio_id", usuario.municipio_id);
 
       return NextResponse.json(
         { erro: "Nenhum texto encontrado no PDF" },
@@ -104,14 +113,17 @@ export async function POST(req: Request) {
     await supabaseAdmin
       .from("sigia_conhecimento")
       .delete()
-      .eq("documento_id", documento_id);
+      .eq("documento_id", documento_id)
+      .eq("municipio_id", usuario.municipio_id);
 
     const registros: any[] = [];
 
     for (const pagina of paginas) {
-      const trechos = dividirTexto(pagina.texto);
+      const trechos = dividirTexto(pagina.texto || "");
 
       trechos.forEach((conteudo, index) => {
+        if (!conteudo.trim()) return;
+
         registros.push({
           documento_id,
           titulo: documento.titulo,
@@ -129,6 +141,10 @@ export async function POST(req: Request) {
       });
     }
 
+    if (registros.length === 0) {
+      throw new Error("PDF sem conteúdo válido para salvar.");
+    }
+
     const { error: erroInsert } = await supabaseAdmin
       .from("sigia_conhecimento")
       .insert(registros);
@@ -141,10 +157,14 @@ export async function POST(req: Request) {
       .from("sigia_documentos")
       .update({
         status: "ATIVO",
-        texto_extraido: paginas.map((p: any) => p.texto).join("\n").slice(0, 50000),
+        texto_extraido: paginas
+          .map((p: any) => p.texto)
+          .join("\n")
+          .slice(0, 50000),
         atualizado_em: new Date().toISOString(),
       })
-      .eq("id", documento_id);
+      .eq("id", documento_id)
+      .eq("municipio_id", usuario.municipio_id);
 
     return NextResponse.json({
       sucesso: true,
@@ -153,6 +173,16 @@ export async function POST(req: Request) {
     });
   } catch (error: any) {
     console.error("SIGIA ERRO:", error);
+
+    if (documento_id) {
+      await supabaseAdmin
+        .from("sigia_documentos")
+        .update({
+          status: "ERRO",
+          atualizado_em: new Date().toISOString(),
+        })
+        .eq("id", documento_id);
+    }
 
     return NextResponse.json(
       {

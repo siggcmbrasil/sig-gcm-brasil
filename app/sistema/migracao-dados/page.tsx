@@ -45,7 +45,29 @@ export default function MigracaoDadosPage() {
         </div>
       </SigCard>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid md:grid-cols-4 gap-4">
+  <SigCard>
+    <h3 className="text-slate-400 text-sm">Migrações</h3>
+    <p className="text-4xl font-black text-white mt-2">0</p>
+  </SigCard>
+
+  <SigCard>
+    <h3 className="text-slate-400 text-sm">Guardas Importados</h3>
+    <p className="text-4xl font-black text-cyan-400 mt-2">0</p>
+  </SigCard>
+
+  <SigCard>
+    <h3 className="text-slate-400 text-sm">Ocorrências Importadas</h3>
+    <p className="text-4xl font-black text-yellow-400 mt-2">0</p>
+  </SigCard>
+
+  <SigCard>
+    <h3 className="text-slate-400 text-sm">Erros Encontrados</h3>
+    <p className="text-4xl font-black text-red-400 mt-2">0</p>
+  </SigCard>
+</div>
+
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
         <Link
           href="/sistema/migracao-dados/assistente"
           className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 hover:border-yellow-500/60 transition"
@@ -75,6 +97,35 @@ export default function MigracaoDadosPage() {
             Consulte todas as migrações realizadas no sistema.
           </p>
         </Link>
+        <Link
+  href="/sistema/importador-dados"
+  className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 hover:border-cyan-500/60 transition"
+>
+  <Database className="w-10 h-10 text-cyan-400 mb-4" />
+
+  <h3 className="text-xl font-black text-white">
+    Importador de Dados
+  </h3>
+
+  <p className="text-sm text-slate-400 mt-2">
+    Importação de CSV, Excel e JSON.
+  </p>
+</Link>
+
+<Link
+  href="/sistema/migracao-dados/inconsistencias"
+  className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 hover:border-red-500/60 transition"
+>
+  <ShieldCheck className="w-10 h-10 text-red-400 mb-4" />
+
+  <h3 className="text-xl font-black text-white">
+    Inconsistências
+  </h3>
+
+  <p className="text-sm text-slate-400 mt-2">
+    Verificar erros encontrados nas importações.
+  </p>
+</Link>
       </div>
 
       <SigCard>
@@ -96,6 +147,14 @@ export default function MigracaoDadosPage() {
           <p>• Auditoria completa</p>
           <p>• Relatório de inconsistências</p>
           <p>• Importação por município</p>
+          <p>• Importação de fotos e documentos</p>
+          <p>• Importação de patrulhamentos</p>
+          <p>• Migração automática do SIS</p>
+          <p>• Assistente com IA</p>
+          <p>• Detecção de campos incompatíveis</p>
+          <p>• Backup antes da importação</p>
+          <p>• Desfazer última migração</p>
+          <p>• Importação em lote multi-município</p>
         </div>
       </SigCard>
     </div>

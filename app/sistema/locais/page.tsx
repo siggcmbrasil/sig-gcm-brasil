@@ -129,18 +129,22 @@ export default function LocaisPage() {
   ativo: true,
 };
 
-    if (editando) {
-      await supabase
-  .from("locais")
-  .update(dados)
-  .eq("id", editando)
-  .eq("municipio_id", usuarioLogado.municipio_id);
-    } else {
-      await supabase.from("locais").insert([dados]);
-    }
+    const { error } = editando
+  ? await supabase
+      .from("locais")
+      .update(dados)
+      .eq("id", editando)
+      .eq("municipio_id", usuarioLogado.municipio_id)
+  : await supabase.from("locais").insert([dados]);
 
-    limpar();
-    carregarLocais();
+if (error) {
+  console.error(error);
+  alert("Erro ao salvar local.");
+  return;
+}
+
+limpar();
+carregarLocais();
   }
 
   function editar(local: Local) {
@@ -341,13 +345,36 @@ export default function LocaisPage() {
                   <p className="text-slate-400">
                     {local.tipo} • {local.endereco || "Sem bairro/endereço"}
                   </p>
-                  <p className="text-sm text-blue-400">
-                    Nível: {local.nivel_atencao}
-                  </p>
+                  <span
+  className={`inline-block mt-1 rounded-full border px-3 py-1 text-xs font-bold ${
+    local.nivel_atencao === "Baixo"
+      ? "bg-green-500/10 text-green-400 border-green-500/30"
+      : local.nivel_atencao === "Médio"
+      ? "bg-yellow-500/10 text-yellow-400 border-yellow-500/30"
+      : local.nivel_atencao === "Alto"
+      ? "bg-orange-500/10 text-orange-400 border-orange-500/30"
+      : local.nivel_atencao === "Crítico"
+      ? "bg-red-500/10 text-red-400 border-red-500/30"
+      : "bg-blue-500/10 text-blue-400 border-blue-500/30"
+  }`}
+>
+  Nível: {local.nivel_atencao}
+</span>
                   {local.latitude && local.longitude && (
-  <p className="text-sm text-green-400">
-    📍 GPS cadastrado • Raio: {local.raio_metros || 200}m
-  </p>
+  <div className="space-y-1">
+    <p className="text-sm text-green-400">
+      📍 GPS cadastrado • Raio: {local.raio_metros || 200}m
+    </p>
+
+    <a
+      href={`https://www.google.com/maps?q=${local.latitude},${local.longitude}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="text-xs text-cyan-400 hover:text-cyan-300"
+    >
+      🗺️ Abrir no mapa
+    </a>
+  </div>
 )}
                   {local.referencia && (
                     <p className="text-sm text-slate-400">

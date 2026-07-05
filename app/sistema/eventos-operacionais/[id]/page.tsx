@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   CalendarDays,
   MapPin,
@@ -38,7 +39,13 @@ export default function DetalhesEventoPage() {
 
     const usuario = pegarUsuario();
 
-    const { data: eventoData, error: eventoError } = await supabase
+if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
+
+const { data: eventoData, error: eventoError } = await supabase
       .from("eventos_operacionais")
       .select("*")
       .eq("id", params.id)
@@ -94,9 +101,20 @@ export default function DetalhesEventoPage() {
       return;
     }
 
-    setGuarnicaoId("");
-    setObservacao("");
-    carregarTudo();
+    await registrarAuditoria({
+  modulo: "Eventos Operacionais",
+  acao: "VINCULAR_GUARNICAO",
+  descricao: `Vinculou guarnição ao evento ${evento?.nome || params.id}.`,
+  tabela: "evento_guarnicoes",
+  detalhes: {
+    evento_id: params.id,
+    guarnicao_id: guarnicaoId,
+  },
+});
+
+setGuarnicaoId("");
+setObservacao("");
+carregarTudo();
   }
 
   async function removerGuarnicao(id: string) {

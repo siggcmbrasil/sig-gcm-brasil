@@ -161,6 +161,46 @@ type MembroGuarnicao = {
   guarda_id: number;
 };
 
+type UsuarioLogado = {
+  id: string;
+  nome?: string;
+  perfil: string;
+  municipio_id: number;
+};
+
+const PERFIS_AUTORIZADOS = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+];
+
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      nome: usuario.nome,
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function NovaOcorrencia() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -180,6 +220,7 @@ export default function NovaOcorrencia() {
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [municipioId, setMunicipioId] = useState<number | null>(null);
+  const [usuarioAtual, setUsuarioAtual] = useState<UsuarioLogado | null>(null);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
   const [guarnicoes, setGuarnicoes] = useState<GuarnicaoCompleta[]>([]);
   const [guarnicaoId, setGuarnicaoId] = useState("");
@@ -379,6 +420,16 @@ if (!municipioId) {
   return;
 }
 
+if (!usuarioAtual) {
+  alert("Sessão inválida. Faça login novamente.");
+  return;
+}
+
+if (!PERFIS_AUTORIZADOS.includes(usuarioAtual.perfil)) {
+  alert("Você não possui permissão para registrar ocorrência.");
+  return;
+}
+
     setSalvando(true);
 
    const agora = new Date();
@@ -397,7 +448,24 @@ const hora = agora.toLocaleTimeString("pt-BR", {
 
     if (fotos.length > 0) {
       for (const foto of fotos) {
-        const nomeArquivo = `${protocolo}-${Date.now()}-${foto.name}`;
+        const nomeSeguro = foto.name
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-zA-Z0-9.-]/g, "_");
+
+const nomeArquivo = `${municipioId}/${protocolo}/${Date.now()}-${nomeSeguro}`;
+
+if (foto.size > 5 * 1024 * 1024) {
+  alert("Cada foto deve ter no máximo 5MB.");
+  setSalvando(false);
+  return;
+}
+
+if (!foto.type.startsWith("image/")) {
+  alert("Arquivo inválido. Envie apenas imagens.");
+  setSalvando(false);
+  return;
+}
 
         const { error: uploadError } = await supabase.storage
           .from("fotos-ocorrencias")
@@ -429,94 +497,222 @@ const hora = agora.toLocaleTimeString("pt-BR", {
 
     const equipeEmpenhada = guardasSelecionados.join("\n");
 
-    const { error } = await supabase.from("ocorrencias").insert([
-  {
-    municipio_id: municipioId,
-    guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
-    viatura_id: viaturaId ? Number(viaturaId) : null,
-    guarda_responsavel_id: guardaResponsavelId? Number(guardaResponsavelId): null,
-    protocolo,
-    tipo,
-    status: statusPersonalizado || status,
-    prioridade,
-    data,
-    hora,
-    bairro,
-    local,
-    local_id: localId ? Number(localId) : null,
-    numero,
-    envolvidos: JSON.stringify(envolvidosValidos),
-    veiculos_envolvidos: JSON.stringify(veiculosEnvolvidos),
-    armas_objetos: JSON.stringify(itensOcorrencia),
-    descricao,
-    foto_url: fotosUrls[0] || "",
-    fotos_urls: JSON.stringify(fotosUrls),
-    viatura_empenhada: viaturaEmpenhada,
-    equipe_empenhada: equipeEmpenhada,
-  },
-]);
+const { data: ocorrenciaCriada, error } = await supabase
+  .from("ocorrencias")
+  .insert([
+    {
+      municipio_id: municipioId,
+      criado_por: usuarioAtual.id,
+      criado_em: new Date().toISOString(),
+      atualizado_em: new Date().toISOString(),
+      guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
+      viatura_id: viaturaId ? Number(viaturaId) : null,
+      guarda_responsavel_id: guardaResponsavelId
+        ? Number(guardaResponsavelId)
+        : null,
+      protocolo,
+      tipo,
+      status: statusPersonalizado || status,
+      prioridade,
+      data,
+      hora,
+      bairro,
+      local,
+      local_id: localId ? Number(localId) : null,
+      numero,
+      envolvidos: JSON.stringify(envolvidosValidos),
+      veiculos_envolvidos: JSON.stringify(veiculosEnvolvidos),
+      armas_objetos: JSON.stringify(itensOcorrencia),
+      descricao: descricao.trim(),
+      foto_url: fotosUrls[0] || "",
+      fotos_urls: JSON.stringify(fotosUrls),
+      viatura_empenhada: viaturaEmpenhada,
+      equipe_empenhada: equipeEmpenhada,
+    },
+  ])
+  .select("id, protocolo, municipio_id")
+  .single();
 
     setSalvando(false);
 
-    if (error) {
+if (error) {
   console.error(error);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao registrar ocorrência.",
+    tabela: "ocorrencias",
+    detalhes: {
+      erro: error.message,
+      municipio_id: municipioId,
+      usuario_id: usuarioAtual?.id,
+      protocolo,
+    },
+  });
+
   alert("Erro ao salvar ocorrência.");
   return;
 }
-
 await registrarAuditoria({
   modulo: "Ocorrências",
   acao: "CRIAR",
   descricao: `Registrou a ocorrência ${protocolo}.`,
+  tabela: "ocorrencias",
+  registro_id: ocorrenciaCriada?.id,
+  detalhes: {
+    protocolo,
+    tipo,
+    status: statusPersonalizado || status,
+    prioridade,
+    municipio_id: municipioId,
+    criado_por: usuarioAtual.id,
+    guarnicao_id: guarnicaoId || null,
+    viatura_id: viaturaId || null,
+    guarda_responsavel_id: guardaResponsavelId || null,
+    total_envolvidos: envolvidosValidos.length,
+    total_veiculos: veiculosEnvolvidos.filter(
+      (v) => v.placa || v.renavam
+    ).length,
+    total_itens: itensOcorrencia.filter(
+      (i) => i.categoria || i.descricao
+    ).length,
+    total_fotos: fotosUrls.length,
+  },
 });
 
 for (const veiculo of veiculosEnvolvidos) {
 
   if (!veiculo.placa && !veiculo.renavam) continue;
 
-  const { data: existente } = await supabase
-    .from("veiculos_abordados")
-    .select("id")
-    .eq("municipio_id", municipioId)
-    .or(`placa.eq.${veiculo.placa},renavam.eq.${veiculo.renavam}`)
-    .maybeSingle();
+let consultaVeiculo = supabase
+  .from("veiculos_abordados")
+  .select("id")
+  .eq("municipio_id", municipioId);
+
+if (veiculo.placa) {
+  consultaVeiculo = consultaVeiculo.eq(
+    "placa",
+    veiculo.placa
+  );
+}
+
+if (veiculo.renavam && !veiculo.placa) {
+  consultaVeiculo = consultaVeiculo.eq(
+    "renavam",
+    veiculo.renavam
+  );
+}
+
+const { data: existente, error: erroConsultaVeiculo } =
+  await consultaVeiculo.maybeSingle();
+
+if (erroConsultaVeiculo) {
+  console.error(erroConsultaVeiculo);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao consultar veículo abordado.",
+    tabela: "veiculos_abordados",
+    detalhes: {
+      erro: erroConsultaVeiculo.message,
+      placa: veiculo.placa,
+      renavam: veiculo.renavam,
+      municipio_id: municipioId,
+    },
+  });
+
+  continue;
+}
 
   if (existente) {
-    await supabase
-      .from("veiculos_abordados")
-      .update({
-        placa: veiculo.placa,
-        tipo_especie: veiculo.tipo_especie,
-        marca: veiculo.marca,
-        modelo: veiculo.modelo,
-        ano: veiculo.ano,
-        cor: veiculo.cor,
-        renavam: veiculo.renavam,
-        chassi: veiculo.chassi,
-        proprietario: veiculo.proprietario,
-        cpf_proprietario: veiculo.cpf_proprietario,
-        telefone_proprietario: veiculo.telefone_proprietario,
-        situacao: veiculo.situacao,
-        observacao: veiculo.observacao,
-      })
-      .eq("id", existente.id);
-  } else {
-    await supabase.from("veiculos_abordados").insert({
-      municipio_id: municipioId,
+const { error: erroAtualizarVeiculo } = await supabase
+  .from("veiculos_abordados")
+  .update({
+    placa: veiculo.placa,
+    tipo_especie: veiculo.tipo_especie,
+    marca: veiculo.marca,
+    modelo: veiculo.modelo,
+    ano: veiculo.ano,
+    cor: veiculo.cor,
+    renavam: veiculo.renavam,
+    chassi: veiculo.chassi,
+    proprietario: veiculo.proprietario,
+    cpf_proprietario: veiculo.cpf_proprietario,
+    telefone_proprietario: veiculo.telefone_proprietario,
+    email_proprietario: veiculo.email_proprietario,
+    endereco_proprietario: veiculo.endereco_proprietario,
+    cidade_proprietario: veiculo.cidade_proprietario,
+    uf_proprietario: veiculo.uf_proprietario,
+    cep_proprietario: veiculo.cep_proprietario,
+    situacao: veiculo.situacao,
+    observacao: veiculo.observacao,
+  })
+  .eq("id", existente.id)
+  .eq("municipio_id", municipioId);
+
+if (erroAtualizarVeiculo) {
+  console.error(erroAtualizarVeiculo);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao atualizar veículo abordado.",
+    tabela: "veiculos_abordados",
+    registro_id: existente.id,
+    detalhes: {
+      erro: erroAtualizarVeiculo.message,
       placa: veiculo.placa,
-      tipo_especie: veiculo.tipo_especie,
-      marca: veiculo.marca,
-      modelo: veiculo.modelo,
-      ano: veiculo.ano,
-      cor: veiculo.cor,
       renavam: veiculo.renavam,
-      chassi: veiculo.chassi,
-      proprietario: veiculo.proprietario,
-      cpf_proprietario: veiculo.cpf_proprietario,
-      telefone_proprietario: veiculo.telefone_proprietario,
-      situacao: veiculo.situacao,
-      observacao: veiculo.observacao,
-    });
+      municipio_id: municipioId,
+    },
+  });
+}
+  } else {
+    const { error: erroInserirVeiculo } = await supabase
+  .from("veiculos_abordados")
+  .insert({
+    municipio_id: municipioId,
+    criado_por: usuarioAtual.id,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+    placa: veiculo.placa,
+    tipo_especie: veiculo.tipo_especie,
+    marca: veiculo.marca,
+    modelo: veiculo.modelo,
+    ano: veiculo.ano,
+    cor: veiculo.cor,
+    renavam: veiculo.renavam,
+    chassi: veiculo.chassi,
+    proprietario: veiculo.proprietario,
+    cpf_proprietario: veiculo.cpf_proprietario,
+    telefone_proprietario: veiculo.telefone_proprietario,
+    email_proprietario: veiculo.email_proprietario,
+    endereco_proprietario: veiculo.endereco_proprietario,
+    cidade_proprietario: veiculo.cidade_proprietario,
+    uf_proprietario: veiculo.uf_proprietario,
+    cep_proprietario: veiculo.cep_proprietario,
+    situacao: veiculo.situacao,
+    observacao: veiculo.observacao,
+  });
+
+if (erroInserirVeiculo) {
+  console.error(erroInserirVeiculo);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao inserir veículo abordado.",
+    tabela: "veiculos_abordados",
+    detalhes: {
+      erro: erroInserirVeiculo.message,
+      placa: veiculo.placa,
+      renavam: veiculo.renavam,
+      municipio_id: municipioId,
+    },
+  });
+}
   }
 }
 
@@ -531,31 +727,72 @@ for (const pessoa of envolvidosValidos) {
     .maybeSingle();
 
   if (existente) {
-    await supabase
-      .from("pessoas_abordadas")
-      .update({
-        nome: pessoa.nome,
-        tipo_documento: pessoa.tipo_documento,
-        documento: pessoa.documento,
-        telefone: pessoa.telefone,
-        endereco: pessoa.endereco,
-        observacao: pessoa.observacao,
-      })
-      .eq("id", existente.id);
-  } else {
-    await supabase.from("pessoas_abordadas").insert({
-      municipio_id: municipioId,
-      nome: pessoa.nome,
-      tipo_documento: pessoa.tipo_documento,
+const { error: erroAtualizarPessoa } = await supabase
+  .from("pessoas_abordadas")
+  .update({
+    nome: pessoa.nome,
+    tipo_documento: pessoa.tipo_documento,
+    documento: pessoa.documento,
+    telefone: pessoa.telefone,
+    endereco: pessoa.endereco,
+    observacao: pessoa.observacao,
+    atualizado_em: new Date().toISOString(),
+  })
+  .eq("id", existente.id)
+  .eq("municipio_id", municipioId);
+
+if (erroAtualizarPessoa) {
+  console.error(erroAtualizarPessoa);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao atualizar pessoa abordada.",
+    tabela: "pessoas_abordadas",
+    registro_id: existente.id,
+    detalhes: {
+      erro: erroAtualizarPessoa.message,
       documento: pessoa.documento,
-      telefone: pessoa.telefone,
-      endereco: pessoa.endereco,
-      local,
-      data,
-      hora,
-      guarda: equipeEmpenhada,
-      observacao: pessoa.observacao,
-    });
+      municipio_id: municipioId,
+    },
+  });
+}
+
+  } else {
+const { error: erroInserirPessoa } = await supabase
+  .from("pessoas_abordadas")
+  .insert({
+    municipio_id: municipioId,
+    criado_por: usuarioAtual.id,
+    criado_em: new Date().toISOString(),
+    atualizado_em: new Date().toISOString(),
+    nome: pessoa.nome,
+    tipo_documento: pessoa.tipo_documento,
+    documento: pessoa.documento,
+    telefone: pessoa.telefone,
+    endereco: pessoa.endereco,
+    local,
+    data,
+    hora,
+    guarda: equipeEmpenhada,
+    observacao: pessoa.observacao,
+  });
+
+if (erroInserirPessoa) {
+  console.error(erroInserirPessoa);
+
+  await registrarAuditoria({
+    modulo: "Ocorrências",
+    acao: "ERRO",
+    descricao: "Falha ao inserir pessoa abordada.",
+    tabela: "pessoas_abordadas",
+    detalhes: {
+      erro: erroInserirPessoa.message,
+      documento: pessoa.documento,
+      municipio_id: municipioId,
+    },
+  });
+}
   }
 }
 
@@ -563,14 +800,13 @@ for (const pessoa of envolvidosValidos) {
     router.push("/sistema/ocorrencias");
   }
 
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
-
 async function carregarMembrosGuarnicao(
   guarnicaoId: number
 ) {
+  if (!municipioId) {
+    return;
+  }
+
   const { data: membros } = await supabase
     .from("guarnicao_membros")
     .select("guarda_id")
@@ -585,7 +821,7 @@ async function carregarMembrosGuarnicao(
   const { data: guardasData } = await supabase
     .from("guardas")
     .select("id,nome")
-    .eq("municipio_id", usuarioLogado.municipio_id)
+    .eq("municipio_id", municipioId)
     .in("id", ids);
 
   if (!guardasData) return;
@@ -595,10 +831,15 @@ async function carregarMembrosGuarnicao(
   );
 }
 async function carregarChamadoOrigem(id: string) {
+  if (!usuarioAtual?.municipio_id) return;
+
   const { data, error } = await supabase
     .from("chamados")
-    .select("*")
+    .select(
+      "id, municipio_id, protocolo, tipo, local, bairro, numero, referencia, prioridade, observacao, solicitante, telefone"
+    )
     .eq("id", id)
+    .eq("municipio_id", usuarioAtual.municipio_id)
     .single();
 
   if (error || !data) {
@@ -639,11 +880,22 @@ setEnvolvidos([
 
 async function carregarSistema() {
   
-  const usuarioLogado = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
+const usuarioLogado = obterUsuarioLogado();
+
+if (!usuarioLogado) {
+  alert("Sessão inválida. Faça login novamente.");
+  router.push("/login");
+  return;
+}
+
+if (!PERFIS_AUTORIZADOS.includes(usuarioLogado.perfil)) {
+  alert("Você não possui permissão para acessar este módulo.");
+  router.push("/sistema");
+  return;
+}
 
 const id = usuarioLogado.municipio_id;
+setUsuarioAtual(usuarioLogado);
 
 if (!id) {
   alert("Município não identificado.");
@@ -652,7 +904,7 @@ if (!id) {
 
   const { data: configEscala } = await supabase
   .from("escala_operacional_config")
-  .select("*")
+  .select("id, data_base, guarnicao_base_id, ordem_guarnicoes")
   .eq("municipio_id", id)
   .eq("ativo", true)
   .single();
@@ -875,9 +1127,11 @@ async function consultarHistoricoVeiculo(placa: string) {
   }
 
   const { data, error } = await supabase
-    .from("ocorrencias")
-    .select("id, protocolo, data, status, veiculos_envolvidos")
-    .order("data", { ascending: false });
+.from("ocorrencias")
+.select("id, protocolo, data, status, veiculos_envolvidos")
+.eq("municipio_id", municipioId)
+.order("data", { ascending: false })
+.limit(100);
 
   if (error || !data) return;
 
@@ -908,9 +1162,11 @@ async function consultarHistoricoEnvolvido(valor: string) {
   const busca = valor.toUpperCase();
 
   const { data, error } = await supabase
-    .from("ocorrencias")
-    .select("id, protocolo, data, status, envolvidos")
-    .order("data", { ascending: false });
+.from("ocorrencias")
+.select("id, protocolo, data, status, envolvidos")
+.eq("municipio_id", municipioId)
+.order("data", { ascending: false })
+.limit(100);
 
   if (error || !data) return;
 
@@ -1529,8 +1785,7 @@ async function preencherVeiculo(index: number, placa: string) {
   maxLength={15}
   value={veiculo.telefone_proprietario}
   onChange={(e) => {
-    let valor = e.target.value
-      formatarTelefone(e.target.value)
+let valor = formatarTelefone(e.target.value);
 
     valor = valor
       .replace(/^(\d{2})(\d)/, "($1) $2")

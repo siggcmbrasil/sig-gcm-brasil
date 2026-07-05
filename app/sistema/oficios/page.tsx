@@ -14,12 +14,26 @@ export default function OficiosPage() {
   const [oficios, setOficios] = useState<any[]>([]);
   const [numeroEditavel, setNumeroEditavel] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+    const perfisPermitidos = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+];
+
+function podeGerenciarOficios() {
+  return perfisPermitidos.includes(usuario?.perfil);
+}
 
   async function carregarOficios() {
+
+if (!usuario?.municipio_id) return;
+
     const { data } = await supabase
   .from("oficios")
   .select("*")
@@ -34,6 +48,14 @@ export default function OficiosPage() {
   }, []);
 
   async function excluirOficio(id: number) {
+if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+if (!podeGerenciarOficios()) {
+  alert("Seu perfil não tem permissão para criar ou editar ofícios.");
+  return;
+}
   const confirmar = confirm(
     "Deseja realmente excluir este ofício?"
   );
@@ -42,22 +64,35 @@ export default function OficiosPage() {
 
 const oficio = oficios.find((o) => o.id === id);
 
-  await supabase
+const { error } = await supabase
   .from("oficios")
   .delete()
   .eq("id", id)
   .eq("municipio_id", usuario.municipio_id);
 
-  await registrarAuditoria({
-  modulo: "Ofícios",
+if (error) {
+  alert("Erro ao excluir ofício.");
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "OFICIOS",
   acao: "EXCLUIR",
   descricao: `Excluiu o ofício ${oficio?.numero || id}.`,
+  registro_id: String(id),
 });
-
   carregarOficios();
 }
 
   async function salvarOficio() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+if (!podeGerenciarOficios()) {
+  alert("Seu perfil não tem permissão para excluir ofícios.");
+  return;
+}
     if (!destinatario || !assunto || !texto) {
       alert("Preencha destinatário, assunto e texto.");
       return;
@@ -65,7 +100,7 @@ const oficio = oficios.find((o) => o.id === id);
 
     const ano = new Date().getFullYear();
 
-const municipioId = usuario.municipio_id || 1;
+const municipioId = usuario.municipio_id;
 
 const { count } = await supabase
   .from("oficios")
@@ -97,10 +132,11 @@ const numero =
     return;
   }
 
-  await registrarAuditoria({
-  modulo: "Ofícios",
+await registrarAuditoria({
+  modulo: "OFICIOS",
   acao: "EDITAR",
   descricao: `Atualizou o ofício ${numero}.`,
+  registro_id: String(editandoId),
 });
 
   alert("Ofício atualizado com sucesso!");
@@ -134,10 +170,11 @@ const numero =
       return;
     }
 
-    await registrarAuditoria({
-  modulo: "Ofícios",
+await registrarAuditoria({
+  modulo: "OFICIOS",
   acao: "CRIAR",
   descricao: `Criou o ofício ${numero}.`,
+  registro_id: numero,
 });
 
     alert("Ofício criado com sucesso!");
@@ -155,16 +192,30 @@ carregarOficios();
   id: number,
   status: string
 ) {
-  await supabase
+  if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+if (!podeGerenciarOficios()) {
+  alert("Seu perfil não tem permissão para alterar status de ofícios.");
+  return;
+}
+const { error } = await supabase
   .from("oficios")
   .update({ status })
   .eq("id", id)
   .eq("municipio_id", usuario.municipio_id);
 
-  await registrarAuditoria({
-  modulo: "Ofícios",
+if (error) {
+  alert("Erro ao alterar status do ofício.");
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "OFICIOS",
   acao: "ALTERAR_STATUS",
   descricao: `Alterou o status do ofício ID ${id} para ${status}.`,
+  registro_id: String(id),
 });
 
   carregarOficios();
@@ -180,12 +231,20 @@ function editarOficio(oficio: any) {
 }
 
   async function gerarPDF(oficio: any) {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+if (oficio.municipio_id !== usuario.municipio_id) {
+  alert("Acesso negado a ofício de outro município.");
+  return;
+}
   const doc = new jsPDF();
 
   const { data: municipio } = await supabase
   .from("municipios")
   .select("*")
-  .eq("id", oficio.municipio_id)
+  .eq("id", usuario.municipio_id)
   .single();
 
 const nomeGuarda = municipio?.nome_guarda || "GUARDA CIVIL MUNICIPAL";
@@ -345,6 +404,13 @@ doc.text(`Município de ${nomeMunicipio}`, 105, 22, {
                 >
                   PDF
                 </button>
+
+                <button
+  onClick={() => editarOficio(oficio)}
+  className="bg-blue-700 text-white px-3 py-2 rounded-lg"
+>
+  Editar
+</button>
 
 <button
   onClick={() => alterarStatus(oficio.id, "ARQUIVADO")}

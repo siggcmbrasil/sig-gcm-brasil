@@ -14,12 +14,6 @@ import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const cards = [
   {
-    titulo: "Central de Ocorrências",
-    icone: AlertTriangle,
-    href: "/sistema/central-ocorrencias",
-    descricao: "Registro, consulta e acompanhamento de ocorrências.",
-  },
-  {
     titulo: "Central de Patrulhamentos",
     icone: CarFront,
     href: "/sistema/central-patrulhamento",
@@ -76,6 +70,28 @@ const cards = [
 ];
 
 export default function OperacionalPage() {
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfil = usuario?.perfil || "";
+
+const podeVerConsultas =
+  perfil === "DESENVOLVEDOR" ||
+  perfil === "ADMIN" ||
+  perfil === "COMANDANTE" ||
+  perfil === "DIRETOR" ||
+  perfil === "CMT_GUARNICAO" ||
+  perfil === "PLANTONISTA";
+
+const cardsFiltrados = cards.filter((card) => {
+  if (card.href === "/sistema/consultas") {
+    return podeVerConsultas;
+  }
+
+  return true;
+});
   return (
     <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
@@ -85,7 +101,7 @@ export default function OperacionalPage() {
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-        {cards.map((card) => (
+        {cardsFiltrados.map((card) => (
           <SigCentralCard
             key={card.href}
             titulo={card.titulo}

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import ProtecaoPerfil from "@/components/ProtecaoPerfil";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Ocorrencia = {
   id: number;
@@ -76,9 +77,10 @@ const [ano, setAno] = useState(String(new Date().getFullYear()));
   async function carregar() {
   setCarregando(true);
 
-  const usuario = JSON.parse(
-    localStorage.getItem("usuarioLogado") || "{}"
-  );
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
 
   const municipioId = usuario.municipio_id;
 
@@ -164,7 +166,10 @@ const tiposOcorrencia = ocorrenciasPeriodo.reduce(
 
 const bairrosMaisAtendidos = ocorrenciasPeriodo.reduce(
   (acc: Record<string, number>, item) => {
-    const bairro = item.bairro || item.local || "Não informado";
+    const bairro =
+  item.bairro?.trim() ||
+  item.local?.trim() ||
+  "Não informado";
 
     acc[bairro] = (acc[bairro] || 0) + 1;
 
@@ -296,7 +301,14 @@ const variacaoOcorrencias =
       )
     : 0;
 
-    const resumoInteligente = `
+    const taxaFinalizacao =
+  ocorrenciasPeriodo.length > 0
+    ? Math.round(
+        (finalizadasPeriodo / ocorrenciasPeriodo.length) * 100
+      )
+    : 0;
+
+const resumoInteligente = `
 No período selecionado foram registradas ${ocorrenciasPeriodo.length} ocorrência(s).
 
 O bairro com maior demanda operacional foi ${
@@ -316,8 +328,21 @@ A variação em relação ao período anterior foi de ${
 }${variacaoOcorrencias}%.
 `;
 
-function gerarPDFExecutivo() {
+async function gerarPDFExecutivo() {
   document.body.classList.add("modo-relatorio");
+
+  await registrarAuditoria({
+    modulo: "Estatísticas",
+    acao: "GERAR_RELATORIO",
+    descricao: `Gerou relatório ${tipoRelatorio} de ${mes}/${ano}.`,
+    detalhes: {
+      tipo_relatorio: tipoRelatorio,
+      mes,
+      ano,
+      ocorrencias: ocorrenciasPeriodo.length,
+      patrulhamentos: patrulhamentosPeriodo.length,
+    },
+  });
 
   setTimeout(() => {
     window.print();
@@ -402,7 +427,7 @@ function gerarPDFExecutivo() {
 <div className="mt-4 flex gap-3">
   <button
     type="button"
-    onClick={() => window.print()}
+    onClick={gerarPDFExecutivo}
     className="bg-blue-600 hover:bg-blue-700 px-5 py-3 rounded-xl font-bold"
   >
     📄 Gerar PDF do Relatório

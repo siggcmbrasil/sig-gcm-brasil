@@ -338,6 +338,10 @@ await registrarAuditoria({
   }
 
   async function gerarPDF() {
+    if (guarnicoes.length === 0) {
+  alert("Nenhuma guarnição cadastrada.");
+  return;
+}
   const municipioSelecionado = municipios.find(
     (m) => m.id === Number(municipioId)
   );
@@ -595,7 +599,7 @@ await registrarAuditoria({
   marcaDagua();
 
   const resumoBody = guarnicoes.map((g) => {
-  const membrosDaGuarnicao = membrosGuarnicao.filter(
+  const membrosDaGuarnicao = (membrosGuarnicao || []).filter(
   (m: any) => Number(m.guarnicao_id) === Number(g.id)
 );
 
@@ -609,7 +613,7 @@ function nomeDoGuarda(m: any) {
     : "";
 }
 
-const membrosComNome = membrosDaGuarnicao
+const membrosComNome = (membrosDaGuarnicao || [])
   .map((m: any) => ({
     ...m,
     nomeFormatado: nomeDoGuarda(m),

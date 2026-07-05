@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { Trash2 } from "lucide-react";
 
 export default function GestaoArmamentoPage() {
   const [armas, setArmas] = useState<any[]>([]);
@@ -14,14 +17,17 @@ export default function GestaoArmamentoPage() {
   const [numeroSerie, setNumeroSerie] = useState("");
   const [arsenal, setArsenal] = useState("");
   const [status, setStatus] = useState("DISPONIVEL");
+  const [busca, setBusca] = useState("");
 
   const usuario =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
       : {};
 
-  async function carregar() {
-    const { data } = await supabase
+ async function carregar() {
+  if (!usuario?.municipio_id) return;
+
+  const { data } = await supabase
       .from("armamentos")
       .select("*")
       .eq("municipio_id", usuario.municipio_id)
@@ -35,12 +41,33 @@ export default function GestaoArmamentoPage() {
   }, []);
 
   async function salvar() {
-    if (!marca || !modelo || !numeroSerie) {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
+    if (
+  !marca.trim() ||
+  !modelo.trim() ||
+  !numeroSerie.trim()
+) {
       alert("Preencha os campos obrigatórios.");
       return;
     }
 
     setSalvando(true);
+
+    const { data: existente } = await supabase
+  .from("armamentos")
+  .select("id")
+  .eq("municipio_id", usuario.municipio_id)
+  .eq("numero_serie", numeroSerie.trim().toUpperCase())
+  .maybeSingle();
+
+if (existente) {
+  alert("Já existe um armamento com este número de série.");
+  setSalvando(false);
+  return;
+}
 
     const { error } = await supabase
       .from("armamentos")
@@ -49,11 +76,11 @@ export default function GestaoArmamentoPage() {
           municipio_id: usuario.municipio_id,
           criado_por: usuario.id,
           tipo,
-          marca,
-          modelo,
-          calibre,
-          numero_serie: numeroSerie,
-          arsenal,
+          marca: marca.trim().toUpperCase(),
+modelo: modelo.trim().toUpperCase(),
+calibre: calibre.trim().toUpperCase(),
+numero_serie: numeroSerie.trim().toUpperCase(),
+arsenal: arsenal.trim().toUpperCase(),
           status,
         },
       ]);
@@ -65,6 +92,20 @@ export default function GestaoArmamentoPage() {
       return;
     }
 
+    await registrarAuditoria({
+  modulo: "Armamentos",
+  acao: "CRIAR",
+  tabela: "armamentos",
+  descricao: `Cadastrou armamento ${tipo} ${marca} ${modelo}.`,
+  detalhes: {
+    tipo,
+    marca,
+    modelo,
+    numero_serie: numeroSerie,
+    status,
+  },
+});
+
     setMarca("");
     setModelo("");
     setCalibre("");
@@ -74,7 +115,43 @@ export default function GestaoArmamentoPage() {
     carregar();
   }
 
+  async function excluir(id: number) {
+  if (!confirm("Excluir armamento?")) return;
+
+  const { error } = await supabase
+    .from("armamentos")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
+
+  if (error) {
+    alert("Erro ao excluir.");
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "EXCLUIR",
+    tabela: "armamentos",
+    descricao: `Excluiu armamento ID ${id}.`,
+  });
+
+  carregar();
+}
+const lista = armas.filter((a) =>
+  `
+    ${a.tipo}
+    ${a.marca}
+    ${a.modelo}
+    ${a.numero_serie}
+    ${a.status}
+  `
+    .toLowerCase()
+    .includes(busca.toLowerCase())
+);
+
   return (
+  <ProtecaoModulo modulo="armamentos">
     <div className="p-6">
       <div className="painel-premium p-6 mb-6">
         <h1 className="text-3xl font-black">
@@ -154,7 +231,21 @@ export default function GestaoArmamentoPage() {
       </div>
 
       <div className="space-y-4">
-        {armas.map((arma) => (
+  <input
+    className="input"
+    placeholder="Pesquisar armamento..."
+    value={busca}
+    onChange={(e) => setBusca(e.target.value)}
+  />
+
+  {armas.length === 0 ? (
+    <div className="painel-premium p-6 text-center">
+      <p className="text-slate-400">
+        Nenhum armamento cadastrado.
+      </p>
+    </div>
+  ) : (
+    lista.map((arma) => (
           <div
             key={arma.id}
             className="painel-premium p-5"
@@ -178,9 +269,19 @@ export default function GestaoArmamentoPage() {
             <p className="text-yellow-400">
               {arma.status}
             </p>
+
+            <button
+  onClick={() => excluir(arma.id)}
+  className="mt-4 bg-red-700 hover:bg-red-800 px-4 py-2 rounded-xl flex items-center gap-2"
+>
+  <Trash2 className="w-4 h-4" />
+  Excluir
+</button>
           </div>
-        ))}
+        ))
+)}
       </div>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

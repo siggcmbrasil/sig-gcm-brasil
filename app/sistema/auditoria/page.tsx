@@ -1,17 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   FileText,
+  Lock,
   Search,
   Shield,
   UserCheck,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+
+type UsuarioLogado = {
+  id: number;
+  perfil?: string;
+  municipio_id: number;
+};
 
 export default function AuditoriaPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -20,64 +28,167 @@ export default function AuditoriaPage() {
   const [moduloFiltro, setModuloFiltro] = useState("");
   const [acaoFiltro, setAcaoFiltro] = useState("");
   const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
 
-  async function carregar() {
+  useEffect(() => {
+    async function iniciar() {
+      const usuario = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      ) as UsuarioLogado;
+
+      if (!usuario?.id || !usuario?.municipio_id) {
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      if (
+        ![
+          "ADMIN",
+          "COMANDANTE",
+          "DIRETOR",
+          "DESENVOLVEDOR",
+        ].includes(usuario.perfil || "")
+      ) {
+        await registrarAuditoria({
+          modulo: "Auditoria",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso à Central de Auditoria sem permissão.",
+          tabela: "auditoria",
+          detalhes: {
+            usuario_id: usuario.id,
+            perfil: usuario.perfil,
+            municipio_id: usuario.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      await registrarAuditoria({
+        modulo: "Auditoria",
+        acao: "ACESSO",
+        descricao: "Acessou a Central de Auditoria.",
+        tabela: "auditoria",
+        detalhes: {
+          usuario_id: usuario.id,
+          perfil: usuario.perfil,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      await carregar(usuario);
+    }
+
+    iniciar();
+  }, []);
+
+  async function carregar(usuario: UsuarioLogado) {
     setCarregando(true);
 
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+    const { data: logsData, error: erroLogs } = await supabase
+      .from("auditoria")
+      .select(
+        "id, usuario_nome, modulo, acao, descricao, criado_em, municipio_id"
+      )
+      .eq("municipio_id", usuario.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
 
-    if (!usuario?.municipio_id) {
-      setCarregando(false);
+    const { data: consultasData, error: erroConsultas } = await supabase
+      .from("consultas_operacionais")
+      .select(
+        "id, tipo, consulta, motivo, resultado, criado_em, municipio_id"
+      )
+      .eq("municipio_id", usuario.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
+
+    setCarregando(false);
+
+    if (erroLogs || erroConsultas) {
+      await registrarAuditoria({
+        modulo: "Auditoria",
+        acao: "ERRO",
+        descricao: "Erro ao carregar Central de Auditoria.",
+        tabela: "auditoria",
+        detalhes: {
+          erro_logs: erroLogs?.message,
+          erro_consultas: erroConsultas?.message,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar auditoria.");
       return;
     }
 
-    const { data: logsData } = await supabase
-      .from("auditoria")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false })
-      .limit(500);
-
-    const { data: consultasData } = await supabase
-      .from("consultas_operacionais")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false })
-      .limit(500);
-
     setLogs(logsData || []);
     setConsultas(consultasData || []);
-    setCarregando(false);
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
+  const logsFiltrados = useMemo(() => {
+    return logs.filter((item) => {
+      const texto = `
+        ${item.usuario_nome || ""}
+        ${item.descricao || ""}
+        ${item.modulo || ""}
+        ${item.acao || ""}
+      `.toLowerCase();
 
-  const logsFiltrados = logs.filter((item) => {
-    const texto = `
-      ${item.usuario_nome || ""}
-      ${item.descricao || ""}
-      ${item.modulo || ""}
-      ${item.acao || ""}
-    `.toLowerCase();
+      return (
+        texto.includes(busca.toLowerCase()) &&
+        (!moduloFiltro || item.modulo === moduloFiltro) &&
+        (!acaoFiltro || item.acao === acaoFiltro)
+      );
+    });
+  }, [logs, busca, moduloFiltro, acaoFiltro]);
 
+  const modulos = useMemo(() => {
+    return Array.from(new Set(logs.map((l) => l.modulo).filter(Boolean)));
+  }, [logs]);
+
+  const acoes = useMemo(() => {
+    return Array.from(new Set(logs.map((l) => l.acao).filter(Boolean)));
+  }, [logs]);
+
+  if (carregando) {
     return (
-      texto.includes(busca.toLowerCase()) &&
-      (!moduloFiltro || item.modulo === moduloFiltro) &&
-      (!acaoFiltro || item.acao === acaoFiltro)
+      <div className="p-4 md:p-6">
+        <SigCard>
+          <p className="text-slate-400">Carregando auditoria...</p>
+        </SigCard>
+      </div>
     );
-  });
+  }
 
-  const modulos = Array.from(
-    new Set(logs.map((l) => l.modulo).filter(Boolean))
-  );
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6 pb-24 space-y-6">
+        <SigPageHeader
+          titulo="Acesso Restrito"
+          subtitulo="Você não possui permissão para acessar a Central de Auditoria."
+          icone={Lock}
+        />
 
-  const acoes = Array.from(
-    new Set(logs.map((l) => l.acao).filter(Boolean))
-  );
+        <SigCard>
+          <div className="text-center py-12">
+            <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+
+            <h2 className="text-2xl font-black text-white">
+              Acesso negado
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+              Apenas perfis autorizados podem visualizar auditorias e consultas.
+            </p>
+          </div>
+        </SigCard>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
@@ -114,8 +225,8 @@ export default function AuditoriaPage() {
           >
             <option value="">Todos os módulos</option>
             {modulos.map((modulo) => (
-              <option key={modulo} value={modulo}>
-                {modulo}
+              <option key={String(modulo)} value={String(modulo)}>
+                {String(modulo)}
               </option>
             ))}
           </select>
@@ -127,8 +238,8 @@ export default function AuditoriaPage() {
           >
             <option value="">Todas as ações</option>
             {acoes.map((acao) => (
-              <option key={acao} value={acao}>
-                {acao}
+              <option key={String(acao)} value={String(acao)}>
+                {String(acao)}
               </option>
             ))}
           </select>
@@ -140,9 +251,7 @@ export default function AuditoriaPage() {
           Consultas Operacionais
         </h2>
 
-        {carregando ? (
-          <p className="text-slate-400">Carregando consultas...</p>
-        ) : consultas.length === 0 ? (
+        {consultas.length === 0 ? (
           <p className="text-slate-400">
             Nenhuma consulta operacional registrada.
           </p>
@@ -186,9 +295,7 @@ export default function AuditoriaPage() {
           Registros de Auditoria
         </h2>
 
-        {carregando ? (
-          <p className="text-slate-400">Carregando auditoria...</p>
-        ) : logsFiltrados.length === 0 ? (
+        {logsFiltrados.length === 0 ? (
           <p className="text-slate-400">
             Nenhum registro de auditoria encontrado.
           </p>
@@ -240,9 +347,7 @@ function ResumoCard({
       <div className="flex items-center justify-between">
         <div>
           <p className="text-slate-400 text-sm">{titulo}</p>
-          <h2 className="text-3xl font-black text-white mt-1">
-            {valor}
-          </h2>
+          <h2 className="text-3xl font-black text-white mt-1">{valor}</h2>
         </div>
 
         <Icone className="w-7 h-7 text-blue-400" />
@@ -250,6 +355,7 @@ function ResumoCard({
     </div>
   );
 }
+
 function Badge({
   texto,
   cor,

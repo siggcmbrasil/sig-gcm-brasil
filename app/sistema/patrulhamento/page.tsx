@@ -153,10 +153,23 @@ async function carregarPatrulhamentos() {
     setCarregando(true);
 
     const { data, error } = await supabase
-  .from("patrulhamentos")
-  .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
-  .order("id", { ascending: false });
+.from("patrulhamentos")
+.select(`
+  id,
+  data,
+  hora,
+  local,
+  guarda,
+  equipe,
+  viatura,
+  latitude,
+  longitude,
+  observacao,
+  status
+`)
+.eq("municipio_id", usuarioLogado.municipio_id)
+.order("id", { ascending: false })
+.limit(200);
 
     if (error) {
       console.error(error);
@@ -268,8 +281,10 @@ if (!latitudeFinal || !longitudeFinal) {
    const { data: novoPatrulhamento, error } = await supabase
   .from("patrulhamentos")
   .insert([
-  {
+{
     municipio_id: usuarioLogado.municipio_id,
+    criado_por: usuarioLogado.id,
+    criado_em: new Date().toISOString(),
     data,
     hora,
     local,
@@ -291,10 +306,24 @@ if (!latitudeFinal || !longitudeFinal) {
       return;
     }
 
-    await registrarAuditoria({
+await registrarAuditoria({
   modulo: "Patrulhamento",
   acao: "CRIAR",
-  descricao: `Iniciou patrulhamento em ${local}.`,
+  descricao:
+    `Iniciou patrulhamento em ${local}.`,
+  tabela: "patrulhamentos",
+  registro_id:
+    novoPatrulhamento.id,
+  detalhes: {
+    municipio_id:
+      usuarioLogado.municipio_id,
+    viatura,
+    equipe,
+    latitude:
+      latitudeFinal,
+    longitude:
+      longitudeFinal,
+  },
 });
 
     if (novoPatrulhamento?.id) {
@@ -344,6 +373,14 @@ setRastreamentoAtivo(true);
   }
 
   async function excluirPatrulhamento(id: number) {
+      const motivo = prompt(
+  "Informe o motivo da exclusão:"
+);
+
+if (!motivo?.trim()) {
+  alert("Informe o motivo.");
+  return;
+}
   if (!podeEditar) {
     alert("Você não possui permissão para excluir patrulhamentos.");
     return;
@@ -364,16 +401,35 @@ setRastreamentoAtivo(true);
       return;
     }
 
-    await registrarAuditoria({
+await registrarAuditoria({
   modulo: "Patrulhamento",
   acao: "EXCLUIR",
   descricao: `Excluiu o patrulhamento ${id}.`,
+  tabela: "patrulhamentos",
+  registro_id: id,
+  detalhes: {
+    motivo,
+    municipio_id:
+      usuarioLogado.municipio_id,
+  },
 });
 
     carregarPatrulhamentos();
   }
 
 async function finalizarPatrulhamento(id: number) {
+  if (
+  ![
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "PLANTONISTA",
+  ].includes(perfilUsuario)
+) {
+  alert("Sem permissão.");
+  return;
+}
   await pararBackgroundRastreamento();
 
   const { error } = await supabase
@@ -389,10 +445,13 @@ async function finalizarPatrulhamento(id: number) {
     return;
   }
 
-  await registrarAuditoria({
+await registrarAuditoria({
   modulo: "Patrulhamento",
   acao: "FINALIZAR",
-  descricao: `Finalizou o patrulhamento ${id}.`,
+  tabela: "patrulhamentos",
+  registro_id: id,
+  descricao:
+    `Finalizou o patrulhamento ${id}.`,
 });
 
   setRastreamentoAtivo(false);
@@ -495,6 +554,22 @@ async function carregarPlantaoAutomatico() {
   setGuardasSelecionados(nomes);
   setGuarda(nomes[0] || "");
 }
+
+useEffect(() => {
+  void registrarAuditoria({
+    modulo: "Patrulhamento",
+    acao: "ACESSO",
+    descricao:
+      "Acessou o módulo de patrulhamento.",
+    tabela: "patrulhamentos",
+    detalhes: {
+      municipio_id:
+        usuarioLogado.municipio_id,
+      usuario_id:
+        usuarioLogado.id,
+    },
+  });
+}, []);
 
   useEffect(() => {
   const agora = new Date();

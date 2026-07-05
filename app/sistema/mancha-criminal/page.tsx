@@ -25,53 +25,66 @@ type Ocorrencia = {
 };
 
 export default function ManchaCriminalPage() {
-  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
   const hoje = new Date().toISOString().split("T")[0];
 
-const [busca, setBusca] = useState("");
-const [dataInicio, setDataInicio] = useState(hoje);
-const [dataFim, setDataFim] = useState(hoje);
-const [carregando, setCarregando] = useState(true);
+  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
+  const [busca, setBusca] = useState("");
+  const [dataInicio, setDataInicio] = useState(hoje);
+  const [dataFim, setDataFim] = useState(hoje);
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-  carregar();
-}, [dataInicio, dataFim]);
+    carregar();
+  }, [dataInicio, dataFim]);
 
   async function carregar() {
-  setCarregando(true);
+    setCarregando(true);
 
-  const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
-  if (!usuario?.municipio_id) {
-    alert("Município não identificado.");
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      setCarregando(false);
+      return;
+    }
+
+    if (dataInicio && dataFim && dataInicio > dataFim) {
+      alert("A data inicial não pode ser maior que a data final.");
+      setCarregando(false);
+      return;
+    }
+
+    let query = supabase
+      .from("ocorrencias")
+      .select("id, protocolo, tipo, local, data, status, latitude, longitude")
+      .eq("municipio_id", usuario.municipio_id)
+      .not("latitude", "is", null)
+      .not("longitude", "is", null)
+      .order("id", { ascending: false })
+      .limit(500);
+
+    if (dataInicio) query = query.gte("data", dataInicio);
+    if (dataFim) query = query.lte("data", dataFim);
+
+    const { data, error } = await query;
+
     setCarregando(false);
-    return;
+
+    if (error) {
+      console.error(error);
+      alert("Erro ao carregar mancha criminal.");
+      return;
+    }
+
+    const registrosValidos = (data || []).filter((item) => {
+      const lat = Number(item.latitude);
+      const lng = Number(item.longitude);
+
+      return !Number.isNaN(lat) && !Number.isNaN(lng);
+    });
+
+    setOcorrencias(registrosValidos);
   }
-
-  let query = supabase
-    .from("ocorrencias")
-    .select("id, protocolo, tipo, local, data, status, latitude, longitude")
-    .eq("municipio_id", usuario.municipio_id)
-    .not("latitude", "is", null)
-    .not("longitude", "is", null)
-    .order("id", { ascending: false })
-    .limit(300);
-
-  if (dataInicio) query = query.gte("data", dataInicio);
-  if (dataFim) query = query.lte("data", dataFim);
-
-  const { data, error } = await query;
-
-  setCarregando(false);
-
-  if (error) {
-    console.error(error);
-    alert("Erro ao carregar mancha criminal.");
-    return;
-  }
-
-  setOcorrencias(data || []);
-}
 
   const lista = ocorrencias.filter((o) => {
     const texto = `
@@ -115,9 +128,7 @@ const [carregando, setCarregando] = useState(true);
         <SigCard>
           <MapPin className="w-8 h-8 text-yellow-400 mb-3" />
           <p className="text-slate-400 text-sm">Base de análise</p>
-          <h2 className="text-4xl font-black text-yellow-400 mt-2">
-            GPS
-          </h2>
+          <h2 className="text-4xl font-black text-yellow-400 mt-2">GPS</h2>
         </SigCard>
       </div>
 
@@ -135,33 +146,33 @@ const [carregando, setCarregando] = useState(true);
       </SigCard>
 
       <SigCard>
-  <div className="grid md:grid-cols-3 gap-3">
-    <input
-      type="date"
-      className="input"
-      value={dataInicio}
-      onChange={(e) => setDataInicio(e.target.value)}
-    />
+        <div className="grid md:grid-cols-3 gap-3">
+          <input
+            type="date"
+            className="input"
+            value={dataInicio}
+            onChange={(e) => setDataInicio(e.target.value)}
+          />
 
-    <input
-      type="date"
-      className="input"
-      value={dataFim}
-      onChange={(e) => setDataFim(e.target.value)}
-    />
+          <input
+            type="date"
+            className="input"
+            value={dataFim}
+            onChange={(e) => setDataFim(e.target.value)}
+          />
 
-    <button
-      type="button"
-      onClick={() => {
-        setDataInicio("");
-        setDataFim("");
-      }}
-      className="rounded-2xl bg-slate-700 hover:bg-slate-600 px-4 py-3 font-bold text-white"
-    >
-      Ver todos
-    </button>
-  </div>
-</SigCard>
+          <button
+            type="button"
+            onClick={() => {
+              setDataInicio("");
+              setDataFim("");
+            }}
+            className="rounded-2xl bg-slate-700 hover:bg-slate-600 px-4 py-3 font-bold text-white"
+          >
+            Ver todos
+          </button>
+        </div>
+      </SigCard>
 
       <SigCard>
         <h2 className="text-xl font-black text-white mb-4">

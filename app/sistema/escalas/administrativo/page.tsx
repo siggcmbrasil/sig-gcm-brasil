@@ -13,17 +13,19 @@ import {
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import SigActionCard from "@/components/sig/SigActionCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function EscalasAdministrativasPage() {
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="escalas_administrativas">
+      <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Escalas Administrativas"
         subtitulo="Gestão de expedientes administrativos, horários fixos e escalas personalizadas."
         icone={Building2}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
         <Resumo titulo="Servidores" valor="0" icone={Users} />
         <Resumo titulo="Expedientes" valor="0" icone={Clock} />
         <Resumo titulo="Escalas" valor="0" icone={CalendarDays} />
@@ -58,6 +60,10 @@ export default function EscalasAdministrativasPage() {
           Escalas Administrativas
         </h2>
 
+        <span className="inline-flex rounded-full bg-yellow-500/10 border border-yellow-500/30 px-3 py-1 text-xs font-black text-yellow-400 mb-5">
+  EM DESENVOLVIMENTO
+</span>
+
         <div className="text-center py-14">
           <Building2 className="w-16 h-16 mx-auto text-slate-600 mb-4" />
 
@@ -73,7 +79,7 @@ export default function EscalasAdministrativasPage() {
 
           <Link
             href="/sistema/escalas/administrativo/nova"
-            className="btn-primary inline-flex items-center gap-2 mt-6"
+            className="btn-primary inline-flex items-center gap-2 mt-6 hover:scale-[1.02] transition"
           >
             <Plus className="w-5 h-5" />
             Cadastrar primeira escala
@@ -97,7 +103,8 @@ export default function EscalasAdministrativasPage() {
           <Item texto="Escala mensal" />
         </div>
       </SigCard>
-    </div>
+          </div>
+    </ProtecaoModulo>
   );
 }
 
@@ -121,7 +128,7 @@ function Resumo({
 
 function Item({ texto }: { texto: string }) {
   return (
-    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 text-slate-200">
+    <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4 text-slate-200 hover:border-cyan-500/30 transition">
       {texto}
     </div>
   );

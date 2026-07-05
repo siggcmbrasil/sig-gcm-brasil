@@ -109,10 +109,13 @@ export default function PreviewImportacaoPage() {
             </p>
           </div>
 
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-400 transition">
-            <Upload className="w-5 h-5" />
-            Confirmar Importação
-          </button>
+          <button
+  disabled
+  className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500/50 px-5 py-3 text-sm font-black text-slate-950 cursor-not-allowed"
+>
+  <Upload className="w-5 h-5" />
+  Prévia Demonstrativa
+</button>
         </div>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-800">

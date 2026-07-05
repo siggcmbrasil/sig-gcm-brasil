@@ -28,33 +28,145 @@ export default function ManutencaoArmamentoPage() {
   const [valor, setValor] = useState("");
   const [descricao, setDescricao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
+const [carregando, setCarregando] = useState(true);
+const [bloqueado, setBloqueado] = useState(false);
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+  async function carregar(usuarioAtual: any) {
+  setCarregando(true);
 
-    const { data: listaArmamentos } = await supabase
-      .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
+  const {
+    data: listaArmamentos,
+    error: erroArmamentos,
+  } = await supabase
+    .from("armamentos")
+    .select(`
+      id,
+      tipo,
+      marca,
+      modelo,
+      numero_serie,
+      status
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("id", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    const { data: listaManutencoes } = await supabase
-      .from("manutencoes_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+  const {
+    data: listaManutencoes,
+    error: erroManutencoes,
+  } = await supabase
+    .from("manutencoes_armamento")
+    .select(`
+      id,
+      armamento_id,
+      tipo,
+      status,
+      oficina,
+      valor,
+      descricao,
+      criado_em
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("criado_em", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    setArmamentos(listaArmamentos || []);
-    setManutencoes(listaManutencoes || []);
+  setCarregando(false);
+
+  if (
+    erroArmamentos ||
+    erroManutencoes
+  ) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao:
+        "Erro ao carregar manutenções.",
+      tabela: "manutencoes_armamento",
+      detalhes: {
+        erro_armamentos:
+          erroArmamentos?.message,
+        erro_manutencoes:
+          erroManutencoes?.message,
+      },
+    });
+
+    alert(
+      "Erro ao carregar manutenções."
+    );
+    return;
   }
 
+  setArmamentos(listaArmamentos || []);
+  setManutencoes(listaManutencoes || []);
+}
+
   useEffect(() => {
-    carregar();
-  }, []);
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (!dados?.id || !dados?.municipio_id) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    if (
+      ![
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+        "DESENVOLVEDOR",
+      ].includes(dados.perfil || "")
+    ) {
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ACESSO_NEGADO",
+        descricao:
+          "Tentativa de acesso ao módulo de manutenção.",
+        tabela: "manutencoes_armamento",
+        detalhes: {
+          usuario_id: dados.id,
+          perfil: dados.perfil,
+        },
+      });
+
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(dados);
+
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ACESSO",
+      descricao:
+        "Acessou o módulo de manutenção.",
+      tabela: "manutencoes_armamento",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id: dados.municipio_id,
+      },
+    });
+
+    await carregar(dados);
+  }
+
+  iniciar();
+}, []);
 
   const resumo = useMemo(() => {
     return {
@@ -103,6 +215,33 @@ export default function ManutencaoArmamentoPage() {
   async function salvar() {
   if (!armamentoId) return alert("Selecione o armamento.");
   if (!descricao.trim()) return alert("Descreva a manutenção.");
+  if (
+  descricao.length > 3000
+) {
+  alert(
+    "Descrição muito grande."
+  );
+  return;
+}
+
+if (
+  oficina.length > 200
+) {
+  alert(
+    "Nome da oficina muito grande."
+  );
+  return;
+}
+
+if (
+  valor &&
+  Number(valor) < 0
+) {
+  alert(
+    "Valor inválido."
+  );
+  return;
+}
 
   setSalvando(true);
 
@@ -122,9 +261,25 @@ export default function ManutencaoArmamentoPage() {
   setSalvando(false);
 
   if (error) {
-    alert(error.message);
-    return;
-  }
+  await registrarAuditoria({
+    modulo: "Armamentos",
+    acao: "ERRO",
+    descricao:
+      "Erro ao registrar manutenção.",
+    tabela:
+      "manutencoes_armamento",
+    detalhes: {
+      erro: error.message,
+      armamento_id:
+        Number(armamentoId),
+      tipo,
+      status,
+    },
+  });
+
+  alert(error.message);
+  return;
+}
 
   await supabase
     .from("armamentos")
@@ -166,7 +321,7 @@ export default function ManutencaoArmamentoPage() {
   });
 
   limpar();
-  carregar();
+await carregar(usuario);
   alert("Manutenção registrada com sucesso.");
 }
 
@@ -193,6 +348,35 @@ export default function ManutencaoArmamentoPage() {
 
     return nomes[valor] || valor;
   }
+
+  if (carregando) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <p className="text-slate-400">
+          Carregando manutenções...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+if (bloqueado) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <h2 className="text-2xl font-black text-white">
+          Acesso Restrito
+        </h2>
+
+        <p className="text-slate-400 mt-2">
+          Você não possui permissão
+          para acessar este módulo.
+        </p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

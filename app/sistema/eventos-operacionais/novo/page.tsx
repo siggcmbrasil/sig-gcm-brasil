@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { useRouter } from "next/navigation";
 
 export default function NovoEventoOperacionalPage() {
@@ -21,7 +22,12 @@ export default function NovoEventoOperacionalPage() {
       : {};
 
   async function salvar() {
-    if (!nome || !local || !dataInicio) {
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!nome.trim() || !local.trim() || !dataInicio) {
       alert("Preencha nome, local e data de início.");
       return;
     }
@@ -50,6 +56,21 @@ export default function NovoEventoOperacionalPage() {
   alert(error.message || "Erro ao salvar evento.");
   return;
 }
+
+await registrarAuditoria({
+  modulo: "Eventos Operacionais",
+  acao: "CRIAR",
+  descricao: `Criou evento operacional: ${nome.trim()}.`,
+  tabela: "eventos_operacionais",
+  detalhes: {
+    nome: nome.trim(),
+    tipo,
+    local: local.trim(),
+    data_inicio: dataInicio,
+    data_fim: dataFim || null,
+    efetivo_previsto: Number(efetivoPrevisto || 0),
+  },
+});
 
     alert("Evento operacional cadastrado com sucesso.");
     router.push("/sistema/eventos-operacionais");

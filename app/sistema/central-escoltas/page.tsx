@@ -38,12 +38,12 @@ export default function CentralEscoltasPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {cards.map((card) => (
           <SigCentralCard
-            key={`${card.href}-${card.titulo}`}
-            titulo={card.titulo}
-            descricao={card.descricao}
-            href={card.href}
-            icone={card.icone}
-          />
+  key={card.href}
+  titulo={card.titulo}
+  descricao={card.descricao}
+  href={card.href}
+  icone={card.icone}
+/>
         ))}
       </div>
     </section>

@@ -1,88 +1,149 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-  Shield,
-  FileText,
-  Download,
   CalendarDays,
   CheckCircle,
+  Download,
+  FileText,
+  Shield,
   Siren,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
+type UsuarioLogado = {
+  id: number;
+  municipio_id: number;
+  perfil?: string;
+};
+
+type Operacao = {
+  id: number;
+  tipo: string | null;
+  local: string | null;
+  responsavel: string | null;
+  observacoes: string | null;
+  data: string | null;
+  status: string | null;
+};
+
 export default function RelatorioBlitzesPage() {
-  const [operacoes, setOperacoes] = useState<any[]>([]);
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [operacoes, setOperacoes] = useState<Operacao[]>([]);
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
+  const [carregando, setCarregando] = useState(true);
 
   useEffect(() => {
-    carregar();
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      );
+
+      if (!dados?.id || !dados?.municipio_id) {
+        alert("Sessão inválida.");
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Blitzes e Barreiras",
+        acao: "ACESSO",
+        descricao: "Acessou o relatório de blitzes e barreiras.",
+        tabela: "blitzes_barreiras",
+        detalhes: {
+          usuario_id: dados.id,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregar(dados);
+    }
+
+    iniciar();
   }, []);
 
-  async function carregar() {
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+  async function carregar(usuarioAtual: UsuarioLogado) {
+    setCarregando(true);
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("blitzes_barreiras")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("data", { ascending: false });
+      .select("id, tipo, local, responsavel, observacoes, data, status")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("data", { ascending: false })
+      .range(0, 499);
+
+    setCarregando(false);
+
+    if (error) {
+      await registrarAuditoria({
+        modulo: "Blitzes e Barreiras",
+        acao: "ERRO",
+        descricao: "Erro ao carregar relatório de operações.",
+        tabela: "blitzes_barreiras",
+        detalhes: {
+          erro: error.message,
+          usuario_id: usuarioAtual.id,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar relatório.");
+      return;
+    }
 
     setOperacoes(data || []);
   }
 
-  async function registrarAuditoria(
-    acao: string,
-    detalhes: string
-  ) {
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+  const lista = useMemo(() => {
+    return operacoes.filter((item) => {
+      if (!dataInicio && !dataFim) return true;
 
-    await supabase.from("auditoria_sistema").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario.id,
-      modulo: "BLITZES_BARREIRAS",
-      acao,
-      detalhes,
+      const dataOperacao = item.data || "";
+
+      if (dataInicio && dataOperacao < dataInicio) return false;
+      if (dataFim && dataOperacao > dataFim) return false;
+
+      return true;
     });
-  }
+  }, [operacoes, dataInicio, dataFim]);
 
-  const lista = operacoes.filter((o) => {
-    if (!dataInicio && !dataFim) return true;
-
-    const data = o.data;
-
-    if (dataInicio && data < dataInicio) return false;
-    if (dataFim && data > dataFim) return false;
-
-    return true;
-  });
-
-  const total = lista.length;
-  const blitzes = lista.filter(
-    (o) => o.tipo === "BLITZ"
-  ).length;
-
-  const barreiras = lista.filter(
-    (o) => o.tipo === "BARREIRA"
-  ).length;
-
-  const finalizadas = lista.filter(
-    (o) => o.status === "FINALIZADA"
-  ).length;
+  const resumo = useMemo(() => {
+    return {
+      total: lista.length,
+      blitzes: lista.filter((item) => item.tipo === "BLITZ").length,
+      barreiras: lista.filter((item) => item.tipo === "BARREIRA").length,
+      finalizadas: lista.filter((item) => item.status === "FINALIZADA").length,
+    };
+  }, [lista]);
 
   async function gerarRelatorio() {
-    await registrarAuditoria(
-      "GERAR_RELATORIO_OPERACOES",
-      "Gerou relatório de blitzes e barreiras"
-    );
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Blitzes e Barreiras",
+      acao: "EXPORTAR",
+      descricao: "Gerou/imprimiu relatório de blitzes e barreiras.",
+      tabela: "blitzes_barreiras",
+      detalhes: {
+        usuario_id: usuario.id,
+        municipio_id: usuario.municipio_id,
+        filtros: {
+          data_inicio: dataInicio || null,
+          data_fim: dataFim || null,
+        },
+        totais: resumo,
+      },
+    });
 
     window.print();
   }
@@ -97,42 +158,30 @@ export default function RelatorioBlitzesPage() {
 
       <div className="grid md:grid-cols-4 gap-4">
         <SigCard>
-          <p className="text-slate-400">
-            Total de Operações
-          </p>
-
+          <p className="text-slate-400">Total de Operações</p>
           <h2 className="text-4xl font-black mt-2">
-            {total}
+            {carregando ? "..." : resumo.total}
           </h2>
         </SigCard>
 
         <SigCard>
-          <p className="text-slate-400">
-            Blitzes
-          </p>
-
+          <p className="text-slate-400">Blitzes</p>
           <h2 className="text-4xl font-black text-yellow-400 mt-2">
-            {blitzes}
+            {carregando ? "..." : resumo.blitzes}
           </h2>
         </SigCard>
 
         <SigCard>
-          <p className="text-slate-400">
-            Barreiras
-          </p>
-
+          <p className="text-slate-400">Barreiras</p>
           <h2 className="text-4xl font-black text-cyan-400 mt-2">
-            {barreiras}
+            {carregando ? "..." : resumo.barreiras}
           </h2>
         </SigCard>
 
         <SigCard>
-          <p className="text-slate-400">
-            Finalizadas
-          </p>
-
+          <p className="text-slate-400">Finalizadas</p>
           <h2 className="text-4xl font-black text-emerald-400 mt-2">
-            {finalizadas}
+            {carregando ? "..." : resumo.finalizadas}
           </h2>
         </SigCard>
       </div>
@@ -140,39 +189,30 @@ export default function RelatorioBlitzesPage() {
       <SigCard>
         <div className="grid md:grid-cols-3 gap-4">
           <div>
-            <label className="label">
-              Data Inicial
-            </label>
-
+            <label className="label">Data Inicial</label>
             <input
               type="date"
               className="input"
               value={dataInicio}
-              onChange={(e) =>
-                setDataInicio(e.target.value)
-              }
+              onChange={(e) => setDataInicio(e.target.value)}
             />
           </div>
 
           <div>
-            <label className="label">
-              Data Final
-            </label>
-
+            <label className="label">Data Final</label>
             <input
               type="date"
               className="input"
               value={dataFim}
-              onChange={(e) =>
-                setDataFim(e.target.value)
-              }
+              onChange={(e) => setDataFim(e.target.value)}
             />
           </div>
 
           <div className="flex items-end">
             <button
               onClick={gerarRelatorio}
-              className="btn-primary w-full inline-flex items-center justify-center gap-2"
+              disabled={carregando}
+              className="btn-primary w-full inline-flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Download size={18} />
               Gerar Relatório
@@ -183,24 +223,21 @@ export default function RelatorioBlitzesPage() {
 
       <SigCard>
         <div className="flex items-center gap-4 mb-6">
-          <Shield
-            size={40}
-            className="text-yellow-400"
-          />
+          <Shield size={40} className="text-yellow-400" />
 
           <div>
-            <h2 className="font-black text-xl">
-              Operações Encontradas
-            </h2>
-
+            <h2 className="font-black text-xl">Operações Encontradas</h2>
             <p className="text-slate-400">
-              {lista.length} operação(ões)
-              encontrada(s).
+              {lista.length} operação(ões) encontrada(s).
             </p>
           </div>
         </div>
 
-        {lista.length === 0 ? (
+        {carregando ? (
+          <p className="text-slate-400 text-center py-10">
+            Carregando relatório...
+          </p>
+        ) : lista.length === 0 ? (
           <p className="text-slate-400 text-center py-10">
             Nenhuma operação encontrada.
           </p>
@@ -209,24 +246,24 @@ export default function RelatorioBlitzesPage() {
             {lista.map((item) => (
               <div
                 key={item.id}
-                className="border border-slate-800 rounded-xl p-4"
+                className="border border-slate-800 rounded-xl p-4 bg-slate-950/50"
               >
                 <div className="flex items-start gap-3">
-                  <Siren className="text-yellow-400" />
+                  <Siren className="text-yellow-400 shrink-0" />
 
                   <div className="flex-1">
                     <h3 className="font-black text-lg">
-                      {item.tipo}
+                      {item.tipo || "Operação"}
                     </h3>
 
                     <p className="text-slate-300">
-                      {item.local}
+                      {item.local || "Local não informado"}
                     </p>
 
                     <div className="flex flex-wrap gap-4 mt-2 text-sm text-slate-400">
                       <span className="flex items-center gap-2">
                         <CalendarDays size={16} />
-                        {item.data}
+                        {item.data || "Data não informada"}
                       </span>
 
                       <span className="flex items-center gap-2">
@@ -237,13 +274,12 @@ export default function RelatorioBlitzesPage() {
 
                     {item.responsavel && (
                       <p className="mt-2 text-slate-400">
-                        Responsável:{" "}
-                        {item.responsavel}
+                        Responsável: {item.responsavel}
                       </p>
                     )}
 
                     {item.observacoes && (
-                      <p className="mt-2 text-slate-500">
+                      <p className="mt-2 text-slate-500 whitespace-pre-wrap break-words">
                         {item.observacoes}
                       </p>
                     )}

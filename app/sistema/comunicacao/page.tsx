@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
@@ -27,13 +28,18 @@ export default function ComunicacaoInternaPage() {
       : {};
 
   async function carregar() {
+    if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
     const { data } = await supabase
       .from("comunicados_internos")
-      .select("*")
+      .select("id, titulo, categoria, prioridade, mensagem, fixado, criado_em")
       .eq("municipio_id", usuario.municipio_id)
       .eq("ativo", true)
       .order("fixado", { ascending: false })
-      .order("criado_em", { ascending: false });
+      .order("criado_em", { ascending: false })
+.limit(100);
 
     setComunicados(data || []);
   }
@@ -47,6 +53,20 @@ export default function ComunicacaoInternaPage() {
       alert("Preencha título e mensagem.");
       return;
     }
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
+
+if (titulo.length > 150) {
+  alert("Título muito grande.");
+  return;
+}
+
+if (mensagem.length > 5000) {
+  alert("Mensagem muito grande.");
+  return;
+}
 
     setSalvando(true);
 
@@ -65,9 +85,36 @@ export default function ComunicacaoInternaPage() {
     setSalvando(false);
 
     if (error) {
-      alert(error.message);
-      return;
-    }
+  await registrarAuditoria({
+    modulo: "Comunicação Interna",
+    acao: "ERRO",
+    descricao: "Erro ao publicar comunicado interno.",
+    tabela: "comunicados_internos",
+    detalhes: {
+      erro: error.message,
+      titulo,
+      categoria,
+      prioridade,
+    },
+  });
+
+  alert("Comunicado publicado com sucesso.");
+
+  alert(error.message);
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Comunicação Interna",
+  acao: "CRIAR",
+  descricao: `Publicou comunicado interno: ${titulo.trim()}.`,
+  tabela: "comunicados_internos",
+  detalhes: {
+    titulo: titulo.trim(),
+    categoria,
+    prioridade,
+  },
+});
 
     setTitulo("");
     setMensagem("");

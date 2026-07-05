@@ -22,6 +22,9 @@ export default function AbastecimentosPage() {
   const [motorista, setMotorista] = useState("");
   const [numeroCupom, setNumeroCupom] = useState("");
   const [observacao, setObservacao] = useState("");
+  const [dataAbastecimento, setDataAbastecimento] = useState(
+    new Date().toISOString().slice(0, 16)
+  );
 
   const [dataInicio, setDataInicio] = useState("");
   const [dataFim, setDataFim] = useState("");
@@ -32,35 +35,59 @@ export default function AbastecimentosPage() {
       : {};
 
   async function carregar() {
-    if (!usuario?.municipio_id) return;
+    try {
+      if (!usuario?.municipio_id) {
+        setCarregando(false);
+        return;
+      }
 
-    setCarregando(true);
+      setCarregando(true);
 
-    const { data: listaViaturas } = await supabase
-      .from("viaturas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("prefixo", { ascending: true });
+      const { data: listaViaturas, error: erroViaturas } = await supabase
+        .from("viaturas")
+.select(`
+id,
+prefixo,
+placa,
+km_atual,
+capacidade_tanque,
+tipo_combustivel
+`)
+        .eq("municipio_id", usuario.municipio_id)
+        .order("prefixo", { ascending: true });
 
-    let query = supabase
-      .from("abastecimentos")
-      .select("*, viaturas(prefixo, placa)")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("data_abastecimento", { ascending: false });
+      if (erroViaturas) throw erroViaturas;
 
-    if (dataInicio) {
-      query = query.gte("data_abastecimento", dataInicio);
+      let query = supabase
+  .from("abastecimentos")
+  .select("*, viaturas(prefixo, placa)")
+  .eq("municipio_id", usuario.municipio_id)
+  .order("data_abastecimento", {
+    ascending: false,
+  })
+  .range(0, 99);
+
+      if (dataInicio) {
+        query = query.gte("data_abastecimento", `${dataInicio}T00:00:00`);
+      }
+
+      if (dataFim) {
+        query = query.lte("data_abastecimento", `${dataFim}T23:59:59`);
+      }
+
+      const { data: listaAbastecimentos, error: erroAbastecimentos } =
+        await query;
+
+      if (erroAbastecimentos) throw erroAbastecimentos;
+
+      setViaturas(listaViaturas || []);
+      setAbastecimentos(listaAbastecimentos || []);
+    } catch (error) {
+      console.error("Erro ao carregar abastecimentos:", error);
+      alert("Erro ao carregar abastecimentos.");
+    } finally {
+      setCarregando(false);
     }
-
-    if (dataFim) {
-      query = query.lte("data_abastecimento", `${dataFim}T23:59:59`);
-    }
-
-    const { data: listaAbastecimentos } = await query;
-
-    setViaturas(listaViaturas || []);
-    setAbastecimentos(listaAbastecimentos || []);
-    setCarregando(false);
   }
 
   useEffect(() => {
@@ -96,6 +123,7 @@ export default function AbastecimentosPage() {
     setMotorista("");
     setNumeroCupom("");
     setObservacao("");
+    setDataAbastecimento(new Date().toISOString().slice(0, 16));
   }
 
   function editar(item: any) {
@@ -108,70 +136,238 @@ export default function AbastecimentosPage() {
     setMotorista(item.motorista || "");
     setNumeroCupom(item.numero_cupom || "");
     setObservacao(item.observacao || "");
+    setDataAbastecimento(
+      item.data_abastecimento
+        ? new Date(item.data_abastecimento).toISOString().slice(0, 16)
+        : new Date().toISOString().slice(0, 16)
+    );
   }
 
   async function salvar() {
+    
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      return;
+    }
+
     if (!viaturaId) return alert("Selecione a viatura.");
     if (!litros || Number(litros) <= 0) return alert("Informe os litros.");
     if (!valor || Number(valor) <= 0) return alert("Informe o valor.");
+    if (Number(litros) > 500) {
+  return alert(
+    "Quantidade de litros inválida."
+  );
+}
+if (Number(valor) > 3000) {
+  return alert(
+    "Valor de abastecimento inválido."
+  );
+}
     if (!km || Number(km) <= 0) return alert("Informe o KM.");
+    const viatura = viaturas.find(
+  (v) => String(v.id) === viaturaId
+);
+
+if (
+  viatura?.km_atual &&
+  Number(km) < Number(viatura.km_atual)
+) {
+  return alert(
+    `O KM informado é menor que o KM atual da viatura (${viatura.km_atual}).`
+  );
+}
+    if (!dataAbastecimento) return alert("Informe a data do abastecimento.");
+
+    if (
+  new Date(dataAbastecimento) >
+  new Date()
+) {
+  return alert(
+    "A data do abastecimento não pode ser futura."
+  );
+}
+
+if (
+  viatura?.capacidade_tanque &&
+  Number(litros) >
+    Number(viatura.capacidade_tanque)
+) {
+  return alert(
+    `A viatura suporta apenas ${viatura.capacidade_tanque} litros.`
+  );
+}
+
+if (editandoId) {
+  const dias =
+    Math.floor(
+      (Date.now() -
+        new Date(dataAbastecimento).getTime()) /
+        86400000
+    );
+
+  if (
+    dias > 7 &&
+    !["ADMIN", "DESENVOLVEDOR"].includes(
+      usuario.perfil
+    )
+  ) {
+    return alert(
+      "Somente administradores podem alterar abastecimentos antigos."
+    );
+  }
+}
 
     setSalvando(true);
 
-    const dados = {
-      municipio_id: usuario.municipio_id,
-      viatura_id: Number(viaturaId),
-      litros: Number(litros),
-      valor: Number(valor),
-      km: Number(km),
-      posto: posto.trim(),
-      motorista: motorista.trim(),
-      numero_cupom: numeroCupom.trim(),
-      observacao: observacao.trim(),
-      criado_por: usuario.id,
-    };
+    try {
+      const dados = {
+  municipio_id: usuario.municipio_id,
+  viatura_id: Number(viaturaId),
+  litros: Number(litros),
+  valor: Number(valor),
+  valor_litro:
+    Number(litros) > 0
+      ? Number(valor) / Number(litros)
+      : 0,
+  km: Number(km),
+  posto: posto.trim(),
+  motorista: motorista.trim(),
+  numero_cupom: numeroCupom.trim(),
+  observacao: observacao.trim(),
+  data_abastecimento: dataAbastecimento,
+  criado_por: usuario.id,
+};
 
-    const { error } = editandoId
-      ? await supabase
-          .from("abastecimentos")
-          .update(dados)
-          .eq("id", editandoId)
-          .eq("municipio_id", usuario.municipio_id)
-      : await supabase.from("abastecimentos").insert([dados]);
+let error = null;
 
-    setSalvando(false);
+if (editandoId) {
+  let updateQuery = supabase
+    .from("abastecimentos")
+    .update(dados)
+    .eq("id", editandoId)
+    .eq("municipio_id", usuario.municipio_id);
 
-    if (error) {
-      alert(error.message);
-      return;
+  if (
+    !["ADMIN", "DESENVOLVEDOR"].includes(
+      usuario.perfil
+    )
+  ) {
+    updateQuery = updateQuery.eq(
+      "criado_por",
+      usuario.id
+    );
+  }
+
+  const resultado = await updateQuery;
+  error = resultado.error;
+} else {
+  const resultado = await supabase
+    .from("abastecimentos")
+    .insert([dados]);
+
+  error = resultado.error;
+}
+
+if (error) throw error;
+
+      if (error) throw error;
+
+      await supabase
+        .from("viaturas")
+        .update({
+          km_atual: Number(km),
+        })
+        .eq("id", Number(viaturaId))
+        .eq("municipio_id", usuario.municipio_id);
+
+      await registrarAuditoria({
+  modulo: "Abastecimentos",
+  acao: editandoId
+    ? "EDITAR"
+    : "CRIAR",
+  descricao: editandoId
+    ? `Editou abastecimento da viatura ${viatura?.prefixo}.`
+    : `Registrou abastecimento da viatura ${viatura?.prefixo}.`,
+  tabela: "abastecimentos",
+  registro_id: editandoId || null,
+  detalhes: {
+  viatura: viatura?.prefixo,
+  litros,
+  valor,
+  km,
+  posto,
+  motorista,
+  numeroCupom,
+},
+});
+
+      limparFormulario();
+      await carregar();
+
+      alert(
+        editandoId
+          ? "Abastecimento atualizado."
+          : "Abastecimento registrado."
+      );
+    } catch (error: any) {
+      console.error("Erro ao salvar abastecimento:", error);
+      alert(error.message || "Erro ao salvar abastecimento.");
+    } finally {
+      setSalvando(false);
     }
-
-    const viatura = viaturas.find((v) => String(v.id) === viaturaId);
-
-    await registrarAuditoria({
-      modulo: "Abastecimentos",
-      acao: editandoId ? "EDITAR" : "CRIAR",
-      descricao: editandoId
-        ? `Editou abastecimento da viatura ${viatura?.prefixo || viaturaId}.`
-        : `Registrou abastecimento da viatura ${viatura?.prefixo || viaturaId}.`,
-    });
-
-    limparFormulario();
-    await carregar();
-
-    alert(editandoId ? "Abastecimento atualizado." : "Abastecimento registrado.");
   }
 
   async function excluir(id: number) {
+    if (
+  !["ADMIN", "DESENVOLVEDOR"].includes(
+    usuario.perfil
+  )
+) {
+  return alert(
+    "Você não possui permissão para excluir."
+  );
+}
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      return;
+    }
+
     if (!confirm("Deseja excluir este abastecimento?")) return;
+
+    const motivo = prompt(
+  "Informe o motivo da exclusão:"
+);
+
+if (!motivo?.trim()) {
+  return alert(
+    "Informe o motivo da exclusão."
+  );
+}
 
     const item = abastecimentos.find((a) => a.id === id);
 
-    const { error } = await supabase
-      .from("abastecimentos")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+    let deleteQuery = supabase
+  .from("abastecimentos")
+  .delete()
+  .eq("id", id)
+  .eq(
+    "municipio_id",
+    usuario.municipio_id
+  );
+
+if (
+  !["ADMIN", "DESENVOLVEDOR"].includes(
+    usuario.perfil
+  )
+) {
+  deleteQuery = deleteQuery.eq(
+    "criado_por",
+    usuario.id
+  );
+}
+
+const { error } =
+  await deleteQuery;
 
     if (error) {
       alert(error.message);
@@ -179,12 +375,24 @@ export default function AbastecimentosPage() {
     }
 
     await registrarAuditoria({
-      modulo: "Abastecimentos",
-      acao: "EXCLUIR",
-      descricao: `Excluiu abastecimento da viatura ${
-        item?.viaturas?.prefixo || item?.viatura_id || id
-      }.`,
-    });
+  modulo: "Abastecimentos",
+  acao: "EXCLUIR",
+  descricao: `Excluiu abastecimento da viatura ${
+    item?.viaturas?.prefixo ||
+    item?.viatura_id ||
+    id
+  }.`,
+  tabela: "abastecimentos",
+  registro_id: id,
+  detalhes: {
+    motivo,
+    valor: item?.valor,
+    litros: item?.litros,
+    km: item?.km,
+    posto: item?.posto,
+    motorista: item?.motorista,
+  },
+});
 
     await carregar();
   }
@@ -276,6 +484,13 @@ export default function AbastecimentosPage() {
                 </option>
               ))}
             </select>
+
+            <input
+              className="input"
+              type="datetime-local"
+              value={dataAbastecimento}
+              onChange={(e) => setDataAbastecimento(e.target.value)}
+            />
 
             <div className="grid grid-cols-2 gap-3">
               <input
@@ -370,6 +585,13 @@ export default function AbastecimentosPage() {
                       <h3 className="text-white font-black">
                         🚔 {a.viaturas?.prefixo || "Viatura não informada"}
                       </h3>
+
+                      <p className="text-slate-400 text-sm">
+                        Data:{" "}
+                        {a.data_abastecimento
+                          ? new Date(a.data_abastecimento).toLocaleString("pt-BR")
+                          : "Não informada"}
+                      </p>
 
                       <p className="text-slate-400 text-sm">
                         Placa: {a.viaturas?.placa || "Não informada"} • KM:{" "}

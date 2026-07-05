@@ -1,312 +1,245 @@
-
 "use client";
 
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
 
-type Municipio = {
-  id: number;
-  nome: string;
-  estado: string;
-  ativo: boolean;
-};
-
 export default function InstitucionalPage() {
-  const [municipios, setMunicipios] = useState<Municipio[]>([]);
-  const [municipioPadraoId, setMunicipioPadraoId] = useState("");
-
   const [nomeGuarda, setNomeGuarda] = useState("");
   const [comandante, setComandante] = useState("");
   const [brasaoPrefeitura, setBrasaoPrefeitura] = useState("");
   const [brasaoGcm, setBrasaoGcm] = useState("");
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
 
-  const [novoMunicipio, setNovoMunicipio] = useState("");
-  const [novoEstado, setNovoEstado] = useState("BA");
-  const [arquivoPrefeitura, setArquivoPrefeitura] = useState<File | null>(null);
-  const [arquivoGcm, setArquivoGcm] = useState<File | null>(null);
+  const usuario =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
-  async function carregarConfiguracoes() {
-    const { data: municipiosData } = await supabase
+  useEffect(() => {
+    carregarDadosMunicipio();
+  }, []);
+
+  async function carregarDadosMunicipio() {
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      setCarregando(false);
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("municipios")
-      .select("id, nome, estado, ativo")
-      .eq("ativo", true)
-      .order("nome");
-
-    const { data: configData } = await supabase
-      .from("configuracoes_sistema")
-      .select("id, municipio_padrao_id")
-      .order("id", { ascending: true })
-      .limit(1)
+      .select(`
+        id,
+        nome,
+        estado,
+        nome_guarda,
+        comandante,
+        brasao_prefeitura,
+        brasao_gcm
+      `)
+      .eq("id", usuario.municipio_id)
       .single();
 
-    setMunicipios(municipiosData || []);
-
-  setMunicipioPadraoId(
-    configData?.municipio_padrao_id?.toString() || ""
-  );
-
-  if (configData?.municipio_padrao_id) {
-    carregarDadosMunicipio(
-      configData.municipio_padrao_id
-    );
-  }
-}
-
-
-  async function salvarMunicipioPadrao() {
-    if (!municipioPadraoId) {
-      alert("Selecione um município.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("configuracoes_sistema")
-      .update({ municipio_padrao_id: Number(municipioPadraoId) })
-      .eq("id", 1);
-
-    if (error) {
+    if (error || !data) {
       console.error(error);
-      alert("Erro ao salvar município padrão.");
+      alert("Erro ao carregar dados institucionais.");
+      setCarregando(false);
       return;
     }
 
-    await registrarAuditoria({
-  modulo: "Institucional",
-  acao: "ALTERAR_MUNICIPIO_PADRAO",
-  descricao: `Alterou o município padrão para ID ${municipioPadraoId}.`,
-});
-
-    alert("Município padrão atualizado com sucesso!");
-    carregarConfiguracoes();
+    setNomeGuarda(data.nome_guarda || "");
+    setComandante(data.comandante || "");
+    setBrasaoPrefeitura(data.brasao_prefeitura || "");
+    setBrasaoGcm(data.brasao_gcm || "");
+    setCarregando(false);
   }
 
   async function salvarDadosInstitucionais() {
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      return;
+    }
 
-if (!municipioPadraoId) {
-  alert("Selecione um município.");
-  return;
-}
+    if (!nomeGuarda.trim()) {
+      alert("Informe o nome da Guarda.");
+      return;
+    }
+
+    if (!comandante.trim()) {
+      alert("Informe o nome do comandante.");
+      return;
+    }
+
+    setSalvando(true);
+
+    const dados = {
+      nome_guarda: nomeGuarda.trim(),
+      comandante: comandante.trim(),
+      brasao_prefeitura: brasaoPrefeitura.trim(),
+      brasao_gcm: brasaoGcm.trim(),
+    };
 
     const { error } = await supabase
       .from("municipios")
-      .update({
-        nome_guarda: nomeGuarda,
-        comandante,
-        brasao_prefeitura: brasaoPrefeitura,
-        brasao_gcm: brasaoGcm,
-      })
-      .eq("id", Number(municipioPadraoId));
+      .update(dados)
+      .eq("id", usuario.municipio_id);
 
     if (error) {
       console.error(error);
-      alert("Erro ao salvar.");
+      alert("Erro ao salvar dados institucionais.");
+      setSalvando(false);
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Institucional",
-  acao: "EDITAR_DADOS",
-  descricao: `Atualizou os dados institucionais do município ID ${municipioPadraoId}.`,
-});
+      modulo: "Institucional",
+      acao: "EDITAR_DADOS_INSTITUCIONAIS",
+      descricao: "Atualizou os dados institucionais do município.",
+      tabela: "municipios",
+      registro_id: usuario.municipio_id,
+      detalhes: dados,
+    });
 
-    alert("Dados institucionais salvos com sucesso!");
+    setSalvando(false);
+    alert("Dados institucionais salvos com sucesso.");
   }
-
-  async function criarMunicipioCompleto() {
-
-if (!novoMunicipio.trim()) {
-  alert("Informe o município.");
-  return;
-}
-
-if (!nomeGuarda.trim()) {
-  alert("Informe o nome da Guarda.");
-  return;
-}
-
-    if (!novoMunicipio || !nomeGuarda || !comandante) {
-      alert("Preencha município, nome da Guarda e comandante.");
-      return;
-    }
-
-    const { data: municipioCriado, error: erroMunicipio } = await supabase
-      .from("municipios")
-      .insert([
-        {
-          nome: novoMunicipio,
-          estado: novoEstado,
-          ativo: true,
-          nome_guarda: nomeGuarda,
-          comandante,
-        },
-      ])
-      .select()
-      .single();
-
-    if (erroMunicipio) {
-      console.error(erroMunicipio);
-      alert("Erro ao criar município.");
-      return;
-    }
-
-    await registrarAuditoria({
-  modulo: "Institucional",
-  acao: "CRIAR_MUNICIPIO",
-  descricao: `Criou o município ${novoMunicipio}-${novoEstado}.`,
-});
-
-    let urlPrefeitura = "";
-    let urlGcm = "";
-
-    if (arquivoPrefeitura) {
-      const caminho = `${municipioCriado.id}/brasao-prefeitura.png`;
-
-      await supabase.storage
-        .from("brasoes")
-        .upload(caminho, arquivoPrefeitura, { upsert: true });
-
-      const { data } = supabase.storage.from("brasoes").getPublicUrl(caminho);
-      urlPrefeitura = data.publicUrl;
-    }
-
-    if (arquivoGcm) {
-      const caminho = `${municipioCriado.id}/brasao-gcm.png`;
-
-      await supabase.storage
-        .from("brasoes")
-        .upload(caminho, arquivoGcm, { upsert: true });
-
-      const { data } = supabase.storage.from("brasoes").getPublicUrl(caminho);
-      urlGcm = data.publicUrl;
-    }
-
-    await supabase
-      .from("municipios")
-      .update({
-        brasao_prefeitura: urlPrefeitura,
-        brasao_gcm: urlGcm,
-      })
-      .eq("id", municipioCriado.id);
-
-    alert("Município criado com sucesso!");
-
-    setNovoMunicipio("");
-    setNovoEstado("BA");
-    setNomeGuarda("");
-    setComandante("");
-    setArquivoPrefeitura(null);
-    setArquivoGcm(null);
-
-    carregarConfiguracoes();
-  }
-
-  async function carregarDadosMunicipio(id: number) {
-  const { data, error } = await supabase
-    .from("municipios")
-    .select(`
-      nome_guarda,
-      comandante,
-      brasao_prefeitura,
-      brasao_gcm
-    `)
-    .eq("id", id)
-    .single();
-
-  if (error || !data) return;
-
-  setNomeGuarda(data.nome_guarda || "");
-  setComandante(data.comandante || "");
-  setBrasaoPrefeitura(data.brasao_prefeitura || "");
-  setBrasaoGcm(data.brasao_gcm || "");
-}
-
-  useEffect(() => {
-    carregarConfiguracoes();
-  }, []);
 
   return (
     <ProtecaoModulo modulo="administracao">
-      <section className="p-6 space-y-6">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
         <div className="painel-premium p-6">
-          <h1 className="text-4xl font-black text-white">
-            🏛️ Gestão Institucional
+          <p className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-black">
+            Gestão Local
+          </p>
+
+          <h1 className="text-3xl md:text-4xl font-black text-white mt-2">
+            🏛️ Dados Institucionais
           </h1>
 
-          <p className="text-slate-400 mt-2">
-            Municípios, brasões, comandante e dados oficiais do SIG-GCM Brasil.
+          <p className="text-slate-400 mt-2 max-w-4xl">
+            Configure o nome da Guarda, comandante e brasões oficiais do seu município.
           </p>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          <section className="painel-premium p-6">
-            <h2 className="text-2xl font-black text-white mb-4">
-              Cadastrar Novo Município
-            </h2>
-
-            <div className="space-y-4">
-              <input className="input" placeholder="Nome do Município" value={novoMunicipio} onChange={(e) => setNovoMunicipio(e.target.value)} />
-              <input className="input" placeholder="Estado" value={novoEstado} onChange={(e) => setNovoEstado(e.target.value)} />
-              <input className="input" placeholder="Nome da Guarda" value={nomeGuarda} onChange={(e) => setNomeGuarda(e.target.value)} />
-              <input className="input" placeholder="Nome do Comandante" value={comandante} onChange={(e) => setComandante(e.target.value)} />
-
-              <label className="label">Brasão da Prefeitura</label>
-              <input type="file" accept="image/*" onChange={(e) => setArquivoPrefeitura(e.target.files?.[0] || null)} />
-
-              <label className="label">Brasão da GCM</label>
-              <input type="file" accept="image/*" onChange={(e) => setArquivoGcm(e.target.files?.[0] || null)} />
-
-              <button type="button" onClick={criarMunicipioCompleto} className="btn-primary w-full">
-                Cadastrar Município
-              </button>
-            </div>
-          </section>
-
-          <div className="space-y-6">
+        {carregando ? (
+          <div className="painel-premium p-6">
+            <p className="text-slate-400">Carregando dados institucionais...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <section className="painel-premium p-6">
               <h2 className="text-2xl font-black text-white mb-4">
-                Município Padrão
-              </h2>
-
-              <select className="input" value={municipioPadraoId} onChange={(e) => {
-  setMunicipioPadraoId(e.target.value);
-
-  if (e.target.value) {
-    carregarDadosMunicipio(Number(e.target.value));
-  }
-}}>
-                <option value="">Selecione o município</option>
-                {municipios.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.nome} - {m.estado}
-                  </option>
-                ))}
-              </select>
-
-              <button type="button" onClick={salvarMunicipioPadrao} className="btn-primary mt-4">
-                Salvar Município Padrão
-              </button>
-            </section>
-
-            <section className="painel-premium p-6">
-              <h2 className="text-2xl font-black text-white mb-4">
-                Dados Institucionais
+                Informações Oficiais
               </h2>
 
               <div className="space-y-4">
-                <input className="input" placeholder="Nome da Guarda" value={nomeGuarda} onChange={(e) => setNomeGuarda(e.target.value)} />
-                <input className="input" placeholder="Nome do Comandante" value={comandante} onChange={(e) => setComandante(e.target.value)} />
-                <input className="input" placeholder="/brasoes/brasao-prefeitura.png" value={brasaoPrefeitura} onChange={(e) => setBrasaoPrefeitura(e.target.value)} />
-                <input className="input" placeholder="/brasoes/brasao-gcm.png" value={brasaoGcm} onChange={(e) => setBrasaoGcm(e.target.value)} />
+                <div>
+                  <label className="label">Nome da Guarda</label>
+                  <input
+                    className="input"
+                    value={nomeGuarda}
+                    onChange={(e) => setNomeGuarda(e.target.value)}
+                    placeholder="Ex: Guarda Civil Municipal de Biritinga"
+                  />
+                </div>
 
-                <button type="button" onClick={salvarDadosInstitucionais} className="btn-primary w-full">
-                  Salvar Dados Institucionais
+                <div>
+                  <label className="label">Comandante</label>
+                  <input
+                    className="input"
+                    value={comandante}
+                    onChange={(e) => setComandante(e.target.value)}
+                    placeholder="Nome do comandante"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Brasão da Prefeitura</label>
+                  <input
+                    className="input"
+                    value={brasaoPrefeitura}
+                    onChange={(e) => setBrasaoPrefeitura(e.target.value)}
+                    placeholder="/brasoes/biritinga-prefeitura.png"
+                  />
+                </div>
+
+                <div>
+                  <label className="label">Brasão da GCM</label>
+                  <input
+                    className="input"
+                    value={brasaoGcm}
+                    onChange={(e) => setBrasaoGcm(e.target.value)}
+                    placeholder="/brasoes/biritinga-gcm.png"
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={salvarDadosInstitucionais}
+                  disabled={salvando}
+                  className="btn-primary w-full disabled:opacity-60"
+                >
+                  {salvando ? "Salvando..." : "Salvar Dados Institucionais"}
                 </button>
               </div>
             </section>
+
+            <section className="painel-premium p-6">
+              <h2 className="text-2xl font-black text-white mb-4">
+                Pré-visualização
+              </h2>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-5 space-y-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="w-24 h-24 rounded-2xl border border-slate-700 bg-slate-900 flex items-center justify-center overflow-hidden">
+                    {brasaoPrefeitura ? (
+                      <img
+                        src={brasaoPrefeitura}
+                        alt="Brasão da Prefeitura"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-500 text-center">
+                        Prefeitura
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-center flex-1">
+                    <h3 className="text-xl font-black text-white">
+                      {nomeGuarda || "Nome da Guarda"}
+                    </h3>
+
+                    <p className="text-slate-400 text-sm mt-1">
+                      Comandante: {comandante || "Não informado"}
+                    </p>
+                  </div>
+
+                  <div className="w-24 h-24 rounded-2xl border border-slate-700 bg-slate-900 flex items-center justify-center overflow-hidden">
+                    {brasaoGcm ? (
+                      <img
+                        src={brasaoGcm}
+                        alt="Brasão da GCM"
+                        className="w-full h-full object-contain"
+                      />
+                    ) : (
+                      <span className="text-xs text-slate-500 text-center">
+                        GCM
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-xs text-slate-500">
+                  Estes dados serão usados em relatórios, PDFs, ofícios e documentos oficiais.
+                </p>
+              </div>
+            </section>
           </div>
-        </div>
+        )}
       </section>
     </ProtecaoModulo>
   );

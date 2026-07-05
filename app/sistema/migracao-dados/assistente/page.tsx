@@ -166,9 +166,13 @@ export default function AssistenteMigracaoPage() {
           </p>
 
           <div className="mt-6">
-            <SigButton>
-              Iniciar Assistente
-            </SigButton>
+           <SigButton
+  onClick={() =>
+    alert("Assistente de migração em desenvolvimento.")
+  }
+>
+  Iniciar Assistente
+</SigButton>
           </div>
         </div>
       </SigCard>

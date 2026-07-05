@@ -70,7 +70,7 @@ const cards = [
   {
     titulo: "Armamento",
     icone: Crosshair,
-    href: "/sistema/gestao-armamento",
+    href: "/sistema/armamentos",
     descricao: "Cadastro e controle de armamentos",
   },
 ];

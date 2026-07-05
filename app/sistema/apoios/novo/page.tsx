@@ -34,12 +34,21 @@ export default function NovoApoioPage() {
   const [capturandoGps, setCapturandoGps] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
 
   useEffect(() => {
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (!dados?.id || !dados?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    setUsuario(dados);
+
     const agora = new Date();
 
     setData(agora.toISOString().split("T")[0]);
@@ -51,35 +60,75 @@ export default function NovoApoioPage() {
       })
     );
 
-    carregarDados();
-  }, []);
+    await registrarAuditoria({
+      modulo: "Apoios",
+      acao: "ACESSO",
+      descricao: "Acessou o cadastro de apoio.",
+      tabela: "apoios",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id: dados.municipio_id,
+      },
+    });
 
-  async function carregarDados() {
-    if (!usuario?.municipio_id) return;
-
-    const { data: guarnicoesData } = await supabase
-      .from("guarnicoes")
-      .select("id, nome")
-      .eq("municipio_id", usuario.municipio_id)
-      .eq("ativa", true)
-      .order("nome", { ascending: true });
-
-    const { data: guardasData } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("nome", { ascending: true });
-
-    const { data: viaturasData } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, placa, status")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("prefixo", { ascending: true });
-
-    setGuarnicoes(guarnicoesData || []);
-    setGuardas(guardasData || []);
-    setViaturas(viaturasData || []);
+    await carregarDados(dados);
   }
+
+  iniciar();
+}, []);
+
+  async function carregarDados(usuarioAtual: any) {
+  if (!usuarioAtual?.municipio_id) return;
+
+  const {
+    data: guarnicoesData,
+    error: erroGuarnicoes,
+  } = await supabase
+    .from("guarnicoes")
+    .select("id, nome")
+    .eq("municipio_id", usuarioAtual.municipio_id)
+    .eq("ativa", true)
+    .order("nome", { ascending: true });
+
+  const {
+    data: guardasData,
+    error: erroGuardas,
+  } = await supabase
+    .from("guardas")
+    .select("id, nome, matricula")
+    .eq("municipio_id", usuarioAtual.municipio_id)
+    .order("nome", { ascending: true });
+
+  const {
+    data: viaturasData,
+    error: erroViaturas,
+  } = await supabase
+    .from("viaturas")
+    .select("id, prefixo, modelo, placa, status")
+    .eq("municipio_id", usuarioAtual.municipio_id)
+    .order("prefixo", { ascending: true });
+
+  if (erroGuarnicoes || erroGuardas || erroViaturas) {
+    await registrarAuditoria({
+      modulo: "Apoios",
+      acao: "ERRO",
+      descricao: "Erro ao carregar dados auxiliares do apoio.",
+      tabela: "apoios",
+      detalhes: {
+        erro_guarnicoes: erroGuarnicoes?.message,
+        erro_guardas: erroGuardas?.message,
+        erro_viaturas: erroViaturas?.message,
+      },
+    });
+
+    alert("Erro ao carregar dados.");
+    return;
+  }
+
+  setGuarnicoes(guarnicoesData || []);
+  setGuardas(guardasData || []);
+  setViaturas(viaturasData || []);
+}
 
   function capturarGps() {
     if (!navigator.geolocation) {
@@ -117,39 +166,80 @@ export default function NovoApoioPage() {
       alert("Informe o local do apoio.");
       return;
     }
+    if (!tipo.trim()) {
+  alert("Informe o tipo do apoio.");
+  return;
+}
+
+if (!data) {
+  alert("Informe a data.");
+  return;
+}
+
+if (observacoes.length > 3000) {
+  alert("Observação muito grande.");
+  return;
+}
+
+if (local.length > 300) {
+  alert("Local muito grande.");
+  return;
+}
 
     setSalvando(true);
 
-    const { error } = await supabase.from("apoios").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario?.id || null,
-      tipo,
-      orgao_solicitante: orgaoSolicitante.trim(),
-      solicitante: solicitante.trim(),
-      local: local.trim(),
-      data,
-      hora,
-      status,
-      observacoes: observacoes.trim(),
-      guarnicao_id: guarnicaoId || null,
-      guarda_id: guardaId || null,
-      viatura_id: viaturaId || null,
-      latitude: latitude || null,
-      longitude: longitude || null,
-    });
+    const dadosApoio = {
+  municipio_id: usuario.municipio_id,
+  criado_por: usuario.id,
+  usuario_id: usuario.id,
+  tipo,
+  orgao_solicitante: orgaoSolicitante.trim() || null,
+  solicitante: solicitante.trim() || null,
+  local: local.trim(),
+  data,
+  hora,
+  status,
+  observacoes: observacoes.trim() || null,
+  guarnicao_id: guarnicaoId || null,
+  guarda_id: guardaId || null,
+  viatura_id: viaturaId || null,
+  latitude: latitude || null,
+  longitude: longitude || null,
+};
+
+const { data: apoioCriado, error } = await supabase
+  .from("apoios")
+  .insert(dadosApoio)
+  .select("id")
+  .single();
 
     setSalvando(false);
 
     if (error) {
-      console.error(error);
-      alert(error.message);
-      return;
-    }
+  setSalvando(false);
+
+  await registrarAuditoria({
+    modulo: "Apoios",
+    acao: "ERRO",
+    descricao: "Erro ao cadastrar apoio.",
+    tabela: "apoios",
+    detalhes: {
+      erro: error.message,
+      dados: dadosApoio,
+    },
+  });
+
+  alert(error.message);
+  return;
+}
 
     await registrarAuditoria({
   modulo: "Apoios",
   acao: "CRIAR",
   descricao: `Registrou um apoio ${tipo} em ${local}.`,
+  tabela: "apoios",
+  registro_id: apoioCriado?.id,
+  detalhes: dadosApoio,
 });
 
     alert("Apoio cadastrado com sucesso.");
@@ -345,7 +435,7 @@ export default function NovoApoioPage() {
 
           <button
             type="button"
-            onClick={() => router.push("/sistema/central-apoios")}
+            onClick={() => router.push("/sistema/apoios")}
             className="btn-secondary inline-flex items-center justify-center gap-2"
           >
             <XCircle className="w-5 h-5" />

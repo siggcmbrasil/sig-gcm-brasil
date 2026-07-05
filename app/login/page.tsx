@@ -49,8 +49,8 @@ if (config?.municipio_padrao_id) {
   setCarregando(true);
 
   const { data, error } = await supabase.auth.signInWithPassword({
-  email,
-  password: senha,
+  email: email.trim().toLowerCase(),
+password: senha,
 });
 
 setCarregando(false);
@@ -60,7 +60,7 @@ if (error || !data.user) {
   return;
 }
 
-const { data: usuarioSistema, error: usuarioError } =
+const { data: usuario, error: usuarioError } =
   await supabase
     .from("usuarios")
     .select(
@@ -78,7 +78,7 @@ const { data: usuarioSistema, error: usuarioError } =
     .eq("auth_id", data.user.id)
     .single();
 
-if (usuarioError || !usuarioSistema) {
+if (usuarioError || !usuario) {
   alert(
     "Usuário não encontrado no sistema. Aguarde cadastro/aprovação."
   );
@@ -88,32 +88,30 @@ if (usuarioError || !usuarioSistema) {
   return;
 }
 
+const authUser = data.user;
+
 const { data: municipioUsuario } =
   await supabase
     .from("municipios")
     .select("nome")
-    .eq("id", usuarioSistema.municipio_id)
+    .eq("id", usuario.municipio_id)
     .single();
 
-    console.log("usuarioSistema", usuarioSistema);
-console.log("municipioUsuario", municipioUsuario);
-    console.log("Municipio:", municipioUsuario);
-
 if (
-  usuarioSistema.perfil?.toUpperCase() ===
+  usuario.perfil?.toUpperCase() ===
   "DESENVOLVEDOR"
 ) {
   const dadosUsuario = {
-  id: usuarioSistema.id,
-  auth_id: data.user.id,
-  nome: usuarioSistema.nome || data.user.email,
-  matricula: usuarioSistema.matricula || "",
-  email: data.user.email,
-  perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase(),
-  status: usuarioSistema.status || "Ativo",
-  municipio_id: usuarioSistema.municipio_id || null,
+  id: usuario.id,
+  auth_id: authUser.id,
+  nome: usuario.nome || authUser.email,
+  matricula: usuario.matricula || "",
+  email: authUser.email || usuario.email,
+  perfil: (usuario.perfil || "GUARDA").toUpperCase(),
+  status: usuario.status || "ATIVO",
+  municipio_id: usuario.municipio_id ?? null,
   municipio_nome: municipioUsuario?.nome || "",
-  foto_url: usuarioSistema.foto_url || "",
+  foto_url: usuario.foto_url || "",
 };
 
   localStorage.setItem(
@@ -126,48 +124,65 @@ if (
 }
 
 if (
-  String(
-    usuarioSistema.status || ""
-  ).toUpperCase() !== "ATIVO"
+  usuario.perfil?.toUpperCase() !==
+    "DESENVOLVEDOR" &&
+  !usuario.municipio_id
 ) {
   alert(
-    `Acesso não liberado. Status atual: ${usuarioSistema.status}`
+    "Seu usuário ainda não possui município vinculado."
   );
 
   await supabase.auth.signOut();
-  localStorage.removeItem(
-    "usuarioLogado"
-  );
+  localStorage.removeItem("usuarioLogado");
   return;
 }
 
+if (
+  String(
+    usuario.status || ""
+  ).toUpperCase() !== "ATIVO"
+) {
+  alert(
+    `Acesso não liberado. Status atual: ${usuario.status}`
+  );
+
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
+
+const dadosUsuario = {
+  id: usuario.id,
+  auth_id: authUser.id,
+  nome:
+    usuario.nome ||
+    authUser.email,
+  matricula:
+    usuario.matricula || "",
+  email:
+    authUser.email ||
+    usuario.email,
+  perfil: (
+    usuario.perfil ||
+    "GUARDA"
+  ).toUpperCase(),
+  status:
+    usuario.status || "ATIVO",
+  municipio_id:
+    usuario.municipio_id ?? null,
+  municipio_nome:
+    municipioUsuario?.nome || "",
+  foto_url:
+    usuario.foto_url || "",
+};
+
 localStorage.setItem(
   "usuarioLogado",
-  JSON.stringify({
-    id: usuarioSistema.id,
-    auth_id: data.user.id,
-    nome:
-      usuarioSistema.nome ||
-      data.user.email,
-    matricula:
-      usuarioSistema.matricula || "",
-    email: data.user.email,
-    perfil: (
-      usuarioSistema.perfil ||
-      "GUARDA"
-    ).toUpperCase(),
-    status:
-      usuarioSistema.status || "Ativo",
-    municipio_id:
-      usuarioSistema.municipio_id ?? null,
-    municipio_nome:
-      municipioUsuario?.nome || "",
-    foto_url:
-      usuarioSistema.foto_url || "",
-  })
+  JSON.stringify(dadosUsuario)
 );
 
 router.push("/sistema");
+router.refresh();
 }
 
   return (
@@ -181,7 +196,7 @@ router.push("/sistema");
           <div>
             <div className="flex items-center gap-8 mb-8">
               <img
-  src="/brasao-gcm-v2.png"
+  src="/brasoes/sig-gcm-logo.png"
   alt="SIG-GCM Brasil"
   className="w-72 h-72 object-contain drop-shadow-[0_0_60px_rgba(212,175,55,0.35)] animate-[pulseGlow_4s_ease-in-out_infinite]"/>
 <div>
@@ -221,7 +236,7 @@ router.push("/sistema");
             <div className="painel-premium p-8 border border-yellow-400/70 shadow-[0_0_100px_rgba(212,175,55,0.28)]">
               <div className="flex flex-col items-center text-center mb-8">
                 <img
-  src="/brasao-gcm-v2.png"
+  src="/brasoes/sig-gcm-logo.png"
   alt="SIG-GCM Brasil"
   className="w-44 h-44 object-contain mb-6 animar-brasao"
 />

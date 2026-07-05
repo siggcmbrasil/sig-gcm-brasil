@@ -1,354 +1,136 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 import Link from "next/link";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import {
+  CalendarDays,
+  CalendarRange,
+  CalendarClock,
+  BarChart3,
+  PieChart,
+  FileText,
+  Bot,
+} from "lucide-react";
 
+const cards = [
+  {
+    titulo: "Relatório Diário",
+    descricao: "Resumo operacional de um dia específico.",
+    href: "/sistema/relatorios/plantao?tipo=diario",
+    icone: CalendarDays,
+  },
+  {
+    titulo: "Relatório Semanal",
+    descricao: "Consolidado dos últimos 7 dias.",
+    href: "/sistema/relatorios/plantao?tipo=semanal",
+    icone: CalendarRange,
+  },
+  {
+    titulo: "Relatório Quinzenal",
+    descricao: "Consolidado dos últimos 15 dias.",
+    href: "/sistema/relatorios/plantao?tipo=quinzenal",
+    icone: CalendarClock,
+  },
+  {
+    titulo: "Relatório Mensal",
+    descricao: "Indicadores e estatísticas do mês.",
+    href: "/sistema/relatorios/plantao?tipo=mensal",
+    icone: BarChart3,
+  },
+  {
+    titulo: "Relatório Bimestral",
+    descricao: "Consolidado de dois meses.",
+    href: "/sistema/relatorios/plantao?tipo=bimestral",
+    icone: BarChart3,
+  },
+  {
+    titulo: "Relatório Trimestral",
+    descricao: "Indicadores dos últimos três meses.",
+    href: "/sistema/relatorios/plantao?tipo=trimestral",
+    icone: PieChart,
+  },
+  {
+    titulo: "Relatório Semestral",
+    descricao: "Prestação de contas dos últimos seis meses.",
+    href: "/sistema/relatorios/plantao?tipo=semestral",
+    icone: FileText,
+  },
+  {
+    titulo: "Relatório Anual",
+    descricao: "Anuário operacional da Guarda Municipal.",
+    href: "/sistema/relatorios/plantao?tipo=anual",
+    icone: FileText,
+  },
+  {
+    titulo: "Relatório Personalizado",
+    descricao: "Escolha qualquer período desejado.",
+    href: "/sistema/relatorios/plantao",
+    icone: CalendarRange,
+  },
+];
 
-type Ocorrencia = {
-  id: number;
-  protocolo: string;
-  tipo: string;
-  bairro: string | null;
-  data: string;
-  status: string;
-};
-
-type Chamado = {
-  id: number;
-  status: string;
-  prioridade: string;
-};
-
-type Patrulhamento = {
-  id: number;
-  data: string;
-};
-
-type Pessoa = {
-  id: number;
-  data: string;
-};
-
-type Veiculo = {
-  id: number;
-  data: string;
-};
-
-export default function Relatorios() {
-  const [ocorrencias, setOcorrencias] = useState<Ocorrencia[]>([]);
-  const [chamados, setChamados] = useState<Chamado[]>([]);
-  const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
-  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
-  const [veiculos, setVeiculos] = useState<Veiculo[]>([]);
-  const [carregando, setCarregando] = useState(true);
-
-  async function carregarDados() {
-    setCarregando(true);
-
-const usuarioLogado = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
-);
-
-const municipioId = usuarioLogado.municipio_id;
-console.log("MUNICIPIO LOGADO:", municipioId);
-
-    const { data: ocorrenciasData } = await supabase
-  .from("ocorrencias")
-  .select("id, protocolo, tipo, bairro, data, status")
-  .eq("municipio_id", municipioId)
-  .order("id", { ascending: false });
-
-  console.log("OCORRENCIAS RELATORIO:", ocorrenciasData);
-
-const { data: chamadosData } = await supabase
-  .from("chamados")
-  .select("id, status, prioridade")
-  .eq("municipio_id", municipioId);
-
-const { data: patrulhamentosData } = await supabase
-  .from("patrulhamentos")
-  .select("id, data")
-  .eq("municipio_id", municipioId);
-
-    const { data: pessoasData } = await supabase
-      .from("pessoas_abordadas")
-      .select("id, data");
-
-    const { data: veiculosData } = await supabase
-      .from("veiculos_abordados")
-      .select("id, data");
-
-    setOcorrencias(ocorrenciasData || []);
-    setChamados(chamadosData || []);
-    setPatrulhamentos(patrulhamentosData || []);
-    setPessoas(pessoasData || []);
-    setVeiculos(veiculosData || []);
-    setCarregando(false);
-  }
-
-  useEffect(() => {
-    carregarDados();
-  }, []);
-
-  const hoje = new Date().toISOString().split("T")[0];
-  const mesAtual = hoje.slice(0, 7);
-
-  const ocorrenciasHoje = ocorrencias.filter((o) => o.data === hoje).length;
-  const ocorrenciasMes = ocorrencias.filter((o) =>
-    o.data?.startsWith(mesAtual)
-  ).length;
-
-  const chamadosAbertos = chamados.filter((c) => c.status === "Aberto").length;
-  const chamadosUrgentes = chamados.filter(
-    (c) => c.prioridade === "Urgente"
-  ).length;
-
-  const patrulhamentosHoje = patrulhamentos.filter(
-    (p) => p.data === hoje
-  ).length;
-
-  const pessoasHoje = pessoas.filter((p) => p.data === hoje).length;
-  const veiculosHoje = veiculos.filter((v) => v.data === hoje).length;
-
-  const abertas = ocorrencias.filter((o) => o.status === "Aberta").length;
-  const andamento = ocorrencias.filter(
-    (o) => o.status === "Em andamento"
-  ).length;
-  const finalizadas = ocorrencias.filter(
-    (o) => o.status === "Finalizada"
-  ).length;
-
-  const tiposMaisComuns = contarPorCampo(ocorrencias, "tipo");
-  const bairrosMaisComuns = contarPorCampo(ocorrencias, "bairro");
-
+export default function RelatoriosPage() {
   return (
-  <ProtecaoModulo modulo="relatorios">
-    <div className="p-3 md:p-6 pb-24">
-      <header className="border-b border-slate-800 pb-5 mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold">Relatórios</h1>
+    <ProtecaoModulo modulo="relatorios">
+      <div className="p-4 md:p-6 space-y-6 pb-24">
+        <div className="painel-premium p-6">
+          <h1 className="text-3xl md:text-4xl font-black text-white">
+            📊 Central de Relatórios
+          </h1>
 
-        <p className="text-slate-400 text-sm md:text-base">
-          Resumo operacional integrado da GCM Biritinga.
-        </p>
-
-        <div className="mt-4">
-  <Link
-    href="/sistema/relatorios/plantao"
-    className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition"
-  >
-    📄 Relatório Geral do Plantão
-  </Link>
-</div>
-      </header>
-
-      {carregando ? (
-        <p className="text-slate-400">Carregando relatórios...</p>
-      ) : (
-        <>
-          <section className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <Card titulo="Ocorrências hoje" valor={ocorrenciasHoje} />
-            <Card titulo="Ocorrências no mês" valor={ocorrenciasMes} />
-            <Card titulo="Chamados abertos" valor={chamadosAbertos} />
-            <Card titulo="Chamados urgentes" valor={chamadosUrgentes} />
-          </section>
-
-          <section className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card titulo="Patrulhamentos hoje" valor={patrulhamentosHoje} />
-            <Card titulo="Pessoas abordadas hoje" valor={pessoasHoje} />
-            <Card titulo="Veículos abordados hoje" valor={veiculosHoje} />
-          </section>
-
-          <section className="grid grid-cols-1 xl:grid-cols-3 gap-4 mb-6">
-            <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Situação das Ocorrências
-              </h2>
-
-              <ResumoLinha nome="Abertas" valor={abertas} cor="text-yellow-400" />
-              <ResumoLinha nome="Em andamento" valor={andamento} cor="text-blue-400" />
-              <ResumoLinha nome="Finalizadas" valor={finalizadas} cor="text-green-400" />
-              <ResumoLinha nome="Total" valor={ocorrencias.length} cor="text-white" />
-            </div>
-
-            <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Tipos mais registrados
-              </h2>
-
-              {tiposMaisComuns.length === 0 ? (
-                <p className="text-slate-400">Sem dados.</p>
-              ) : (
-                <div className="space-y-3">
-                  {tiposMaisComuns.slice(0, 6).map((item) => (
-                    <ResumoLinha
-                      key={item.nome}
-                      nome={item.nome}
-                      valor={item.valor}
-                      cor="text-blue-400"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="card">
-              <h2 className="text-xl md:text-2xl font-bold mb-4">
-                Bairros com mais ocorrências
-              </h2>
-
-              {bairrosMaisComuns.length === 0 ? (
-                <p className="text-slate-400">Sem dados.</p>
-              ) : (
-                <div className="space-y-3">
-                  {bairrosMaisComuns.slice(0, 6).map((item) => (
-                    <ResumoLinha
-                      key={item.nome}
-                      nome={item.nome}
-                      valor={item.valor}
-                      cor="text-purple-400"
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="card">
-            <h2 className="text-xl md:text-2xl font-bold mb-4">
-              Últimas ocorrências registradas
-            </h2>
-
-            {ocorrencias.length === 0 ? (
-              <p className="text-slate-400">Nenhuma ocorrência cadastrada.</p>
-            ) : (
-              <>
-                <div className="md:hidden space-y-4">
-                  {ocorrencias.slice(0, 10).map((ocorrencia) => (
-                    <div
-                      key={ocorrencia.id}
-                      className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
-                    >
-                      <p className="text-blue-400 font-semibold">
-                        {ocorrencia.protocolo}
-                      </p>
-
-                      <h3 className="text-xl font-bold">
-                        {ocorrencia.tipo}
-                      </h3>
-
-                      <p className="text-slate-400">
-                        Bairro: {ocorrencia.bairro || "-"}
-                      </p>
-
-                      <p className="text-slate-400">
-                        Data: {ocorrencia.data}
-                      </p>
-
-                      <Status status={ocorrencia.status} />
-                    </div>
-                  ))}
-                </div>
-
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="text-slate-400 border-b border-slate-700">
-                      <tr>
-                        <th className="text-left py-3">Protocolo</th>
-                        <th className="text-left py-3">Tipo</th>
-                        <th className="text-left py-3">Bairro</th>
-                        <th className="text-left py-3">Data</th>
-                        <th className="text-left py-3">Status</th>
-                      </tr>
-                    </thead>
-
-                    <tbody>
-                      {ocorrencias.slice(0, 20).map((ocorrencia) => (
-                        <tr
-                          key={ocorrencia.id}
-                          className="border-b border-slate-800"
-                        >
-                          <td className="py-4 text-blue-400 font-semibold">
-                            {ocorrencia.protocolo}
-                          </td>
-                          <td>{ocorrencia.tipo}</td>
-                          <td className="text-slate-400">
-                            {ocorrencia.bairro || "-"}
-                          </td>
-                          <td>{ocorrencia.data}</td>
-                          <td>
-                            <Status status={ocorrencia.status} />
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </>
-            )}
-          </section>
-        </>
-      )}
+          <p className="text-slate-400 mt-2">
+            Relatórios operacionais, estatísticos e gerenciais do
+            SIG-GCM Brasil.
+          </p>
         </div>
-  </ProtecaoModulo>
-);
-}
 
-function contarPorCampo<T extends Record<string, any>>(
-  lista: T[],
-  campo: keyof T
-) {
-  const contador: Record<string, number> = {};
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {cards.map((card) => {
+            const Icone = card.icone;
 
-  lista.forEach((item) => {
-    const valor = String(item[campo] || "Não informado");
+            return (
+              <Link
+                key={card.titulo}
+                href={card.href}
+                className="
+                  painel-premium
+                  p-6
+                  hover:scale-[1.02]
+                  hover:border-blue-500/40
+                  transition-all
+                  duration-300
+                "
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <div
+                    className="
+                      w-16 h-16
+                      rounded-2xl
+                      bg-blue-500/10
+                      border border-blue-500/20
+                      flex items-center justify-center
+                    "
+                  >
+                    <Icone className="w-9 h-9 text-cyan-400" />
+                  </div>
 
-    contador[valor] = (contador[valor] || 0) + 1;
-  });
+                  <span className="text-green-400 text-xs font-black">
+                    RELATÓRIO
+                  </span>
+                </div>
 
-  return Object.entries(contador)
-    .map(([nome, valor]) => ({ nome, valor }))
-    .sort((a, b) => b.valor - a.valor);
-}
+                <h2 className="text-2xl font-black text-white">
+                  {card.titulo}
+                </h2>
 
-function Card({ titulo, valor }: { titulo: string; valor: number }) {
-  return (
-    <div className="card min-h-32 flex flex-col justify-center">
-      <p className="text-slate-400 text-lg md:text-base">{titulo}</p>
-      <h2 className="text-5xl md:text-4xl font-bold">{valor}</h2>
-    </div>
-  );
-}
-
-function ResumoLinha({
-  nome,
-  valor,
-  cor,
-}: {
-  nome: string;
-  valor: number;
-  cor: string;
-}) {
-  return (
-    <div className="flex justify-between gap-4 border-b border-slate-800 pb-2">
-      <span className="text-slate-300">{nome}</span>
-      <span className={`font-bold ${cor}`}>{valor}</span>
-    </div>
-  );
-}
-
-function Status({ status }: { status: string }) {
-  let cor = "bg-blue-700 text-blue-100";
-
-  if (status === "Aberta") cor = "bg-yellow-600 text-yellow-100";
-  if (status === "Em andamento") cor = "bg-blue-700 text-blue-100";
-  if (status === "Finalizada") cor = "bg-green-700 text-green-100";
-
-  return (
-    <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>
-      {status}
-    </span>
+                <p className="text-slate-400 text-sm mt-2">
+                  {card.descricao}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </ProtecaoModulo>
   );
 }

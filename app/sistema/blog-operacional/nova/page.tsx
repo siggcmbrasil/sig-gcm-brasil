@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Send, Newspaper } from "lucide-react";
+import { Newspaper, Send } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigButton from "@/components/sig/SigButton";
@@ -22,23 +23,11 @@ export default function NovaPublicacaoPage() {
     return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   }
 
-  async function registrarAuditoria(acao: string, detalhes: string) {
-    const usuario = pegarUsuario();
-
-    await supabase.from("auditoria_sistema").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario.id,
-      modulo: "BLOG_OPERACIONAL",
-      acao,
-      detalhes,
-    });
-  }
-
   async function publicar() {
     const usuario = pegarUsuario();
 
-    if (!usuario?.municipio_id) {
-      alert("Município não identificado.");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
       return;
     }
 
@@ -47,9 +36,24 @@ export default function NovaPublicacaoPage() {
       return;
     }
 
+    if (titulo.length > 180) {
+      alert("Título muito grande.");
+      return;
+    }
+
+    if (resumo.length > 500) {
+      alert("Resumo muito grande.");
+      return;
+    }
+
+    if (conteudo.length > 10000) {
+      alert("Conteúdo muito grande.");
+      return;
+    }
+
     setSalvando(true);
 
-    const { error } = await supabase.from("blog_operacional").insert({
+    const dadosPublicacao = {
       municipio_id: usuario.municipio_id,
       titulo: titulo.trim(),
       autor: usuario.nome || "SIG-GCM Brasil",
@@ -59,20 +63,40 @@ export default function NovaPublicacaoPage() {
       publicado: true,
       criado_por: usuario.id,
       data_publicacao: new Date().toISOString().split("T")[0],
-    });
+    };
+
+    const { data, error } = await supabase
+      .from("blog_operacional")
+      .insert([dadosPublicacao])
+      .select("id")
+      .single();
 
     setSalvando(false);
 
     if (error) {
+      await registrarAuditoria({
+        modulo: "Blog Operacional",
+        acao: "ERRO",
+        descricao: "Erro ao criar publicação.",
+        tabela: "blog_operacional",
+        detalhes: {
+          erro: error.message,
+          dados: dadosPublicacao,
+        },
+      });
+
       alert("Erro ao publicar.");
-      console.error(error);
       return;
     }
 
-    await registrarAuditoria(
-      "CRIAR_PUBLICACAO",
-      `Criou publicação: ${titulo.trim()}`
-    );
+    await registrarAuditoria({
+      modulo: "Blog Operacional",
+      acao: "CRIAR",
+      descricao: `Criou publicação: ${titulo.trim()}.`,
+      tabela: "blog_operacional",
+      registro_id: data?.id,
+      detalhes: dadosPublicacao,
+    });
 
     alert("Publicação criada com sucesso.");
     router.push("/sistema/blog-operacional");
@@ -89,9 +113,9 @@ export default function NovaPublicacaoPage() {
       <SigCard>
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-semibold">Título</label>
+            <label className="label">Título</label>
             <input
-              className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none"
+              className="input"
               placeholder="Ex: Guarda Municipal realiza operação preventiva"
               value={titulo}
               onChange={(e) => setTitulo(e.target.value)}
@@ -99,9 +123,9 @@ export default function NovaPublicacaoPage() {
           </div>
 
           <div>
-            <label className="text-sm font-semibold">Categoria</label>
+            <label className="label">Categoria</label>
             <select
-              className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none"
+              className="input"
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
             >
@@ -115,9 +139,9 @@ export default function NovaPublicacaoPage() {
           </div>
 
           <div>
-            <label className="text-sm font-semibold">Resumo</label>
+            <label className="label">Resumo</label>
             <textarea
-              className="mt-1 min-h-24 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none"
+              className="input min-h-24"
               placeholder="Escreva um resumo curto da publicação..."
               value={resumo}
               onChange={(e) => setResumo(e.target.value)}
@@ -125,11 +149,9 @@ export default function NovaPublicacaoPage() {
           </div>
 
           <div>
-            <label className="text-sm font-semibold">
-              Conteúdo da Publicação
-            </label>
+            <label className="label">Conteúdo da Publicação</label>
             <textarea
-              className="mt-1 min-h-56 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none"
+              className="input min-h-56"
               placeholder="Digite aqui o texto completo da publicação..."
               value={conteudo}
               onChange={(e) => setConteudo(e.target.value)}
@@ -137,11 +159,7 @@ export default function NovaPublicacaoPage() {
           </div>
 
           <div className="flex justify-end">
-            <SigButton
-              icon={Send}
-              onClick={publicar}
-              disabled={salvando}
-            >
+            <SigButton icon={Send} onClick={publicar} disabled={salvando}>
               {salvando ? "Publicando..." : "Publicar"}
             </SigButton>
           </div>

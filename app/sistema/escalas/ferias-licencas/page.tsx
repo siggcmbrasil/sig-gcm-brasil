@@ -59,53 +59,58 @@ export default function FeriasLicencasPage() {
     setAfastamentos(afastamentosData || []);
   }
 
-  async function salvarAfastamento() {
-    if (!municipioId) {
-      alert("Município não identificado.");
-      return;
-    }
-
-    if (!guardaId || !tipo || !dataInicio || !dataFim) {
-      alert("Preencha guarda, tipo, início e fim.");
-      return;
-    }
-
-    const guarda = guardas.find((g) => String(g.id) === guardaId);
-
-    const { error } = await supabase.from("ferias_licencas").insert({
-      municipio_id: municipioId,
-      guarda_id: Number(guardaId),
-      guarda_nome: guarda?.nome || "",
-      tipo,
-      data_inicio: dataInicio,
-      data_fim: dataFim,
-      status: "ATIVO",
-      observacao,
-    });
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar férias/licença.");
-      return;
-    }
-
-    await registrarAuditoria({
-  modulo: "Férias e Licenças",
-  acao: "CRIAR",
-  descricao: `Registrou ${tipo} para ${guarda?.nome || "guarda"}.`,
-});
-
-    setGuardaId("");
-    setTipo("Férias");
-    setDataInicio("");
-    setDataFim("");
-    setObservacao("");
-
-    await carregarDados();
+async function salvarAfastamento() {
+  if (!usuarioLogado?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
   }
 
-  async function excluirAfastamento(id: number) {
-    const confirmar = confirm("Deseja excluir este registro?");
+  if (!guardaId || !tipo || !dataInicio || !dataFim) {
+    alert("Preencha guarda, tipo, início e fim.");
+    return;
+  }
+
+  const guarda = guardas.find((g) => String(g.id) === guardaId);
+
+  const { error } = await supabase.from("ferias_licencas").insert({
+    municipio_id: municipioId,
+    guarda_id: Number(guardaId),
+    guarda_nome: guarda?.nome || "",
+    tipo,
+    data_inicio: dataInicio,
+    data_fim: dataFim,
+    status: "ATIVO",
+    observacao: observacao.trim() || null,
+  });
+
+  if (error) {
+    console.error(error);
+    alert("Erro ao salvar férias/licença.");
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Férias e Licenças",
+    acao: "CRIAR",
+    descricao: `Registrou ${tipo} para ${guarda?.nome || "guarda"}.`,
+  });
+
+  setGuardaId("");
+  setTipo("Férias");
+  setDataInicio("");
+  setDataFim("");
+  setObservacao("");
+
+  await carregarDados();
+}
+
+ async function excluirAfastamento(id: number) {
+  if (!usuarioLogado?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  const confirmar = confirm("Deseja excluir este registro?");
     if (!confirmar) return;
 
     const afastamento = afastamentos.find((a) => a.id === id);

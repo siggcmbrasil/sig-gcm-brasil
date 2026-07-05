@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 import {
   Award,
   Building2,
@@ -15,16 +17,12 @@ import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 
 export default function PerfilPage() {
-  const usuario = {
-    nome: "Usuário SIG",
-    perfil: "GUARDA",
-    municipio: "Biritinga-BA",
-    email: "usuario@siggcmbrasil.com",
-    telefone: "(00) 00000-0000",
-    matricula: "0000",
-    status: "Ativo",
-    desde: "2026",
-  };
+  const [usuario, setUsuario] = useState<any>({});
+
+useEffect(() => {
+  const salvo = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  setUsuario(salvo);
+}, []);
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
@@ -50,7 +48,7 @@ export default function PerfilPage() {
             </h2>
 
             <p className="text-slate-400 mt-2">
-              {usuario.perfil} • {usuario.municipio}
+              {usuario.perfil} • {usuario.municipio_nome || `Município ID ${usuario.municipio_id || "-"}`}
             </p>
           </div>
         </div>
@@ -72,13 +70,13 @@ export default function PerfilPage() {
         <SigCard>
           <Award className="w-8 h-8 text-blue-400 mb-3" />
           <h3 className="text-lg font-black text-white">Status</h3>
-          <p className="text-slate-400 mt-2">{usuario.status}</p>
+          <p className="text-slate-400 mt-2">{usuario.status || "Ativo"}</p>
         </SigCard>
 
         <SigCard>
           <CalendarDays className="w-8 h-8 text-orange-400 mb-3" />
           <h3 className="text-lg font-black text-white">Desde</h3>
-          <p className="text-slate-400 mt-2">{usuario.desde}</p>
+          <p className="text-slate-400 mt-2">{usuario.created_at ? new Date(usuario.created_at).getFullYear() : "2026"}</p>
         </SigCard>
       </div>
 

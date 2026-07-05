@@ -3,7 +3,6 @@
 import {
   Users,
   UserPlus,
-  Search,
   FileText,
 } from "lucide-react";
 

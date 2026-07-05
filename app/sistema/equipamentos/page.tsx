@@ -9,7 +9,7 @@ type Equipamento = {
   patrimonio: string | null;
   tipo: string | null;
   quantidade: number | null;
-  controle_tipo: string | null;
+controle_tipo: "Individual" | "Lote" | null;
   marca: string | null;
   modelo: string | null;
   numero_serie: string | null;
@@ -116,7 +116,14 @@ const [controleTipo, setControleTipo] =
 
   const resumo = useMemo(() => {
     return {
-      total: equipamentos.length,
+      total: equipamentos.reduce(
+  (acc, item) =>
+    acc +
+    (item.controle_tipo === "Lote"
+      ? item.quantidade || 0
+      : 1),
+  0
+),
       disponiveis: equipamentos.filter((e) => e.status === "Disponível").length,
       emUso: equipamentos.filter((e) => e.status === "Em uso").length,
       manutencao: equipamentos.filter((e) => e.status === "Manutenção").length,
@@ -168,7 +175,9 @@ const [controleTipo, setControleTipo] =
     setStatus(item.status || "Disponível");
     setResponsavel(item.responsavel || "");
     setObservacao(item.observacao || "");
-    setQuantidade(String(item.quantidade || 1));
+    setQuantidade(
+  String(item.quantidade ?? 1)
+);
     setControleTipo(
     (item.controle_tipo as "Individual" | "Lote") ||
     "Individual"
@@ -191,6 +200,15 @@ const [controleTipo, setControleTipo] =
     }
 
     setSalvando(true);
+
+    if (
+  controleTipo === "Lote" &&
+  Number(quantidade) <= 0
+) {
+  alert("Informe uma quantidade válida.");
+  setSalvando(false);
+  return;
+}
 
     const dados = {
   municipio_id: usuario.municipio_id,
@@ -233,8 +251,19 @@ const [controleTipo, setControleTipo] =
   modulo: "Equipamentos",
   acao: editando ? "EDITAR" : "CRIAR",
   descricao: editando
-  ? `Atualizou o equipamento ${tipo} (${responsavel || "sem responsável"}).`
-  : `Cadastrou o equipamento ${tipo}.`,
+    ? `Atualizou o equipamento ${tipo} (${responsavel || "sem responsável"}).`
+    : `Cadastrou o equipamento ${tipo}.`,
+  detalhes: {
+    tipo,
+    controle_tipo: controleTipo,
+    quantidade: Number(quantidade),
+    patrimonio,
+    marca,
+    modelo,
+    numero_serie: numeroSerie,
+    status,
+    responsavel,
+  },
 });
 
     alert(editando ? "Equipamento atualizado com sucesso." : "Equipamento cadastrado com sucesso.");
@@ -267,6 +296,14 @@ const [controleTipo, setControleTipo] =
   descricao: `Excluiu o equipamento ${
     equipamento?.tipo || id
   }.`,
+  detalhes: {
+    id: equipamento?.id,
+    tipo: equipamento?.tipo,
+    patrimonio: equipamento?.patrimonio,
+    controle_tipo: equipamento?.controle_tipo,
+    quantidade: equipamento?.quantidade,
+    responsavel: equipamento?.responsavel,
+  },
 });
 
     carregarEquipamentos();
@@ -500,7 +537,9 @@ const [controleTipo, setControleTipo] =
                   <div className="flex justify-between gap-3">
                     <div>
                       <p className="text-blue-400 text-sm font-bold">
-                        {item.patrimonio || "Sem patrimônio"}
+                        {item.controle_tipo === "Lote"
+  ? `Lote (${item.quantidade || 0} unidades)`
+  : item.patrimonio || "Sem patrimônio"}
                       </p>
 
                       <h3 className="text-xl font-black text-white">

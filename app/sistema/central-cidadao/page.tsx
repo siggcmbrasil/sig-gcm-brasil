@@ -6,7 +6,6 @@ import {
   FileText,
   MessageSquareWarning,
   Phone,
-  Shield,
   Megaphone,
   Landmark,
 } from "lucide-react";

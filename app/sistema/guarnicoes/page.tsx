@@ -123,8 +123,20 @@ export default function GuarnicoesPage() {
     }
 
     setGuarnicoes(guarnicoesData || []);
-    setGuardas(guardasData || []);
-    setViaturas(viaturasData || []);
+
+    setGuardas(
+      (guardasData || []).filter(
+        (g) =>
+          g.status !== "Férias" &&
+          g.status !== "Afastado" &&
+          g.status !== "INATIVO"
+      )
+    );
+
+    setViaturas(
+      (viaturasData || []).filter((v) => v.status !== "BAIXADA")
+    );
+
     setMembros((membrosData as any) || []);
   }
 
@@ -138,6 +150,28 @@ export default function GuarnicoesPage() {
       | "status_operacional",
     valor: string
   ) {
+    if (campo === "viatura_id" && valor) {
+      const usada = guarnicoes.find(
+        (g) => g.viatura_id === Number(valor) && g.id !== id
+      );
+
+      if (usada) {
+        alert(`Esta viatura já está vinculada à ${usada.nome}.`);
+        return;
+      }
+    }
+
+    if (campo === "comandante_id" && valor) {
+      const usado = guarnicoes.find(
+        (g) => g.comandante_id === Number(valor) && g.id !== id
+      );
+
+      if (usado) {
+        alert(`Este comandante já está vinculado à ${usado.nome}.`);
+        return;
+      }
+    }
+
     const valorFinal =
       campo === "comandante_id" || campo === "viatura_id"
         ? valor
@@ -156,37 +190,21 @@ export default function GuarnicoesPage() {
       return;
     }
 
-   const guarnicao = guarnicoes.find((g) => g.id === id);
+    const guarnicao = guarnicoes.find((g) => g.id === id);
 
-let descricao = `Atualizou a guarnição ${guarnicao?.nome || id}.`;
+    await registrarAuditoria({
+      modulo: "Guarnições",
+      acao: "EDITAR",
+      tabela: "guarnicoes",
+      descricao: `Atualizou ${campo} da guarnição ${guarnicao?.nome || id}.`,
+      detalhes: {
+        guarnicao_id: id,
+        campo,
+        valor,
+      },
+    });
 
-if (campo === "comandante_id") {
-  descricao = `Alterou o comandante da guarnição ${guarnicao?.nome || id}.`;
-}
-
-if (campo === "viatura_id") {
-  descricao = `Alterou a viatura da guarnição ${guarnicao?.nome || id}.`;
-}
-
-if (campo === "tipo_guarnicao") {
-  descricao = `Alterou o tipo da guarnição ${guarnicao?.nome || id} para ${valor}.`;
-}
-
-if (campo === "area_atuacao") {
-  descricao = `Alterou a área de atuação da guarnição ${guarnicao?.nome || id} para ${valor}.`;
-}
-
-if (campo === "status_operacional") {
-  descricao = `Alterou o status operacional da guarnição ${guarnicao?.nome || id} para ${valor}.`;
-}
-
-await registrarAuditoria({
-  modulo: "Guarnições",
-  acao: "EDITAR",
-  descricao,
-});
-
-carregarDados();
+    carregarDados();
   }
 
   async function adicionarMembro(guarnicaoId: number) {
@@ -197,14 +215,10 @@ carregarDados();
       return;
     }
 
-    const jaExiste = membros.some(
-      (m) =>
-        m.guarnicao_id === guarnicaoId &&
-        m.guarda_id === Number(guardaId)
-    );
+    const jaExiste = membros.some((m) => m.guarda_id === Number(guardaId));
 
     if (jaExiste) {
-      alert("Este guarda já está nesta guarnição.");
+      alert("Este guarda já está vinculado em outra guarnição.");
       return;
     }
 
@@ -220,19 +234,19 @@ carregarDados();
       return;
     }
 
-    const guarda = guardas.find(
-  (g) => g.id === Number(guardaId)
-);
+    const guarda = guardas.find((g) => g.id === Number(guardaId));
+    const guarnicao = guarnicoes.find((g) => g.id === guarnicaoId);
 
-const guarnicao = guarnicoes.find(
-  (g) => g.id === guarnicaoId
-);
-
-await registrarAuditoria({
-  modulo: "Guarnições",
-  acao: "ADICIONAR_MEMBRO",
-  descricao: `Adicionou ${guarda?.nome} na guarnição ${guarnicao?.nome}.`,
-});
+    await registrarAuditoria({
+      modulo: "Guarnições",
+      acao: "ADICIONAR_MEMBRO",
+      tabela: "guarnicao_membros",
+      descricao: `Adicionou ${guarda?.nome || "guarda"} na guarnição ${guarnicao?.nome || guarnicaoId}.`,
+      detalhes: {
+        guarnicao_id: guarnicaoId,
+        guarda_id: Number(guardaId),
+      },
+    });
 
     setSelecionados((prev) => ({
       ...prev,
@@ -254,15 +268,19 @@ await registrarAuditoria({
       return;
     }
 
-    const membro = membros.find(
-  (m) => m.id === membroId
-);
+    const membro = membros.find((m) => m.id === membroId);
 
-await registrarAuditoria({
-  modulo: "Guarnições",
-  acao: "ALTERAR_FUNCAO",
-  descricao: `Alterou a função de ${membro?.guardas?.nome || "guarda"} para ${funcao}.`,
-});
+    await registrarAuditoria({
+      modulo: "Guarnições",
+      acao: "ALTERAR_FUNCAO",
+      tabela: "guarnicao_membros",
+      descricao: `Alterou a função de ${membro?.guardas?.nome || "guarda"} para ${funcao}.`,
+      detalhes: {
+        membro_id: membroId,
+        guarda_id: membro?.guarda_id || null,
+        funcao,
+      },
+    });
 
     carregarDados();
   }
@@ -270,9 +288,7 @@ await registrarAuditoria({
   async function removerMembro(id: number) {
     if (!confirm("Remover este guarda da guarnição?")) return;
 
-    const membro = membros.find(
-  (m) => m.id === id
-);
+    const membro = membros.find((m) => m.id === id);
 
     const { error } = await supabase
       .from("guarnicao_membros")
@@ -285,14 +301,24 @@ await registrarAuditoria({
       return;
     }
 
-await registrarAuditoria({
-  modulo: "Guarnições",
-  acao: "REMOVER_MEMBRO",
-  descricao: `Removeu ${membro?.guardas?.nome || "guarda"} da guarnição.`,
-});
+    await registrarAuditoria({
+      modulo: "Guarnições",
+      acao: "REMOVER_MEMBRO",
+      tabela: "guarnicao_membros",
+      descricao: `Removeu ${membro?.guardas?.nome || "guarda"} da guarnição.`,
+      detalhes: {
+        membro_id: id,
+        guarda_id: membro?.guarda_id || null,
+        guarnicao_id: membro?.guarnicao_id || null,
+      },
+    });
 
     carregarDados();
   }
+
+  const guardasLivres = guardas.filter(
+    (g) => !membros.some((m) => m.guarda_id === g.id)
+  );
 
   if (carregando) {
     return (
@@ -312,38 +338,28 @@ await registrarAuditoria({
         icone={ShieldCheck}
       />
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <SigCard>
-          <ShieldCheck className="w-8 h-8 text-cyan-400 mb-3" />
-          <p className="text-slate-400 text-sm">Guarnições</p>
-          <h2 className="text-4xl font-black text-white mt-2">
-            {guarnicoes.length}
-          </h2>
-        </SigCard>
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <Resumo titulo="Guarnições" valor={guarnicoes.length} icone={ShieldCheck} cor="text-cyan-400" />
 
-        <SigCard>
-          <Users className="w-8 h-8 text-emerald-400 mb-3" />
-          <p className="text-slate-400 text-sm">Membros vinculados</p>
-          <h2 className="text-4xl font-black text-emerald-400 mt-2">
-            {membros.length}
-          </h2>
-        </SigCard>
+        <Resumo titulo="Membros" valor={membros.length} icone={Users} cor="text-emerald-400" />
 
-        <SigCard>
-          <CarFront className="w-8 h-8 text-yellow-400 mb-3" />
-          <p className="text-slate-400 text-sm">Viaturas</p>
-          <h2 className="text-4xl font-black text-yellow-400 mt-2">
-            {viaturas.length}
-          </h2>
-        </SigCard>
+        <Resumo titulo="Viaturas" valor={viaturas.length} icone={CarFront} cor="text-yellow-400" />
 
-        <SigCard>
-          <UserPlus className="w-8 h-8 text-cyan-400 mb-3" />
-          <p className="text-slate-400 text-sm">Guardas disponíveis</p>
-          <h2 className="text-4xl font-black text-white mt-2">
-            {guardas.length}
-          </h2>
-        </SigCard>
+        <Resumo titulo="Disponíveis" valor={guardasLivres.length} icone={UserPlus} cor="text-white" />
+
+        <Resumo
+          titulo="Ativas"
+          valor={guarnicoes.filter((g) => g.status_operacional !== "INATIVA").length}
+          icone={ShieldCheck}
+          cor="text-red-400"
+        />
+
+        <Resumo
+          titulo="Sem Guarnição"
+          valor={guardasLivres.length}
+          icone={Users}
+          cor="text-purple-400"
+        />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
@@ -366,7 +382,11 @@ await registrarAuditoria({
                     </p>
                   </div>
 
-                  <span className="rounded-full border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-black text-cyan-400">
+                  <span
+                    className={`rounded-full border px-3 py-1 text-xs font-black ${corStatusGuarnicao(
+                      guarnicao.status_operacional
+                    )}`}
+                  >
                     {guarnicao.status_operacional || "OPERACIONAL"}
                   </span>
                 </div>
@@ -377,11 +397,7 @@ await registrarAuditoria({
                       className="input"
                       value={guarnicao.tipo_guarnicao || "Operacional"}
                       onChange={(e) =>
-                        atualizarGuarnicao(
-                          guarnicao.id,
-                          "tipo_guarnicao",
-                          e.target.value
-                        )
+                        atualizarGuarnicao(guarnicao.id, "tipo_guarnicao", e.target.value)
                       }
                     >
                       <option>Operacional</option>
@@ -405,11 +421,7 @@ await registrarAuditoria({
                       className="input"
                       value={guarnicao.status_operacional || "OPERACIONAL"}
                       onChange={(e) =>
-                        atualizarGuarnicao(
-                          guarnicao.id,
-                          "status_operacional",
-                          e.target.value
-                        )
+                        atualizarGuarnicao(guarnicao.id, "status_operacional", e.target.value)
                       }
                     >
                       <option value="OPERACIONAL">Operacional</option>
@@ -425,11 +437,7 @@ await registrarAuditoria({
                       className="input"
                       value={guarnicao.area_atuacao || "Toda cidade"}
                       onChange={(e) =>
-                        atualizarGuarnicao(
-                          guarnicao.id,
-                          "area_atuacao",
-                          e.target.value
-                        )
+                        atualizarGuarnicao(guarnicao.id, "area_atuacao", e.target.value)
                       }
                     >
                       <option>Toda cidade</option>
@@ -450,19 +458,23 @@ await registrarAuditoria({
                       className="input"
                       value={guarnicao.comandante_id || ""}
                       onChange={(e) =>
-                        atualizarGuarnicao(
-                          guarnicao.id,
-                          "comandante_id",
-                          e.target.value
-                        )
+                        atualizarGuarnicao(guarnicao.id, "comandante_id", e.target.value)
                       }
                     >
                       <option value="">Selecione</option>
-                      {guardas.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.nome} • {g.matricula}
-                        </option>
-                      ))}
+                      {guardas
+                        .filter((g) => {
+                          const usado = guarnicoes.some(
+                            (gu) => gu.comandante_id === g.id && gu.id !== guarnicao.id
+                          );
+
+                          return !usado;
+                        })
+                        .map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.nome} • {g.matricula}
+                          </option>
+                        ))}
                     </select>
                   </Campo>
 
@@ -471,11 +483,7 @@ await registrarAuditoria({
                       className="input"
                       value={guarnicao.viatura_id || ""}
                       onChange={(e) =>
-                        atualizarGuarnicao(
-                          guarnicao.id,
-                          "viatura_id",
-                          e.target.value
-                        )
+                        atualizarGuarnicao(guarnicao.id, "viatura_id", e.target.value)
                       }
                     >
                       <option value="">Sem viatura</option>
@@ -505,7 +513,7 @@ await registrarAuditoria({
                       }
                     >
                       <option value="">Selecione um guarda</option>
-                      {guardas.map((g) => (
+                      {guardasLivres.map((g) => (
                         <option key={g.id} value={g.id}>
                           {g.nome} • {g.matricula} • {g.status}
                         </option>
@@ -529,9 +537,7 @@ await registrarAuditoria({
                   </h3>
 
                   {membrosDaGuarnicao.length === 0 ? (
-                    <p className="text-slate-400">
-                      Nenhum guarda vinculado.
-                    </p>
+                    <p className="text-slate-400">Nenhum guarda vinculado.</p>
                   ) : (
                     <div className="space-y-3">
                       {membrosDaGuarnicao.map((membro) => (
@@ -555,10 +561,7 @@ await registrarAuditoria({
                               className="rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-white"
                               value={membro.funcao || "Patrulheiro"}
                               onChange={(e) =>
-                                atualizarFuncaoMembro(
-                                  membro.id,
-                                  e.target.value
-                                )
+                                atualizarFuncaoMembro(membro.id, e.target.value)
                               }
                             >
                               <option>Comandante</option>
@@ -590,6 +593,41 @@ await registrarAuditoria({
       </div>
     </div>
   );
+}
+
+function Resumo({
+  titulo,
+  valor,
+  icone: Icone,
+  cor,
+}: {
+  titulo: string;
+  valor: number;
+  icone: any;
+  cor: string;
+}) {
+  return (
+    <SigCard>
+      <Icone className={`w-8 h-8 ${cor} mb-3`} />
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className={`text-4xl font-black mt-2 ${cor}`}>{valor}</h2>
+    </SigCard>
+  );
+}
+
+function corStatusGuarnicao(status?: string | null) {
+  switch (status) {
+    case "EM_OCORRENCIA":
+      return "bg-red-500/10 text-red-400 border-red-500/30";
+    case "EM_PATRULHAMENTO":
+      return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30";
+    case "EM_APOIO":
+      return "bg-yellow-500/10 text-yellow-400 border-yellow-500/30";
+    case "INATIVA":
+      return "bg-slate-500/10 text-slate-400 border-slate-500/30";
+    default:
+      return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30";
+  }
 }
 
 function Campo({

@@ -37,6 +37,9 @@ export default function CautelasArmamentoPage() {
   const [cautelas, setCautelas] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [usuario, setUsuario] = useState<any>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
 
   const [armamentoId, setArmamentoId] = useState("");
   const [guardaId, setGuardaId] = useState("");
@@ -47,40 +50,132 @@ export default function CautelasArmamentoPage() {
   const [responsavelConferencia, setResponsavelConferencia] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+async function carregar(usuarioAtual: any) {
+  setCarregando(true);
 
-    const { data: listaArmamentos } = await supabase
-      .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
+  const { data: listaArmamentos } = await supabase
+    .from("armamentos")
+    .select(`
+      id,
+      tipo,
+      marca,
+      modelo,
+      numero_serie,
+      status
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("id", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    const { data: listaGuardas } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula, status")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("nome");
+  const { data: listaGuardas } = await supabase
+    .from("guardas")
+    .select(`
+      id,
+      nome,
+      matricula,
+      status
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("nome");
 
-    const { data: listaCautelas } = await supabase
-      .from("cautelas_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+  const {
+    data: listaCautelas,
+    error,
+  } = await supabase
+    .from("cautelas_armamento")
+    .select(`
+      id,
+      armamento_id,
+      guarda_id,
+      tipo,
+      quantidade_municao,
+      observacao,
+      criado_em
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("criado_em", {
+      ascending: false,
+    })
+    .range(0, 499);
 
-    setArmamentos(listaArmamentos || []);
-    setGuardas(listaGuardas || []);
-    setCautelas(listaCautelas || []);
+  setCarregando(false);
+
+  if (error) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao:
+        "Erro ao carregar cautelas.",
+      tabela: "cautelas_armamento",
+      detalhes: {
+        erro: error.message,
+      },
+    });
+
+    alert(error.message);
+    return;
   }
 
+  setArmamentos(listaArmamentos || []);
+  setGuardas(listaGuardas || []);
+  setCautelas(listaCautelas || []);
+}
+
   useEffect(() => {
-    carregar();
-  }, []);
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    if (!dados?.id || !dados?.municipio_id) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    if (
+      ![
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+        "DESENVOLVEDOR",
+      ].includes(dados.perfil || "")
+    ) {
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(dados);
+
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ACESSO",
+      descricao: "Acessou as cautelas de armamento.",
+      tabela: "cautelas_armamento",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id: dados.municipio_id,
+      },
+    });
+
+    await carregar(dados);
+  }
+
+  iniciar();
+}, []);
 
   const resumo = useMemo(() => {
     return {
@@ -162,10 +257,23 @@ export default function CautelasArmamentoPage() {
   }
 
   async function salvar() {
-    if (!armamentoId || !guardaId) {
-      alert("Selecione o armamento e o guarda.");
-      return;
-    }
+ if (!armamentoId || !guardaId) {
+  alert("Selecione o armamento e o guarda.");
+  return;
+}
+
+if (
+  tipo === "RETIRADA" &&
+  armamentoAtual?.status === "CAUTELADA"
+) {
+  alert("Este armamento já está cautelado.");
+  return;
+}
+
+if (Number(quantidadeMunicao || 0) < 0) {
+  alert("Quantidade de munição inválida.");
+  return;
+}
 
     setSalvando(true);
 
@@ -222,17 +330,42 @@ export default function CautelasArmamentoPage() {
       : "Devolução"
   } do armamento ${nomeArmamento(
     Number(armamentoId)
-  )} para ${nomeGuarda(
-    Number(guardaId)
-  )}. Munições: ${
-    quantidadeMunicao || 0
-  }.`,
+  )}.`,
+  tabela: "cautelas_armamento",
+  detalhes: {
+    armamento_id: Number(
+      armamentoId
+    ),
+    guarda_id: Number(guardaId),
+    quantidade_municao:
+      Number(quantidadeMunicao || 0),
+    finalidade,
+    estado_armamento:
+      estadoArmamento,
+  },
 });
 
     limpar();
-    carregar();
+await carregar(usuario);
     alert("Cautela registrada com sucesso.");
   }
+
+  if (bloqueado) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <h2 className="text-2xl font-black text-white">
+          Acesso Restrito
+        </h2>
+
+        <p className="text-slate-400 mt-2">
+          Você não possui permissão
+          para acessar as cautelas.
+        </p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

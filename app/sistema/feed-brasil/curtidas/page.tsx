@@ -12,6 +12,7 @@ import {
 
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function CurtidasPage() {
   const curtidas = [
@@ -32,6 +33,7 @@ export default function CurtidasPage() {
   ];
 
   return (
+  <ProtecaoModulo modulo="feed_brasil">
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Curtidas"
@@ -152,6 +154,7 @@ export default function CurtidasPage() {
           </div>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

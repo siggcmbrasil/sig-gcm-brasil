@@ -6,7 +6,6 @@ import {
   Clock,
   Database,
   FileClock,
-  FileSpreadsheet,
   ShieldCheck,
   XCircle,
 } from "lucide-react";
@@ -78,7 +77,7 @@ export default function HistoricoMigracaoPage() {
 
       <SigCard>
         <h3 className="text-xl font-black text-white mb-5">
-          Últimas Migrações
+          Últimas Migrações Demonstrativas
         </h3>
 
         <div className="overflow-x-auto rounded-2xl border border-slate-800">

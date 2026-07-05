@@ -3,7 +3,6 @@
 import {
   BarChart3,
   Search,
-  Globe,
   Map,
   Activity,
 } from "lucide-react";

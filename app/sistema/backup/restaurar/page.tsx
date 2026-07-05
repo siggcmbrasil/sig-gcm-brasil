@@ -1,128 +1,239 @@
 "use client";
 
-import { useState } from "react";
-import { Upload, ShieldAlert, FileJson } from "lucide-react";
+import { useEffect, useState } from "react";
+import { FileJson, Lock, ShieldAlert, Upload } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
-import SigCard from "@/components/sig/SigCard";
-import SigPageHeader from "@/components/sig/SigPageHeader";
+import { registrarAuditoria } from "@/lib/auditoria";
 import { gerarBackupAutomatico } from "@/lib/backup";
 
+import SigCard from "@/components/sig/SigCard";
+import SigPageHeader from "@/components/sig/SigPageHeader";
+
+type UsuarioLogado = {
+  id: number;
+  perfil?: string;
+  municipio_id: number;
+};
+
 export default function RestaurarBackupPage() {
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [arquivo, setArquivo] = useState<File | null>(null);
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [restaurando, setRestaurando] = useState(false);
+  const [bloqueado, setBloqueado] = useState(false);
 
-  function usuarioLogado() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-  }
+  useEffect(() => {
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      ) as UsuarioLogado;
 
-  async function registrarAuditoria(
-    acao: string,
-    detalhes: string,
-    registroId?: string
-  ) {
-    const usuario = usuarioLogado();
+      if (!dados?.id || !dados?.municipio_id) {
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
 
-    await supabase.from("auditoria_sistema").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario.id,
-      modulo: "BACKUP",
-      acao,
-      registro_id: registroId || null,
-      detalhes,
-    });
-  }
+      if (!["ADMIN", "DESENVOLVEDOR"].includes(dados.perfil || "")) {
+        await registrarAuditoria({
+          modulo: "Backup",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso à restauração de backup sem permissão.",
+          tabela: "backups_sistema",
+          detalhes: {
+            usuario_id: dados.id,
+            perfil: dados.perfil,
+            municipio_id: dados.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ACESSO",
+        descricao: "Acessou a tela de restauração de backup.",
+        tabela: "backups_sistema",
+        detalhes: {
+          usuario_id: dados.id,
+          perfil: dados.perfil,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      setCarregando(false);
+    }
+
+    iniciar();
+  }, []);
 
   async function restaurarBackup() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
     if (!arquivo) {
       alert("Selecione um arquivo de backup.");
       return;
     }
 
-    if (!arquivo.name.endsWith(".json")) {
+    if (!arquivo.name.toLowerCase().endsWith(".json")) {
       alert("Somente arquivos JSON são permitidos.");
       return;
     }
 
+    if (arquivo.size > 20 * 1024 * 1024) {
+      alert("Arquivo muito grande. Limite máximo: 20MB.");
+      return;
+    }
+
+    const motivo = prompt("Informe o motivo da restauração:");
+
+    if (!motivo?.trim()) {
+      alert("Informe o motivo da restauração.");
+      return;
+    }
+
     const confirmar = confirm(
-      "Atenção: restauração de backup é uma ação sensível. Deseja continuar?"
+      "Atenção: restauração de backup é uma ação crítica. Um backup de segurança será criado antes da restauração. Deseja continuar?"
     );
 
     if (!confirmar) return;
 
-    setCarregando(true);
+    setRestaurando(true);
 
     try {
       const texto = await arquivo.text();
       const dados = JSON.parse(texto);
-      const usuario = usuarioLogado();
+
+      if (!dados || typeof dados !== "object") {
+        throw new Error("Arquivo JSON inválido.");
+      }
 
       if (Number(dados.municipio_id) !== Number(usuario.municipio_id)) {
-        await registrarAuditoria(
-          "ERRO_RESTAURAR_BACKUP",
-          "Tentativa de restaurar backup de outro município."
-        );
+        await registrarAuditoria({
+          modulo: "Backup",
+          acao: "ERRO",
+          descricao: "Tentativa de restaurar backup de outro município.",
+          tabela: "backups_sistema",
+          detalhes: {
+            arquivo: arquivo.name,
+            municipio_backup: dados?.municipio_id,
+            municipio_usuario: usuario.municipio_id,
+            motivo,
+          },
+        });
 
         alert("Este backup pertence a outro município.");
-        setCarregando(false);
+        setRestaurando(false);
         return;
       }
 
-      await gerarBackupAutomatico(
-  usuario,
-  "pre_restauracao"
-);
+      await gerarBackupAutomatico(usuario, "pre_restauracao");
 
-if (dados.guardas?.length) {
-  await supabase
-    .from("guardas")
-    .upsert(dados.guardas);
-}
+      if (Array.isArray(dados.guardas) && dados.guardas.length > 0) {
+        await supabase.from("guardas").upsert(dados.guardas);
+      }
 
-if (dados.ocorrencias?.length) {
-  await supabase
-    .from("ocorrencias")
-    .upsert(dados.ocorrencias);
-}
+      if (Array.isArray(dados.ocorrencias) && dados.ocorrencias.length > 0) {
+        await supabase.from("ocorrencias").upsert(dados.ocorrencias);
+      }
 
-if (dados.viaturas?.length) {
-  await supabase
-    .from("viaturas")
-    .upsert(dados.viaturas);
-}
+      if (Array.isArray(dados.viaturas) && dados.viaturas.length > 0) {
+        await supabase.from("viaturas").upsert(dados.viaturas);
+      }
 
-if (dados.chamados?.length) {
-  await supabase
-    .from("chamados")
-    .upsert(dados.chamados);
-}
+      if (Array.isArray(dados.chamados) && dados.chamados.length > 0) {
+        await supabase.from("chamados").upsert(dados.chamados);
+      }
 
-if (dados.patrulhamentos?.length) {
-  await supabase
-    .from("patrulhamentos")
-    .upsert(dados.patrulhamentos);
-}
+      if (Array.isArray(dados.patrulhamentos) && dados.patrulhamentos.length > 0) {
+        await supabase.from("patrulhamentos").upsert(dados.patrulhamentos);
+      }
 
-await registrarAuditoria(
-  "RESTAURAR_BACKUP",
-  `Backup restaurado: ${arquivo.name}`
-);
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "RESTAURAR",
+        descricao: `Restaurou backup: ${arquivo.name}.`,
+        tabela: "backups_sistema",
+        detalhes: {
+          arquivo: arquivo.name,
+          motivo,
+          municipio_id: usuario.municipio_id,
+          usuario_id: usuario.id,
+          totais: {
+            guardas: dados.guardas?.length || 0,
+            ocorrencias: dados.ocorrencias?.length || 0,
+            viaturas: dados.viaturas?.length || 0,
+            chamados: dados.chamados?.length || 0,
+            patrulhamentos: dados.patrulhamentos?.length || 0,
+          },
+        },
+      });
 
-alert("Backup restaurado com sucesso.");
-await registrarAuditoria(
-  "RESTAURAR_BACKUP",
-  `Backup restaurado: ${arquivo.name}`
-);
+      alert("Backup restaurado com sucesso.");
+      setArquivo(null);
     } catch (error: any) {
-      await registrarAuditoria(
-        "ERRO_RESTAURAR_BACKUP",
-        `Erro ao ler backup: ${error.message}`
-      );
+      await registrarAuditoria({
+        modulo: "Backup",
+        acao: "ERRO",
+        descricao: "Erro ao restaurar backup.",
+        tabela: "backups_sistema",
+        detalhes: {
+          erro: error?.message || String(error),
+          arquivo: arquivo.name,
+          usuario_id: usuario.id,
+          municipio_id: usuario.municipio_id,
+        },
+      });
 
-      alert("Erro ao ler o arquivo de backup.");
+      alert("Erro ao ler ou restaurar o arquivo de backup.");
     }
 
-    setCarregando(false);
+    setRestaurando(false);
+  }
+
+  if (carregando) {
+    return (
+      <div className="p-4 md:p-6">
+        <SigCard>
+          <p className="text-slate-400">Carregando restauração...</p>
+        </SigCard>
+      </div>
+    );
+  }
+
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6 space-y-6">
+        <SigPageHeader
+          titulo="Acesso Restrito"
+          subtitulo="Você não possui permissão para restaurar backups."
+          icone={Lock}
+        />
+
+        <SigCard>
+          <div className="text-center py-12">
+            <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+
+            <h2 className="text-2xl font-black text-white">
+              Acesso negado
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+              Apenas ADMIN ou DESENVOLVEDOR podem restaurar backups.
+            </p>
+          </div>
+        </SigCard>
+      </div>
+    );
   }
 
   return (
@@ -145,8 +256,8 @@ await registrarAuditoria(
             </h2>
 
             <p className="text-slate-400 mt-2">
-              Toda tentativa de restauração será registrada na auditoria do
-              sistema com usuário, município, data e detalhes da ação.
+              A restauração exige permissão elevada, motivo obrigatório,
+              validação de município e backup automático antes da alteração.
             </p>
           </div>
         </div>
@@ -181,10 +292,10 @@ await registrarAuditoria(
 
           <button
             onClick={restaurarBackup}
-            disabled={carregando}
+            disabled={restaurando}
             className="w-full rounded-2xl bg-red-600 px-5 py-4 font-black text-white hover:bg-red-500 disabled:opacity-50"
           >
-            {carregando ? "Validando backup..." : "Validar Restauração"}
+            {restaurando ? "Restaurando backup..." : "Validar e Restaurar Backup"}
           </button>
         </div>
       </SigCard>

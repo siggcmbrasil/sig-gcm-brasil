@@ -2,47 +2,172 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: string;
+  perfil: string;
+  municipio_id: number;
+};
+
+type PatrimonioItem = {
+  id: number;
+  nome: string;
+  numero_patrimonio: string | null;
+  categoria: string | null;
+  status: string;
+};
+
+type BaixaPatrimonio = {
+  id: number;
+  patrimonio_id: number;
+  motivo: string;
+  destino: string | null;
+  observacao: string | null;
+  criado_em: string;
+  patrimonios: {
+    nome: string;
+    numero_patrimonio: string | null;
+    categoria: string | null;
+  } | null;
+};
+
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function BaixasPatrimonioPage() {
-  const [itens, setItens] = useState<any[]>([]);
-  const [baixas, setBaixas] = useState<any[]>([]);
+  const [itens, setItens] = useState<PatrimonioItem[]>([]);
+  const [baixas, setBaixas] = useState<BaixaPatrimonio[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
 
   const [itemId, setItemId] = useState("");
   const [motivo, setMotivo] = useState("DANIFICADO");
   const [destino, setDestino] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
-
   async function carregar() {
-    if (!usuario?.municipio_id) return;
+    const usuario = obterUsuarioLogado();
 
-    const { data: listaItens } = await supabase
+    if (!usuario) {
+      setItens([]);
+      setBaixas([]);
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+
+    const { data: listaItens, error: erroItens } = await supabase
       .from("patrimonios")
-      .select("*")
+      .select("id, nome, numero_patrimonio, categoria, status")
       .eq("municipio_id", usuario.municipio_id)
       .neq("status", "BAIXADO")
-      .order("nome");
+      .order("nome")
+      .limit(200);
 
-    const { data: listaBaixas } = await supabase
+    const { data: listaBaixas, error: erroBaixas } = await supabase
       .from("baixas_patrimonio")
-      .select("*, patrimonios(nome, numero_patrimonio, categoria)")
+      .select(
+        "id, patrimonio_id, motivo, destino, observacao, criado_em, patrimonios(nome, numero_patrimonio, categoria)"
+      )
       .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      .order("criado_em", { ascending: false })
+      .limit(100);
+
+    if (erroItens || erroBaixas) {
+      console.error(erroItens || erroBaixas);
+
+      await registrarAuditoria({
+        modulo: "Baixas Patrimoniais",
+        acao: "ERRO",
+        descricao: "Erro ao carregar baixas patrimoniais.",
+        tabela: "baixas_patrimonio",
+        detalhes: {
+          erro: erroItens?.message || erroBaixas?.message,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar dados de baixas patrimoniais.");
+      setCarregando(false);
+      return;
+    }
 
     setItens(listaItens || []);
-    setBaixas(listaBaixas || []);
+    const baixasTratadas: BaixaPatrimonio[] = (listaBaixas || []).map((baixa) => ({
+  ...baixa,
+  patrimonios: Array.isArray(baixa.patrimonios)
+    ? baixa.patrimonios[0] || null
+    : baixa.patrimonios,
+}));
+
+setBaixas(baixasTratadas);
+    setCarregando(false);
   }
 
   useEffect(() => {
-    carregar();
+    const usuario = obterUsuarioLogado();
+
+    if (!usuario) {
+      setCarregando(false);
+      return;
+    }
+
+    void registrarAuditoria({
+      modulo: "Baixas Patrimoniais",
+      acao: "ACESSO",
+      descricao: "Acessou o módulo de baixas patrimoniais.",
+      tabela: "baixas_patrimonio",
+      detalhes: {
+        municipio_id: usuario.municipio_id,
+        usuario_id: usuario.id,
+        perfil: usuario.perfil,
+      },
+    });
+
+    void carregar();
   }, []);
 
   async function registrarBaixa() {
+    const usuario = obterUsuarioLogado();
+
+    if (!usuario) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    if (
+      ![
+        "DESENVOLVEDOR",
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+      ].includes(usuario.perfil)
+    ) {
+      alert("Você não possui permissão para registrar baixa patrimonial.");
+      return;
+    }
+
     const item = itens.find((i) => String(i.id) === itemId);
 
     if (!item) {
@@ -50,22 +175,57 @@ export default function BaixasPatrimonioPage() {
       return;
     }
 
+    if (!motivo.trim()) {
+      alert("Informe o motivo da baixa.");
+      return;
+    }
+
+    if (observacao.trim().length < 5) {
+      alert("Informe uma observação com pelo menos 5 caracteres.");
+      return;
+    }
+
+    const confirmar = confirm(
+      "Confirma a baixa deste patrimônio? Esta ação será auditada."
+    );
+
+    if (!confirmar) return;
+
     setSalvando(true);
 
-    const { error: erroBaixa } = await supabase.from("baixas_patrimonio").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        patrimonio_id: item.id,
-        motivo,
-        destino: destino.trim() || null,
-        observacao: observacao.trim() || null,
-      },
-    ]);
+    const { data: baixaCriada, error: erroBaixa } = await supabase
+      .from("baixas_patrimonio")
+      .insert([
+        {
+          municipio_id: usuario.municipio_id,
+          criado_por: usuario.id,
+          criado_em: new Date().toISOString(),
+          patrimonio_id: item.id,
+          motivo,
+          destino: destino.trim() || null,
+          observacao: observacao.trim(),
+        },
+      ])
+      .select("id")
+      .single();
 
     if (erroBaixa) {
       setSalvando(false);
-      alert(erroBaixa.message);
+      console.error(erroBaixa);
+
+      await registrarAuditoria({
+        modulo: "Baixas Patrimoniais",
+        acao: "ERRO",
+        descricao: "Erro ao registrar baixa patrimonial.",
+        tabela: "baixas_patrimonio",
+        detalhes: {
+          erro: erroBaixa.message,
+          patrimonio_id: item.id,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      alert("Erro ao registrar baixa patrimonial.");
       return;
     }
 
@@ -73,6 +233,7 @@ export default function BaixasPatrimonioPage() {
       .from("patrimonios")
       .update({
         status: "BAIXADO",
+        atualizado_em: new Date().toISOString(),
       })
       .eq("id", item.id)
       .eq("municipio_id", usuario.municipio_id);
@@ -80,16 +241,48 @@ export default function BaixasPatrimonioPage() {
     setSalvando(false);
 
     if (erroUpdate) {
-      alert(erroUpdate.message);
+      console.error(erroUpdate);
+
+      await registrarAuditoria({
+        modulo: "Baixas Patrimoniais",
+        acao: "ERRO",
+        descricao: "Baixa criada, mas erro ao atualizar status do patrimônio.",
+        tabela: "patrimonios",
+        registro_id: item.id,
+        detalhes: {
+          erro: erroUpdate.message,
+          baixa_id: baixaCriada?.id,
+          patrimonio_id: item.id,
+          municipio_id: usuario.municipio_id,
+        },
+      });
+
+      alert("Baixa criada, mas erro ao atualizar status do patrimônio.");
       return;
     }
+
+    await registrarAuditoria({
+      modulo: "Baixas Patrimoniais",
+      acao: "CRIAR",
+      descricao: `Registrou baixa patrimonial do item ${item.nome}.`,
+      tabela: "baixas_patrimonio",
+      registro_id: baixaCriada?.id,
+      detalhes: {
+        patrimonio_id: item.id,
+        nome: item.nome,
+        numero_patrimonio: item.numero_patrimonio || null,
+        motivo,
+        destino: destino.trim() || null,
+        municipio_id: usuario.municipio_id,
+      },
+    });
 
     setItemId("");
     setMotivo("DANIFICADO");
     setDestino("");
     setObservacao("");
 
-    carregar();
+    await carregar();
     alert("Baixa registrada com sucesso.");
   }
 
@@ -115,15 +308,14 @@ export default function BaixasPatrimonioPage() {
         </h1>
 
         <p className="text-slate-400 mt-2">
-          Registre a baixa de bens danificados, extraviados, inservíveis ou descartados.
+          Registre a baixa de bens danificados, extraviados, inservíveis ou
+          descartados.
         </p>
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
         <div className="painel-premium p-6 lg:col-span-1">
-          <h2 className="text-xl font-black text-white">
-            Nova Baixa
-          </h2>
+          <h2 className="text-xl font-black text-white">Nova Baixa</h2>
 
           <p className="text-slate-400 text-sm mb-5">
             Selecione o item e informe o motivo da baixa.
@@ -185,6 +377,7 @@ export default function BaixasPatrimonioPage() {
             </div>
 
             <button
+              type="button"
               onClick={registrarBaixa}
               disabled={salvando}
               className="sig-btn-gold w-full disabled:opacity-50"
@@ -205,7 +398,11 @@ export default function BaixasPatrimonioPage() {
             </p>
           </div>
 
-          {baixas.length === 0 ? (
+          {carregando ? (
+            <div className="painel-premium p-10 text-center text-slate-400">
+              Carregando baixas patrimoniais...
+            </div>
+          ) : baixas.length === 0 ? (
             <div className="painel-premium p-10 text-center">
               <p className="text-6xl mb-3">📦</p>
 
@@ -235,7 +432,8 @@ export default function BaixasPatrimonioPage() {
                       </h3>
 
                       <p className="text-slate-500 text-sm">
-                        Patrimônio: {item.patrimonios?.numero_patrimonio || "N/I"}
+                        Patrimônio:{" "}
+                        {item.patrimonios?.numero_patrimonio || "N/I"}
                       </p>
                     </div>
 
@@ -251,7 +449,9 @@ export default function BaixasPatrimonioPage() {
                       titulo="Data"
                       valor={
                         item.criado_em
-                          ? new Date(item.criado_em).toLocaleDateString("pt-BR")
+                          ? new Date(item.criado_em).toLocaleDateString(
+                              "pt-BR"
+                            )
                           : "N/I"
                       }
                     />
@@ -273,13 +473,7 @@ export default function BaixasPatrimonioPage() {
   );
 }
 
-function Info({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: string;
-}) {
+function Info({ titulo, valor }: { titulo: string; valor: string }) {
   return (
     <div className="rounded-xl bg-slate-900/70 p-3">
       <p className="text-slate-500 text-xs">{titulo}</p>

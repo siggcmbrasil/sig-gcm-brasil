@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   MessageCircle,
   Search,
@@ -13,6 +14,7 @@ import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
 export default function ConversasPage() {
+  const [busca, setBusca] = useState("");
   const conversas = [
     {
       nome: "Comando GCM",
@@ -37,6 +39,12 @@ export default function ConversasPage() {
     },
   ];
 
+  const conversasFiltradas = conversas.filter((conversa) =>
+  `${conversa.nome} ${conversa.tipo} ${conversa.ultimaMensagem}`
+    .toLowerCase()
+    .includes(busca.toLowerCase())
+);
+
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
@@ -50,10 +58,12 @@ export default function ConversasPage() {
           <Search className="w-5 h-5 text-cyan-400" />
 
           <input
-            type="text"
-            placeholder="Buscar conversa..."
-            className="input"
-          />
+  type="text"
+  placeholder="Buscar conversa..."
+  className="input"
+  value={busca}
+  onChange={(e) => setBusca(e.target.value)}
+/>
         </div>
       </SigCard>
 
@@ -61,19 +71,19 @@ export default function ConversasPage() {
         <SigCard>
           <MessageCircle className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Conversas</h3>
-          <p className="text-2xl font-black text-white mt-2">03</p>
+          <p className="text-2xl font-black text-white mt-2">{conversas.length}</p>
         </SigCard>
 
         <SigCard>
           <Users className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Grupos</h3>
-          <p className="text-2xl font-black text-white mt-2">01</p>
+          <p className="text-2xl font-black text-white mt-2">{conversas.filter((c) => c.tipo === "Grupo").length}</p>
         </SigCard>
 
         <SigCard>
           <ShieldCheck className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Canais</h3>
-          <p className="text-2xl font-black text-white mt-2">01</p>
+          <p className="text-2xl font-black text-white mt-2">{conversas.filter((c) => c.tipo === "Canal").length}</p>
         </SigCard>
       </div>
 
@@ -83,7 +93,7 @@ export default function ConversasPage() {
         </h3>
 
         <div className="space-y-3">
-          {conversas.map((conversa) => (
+          {conversasFiltradas.map((conversa) => (
             <div
               key={conversa.nome}
               className="rounded-2xl border border-cyan-500/20 bg-slate-950/70 p-5 hover:border-cyan-400/50 transition"

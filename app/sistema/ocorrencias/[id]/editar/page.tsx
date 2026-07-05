@@ -10,6 +10,23 @@ export default function EditarOcorrencia() {
   const router = useRouter();
   const params = useParams();
   const id = params.id;
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const perfisPermitidos = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+];
+
+function podeEditarOcorrencia() {
+  return perfisPermitidos.includes(usuario?.perfil);
+}
 
   const [carregando, setCarregando] = useState(true);
   const [protocolo, setProtocolo] = useState("");
@@ -23,10 +40,16 @@ export default function EditarOcorrencia() {
   const [descricao, setDescricao] = useState("");
 
   async function carregarOcorrencia() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  router.push("/login");
+  return;
+}
     const { data, error } = await supabase
       .from("ocorrencias")
       .select("*")
       .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id)
       .single();
 
     if (error) {
@@ -49,6 +72,15 @@ export default function EditarOcorrencia() {
   }
 
   async function atualizarOcorrencia() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+
+if (!podeEditarOcorrencia()) {
+  alert("Seu perfil não tem permissão para editar ocorrências.");
+  return;
+}
     if (!tipo || !local || !descricao) {
       alert("Preencha tipo, local e descrição.");
       return;
@@ -65,7 +97,8 @@ export default function EditarOcorrencia() {
         envolvidos,
         descricao,
       })
-      .eq("id", id);
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
       console.error(error);
@@ -73,17 +106,12 @@ export default function EditarOcorrencia() {
       return;
     }
 
-    await registrarAuditoria({
-  modulo: "Ocorrências",
+await registrarAuditoria({
+  modulo: "OCORRENCIAS",
   acao: "EDITAR",
-  descricao: `Atualizou a ocorrência ${id}.`,
+  descricao: `Atualizou a ocorrência ${protocolo || `ID ${id}`}.`,
+  registro_id: String(id),
 });
-
-    await registrarAuditoria({
-      modulo: "Ocorrências",
-      acao: "EDITAR",
-      descricao: `Atualizou a ocorrência ${protocolo || `ID ${id}`}.`,
-    });
 
     alert("Ocorrência atualizada com sucesso!");
     router.push("/sistema/ocorrencias");

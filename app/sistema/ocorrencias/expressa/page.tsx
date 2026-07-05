@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 
@@ -30,6 +31,20 @@ export default function OcorrenciaExpressa() {
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
       : {};
+
+      const perfisPermitidos = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+];
+
+function podeCriarOcorrencia() {
+  return perfisPermitidos.includes(usuario?.perfil);
+}
 
   function obterLocalizacao() {
     if (!navigator.geolocation) {
@@ -63,10 +78,15 @@ export default function OcorrenciaExpressa() {
       return;
     }
 
-    if (!usuario?.municipio_id) {
-      alert("Município do usuário não identificado. Faça login novamente.");
-      return;
-    }
+if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município. Faça login novamente.");
+  return;
+}
+
+if (!podeCriarOcorrencia()) {
+  alert("Seu perfil não tem permissão para registrar ocorrência.");
+  return;
+}
 
     setSalvando(true);
 
@@ -79,7 +99,12 @@ export default function OcorrenciaExpressa() {
 
     if (fotos.length > 0) {
       for (const foto of fotos) {
-        const nomeArquivo = `${usuario.municipio_id}/${protocolo}-${Date.now()}-${foto.name}`;
+        const nomeSeguro = foto.name
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-zA-Z0-9.]/g, "-");
+
+const nomeArquivo = `${usuario.municipio_id}/${protocolo}-${Date.now()}-${nomeSeguro}`;
 
         const { error: uploadError } = await supabase.storage
           .from("fotos-ocorrencias")
@@ -114,8 +139,8 @@ export default function OcorrenciaExpressa() {
         descricao: descricao.trim(),
         foto_url: fotosUrls[0] || "",
         fotos_urls: JSON.stringify(fotosUrls),
-        latitude: latitude || null,
-        longitude: longitude || null,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
         municipio_id: usuario.municipio_id,
         usuario_id: usuario?.id || null,
       },
@@ -129,8 +154,15 @@ export default function OcorrenciaExpressa() {
       return;
     }
 
-    alert("Ocorrência expressa salva com sucesso!");
-    router.push("/sistema/ocorrencias");
+await registrarAuditoria({
+  modulo: "OCORRENCIAS",
+  acao: "CRIAR_EXPRESSA",
+  descricao: `Criou ocorrência expressa ${protocolo}.`,
+  registro_id: protocolo,
+});
+
+alert("Ocorrência expressa salva com sucesso!");
+router.push("/sistema/ocorrencias");
   }
 
   return (

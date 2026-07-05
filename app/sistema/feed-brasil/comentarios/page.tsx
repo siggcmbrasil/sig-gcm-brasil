@@ -12,6 +12,7 @@ import {
 
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function ComentariosPage() {
   const comentarios = [
@@ -34,6 +35,7 @@ export default function ComentariosPage() {
   ];
 
   return (
+  <ProtecaoModulo modulo="feed_brasil">
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Comentários"
@@ -148,6 +150,7 @@ export default function ComentariosPage() {
           </div>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

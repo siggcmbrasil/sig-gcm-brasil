@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { FileCheck, Lock, Search } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
-import { FileCheck, Search } from "lucide-react";
 import { registrarAuditoria } from "@/lib/auditoria";
 
 const tiposDocumento = [
@@ -21,6 +22,9 @@ export default function DocumentosArmamentoPage() {
   const [documentos, setDocumentos] = useState<any[]>([]);
   const [busca, setBusca] = useState("");
   const [salvando, setSalvando] = useState(false);
+  const [usuario, setUsuario] = useState<any>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
 
   const [armamentoId, setArmamentoId] = useState("");
   const [nome, setNome] = useState("");
@@ -28,33 +32,121 @@ export default function DocumentosArmamentoPage() {
   const [arquivoUrl, setArquivoUrl] = useState("");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  useEffect(() => {
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      );
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+      if (!dados?.id || !dados?.municipio_id) {
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
 
-    const { data: listaArmamentos } = await supabase
+      if (
+        ![
+          "ADMIN",
+          "COMANDANTE",
+          "DIRETOR",
+          "DESENVOLVEDOR",
+        ].includes(dados.perfil || "")
+      ) {
+        await registrarAuditoria({
+          modulo: "Armamentos",
+          acao: "ACESSO_NEGADO",
+          descricao: "Tentativa de acesso aos documentos de armamento sem permissão.",
+          tabela: "documentos_armamento",
+          detalhes: {
+            usuario_id: dados.id,
+            perfil: dados.perfil,
+            municipio_id: dados.municipio_id,
+          },
+        });
+
+        setBloqueado(true);
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ACESSO",
+        descricao: "Acessou os documentos de armamento.",
+        tabela: "documentos_armamento",
+        detalhes: {
+          usuario_id: dados.id,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregar(dados);
+    }
+
+    iniciar();
+  }, []);
+
+  async function carregar(usuarioAtual: any) {
+    setCarregando(true);
+
+    const {
+      data: listaArmamentos,
+      error: erroArmamentos,
+    } = await supabase
       .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
+      .select(`
+        id,
+        tipo,
+        marca,
+        modelo,
+        numero_serie
+      `)
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("id", { ascending: false })
+      .range(0, 499);
 
-    const { data: listaDocumentos } = await supabase
+    const {
+      data: listaDocumentos,
+      error: erroDocumentos,
+    } = await supabase
       .from("documentos_armamento")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      .select(`
+        id,
+        armamento_id,
+        nome,
+        tipo_documento,
+        arquivo_url,
+        observacao,
+        criado_em
+      `)
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .range(0, 499);
+
+    setCarregando(false);
+
+    if (erroArmamentos || erroDocumentos) {
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ERRO",
+        descricao: "Erro ao carregar documentos de armamento.",
+        tabela: "documentos_armamento",
+        detalhes: {
+          erro_armamentos: erroArmamentos?.message,
+          erro_documentos: erroDocumentos?.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar documentos.");
+      return;
+    }
 
     setArmamentos(listaArmamentos || []);
     setDocumentos(listaDocumentos || []);
   }
-
-  useEffect(() => {
-    carregar();
-  }, []);
 
   function nomeArmamento(id: number) {
     const item = armamentos.find((a) => Number(a.id) === Number(id));
@@ -66,16 +158,18 @@ export default function DocumentosArmamentoPage() {
     } - ${item.numero_serie || "S/S"}`;
   }
 
-  const documentosFiltrados = documentos.filter((item) => {
-    const texto = `
-      ${nomeArmamento(item.armamento_id)}
-      ${item.nome || ""}
-      ${item.tipo_documento || ""}
-      ${item.observacao || ""}
-    `.toLowerCase();
+  const documentosFiltrados = useMemo(() => {
+    return documentos.filter((item) => {
+      const texto = `
+        ${nomeArmamento(item.armamento_id)}
+        ${item.nome || ""}
+        ${item.tipo_documento || ""}
+        ${item.observacao || ""}
+      `.toLowerCase();
 
-    return texto.includes(busca.toLowerCase());
-  });
+      return texto.includes(busca.toLowerCase());
+    });
+  }, [documentos, busca, armamentos]);
 
   function limpar() {
     setArmamentoId("");
@@ -86,40 +180,109 @@ export default function DocumentosArmamentoPage() {
   }
 
   async function salvar() {
-    if (!armamentoId) return alert("Selecione o armamento.");
-    if (!nome.trim()) return alert("Informe o nome do documento.");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    if (!armamentoId) {
+      alert("Selecione o armamento.");
+      return;
+    }
+
+    if (!nome.trim()) {
+      alert("Informe o nome do documento.");
+      return;
+    }
+
+    if (nome.trim().length < 3) {
+      alert("Nome do documento muito curto.");
+      return;
+    }
+
+    if (nome.length > 200) {
+      alert("Nome do documento muito grande.");
+      return;
+    }
+
+    if (arquivoUrl.length > 500) {
+      alert("URL do arquivo muito grande.");
+      return;
+    }
+
+    if (observacao.length > 2000) {
+      alert("Observação muito grande.");
+      return;
+    }
 
     setSalvando(true);
 
-    const { error } = await supabase.from("documentos_armamento").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        armamento_id: Number(armamentoId),
-        nome: nome.trim(),
-        tipo_documento: tipoDocumento,
-        arquivo_url: arquivoUrl.trim() || null,
-        observacao: observacao.trim() || null,
-      },
-    ]);
+    const dadosDocumento = {
+      municipio_id: usuario.municipio_id,
+      criado_por: usuario.id,
+      armamento_id: Number(armamentoId),
+      nome: nome.trim(),
+      tipo_documento: tipoDocumento,
+      arquivo_url: arquivoUrl.trim() || null,
+      observacao: observacao.trim() || null,
+    };
+
+    const { data, error } = await supabase
+      .from("documentos_armamento")
+      .insert([dadosDocumento])
+      .select("id")
+      .single();
 
     setSalvando(false);
 
     if (error) {
-  return alert(error.message);
-}
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ERRO",
+        descricao: "Erro ao registrar documento de armamento.",
+        tabela: "documentos_armamento",
+        detalhes: {
+          erro: error.message,
+          dados: dadosDocumento,
+        },
+      });
 
-await registrarAuditoria({
-  modulo: "Armamentos",
-  acao: "REGISTRAR_DOCUMENTO",
-  descricao: `Registrou o documento ${nome} para ${nomeArmamento(
-    Number(armamentoId)
-  )}.`,
-});
+      alert(error.message);
+      return;
+    }
 
-limpar();
-carregar();
-alert("Documento registrado com sucesso.");
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "CRIAR",
+      descricao: `Registrou o documento ${nome} para ${nomeArmamento(
+        Number(armamentoId)
+      )}.`,
+      tabela: "documentos_armamento",
+      registro_id: data?.id,
+      detalhes: dadosDocumento,
+    });
+
+    limpar();
+    await carregar(usuario);
+    alert("Documento registrado com sucesso.");
+  }
+
+  if (bloqueado) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="painel-premium p-10 text-center">
+          <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
+
+          <h2 className="text-2xl font-black text-white">
+            Acesso Restrito
+          </h2>
+
+          <p className="text-slate-400 mt-2">
+            Você não possui permissão para acessar os documentos de armamento.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -196,7 +359,7 @@ alert("Documento registrado com sucesso.");
 
             <button
               onClick={salvar}
-              disabled={salvando}
+              disabled={salvando || carregando}
               className="sig-btn-gold w-full disabled:opacity-50"
             >
               {salvando ? "Salvando..." : "Registrar Documento"}
@@ -221,7 +384,11 @@ alert("Documento registrado com sucesso.");
             />
           </div>
 
-          {documentosFiltrados.length === 0 ? (
+          {carregando ? (
+            <div className="painel-premium p-10 text-center">
+              <p className="text-slate-400">Carregando documentos...</p>
+            </div>
+          ) : documentosFiltrados.length === 0 ? (
             <div className="painel-premium p-10 text-center">
               <p className="text-6xl mb-3">📄</p>
               <h2 className="text-white text-xl font-black">
@@ -236,35 +403,36 @@ alert("Documento registrado com sucesso.");
                   className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
                 >
                   <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="text-slate-400 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-slate-400 text-sm break-words">
                         {item.tipo_documento || "Documento"}
                       </p>
 
-                      <h3 className="text-xl font-black text-white">
+                      <h3 className="text-xl font-black text-white break-words">
                         {item.nome}
                       </h3>
 
-                      <p className="text-slate-500 text-sm mt-1">
+                      <p className="text-slate-500 text-sm mt-1 break-words">
                         {nomeArmamento(item.armamento_id)}
                       </p>
                     </div>
 
-                    <FileCheck className="w-7 h-7 text-yellow-400" />
+                    <FileCheck className="w-7 h-7 text-yellow-400 shrink-0" />
                   </div>
 
                   {item.arquivo_url && (
                     <a
                       href={item.arquivo_url}
                       target="_blank"
-                      className="inline-block mt-4 text-yellow-400 font-bold text-sm"
+                      rel="noreferrer"
+                      className="inline-block mt-4 text-yellow-400 font-bold text-sm break-all"
                     >
                       Abrir documento
                     </a>
                   )}
 
                   {item.observacao && (
-                    <p className="text-slate-300 text-sm mt-4 whitespace-pre-wrap">
+                    <p className="text-slate-300 text-sm mt-4 whitespace-pre-wrap break-words">
                       {item.observacao}
                     </p>
                   )}

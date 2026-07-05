@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const itensPadrao = {
   pneus: true,
@@ -100,6 +101,11 @@ export default function ChecklistViaturasPage() {
   }
 
   async function salvar() {
+    if (!usuario?.municipio_id || !usuario?.id) {
+  alert("Sessão inválida.");
+  return;
+}
+
     if (!viaturaId) {
       alert("Selecione a viatura.");
       return;
@@ -117,7 +123,7 @@ export default function ChecklistViaturasPage() {
         municipio_id: usuario.municipio_id,
         criado_por: usuario.id,
         viatura_id: Number(viaturaId),
-        km,
+        km: Number(km),
         combustivel,
         status: possuiProblema ? "COM_RESTRICAO" : "APROVADA",
         itens,
@@ -131,6 +137,12 @@ export default function ChecklistViaturasPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Checklist Viaturas",
+  acao: "CRIAR",
+  descricao: `Registrou checklist da viatura ${viaturaId}.`,
+});
 
     limparFormulario();
     carregar();

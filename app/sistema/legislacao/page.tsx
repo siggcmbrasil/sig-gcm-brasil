@@ -17,6 +17,12 @@ type Legislacao = {
 };
 
 const orgaosOficiais = [
+   {
+    nome: "Estatuto Geral das Guardas Municipais",
+    icone: "🛡️",
+    descricao: "Lei nº 13.022/2014 — normas gerais das Guardas Municipais.",
+    link: "https://www.planalto.gov.br/ccivil_03/_ato2011-2014/2014/lei/l13022.htm",
+  },
   {
     nome: "Senado Federal",
     icone: "🏛️",
@@ -58,6 +64,66 @@ const orgaosOficiais = [
     icone: "📚",
     descricao: "Normas, atos e resoluções do Conselho Nacional de Justiça.",
     link: "https://www.cnj.jus.br/",
+  },
+    {
+    nome: "Constituição Federal",
+    icone: "📘",
+    descricao: "Texto da Constituição da República Federativa do Brasil.",
+    link: "https://www.planalto.gov.br/ccivil_03/constituicao/constituicao.htm",
+  },
+  {
+    nome: "Código Penal",
+    icone: "⚖️",
+    descricao: "Decreto-Lei nº 2.848/1940 — Código Penal Brasileiro.",
+    link: "https://www.planalto.gov.br/ccivil_03/decreto-lei/del2848compilado.htm",
+  },
+  {
+    nome: "Código de Processo Penal",
+    icone: "📚",
+    descricao: "Decreto-Lei nº 3.689/1941 — Código de Processo Penal.",
+    link: "https://www.planalto.gov.br/ccivil_03/decreto-lei/del3689compilado.htm",
+  },
+  {
+    nome: "Código de Trânsito Brasileiro",
+    icone: "🚦",
+    descricao: "Lei nº 9.503/1997 — Código de Trânsito Brasileiro.",
+    link: "https://www.planalto.gov.br/ccivil_03/leis/l9503compilado.htm",
+  },
+  {
+    nome: "Estatuto da Criança e do Adolescente",
+    icone: "👨‍👩‍👧‍👦",
+    descricao: "Lei nº 8.069/1990 — ECA.",
+    link: "https://www.planalto.gov.br/ccivil_03/leis/l8069.htm",
+  },
+  {
+    nome: "Lei Maria da Penha",
+    icone: "🟣",
+    descricao: "Lei nº 11.340/2006 — proteção contra violência doméstica.",
+    link: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11340.htm",
+  },
+  {
+    nome: "Lei de Abuso de Autoridade",
+    icone: "🚨",
+    descricao: "Lei nº 13.869/2019 — crimes de abuso de autoridade.",
+    link: "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2019/lei/l13869.htm",
+  },
+  {
+    nome: "Lei de Drogas",
+    icone: "⚠️",
+    descricao: "Lei nº 11.343/2006 — SISNAD e crimes relacionados a drogas.",
+    link: "https://www.planalto.gov.br/ccivil_03/_ato2004-2006/2006/lei/l11343.htm",
+  },
+  {
+    nome: "Lei de Crimes Ambientais",
+    icone: "🌳",
+    descricao: "Lei nº 9.605/1998 — sanções penais e administrativas ambientais.",
+    link: "https://www.planalto.gov.br/ccivil_03/leis/l9605.htm",
+  },
+  {
+    nome: "LGPD",
+    icone: "🔐",
+    descricao: "Lei nº 13.709/2018 — Lei Geral de Proteção de Dados.",
+    link: "https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709.htm",
   },
 ];
 

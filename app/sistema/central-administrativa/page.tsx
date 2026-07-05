@@ -1,136 +1,137 @@
 "use client";
 
 import {
-  Users,
+  Bell,
+  Brain,
   Building2,
-  Shield,
+  CreditCard,
+  Landmark,
   Settings,
-  ClipboardCheck,
-  Database,
-  FolderSync,
-  FileCog,
-  MapPin,
-  Cog,
+  Shield,
+  Users,
 } from "lucide-react";
 
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const cards = [
   {
-    titulo: "Usuários",
-    icone: Users,
-    href: "/sistema/usuarios",
-    descricao:
-      "Cadastro, gerenciamento e controle dos usuários do sistema.",
+    grupo: "Gestão Global do SIG",
+    itens: [
+      {
+        titulo: "Municípios",
+        icone: Building2,
+        href: "/sistema/municipios",
+        descricao:
+          "Criar, configurar e administrar os municípios cadastrados no SIG-GCM Brasil.",
+      },
+      {
+        titulo: "Usuários",
+        icone: Users,
+        href: "/sistema/usuarios",
+        descricao:
+          "Aprovar acessos, ajustar perfis e gerenciar usuários da plataforma.",
+      },
+      {
+        titulo: "Permissões Globais",
+        icone: Shield,
+        href: "/sistema/permissoes",
+        descricao:
+          "Controlar perfis, permissões e acessos aos módulos do sistema.",
+      },
+    ],
   },
   {
-    titulo: "Municípios",
-    icone: Building2,
-    href: "/sistema/municipios",
-    descricao:
-      "Gerenciamento dos municípios cadastrados.",
+    grupo: "Planos e Plataforma",
+    itens: [
+      {
+        titulo: "Planos e Assinaturas",
+        icone: CreditCard,
+        href: "/sistema/planos",
+        descricao:
+          "Controlar planos, vencimentos, limites e situação dos municípios.",
+      },
+      {
+        titulo: "Créditos IA",
+        icone: Brain,
+        href: "/sistema/ia-creditos",
+        descricao:
+          "Gerenciar créditos, consumo e limites da inteligência artificial.",
+      },
+      {
+        titulo: "Configurações Globais",
+        icone: Settings,
+        href: "/sistema/configuracoes",
+        descricao:
+          "Parâmetros gerais da plataforma SIG-GCM Brasil.",
+      },
+    ],
   },
   {
-    titulo: "Locais",
-    icone: MapPin,
-    href: "/sistema/locais",
-    descricao:
-      "Cadastro de ruas, bairros, escolas, órgãos públicos e pontos estratégicos.",
+    grupo: "Institucional e Comunicação",
+    itens: [
+      {
+        titulo: "Dados Institucionais",
+        icone: Landmark,
+        href: "/sistema/administracao/institucional",
+        descricao:
+          "Brasões, comandante, dados oficiais e identidade institucional.",
+      },
+      {
+        titulo: "Avisos Globais",
+        icone: Bell,
+        href: "/sistema/avisos",
+        descricao:
+          "Comunicados oficiais enviados aos municípios e usuários.",
+      },
+      {
+        titulo: "Notificações",
+        icone: Bell,
+        href: "/sistema/notificacoes",
+        descricao:
+          "Alertas, notificações internas e comunicação institucional.",
+      },
+    ],
   },
-  {
-    titulo: "Permissões",
-    icone: Shield,
-    href: "/sistema/permissoes",
-    descricao:
-      "Controle de acesso por perfil e módulos.",
-  },
-  
-  {
-    titulo: "Auditoria",
-    icone: ClipboardCheck,
-    href: "/sistema/auditoria",
-    descricao:
-      "Registro de ações realizadas pelos usuários.",
-  },
-  {
-    titulo: "Backup",
-    icone: Database,
-    href: "/sistema/backup",
-    descricao:
-      "Gerenciamento dos backups do sistema.",
-  },
-  {
-    titulo: "Importador de Dados",
-    icone: FolderSync,
-    href: "/sistema/importador-dados",
-    descricao:
-      "Importação de dados externos para o SIG.",
-  },
-  {
-    titulo: "Exportador de Dados",
-    icone: FileCog,
-    href: "/sistema/exportador-dados",
-    descricao:
-      "Exportação de dados e relatórios do sistema.",
-  },
-  {
-  titulo: "Configurações",
-  icone: Settings,
-  href: "/sistema/configuracoes",
-  descricao:
-    "Configurações gerais, dados institucionais e parâmetros do sistema.",
-},
-{
-  titulo: "Créditos IA",
-  icone: Cog,
-  href: "/sistema/ia-creditos",
-  descricao:
-    "Gerenciamento dos créditos e consumo da inteligência artificial.",
-},
-{
-  titulo: "Logs do Sistema",
-  icone: ClipboardCheck,
-  href: "/sistema/logs",
-  descricao:
-    "Monitoramento de erros, eventos e atividades internas do sistema.",
-},
-{
-  titulo: "Notificações",
-  icone: Shield,
-  href: "/sistema/notificacoes",
-  descricao:
-    "Gerenciamento das notificações e alertas do sistema.",
-},
-{
-  titulo: "Dados Institucionais",
-  icone: Building2,
-  href: "/sistema/dados-institucionais",
-  descricao:
-    "Brasão, comandante, dados da corporação e informações do município.",
-},
 ];
 
 export default function CentralAdministrativaPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
-      <SigCentralHeader
-        titulo="Central Administrativa"
-        descricao="Administração geral da plataforma SIG-GCM Brasil."
-        icone={Cog}
-      />
+    <ProtecaoModulo modulo="central_administrativa">
+      <section className="p-4 md:p-6 pb-24 space-y-8">
+        <SigCentralHeader
+          titulo="Central Administrativa"
+          descricao="Gestão global da plataforma SIG-GCM Brasil: municípios, usuários, planos, créditos IA e configurações institucionais."
+          icone={Settings}
+        />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-        {cards.map((card) => (
-          <SigCentralCard
-            key={card.href}
-            titulo={card.titulo}
-            descricao={card.descricao}
-            href={card.href}
-            icone={card.icone}
-          />
+        {cards.map((grupo) => (
+          <div key={grupo.grupo} className="space-y-4">
+            <div>
+              <h2 className="text-2xl font-black text-white">
+                {grupo.grupo}
+              </h2>
+
+              <p className="text-slate-400 text-sm mt-1">
+                Área administrativa global da plataforma.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {grupo.itens.map((card) => (
+                <SigCentralCard
+                  key={card.href}
+                  titulo={card.titulo}
+                  descricao={card.descricao}
+                  href={card.href}
+                  icone={card.icone}
+                />
+              ))}
+            </div>
+          </div>
         ))}
-      </div>
-    </section>
+      </section>
+    </ProtecaoModulo>
   );
 }

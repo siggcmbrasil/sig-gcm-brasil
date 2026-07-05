@@ -13,10 +13,12 @@ import {
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import SigActionCard from "@/components/sig/SigActionCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function EscalasExtrasPage() {
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="escalas_extras">
+      <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Escalas Extras"
         subtitulo="Gestão de serviços extraordinários, eventos e convocações."
@@ -96,7 +98,8 @@ export default function EscalasExtrasPage() {
           <Item texto="Relatórios de serviço extra" />
         </div>
       </SigCard>
-    </div>
+          </div>
+    </ProtecaoModulo>
   );
 }
 

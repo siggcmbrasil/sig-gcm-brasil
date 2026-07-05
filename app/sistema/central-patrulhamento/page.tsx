@@ -22,11 +22,11 @@ const cards = [
     icone: CarFront,
   },
   {
-    titulo: "Nova Ronda",
-    href: "/sistema/patrulhamento",
-    descricao: "Iniciar um novo patrulhamento operacional.",
-    icone: Route,
-  },
+  titulo: "Nova Ronda",
+  href: "/sistema/patrulhamento/novo",
+  descricao: "Iniciar um novo patrulhamento operacional.",
+  icone: Route,
+},
   {
     titulo: "Plano de Rondas",
     href: "/sistema/rondas",

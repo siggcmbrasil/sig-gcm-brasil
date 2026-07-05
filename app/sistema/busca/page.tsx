@@ -2,75 +2,108 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: number;
+  nome?: string;
+  perfil?: string;
+  municipio_id: number;
+};
+
+type ResultadoBusca = {
+  tipo: string;
+  icone: string;
+  titulo: string;
+  detalhe: string;
+  href: string;
+};
 
 export default function BuscaPage() {
   const params = useSearchParams();
   const q = params.get("q") || "";
   const router = useRouter();
 
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [termoBusca, setTermoBusca] = useState(q);
-  const [resultados, setResultados] = useState<any[]>([]);
+  const [resultados, setResultados] = useState<ResultadoBusca[]>([]);
   const [carregando, setCarregando] = useState(false);
 
   useEffect(() => {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    ) as UsuarioLogado;
+
+    if (!dados?.id || !dados?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    setUsuario(dados);
     setTermoBusca(q);
 
     if (q.trim()) {
-      buscar(q);
+      buscar(q, dados);
     } else {
       setResultados([]);
     }
   }, [q]);
 
-  function pegarUsuario() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  function limparTermo(valor: string) {
+    return valor.trim().slice(0, 80);
   }
 
-  async function registrarAuditoria(termo: string) {
-    const usuario = pegarUsuario();
+  async function buscar(termoDigitado: string, usuarioAtual?: UsuarioLogado) {
+    const usuarioBusca = usuarioAtual || usuario;
 
-    await supabase.from("auditoria_sistema").insert({
-      municipio_id: usuario.municipio_id,
-      usuario_id: usuario.id,
-      modulo: "BUSCA_GLOBAL",
-      acao: "REALIZAR_BUSCA",
-      detalhes: `Pesquisou por: ${termo}`,
-    });
-  }
-
-  async function buscar(termoDigitado: string) {
-    const usuarioLogado = pegarUsuario();
-
-    if (!usuarioLogado.municipio_id) {
-      alert("Município não identificado.");
+    if (!usuarioBusca?.id || !usuarioBusca?.municipio_id) {
+      alert("Sessão inválida.");
       return;
     }
 
-    const termoLimpo = termoDigitado.toLowerCase().trim();
-    const nomeUsuario = usuarioLogado?.nome?.toLowerCase().trim() || "";
+    const termoLimpo = limparTermo(termoDigitado);
 
-    await registrarAuditoria(termoDigitado);
+    if (termoLimpo.length < 2) {
+      setResultados([]);
+      return;
+    }
 
-    if (termoLimpo === nomeUsuario) {
+    const termoLower = termoLimpo.toLowerCase();
+    const nomeUsuario = usuarioBusca?.nome?.toLowerCase().trim() || "";
+
+    await registrarAuditoria({
+      modulo: "Busca Global",
+      acao: "CONSULTAR",
+      descricao: `Realizou busca global por: ${termoLimpo}.`,
+      tabela: "busca_global",
+      detalhes: {
+        usuario_id: usuarioBusca.id,
+        municipio_id: usuarioBusca.municipio_id,
+        termo: termoLimpo,
+      },
+    });
+
+    if (termoLower === nomeUsuario) {
       router.push("/sistema/perfil");
       return;
     }
 
     if (
-      termoLimpo.includes("perfil") ||
-      termoLimpo.includes("minha foto") ||
-      termoLimpo.includes("minha conta")
+      termoLower.includes("perfil") ||
+      termoLower.includes("minha foto") ||
+      termoLower.includes("minha conta")
     ) {
       const { data: meuGuarda } = await supabase
         .from("guardas")
         .select("id")
-        .ilike("nome", `%${usuarioLogado.nome}%`)
-        .eq("municipio_id", usuarioLogado.municipio_id)
+        .eq("municipio_id", usuarioBusca.municipio_id)
+        .ilike("nome", `%${usuarioBusca.nome || ""}%`)
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (meuGuarda?.id) {
         router.push(`/sistema/guardas/${meuGuarda.id}`);
@@ -83,67 +116,98 @@ export default function BuscaPage() {
 
     setCarregando(true);
 
-    const termo = `%${termoDigitado}%`;
+    const termo = `%${termoLimpo}%`;
 
     try {
-      const { data: guardas } = await supabase
-        .from("guardas")
-        .select("id, nome, status")
-        .eq("municipio_id", usuarioLogado.municipio_id)
-        .ilike("nome", termo)
-        .limit(5);
+      const [
+        guardasResp,
+        ocorrenciasResp,
+        viaturasResp,
+        locaisResp,
+      ] = await Promise.all([
+        supabase
+          .from("guardas")
+          .select("id, nome, status")
+          .eq("municipio_id", usuarioBusca.municipio_id)
+          .ilike("nome", termo)
+          .limit(5),
 
-      const { data: ocorrencias } = await supabase
-        .from("ocorrencias")
-        .select("id, protocolo, tipo, local, status")
-        .eq("municipio_id", usuarioLogado.municipio_id)
-        .or(`tipo.ilike.${termo},local.ilike.${termo},protocolo.ilike.${termo}`)
-        .limit(5);
+        supabase
+          .from("ocorrencias")
+          .select("id, protocolo, tipo, local, status")
+          .eq("municipio_id", usuarioBusca.municipio_id)
+          .or(`tipo.ilike.${termo},local.ilike.${termo},protocolo.ilike.${termo}`)
+          .limit(5),
 
-      const { data: viaturas } = await supabase
-        .from("viaturas")
-        .select("id, prefixo, modelo, status")
-        .eq("municipio_id", usuarioLogado.municipio_id)
-        .or(`prefixo.ilike.${termo},modelo.ilike.${termo}`)
-        .limit(5);
+        supabase
+          .from("viaturas")
+          .select("id, prefixo, modelo, status")
+          .eq("municipio_id", usuarioBusca.municipio_id)
+          .or(`prefixo.ilike.${termo},modelo.ilike.${termo}`)
+          .limit(5),
 
-      const { data: locais } = await supabase
-        .from("locais")
-        .select("id, nome, tipo")
-        .eq("municipio_id", usuarioLogado.municipio_id)
-        .ilike("nome", termo)
-        .limit(5);
+        supabase
+          .from("locais")
+          .select("id, nome, tipo")
+          .eq("municipio_id", usuarioBusca.municipio_id)
+          .ilike("nome", termo)
+          .limit(5),
+      ]);
+
+      const erro =
+        guardasResp.error ||
+        ocorrenciasResp.error ||
+        viaturasResp.error ||
+        locaisResp.error;
+
+      if (erro) {
+        await registrarAuditoria({
+          modulo: "Busca Global",
+          acao: "ERRO",
+          descricao: "Erro ao realizar busca global.",
+          tabela: "busca_global",
+          detalhes: {
+            erro: erro.message,
+            termo: termoLimpo,
+            usuario_id: usuarioBusca.id,
+            municipio_id: usuarioBusca.municipio_id,
+          },
+        });
+
+        alert("Erro ao realizar busca.");
+        return;
+      }
 
       setResultados([
-        ...(guardas || []).map((i) => ({
+        ...(guardasResp.data || []).map((item) => ({
           tipo: "Guarda",
           icone: "👮",
-          titulo: i.nome,
-          detalhe: i.status,
-          href: `/sistema/guardas/${i.id}`,
+          titulo: item.nome || "Guarda",
+          detalhe: item.status || "-",
+          href: `/sistema/guardas/${item.id}`,
         })),
 
-        ...(ocorrencias || []).map((i) => ({
+        ...(ocorrenciasResp.data || []).map((item) => ({
           tipo: "Ocorrência",
           icone: "🚨",
-          titulo: i.tipo,
-          detalhe: `${i.local} • ${i.status}`,
-          href: `/sistema/ocorrencias/${i.id}`,
+          titulo: item.tipo || "Ocorrência",
+          detalhe: `${item.local || "-"} • ${item.status || "-"}`,
+          href: `/sistema/ocorrencias/${item.id}`,
         })),
 
-        ...(viaturas || []).map((i) => ({
+        ...(viaturasResp.data || []).map((item) => ({
           tipo: "Viatura",
           icone: "🚓",
-          titulo: i.prefixo,
-          detalhe: `${i.modelo} • ${i.status}`,
+          titulo: item.prefixo || "Viatura",
+          detalhe: `${item.modelo || "-"} • ${item.status || "-"}`,
           href: "/sistema/frota",
         })),
 
-        ...(locais || []).map((i) => ({
+        ...(locaisResp.data || []).map((item) => ({
           tipo: "Local",
           icone: "📍",
-          titulo: i.nome,
-          detalhe: i.tipo || "Local cadastrado",
+          titulo: item.nome || "Local",
+          detalhe: item.tipo || "Local cadastrado",
           href: "/sistema/locais",
         })),
       ]);
@@ -152,13 +216,17 @@ export default function BuscaPage() {
     }
   }
 
+  const termoAtual = useMemo(() => limparTermo(termoBusca), [termoBusca]);
+
   return (
-    <section className="p-6 text-white space-y-6">
-      <div>
-        <h1 className="text-3xl font-black">Busca Global</h1>
+    <section className="p-4 md:p-6 pb-24 text-white space-y-6">
+      <div className="painel-premium p-6">
+        <h1 className="text-2xl md:text-3xl font-black">
+          Busca Global
+        </h1>
 
         <p className="text-slate-400 mt-2">
-          Pesquise por guardas, ocorrências, viaturas e locais.
+          Pesquise por guardas, ocorrências, viaturas e locais do seu município.
         </p>
       </div>
 
@@ -166,22 +234,27 @@ export default function BuscaPage() {
         onSubmit={(e) => {
           e.preventDefault();
 
-          if (!termoBusca.trim()) return;
+          if (termoAtual.length < 2) {
+            alert("Digite pelo menos 2 caracteres.");
+            return;
+          }
 
-          router.push(
-            `/sistema/busca?q=${encodeURIComponent(termoBusca.trim())}`
-          );
+          router.push(`/sistema/busca?q=${encodeURIComponent(termoAtual)}`);
         }}
-        className="painel-premium p-4 flex gap-3"
+        className="painel-premium p-4 flex flex-col md:flex-row gap-3"
       >
         <input
           className="input flex-1"
           placeholder="Digite sua pesquisa..."
           value={termoBusca}
           onChange={(e) => setTermoBusca(e.target.value)}
+          maxLength={80}
         />
 
-        <button type="submit" className="btn-primary inline-flex items-center gap-2">
+        <button
+          type="submit"
+          className="btn-primary inline-flex items-center justify-center gap-2"
+        >
           <Search className="w-5 h-5" />
           Buscar
         </button>
@@ -194,7 +267,11 @@ export default function BuscaPage() {
       )}
 
       {carregando ? (
-        <div className="painel-premium p-6">Buscando...</div>
+        <div className="painel-premium p-6 text-slate-400">Buscando...</div>
+      ) : !q ? (
+        <div className="painel-premium p-6 text-slate-400">
+          Digite um termo para iniciar a busca.
+        </div>
       ) : resultados.length === 0 ? (
         <div className="painel-premium p-6 text-slate-400">
           Nenhum resultado encontrado.
@@ -203,20 +280,24 @@ export default function BuscaPage() {
         <div className="space-y-3">
           {resultados.map((item, index) => (
             <Link
-              key={`${item.tipo}-${index}`}
+              key={`${item.tipo}-${item.href}-${index}`}
               href={item.href}
               className="painel-premium p-4 flex items-center gap-4 hover:bg-blue-950/30 transition"
             >
               <span className="text-3xl">{item.icone}</span>
 
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-blue-400 font-bold uppercase">
                   {item.tipo}
                 </p>
 
-                <h2 className="font-black text-lg">{item.titulo}</h2>
+                <h2 className="font-black text-lg break-words">
+                  {item.titulo}
+                </h2>
 
-                <p className="text-slate-400 text-sm">{item.detalhe}</p>
+                <p className="text-slate-400 text-sm break-words">
+                  {item.detalhe}
+                </p>
               </div>
             </Link>
           ))}

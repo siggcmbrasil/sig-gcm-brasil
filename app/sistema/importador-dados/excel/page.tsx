@@ -5,18 +5,153 @@ import {
   FileSpreadsheet,
   FileUp,
   Table,
-  Upload,
 } from "lucide-react";
 
+import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 
 export default function ExcelPage() {
+  function pegarUsuario() {
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  }
+
+  function gerarExcelHtml(dados: any[]) {
+    if (dados.length === 0) return "";
+
+    const colunas = Object.keys(dados[0]);
+
+    const linhas = dados
+      .map(
+        (item) => `
+          <tr>
+            ${colunas
+              .map(
+                (coluna) =>
+                  `<td>${String(item[coluna] ?? "").replace(/</g, "&lt;")}</td>`
+              )
+              .join("")}
+          </tr>
+        `
+      )
+      .join("");
+
+    return `
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+        </head>
+        <body>
+          <table border="1">
+            <thead>
+              <tr>
+                ${colunas.map((c) => `<th>${c}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${linhas}
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+  }
+
+  function baixarArquivo(conteudo: string, nomeArquivo: string) {
+    const blob = new Blob([conteudo], {
+      type: "application/vnd.ms-excel;charset=utf-8;",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+
+    a.href = url;
+    a.download = nomeArquivo;
+    a.click();
+
+    URL.revokeObjectURL(url);
+  }
+
+  async function exportarTabela(tabela: string, arquivo: string, acao: string) {
+    const usuario = pegarUsuario();
+
+    if (!usuario?.municipio_id) {
+      alert("Município não identificado.");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from(tabela)
+      .select("*")
+      .eq("municipio_id", usuario.municipio_id);
+
+    if (error) {
+      console.error(error);
+      alert(`Erro ao exportar ${tabela}.`);
+      return;
+    }
+
+    if (!data || data.length === 0) {
+      alert("Nenhum dado encontrado para exportar.");
+      return;
+    }
+
+    const excel = gerarExcelHtml(data);
+
+    baixarArquivo(excel, arquivo);
+
+    await registrarAuditoria({
+      modulo: "Excel",
+      acao,
+      tabela,
+      descricao: `Exportou dados da tabela ${tabela} em Excel.`,
+      detalhes: {
+        tabela,
+        arquivo,
+        quantidade: data.length,
+      },
+    });
+
+    alert("Excel exportado com sucesso.");
+  }
+
+  function baixarModeloGuardas() {
+    const modelo = gerarExcelHtml([
+      {
+        matricula: "GCM-001",
+        nome: "JOÃO DA SILVA",
+        cargo: "GUARDA MUNICIPAL",
+        telefone: "(75) 99999-9999",
+        cpf: "00000000000",
+        email: "email@exemplo.com",
+        status: "Em serviço",
+      },
+    ]);
+
+    baixarArquivo(modelo, "modelo-guardas.xls");
+  }
+
+  function baixarModeloOcorrencias() {
+    const modelo = gerarExcelHtml([
+      {
+        tipo: "Perturbação do sossego",
+        data: "2026-07-04",
+        hora: "20:30",
+        local: "Praça Municipal",
+        relato: "Relato da ocorrência",
+        status: "FINALIZADA",
+      },
+    ]);
+
+    baixarArquivo(modelo, "modelo-ocorrencias.xls");
+  }
+
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Excel"
-        subtitulo="Importação e exportação de planilhas XLS e XLSX."
+        subtitulo="Exportação de dados em planilhas compatíveis com Excel."
         icone={Table}
       />
 
@@ -28,105 +163,100 @@ export default function ExcelPage() {
 
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-yellow-400 font-bold">
-              Área do Desenvolvedor
+              Área Administrativa
             </p>
 
             <h2 className="text-2xl md:text-3xl font-black text-white mt-1">
-              Importação de Planilhas
+              Central Excel
             </h2>
 
             <p className="text-slate-400 mt-2 max-w-3xl leading-relaxed">
-              Ferramenta preparada para importar e exportar dados através de
-              arquivos Excel, facilitando migrações de outros sistemas e
-              cadastros em massa no SIG-GCM Brasil.
+              Exporte dados do município em formato compatível com Excel e
+              baixe modelos padronizados para organização dos dados.
             </p>
           </div>
         </div>
       </SigCard>
 
-      <div className="grid md:grid-cols-3 gap-4">
-        <SigCard>
-          <Upload className="w-8 h-8 text-yellow-400 mb-3" />
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <CardAcao
+          titulo="Exportar Guardas"
+          descricao="Gerar planilha dos guardas."
+          icone={Download}
+          onClick={() =>
+            exportarTabela("guardas", "guardas.xls", "EXPORTAR_GUARDAS_EXCEL")
+          }
+        />
 
-          <h3 className="text-lg font-black text-white">
-            Importação
-          </h3>
+        <CardAcao
+          titulo="Exportar Ocorrências"
+          descricao="Gerar planilha das ocorrências."
+          icone={Download}
+          onClick={() =>
+            exportarTabela(
+              "ocorrencias",
+              "ocorrencias.xls",
+              "EXPORTAR_OCORRENCIAS_EXCEL"
+            )
+          }
+        />
 
-          <p className="text-sm text-slate-400 mt-2">
-            Importação de planilhas XLS e XLSX.
-          </p>
-        </SigCard>
+        <CardAcao
+          titulo="Modelo Guardas"
+          descricao="Baixar modelo para guardas."
+          icone={FileSpreadsheet}
+          onClick={baixarModeloGuardas}
+        />
 
-        <SigCard>
-          <Download className="w-8 h-8 text-emerald-400 mb-3" />
-
-          <h3 className="text-lg font-black text-white">
-            Exportação
-          </h3>
-
-          <p className="text-sm text-slate-400 mt-2">
-            Exportação de dados do sistema para Excel.
-          </p>
-        </SigCard>
-
-        <SigCard>
-          <FileSpreadsheet className="w-8 h-8 text-blue-400 mb-3" />
-
-          <h3 className="text-lg font-black text-white">
-            Modelos
-          </h3>
-
-          <p className="text-sm text-slate-400 mt-2">
-            Modelos padronizados para importação.
-          </p>
-        </SigCard>
+        <CardAcao
+          titulo="Modelo Ocorrências"
+          descricao="Baixar modelo para ocorrências."
+          icone={FileSpreadsheet}
+          onClick={baixarModeloOcorrencias}
+        />
       </div>
 
       <SigCard>
-        <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/70 p-8 text-center">
-          <FileUp className="w-14 h-14 mx-auto text-slate-500 mb-4" />
+        <div className="text-center py-12">
+          <FileUp className="w-16 h-16 mx-auto text-slate-600 mb-4" />
 
           <h3 className="text-xl font-black text-white">
-            Selecionar Planilha
+            Importação de Excel
           </h3>
 
-          <p className="text-slate-400 mt-2">
-            Escolha um arquivo Excel para iniciar a importação.
+          <p className="text-slate-400 mt-2 max-w-2xl mx-auto">
+            A importação real de XLS/XLSX precisa de validação, pré-visualização
+            e confirmação antes de gravar no banco. Por segurança, será feita em
+            uma tela separada.
           </p>
-
-          <input
-            type="file"
-            accept=".xls,.xlsx"
-            className="mt-6 block w-full max-w-md mx-auto rounded-xl border border-slate-700 bg-slate-900 p-3 text-sm text-slate-300"
-          />
-
-          <button className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-6 py-3 text-sm font-black text-slate-950 hover:bg-yellow-400 transition">
-            <Upload className="w-5 h-5" />
-            Importar Planilha
-          </button>
-        </div>
-      </SigCard>
-
-      <SigCard>
-        <h3 className="text-lg font-black text-white">
-          Dados suportados futuramente
-        </h3>
-
-        <div className="mt-4 grid md:grid-cols-2 gap-3 text-sm text-slate-400">
-          <p>• Guardas Municipais</p>
-          <p>• Usuários</p>
-          <p>• Viaturas</p>
-          <p>• Equipamentos</p>
-          <p>• Escalas</p>
-          <p>• Guarnições</p>
-          <p>• Pessoas Abordadas</p>
-          <p>• Veículos Abordados</p>
-          <p>• Patrulhamentos</p>
-          <p>• Ocorrências</p>
-          <p>• Locais Estratégicos</p>
-          <p>• Migração de outros sistemas</p>
         </div>
       </SigCard>
     </div>
+  );
+}
+
+function CardAcao({
+  titulo,
+  descricao,
+  icone: Icone,
+  onClick,
+}: {
+  titulo: string;
+  descricao: string;
+  icone: any;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 text-left hover:border-yellow-500/60 transition"
+    >
+      <Icone className="w-8 h-8 text-yellow-400 mb-3" />
+
+      <h3 className="text-lg font-black text-white">{titulo}</h3>
+
+      <p className="text-sm text-slate-400 mt-2">{descricao}</p>
+    </button>
   );
 }

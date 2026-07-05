@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
   CalendarDays,
   Plus,
@@ -29,7 +30,13 @@ export default function EventosOperacionaisPage() {
 
     const usuario = pegarUsuario();
 
-    const { data, error } = await supabase
+if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  setCarregando(false);
+  return;
+}
+
+const { data, error } = await supabase
       .from("eventos_operacionais")
       .select("*")
       .eq("municipio_id", usuario.municipio_id)
@@ -52,6 +59,7 @@ export default function EventosOperacionaisPage() {
   const locaisUnicos = new Set(eventos.map((e) => e.local).filter(Boolean));
 
   return (
+  <ProtecaoModulo modulo="eventos_operacionais">
     <div className="p-6 space-y-6">
       <div className="painel-premium p-6 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
@@ -158,6 +166,7 @@ export default function EventosOperacionaisPage() {
           </div>
         )}
       </div>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

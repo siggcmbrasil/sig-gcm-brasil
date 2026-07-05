@@ -29,6 +29,8 @@ type Pessoa = {
 export default function PessoasAbordadasPage() {
   const [pessoas, setPessoas] = useState<Pessoa[]>([]);
   const [busca, setBusca] = useState("");
+  const [filtroHoje, setFiltroHoje] =
+  useState(false);
   const [carregando, setCarregando] = useState(true);
 
   const usuarioLogado =
@@ -49,7 +51,23 @@ export default function PessoasAbordadasPage() {
 
     const { data, error } = await supabase
       .from("pessoas_abordadas")
-      .select("*")
+      .select(`
+  id,
+  nome,
+  documento,
+  nascimento,
+  endereco,
+  local,
+  data,
+  hora,
+  guarda,
+  observacao,
+  tipo_documento,
+  telefone,
+  foto_url,
+  profissao
+`)
+.limit(200)
       .eq("municipio_id", usuarioLogado.municipio_id)
       .order("id", { ascending: false });
 
@@ -64,28 +82,33 @@ export default function PessoasAbordadasPage() {
     setPessoas(data || []);
   }
 
-  async function excluirPessoa(id: number) {
-    if (!podeEditar) {
-      alert("Você não possui permissão para excluir registros.");
-      return;
-    }
-
-    async function excluirPessoa(id: number) {
+ async function excluirPessoa(id: number) {
   if (!podeEditar) {
     alert("Você não possui permissão para excluir registros.");
     return;
   }
 
-  const confirmar = confirm("Deseja excluir este registro?");
-  if (!confirmar) return;
+  const motivo = prompt(
+    "Informe o motivo da exclusão:"
+  );
 
-  const pessoa = pessoas.find((p) => p.id === id);
+  if (!motivo?.trim()) {
+    alert("Informe o motivo da exclusão.");
+    return;
+  }
+
+  const pessoa = pessoas.find(
+    (p) => p.id === id
+  );
 
   const { error } = await supabase
     .from("pessoas_abordadas")
     .delete()
     .eq("id", id)
-    .eq("municipio_id", usuarioLogado.municipio_id);
+    .eq(
+      "municipio_id",
+      usuarioLogado.municipio_id
+    );
 
   if (error) {
     console.error(error);
@@ -94,19 +117,44 @@ export default function PessoasAbordadasPage() {
   }
 
   await registrarAuditoria({
-    modulo: "Pessoas",
+    modulo: "Pessoas Abordadas",
     acao: "EXCLUIR",
-    descricao: `Excluiu o registro de ${pessoa?.nome || id}.`,
+    descricao: `Excluiu o registro de ${
+      pessoa?.nome || id
+    }.`,
+    tabela: "pessoas_abordadas",
+    registro_id: id,
+    detalhes: {
+      motivo_exclusao: motivo,
+      nome: pessoa?.nome,
+      documento: pessoa?.documento,
+      municipio_id:
+        usuarioLogado?.municipio_id,
+    },
+  });
+
+  await carregarPessoas();
+
+  alert("Registro excluído com sucesso.");
+}
+
+useEffect(() => {
+  void registrarAuditoria({
+    modulo: "Pessoas Abordadas",
+    acao: "ACESSO",
+    descricao:
+      "Acessou o módulo de pessoas abordadas.",
+    tabela: "pessoas_abordadas",
+    detalhes: {
+      municipio_id:
+        usuarioLogado?.municipio_id,
+      usuario_id: usuarioLogado?.id,
+      perfil: usuarioLogado?.perfil,
+    },
   });
 
   carregarPessoas();
-}
-  }
-
-  useEffect(() => {
-    carregarPessoas();
-  }, []);
-
+}, []);
   const hoje = new Date().toISOString().split("T")[0];
 
   const pessoasFiltradas = pessoas.filter((pessoa) => {
@@ -123,7 +171,14 @@ export default function PessoasAbordadasPage() {
       ${pessoa.profissao || ""}
     `.toLowerCase();
 
-    return texto.includes(busca.toLowerCase());
+    const passouBusca =
+  texto.includes(busca.toLowerCase());
+
+const passouHoje = filtroHoje
+  ? pessoa.data === hoje
+  : true;
+
+return passouBusca && passouHoje;
   });
 
   return (
@@ -177,6 +232,20 @@ export default function PessoasAbordadasPage() {
             />
           </div>
 
+          <button
+  type="button"
+  onClick={() =>
+    setFiltroHoje(!filtroHoje)
+  }
+  className={`px-4 py-3 rounded-xl font-bold transition ${
+    filtroHoje
+      ? "bg-cyan-700 text-white"
+      : "bg-slate-800 text-slate-300"
+  }`}
+>
+  Hoje
+</button>
+
           {podeEditar && (
             <Link
               href="/sistema/pessoas/nova"
@@ -193,11 +262,27 @@ export default function PessoasAbordadasPage() {
         <h2 className="text-xl font-black text-white mb-5">
           Lista de Pessoas
         </h2>
+        <p className="text-slate-400 text-sm mb-5">
+  Exibindo {pessoasFiltradas.length} registro(s)
+</p>
 
         {carregando ? (
           <p className="text-slate-400">Carregando pessoas...</p>
         ) : pessoasFiltradas.length === 0 ? (
-          <p className="text-slate-400">Nenhuma pessoa encontrada.</p>
+          <div className="py-20 text-center">
+  <p className="text-7xl mb-5">
+    👤
+  </p>
+
+  <h3 className="text-2xl font-black">
+    Nenhuma pessoa encontrada
+  </h3>
+
+  <p className="text-slate-400 mt-3">
+    Não existem registros para os
+    filtros informados.
+  </p>
+</div>
         ) : (
           <>
             <div className="md:hidden space-y-4">

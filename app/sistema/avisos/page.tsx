@@ -1,129 +1,241 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Megaphone, Trash2 } from "lucide-react";
+
 import { supabase } from "@/lib/supabase";
-import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { registrarAuditoria } from "@/lib/auditoria";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type Aviso = {
   id: number;
   titulo: string;
   descricao: string;
-  criado_em: string;
+  criado_em: string | null;
+};
+
+type UsuarioLogado = {
+  id: number;
+  perfil?: string;
+  municipio_id: number;
 };
 
 export default function AvisosPage() {
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [carregando, setCarregando] = useState(true);
-
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+  const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
-    carregarAvisos();
+    async function iniciar() {
+      const dados = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      ) as UsuarioLogado;
+
+      if (!dados?.id || !dados?.municipio_id) {
+        alert("Sessão inválida.");
+        setCarregando(false);
+        return;
+      }
+
+      setUsuario(dados);
+
+      await registrarAuditoria({
+        modulo: "Avisos",
+        acao: "ACESSO",
+        descricao: "Acessou a tela de avisos.",
+        tabela: "avisos",
+        detalhes: {
+          usuario_id: dados.id,
+          municipio_id: dados.municipio_id,
+        },
+      });
+
+      await carregarAvisos(dados);
+    }
+
+    iniciar();
   }, []);
 
-  async function carregarAvisos() {
-
-if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
+  async function carregarAvisos(usuarioAtual: UsuarioLogado) {
     setCarregando(true);
 
     const { data, error } = await supabase
       .from("avisos")
-.select("*")
-.eq("municipio_id", usuarioLogado.municipio_id)
-.order("id", { ascending: false });
+      .select("id, titulo, descricao, criado_em")
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("id", { ascending: false })
+      .range(0, 99);
+
+    setCarregando(false);
+
     if (error) {
+      await registrarAuditoria({
+        modulo: "Avisos",
+        acao: "ERRO",
+        descricao: "Erro ao carregar avisos.",
+        tabela: "avisos",
+        detalhes: {
+          erro: error.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
       alert("Erro ao carregar avisos.");
-      setCarregando(false);
       return;
     }
 
     setAvisos(data || []);
-    setCarregando(false);
   }
 
   async function salvarAviso() {
-    if (!titulo || !descricao) {
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    if (!titulo.trim() || !descricao.trim()) {
       alert("Preencha título e descrição.");
       return;
     }
 
-    const { error } = await supabase.from("avisos").insert([
-      {
-  municipio_id: usuarioLogado.municipio_id,
-  titulo,
-  descricao,
-},
-    ]);
+    if (titulo.length > 120) {
+      alert("Título muito grande.");
+      return;
+    }
+
+    if (descricao.length > 2000) {
+      alert("Descrição muito grande.");
+      return;
+    }
+
+    setSalvando(true);
+
+    const dadosAviso = {
+      municipio_id: usuario.municipio_id,
+      titulo: titulo.trim(),
+      descricao: descricao.trim(),
+      criado_por: usuario.id,
+    };
+
+    const { data, error } = await supabase
+      .from("avisos")
+      .insert([dadosAviso])
+      .select("id")
+      .single();
+
+    setSalvando(false);
 
     if (error) {
-  alert("Erro ao salvar aviso.");
-  return;
-}
+      await registrarAuditoria({
+        modulo: "Avisos",
+        acao: "ERRO",
+        descricao: "Erro ao salvar aviso.",
+        tabela: "avisos",
+        detalhes: {
+          erro: error.message,
+          dados: dadosAviso,
+        },
+      });
 
-await registrarAuditoria({
-  modulo: "Avisos",
-  acao: "CRIAR",
-  descricao: `Criou o aviso: ${titulo}.`,
-});
+      alert("Erro ao salvar aviso.");
+      return;
+    }
 
-    alert("Aviso cadastrado com sucesso!");
+    await registrarAuditoria({
+      modulo: "Avisos",
+      acao: "CRIAR",
+      descricao: `Criou o aviso: ${titulo.trim()}.`,
+      tabela: "avisos",
+      registro_id: data?.id,
+      detalhes: dadosAviso,
+    });
+
+    alert("Aviso cadastrado com sucesso.");
 
     setTitulo("");
     setDescricao("");
-    carregarAvisos();
+    await carregarAvisos(usuario);
   }
 
   async function excluirAviso(id: number) {
-    const confirmar = confirm("Tem certeza que deseja excluir este aviso?");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida.");
+      return;
+    }
 
-    if (!confirmar) return;
+    const aviso = avisos.find((item) => item.id === id);
 
-    const aviso = avisos.find((a) => a.id === id);
+    const motivo = prompt("Informe o motivo da exclusão:");
+
+    if (!motivo?.trim()) {
+      alert("Informe o motivo da exclusão.");
+      return;
+    }
 
     const { error } = await supabase
       .from("avisos")
       .delete()
-.eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+      .eq("id", id)
+      .eq("municipio_id", usuario.municipio_id);
 
     if (error) {
+      await registrarAuditoria({
+        modulo: "Avisos",
+        acao: "ERRO",
+        descricao: "Erro ao excluir aviso.",
+        tabela: "avisos",
+        registro_id: id,
+        detalhes: {
+          erro: error.message,
+          aviso,
+          motivo,
+        },
+      });
+
       alert("Erro ao excluir aviso.");
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Avisos",
-  acao: "EXCLUIR",
-  descricao: `Excluiu o aviso: ${aviso?.titulo || id}.`,
-});
+      modulo: "Avisos",
+      acao: "EXCLUIR",
+      descricao: `Excluiu o aviso: ${aviso?.titulo || id}.`,
+      tabela: "avisos",
+      registro_id: id,
+      detalhes: {
+        motivo,
+        aviso,
+      },
+    });
 
     alert("Aviso excluído com sucesso.");
-    carregarAvisos();
+    await carregarAvisos(usuario);
   }
 
   return (
     <ProtecaoModulo modulo="avisos">
-      <div className="p-6 text-white">
-        <h1 className="text-3xl font-black mb-2">
-          📢 Avisos
-        </h1>
+      <div className="p-4 md:p-6 pb-24 space-y-6 text-white">
+        <div className="painel-premium p-6">
+          <div className="flex items-center gap-3">
+            <Megaphone className="w-8 h-8 text-yellow-400" />
 
-        <p className="text-slate-400 mb-6">
-          Cadastre comunicados e avisos internos do sistema.
-        </p>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-black">
+                Avisos
+              </h1>
+
+              <p className="text-slate-400 mt-1">
+                Cadastre comunicados e avisos internos do sistema.
+              </p>
+            </div>
+          </div>
+        </div>
 
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="card">
+          <div className="painel-premium p-6">
             <h2 className="text-xl font-bold mb-4">Novo Aviso</h2>
 
             <div className="space-y-4">
@@ -140,7 +252,7 @@ await registrarAuditoria({
               <div>
                 <label className="label">Descrição</label>
                 <textarea
-                  className="input h-32 resize-none"
+                  className="input min-h-32 resize-none"
                   value={descricao}
                   onChange={(e) => setDescricao(e.target.value)}
                   placeholder="Descreva o aviso..."
@@ -150,14 +262,15 @@ await registrarAuditoria({
               <button
                 type="button"
                 onClick={salvarAviso}
-                className="btn-primary w-full"
+                disabled={salvando}
+                className="sig-btn-gold w-full disabled:opacity-50"
               >
-                Salvar Aviso
+                {salvando ? "Salvando..." : "Salvar Aviso"}
               </button>
             </div>
           </div>
 
-          <div className="card lg:col-span-2">
+          <div className="painel-premium p-6 lg:col-span-2">
             <h2 className="text-xl font-bold mb-4">
               Avisos Cadastrados
             </h2>
@@ -167,39 +280,41 @@ await registrarAuditoria({
             ) : avisos.length === 0 ? (
               <p className="text-slate-400">Nenhum aviso cadastrado.</p>
             ) : (
-              <table className="w-full text-sm">
-                <thead className="text-slate-400 border-b border-slate-700">
-                  <tr>
-                    <th className="text-left py-3">Título</th>
-                    <th className="text-left py-3">Descrição</th>
-                    <th className="text-right py-3">Ações</th>
-                  </tr>
-                </thead>
+              <div className="space-y-3">
+                {avisos.map((aviso) => (
+                  <div
+                    key={aviso.id}
+                    className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
+                      <div>
+                        <h3 className="text-lg font-black text-yellow-400">
+                          {aviso.titulo}
+                        </h3>
 
-                <tbody>
-                  {avisos.map((aviso) => (
-                    <tr key={aviso.id} className="border-b border-slate-800">
-                      <td className="py-4 text-blue-400 font-semibold">
-                        {aviso.titulo}
-                      </td>
+                        <p className="text-slate-300 mt-2 whitespace-pre-wrap">
+                          {aviso.descricao}
+                        </p>
 
-                      <td className="text-slate-400">
-                        {aviso.descricao}
-                      </td>
+                        <p className="text-xs text-slate-500 mt-3">
+                          {aviso.criado_em
+                            ? new Date(aviso.criado_em).toLocaleString("pt-BR")
+                            : "Data não informada"}
+                        </p>
+                      </div>
 
-                      <td className="text-right">
-                        <button
-                          type="button"
-                          onClick={() => excluirAviso(aviso.id)}
-                          className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                        >
-                          Excluir
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      <button
+                        type="button"
+                        onClick={() => excluirAviso(aviso.id)}
+                        className="rounded-xl px-4 py-2 bg-red-950/60 border border-red-900 text-red-300 font-bold inline-flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={16} />
+                        Excluir
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         </section>

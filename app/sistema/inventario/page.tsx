@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 const observacoesRapidas = [
   "Quantidade física confere com o sistema.",
@@ -18,6 +19,7 @@ export default function InventarioAlmoxarifadoPage() {
   const [entradas, setEntradas] = useState<any[]>([]);
   const [saidas, setSaidas] = useState<any[]>([]);
   const [contagens, setContagens] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const [itemSelecionado, setItemSelecionado] = useState("");
@@ -30,27 +32,52 @@ export default function InventarioAlmoxarifadoPage() {
       : {};
 
   async function carregar() {
-    if (!usuario?.municipio_id) return;
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida. Faça login novamente.");
+      window.location.href = "/login";
+      return;
+    }
 
-    const { data: listaEntradas } = await supabase
-      .from("almoxarifado_entradas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+    setCarregando(true);
 
-    const { data: listaSaidas } = await supabase
-      .from("almoxarifado_saidas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id);
+    const [
+      entradasRes,
+      saidasRes,
+      contagensRes,
+    ] = await Promise.all([
+      supabase
+        .from("almoxarifado_entradas")
+        .select("*")
+        .eq("municipio_id", usuario.municipio_id),
 
-    const { data: listaContagens } = await supabase
-      .from("almoxarifado_inventario")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      supabase
+        .from("almoxarifado_saidas")
+        .select("*")
+        .eq("municipio_id", usuario.municipio_id),
 
-    setEntradas(listaEntradas || []);
-    setSaidas(listaSaidas || []);
-    setContagens(listaContagens || []);
+      supabase
+        .from("almoxarifado_inventario")
+        .select("*")
+        .eq("municipio_id", usuario.municipio_id)
+        .order("criado_em", { ascending: false }),
+    ]);
+
+    setCarregando(false);
+
+    if (entradasRes.error || saidasRes.error || contagensRes.error) {
+      console.error({
+        entradas: entradasRes.error,
+        saidas: saidasRes.error,
+        contagens: contagensRes.error,
+      });
+
+      alert("Erro ao carregar inventário do almoxarifado.");
+      return;
+    }
+
+    setEntradas(entradasRes.data || []);
+    setSaidas(saidasRes.data || []);
+    setContagens(contagensRes.data || []);
   }
 
   useEffect(() => {
@@ -98,13 +125,26 @@ export default function InventarioAlmoxarifadoPage() {
 
   function usarQuantidadeSistema() {
     if (!itemAtual) return;
+
     setQuantidadeFisica(String(itemAtual.quantidadeSistema || 0));
     adicionarObservacao("Quantidade física confere com o sistema.");
   }
 
   async function registrarContagem() {
-    if (!itemAtual) return alert("Selecione o material.");
-    if (quantidadeFisica === "") return alert("Informe a quantidade física contada.");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida. Faça login novamente.");
+      return;
+    }
+
+    if (!itemAtual) {
+      alert("Selecione o material.");
+      return;
+    }
+
+    if (quantidadeFisica === "") {
+      alert("Informe a quantidade física contada.");
+      return;
+    }
 
     const qtdSistema = Number(itemAtual.quantidadeSistema || 0);
     const qtdFisica = Number(quantidadeFisica || 0);
@@ -127,16 +167,47 @@ export default function InventarioAlmoxarifadoPage() {
       },
     ]);
 
+    if (error) {
+      console.error(error);
+      setSalvando(false);
+      alert("Erro ao registrar inventário.");
+      return;
+    }
+
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "REGISTRAR_INVENTARIO",
+      tabela: "almoxarifado_inventario",
+      descricao: `Registrou inventário do item ${itemAtual.item}.`,
+      detalhes: {
+        item: itemAtual.item,
+        categoria: itemAtual.categoria,
+        unidade: itemAtual.unidade,
+        quantidade_sistema: qtdSistema,
+        quantidade_fisica: qtdFisica,
+        diferenca,
+        local: itemAtual.local || null,
+      },
+    });
+
     setSalvando(false);
-
-    if (error) return alert(error.message);
-
     setItemSelecionado("");
     setQuantidadeFisica("");
     setObservacao("");
 
-    carregar();
+    await carregar();
+
     alert("Inventário registrado com sucesso.");
+  }
+
+  if (carregando) {
+    return (
+      <div className="p-4 md:p-6 pb-24">
+        <div className="painel-premium p-6">
+          <p className="text-slate-400">Carregando inventário...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -147,7 +218,8 @@ export default function InventarioAlmoxarifadoPage() {
         </h1>
 
         <p className="text-slate-400 mt-2">
-          Confira a quantidade física dos materiais e compare com o saldo do sistema.
+          Confira a quantidade física dos materiais e compare com o saldo do
+          sistema.
         </p>
       </div>
 
@@ -170,7 +242,8 @@ export default function InventarioAlmoxarifadoPage() {
 
                   return (
                     <option key={chave} value={chave}>
-                      {item.item} • Sistema: {item.quantidadeSistema} {item.unidade}
+                      {item.item} • Sistema: {item.quantidadeSistema}{" "}
+                      {item.unidade}
                     </option>
                   );
                 })}
@@ -179,7 +252,10 @@ export default function InventarioAlmoxarifadoPage() {
 
             {itemAtual && (
               <div className="rounded-2xl bg-slate-900/70 border border-slate-800 p-4">
-                <p className="text-slate-400 text-sm">Quantidade no sistema</p>
+                <p className="text-slate-400 text-sm">
+                  Quantidade no sistema
+                </p>
+
                 <p className="text-2xl font-black text-white">
                   {itemAtual.quantidadeSistema} {itemAtual.unidade}
                 </p>
@@ -264,9 +340,11 @@ export default function InventarioAlmoxarifadoPage() {
           {contagens.length === 0 ? (
             <div className="painel-premium p-10 text-center">
               <p className="text-6xl mb-3">📋</p>
+
               <h2 className="text-white text-xl font-black">
                 Nenhum inventário registrado
               </h2>
+
               <p className="text-slate-400 text-sm mt-2">
                 As conferências aparecerão aqui após o primeiro registro.
               </p>
@@ -281,6 +359,7 @@ export default function InventarioAlmoxarifadoPage() {
                   <div className="flex justify-between gap-3">
                     <div>
                       <p className="text-slate-400 text-sm">{c.categoria}</p>
+
                       <h3 className="text-xl font-black text-white">
                         📋 {c.item}
                       </h3>
@@ -293,14 +372,25 @@ export default function InventarioAlmoxarifadoPage() {
                           : "bg-yellow-950 text-yellow-300 border-yellow-800"
                       }`}
                     >
-                      {Number(c.diferenca || 0) === 0 ? "OK" : "DIVERGÊNCIA"}
+                      {Number(c.diferenca || 0) === 0
+                        ? "OK"
+                        : "DIVERGÊNCIA"}
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 mt-4">
-                    <Info titulo="Sistema" valor={`${c.quantidade_sistema} ${c.unidade}`} />
-                    <Info titulo="Físico" valor={`${c.quantidade_fisica} ${c.unidade}`} />
+                    <Info
+                      titulo="Sistema"
+                      valor={`${c.quantidade_sistema} ${c.unidade}`}
+                    />
+
+                    <Info
+                      titulo="Físico"
+                      valor={`${c.quantidade_fisica} ${c.unidade}`}
+                    />
+
                     <Info titulo="Diferença" valor={String(c.diferenca)} />
+
                     <Info
                       titulo="Data"
                       valor={
@@ -342,6 +432,7 @@ function Campo({
   return (
     <div>
       <label className="label">{label}</label>
+
       <input
         type={type}
         className="input"

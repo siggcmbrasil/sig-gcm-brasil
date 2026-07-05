@@ -46,19 +46,35 @@ export default function GruposChatPage() {
         <SigCard>
           <Users className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Grupos</h3>
-          <p className="text-2xl font-black text-white mt-2">03</p>
+          <p className="text-2xl font-black text-white mt-2">
+  {grupos.length}
+</p>
         </SigCard>
 
         <SigCard>
           <Radio className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Operacionais</h3>
-          <p className="text-2xl font-black text-white mt-2">02</p>
+          <p className="text-2xl font-black text-white mt-2">
+  {
+    grupos.filter(
+      (g) =>
+        g.tipo === "Operacional" ||
+        g.tipo === "Guarnição"
+    ).length
+  }
+</p>
         </SigCard>
 
         <SigCard>
           <Lock className="w-8 h-8 text-cyan-400 mb-3" />
           <h3 className="text-lg font-black text-white">Restritos</h3>
-          <p className="text-2xl font-black text-white mt-2">01</p>
+          <p className="text-2xl font-black text-white mt-2">
+  {
+    grupos.filter(
+      (g) => g.status === "Restrito"
+    ).length
+  }
+</p>
         </SigCard>
 
         <SigCard>

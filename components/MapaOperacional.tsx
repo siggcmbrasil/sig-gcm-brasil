@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -192,6 +192,11 @@ const operacoesComCoordenadas = operacoesEspeciais.filter(
 
 const [pronto, setPronto] = useState(false);
 
+const mapaKey = useMemo(
+  () => `mapa-operacional-${Date.now()}`,
+  []
+);
+
 useEffect(() => {
   setPronto(true);
 }, []);
@@ -205,8 +210,8 @@ if (!pronto) {
 }
 
   return (
-    <MapContainer
-  key="mapa-operacional"
+  <MapContainer
+  key={mapaKey}
   center={[-11.621296322631357, -38.80684199142887]}
       zoom={15}
       scrollWheelZoom={true}

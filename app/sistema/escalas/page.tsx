@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
   CalendarDays,
   CalendarRange,
@@ -66,11 +67,18 @@ const cards = [
     href: "/sistema/escalas/mapa-efetivo",
     icone: Users,
   },
+  {
+  titulo: "Guarnição do Dia",
+  descricao: "Equipe escalada no plantão atual.",
+  href: "/sistema/escalas/guarnicao-dia",
+  icone: Users,
+},
 ];
 
 export default function EscalasPage() {
   return (
-    <div className="p-3 md:p-6 pb-24">
+    <ProtecaoModulo modulo="escalas">
+      <div className="p-3 md:p-6 pb-24">
       <header className="border-b border-slate-800 pb-5 mb-6">
         <h1 className="text-3xl md:text-5xl font-black text-white">
           Central de Escalas
@@ -88,13 +96,25 @@ export default function EscalasPage() {
 
           return (
             <Link
-              key={card.href}
+              key={`${card.href}-${card.titulo}`}
               href={card.href}
-              className="painel-premium p-6 hover:scale-[1.02] transition-all duration-300"
+              className="
+painel-premium
+p-6
+hover:scale-[1.02]
+hover:border-cyan-500/40
+hover:shadow-cyan-500/10
+transition-all
+duration-300
+"
             >
               <div className="w-14 h-14 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-5">
                 <Icone className="w-8 h-8 text-cyan-400" />
               </div>
+
+              <span className="text-xs font-black text-cyan-400">
+  ESCALAS
+</span>
 
               <h2 className="text-xl font-black text-white">
                 {card.titulo}
@@ -106,7 +126,8 @@ export default function EscalasPage() {
             </Link>
           );
         })}
-      </section>
-    </div>
+            </section>
+      </div>
+    </ProtecaoModulo>
   );
 }

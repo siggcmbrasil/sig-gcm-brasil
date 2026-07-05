@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
@@ -81,7 +82,7 @@ export default function ConsultasPage() {
 
     const { data } = await supabase
       .from("consultas_operacionais")
-      .select("*")
+      .select("id, tipo, consulta, motivo, resultado, criado_em")
       .eq("municipio_id", usuarioLogado.municipio_id)
       .order("id", { ascending: false })
       .limit(5);
@@ -95,10 +96,25 @@ export default function ConsultasPage() {
       return;
     }
 
-    if (!usuarioLogado?.municipio_id) {
-      alert("Município não identificado.");
-      return;
-    }
+    if (!usuarioLogado?.id || !usuarioLogado?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
+
+if (motivo.trim().length < 10) {
+  alert("Informe um motivo mais detalhado para a consulta.");
+  return;
+}
+
+if (motivo.length > 500) {
+  alert("Motivo muito grande.");
+  return;
+}
+
+if (valor.length > 30) {
+  alert("Consulta muito grande.");
+  return;
+}
 
     setSalvando(true);
 
@@ -113,17 +129,43 @@ export default function ConsultasPage() {
       resultado: "EM_DESENVOLVIMENTO",
     };
 
-    const { error } = await supabase
-      .from("consultas_operacionais")
-      .insert(payload);
+    const { data, error } = await supabase
+  .from("consultas_operacionais")
+  .insert([payload])
+  .select("id")
+  .single();
 
     setSalvando(false);
 
-    if (error) {
-      console.error(error);
-      alert(`Erro ao registrar consulta: ${error.message}`);
-      return;
-    }
+if (error) {
+  await registrarAuditoria({
+    modulo: "Consultas Operacionais",
+    acao: "ERRO",
+    descricao: "Erro ao registrar consulta operacional.",
+    tabela: "consultas_operacionais",
+    detalhes: {
+      erro: error.message,
+      tipo,
+      consulta: valorNormalizado,
+    },
+  });
+
+  alert(`Erro ao registrar consulta: ${error.message}`);
+  return;
+}
+
+await registrarAuditoria({
+  modulo: "Consultas Operacionais",
+  acao: "CONSULTAR",
+  descricao: `Registrou consulta operacional do tipo ${tipo}.`,
+  tabela: "consultas_operacionais",
+  registro_id: data?.id,
+  detalhes: {
+    tipo,
+    consulta: valorNormalizado,
+    motivo: motivo.trim(),
+  },
+});
 
     setResultado({
       tipo,

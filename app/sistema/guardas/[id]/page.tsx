@@ -15,6 +15,7 @@ import {
   Award,
   TriangleAlert,
   BarChart3,
+  HeartPulse,
 } from "lucide-react";
 
 type Guarda = {
@@ -52,6 +53,8 @@ export default function DossieGuardaPage() {
   patrulhamentos: 0,
   elogios: 0,
   advertencias: 0,
+  ferias: 0,
+  licencas: 0,
 });
 
   useEffect(() => {
@@ -105,31 +108,63 @@ const usuarioLogado =
     const { count: documentos } = await supabase
       .from("documentos_guardas")
       .select("*", { count: "exact", head: true })
-      .eq("guarda_id", Number(id));
+      .eq("municipio_id", usuarioLogado.municipio_id)
+.eq("guarda_id", Number(id));
 
     const { count: cursos } = await supabase
       .from("cursos_guardas")
       .select("*", { count: "exact", head: true })
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .eq("guarda_id", Number(id));
 
     const { count: elogios } = await supabase
       .from("elogios_guardas")
       .select("*", { count: "exact", head: true })
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .eq("guarda_id", Number(id));
 
     const { count: advertencias } = await supabase
       .from("advertencias_guardas")
       .select("*", { count: "exact", head: true })
+      .eq("municipio_id", usuarioLogado.municipio_id)
       .eq("guarda_id", Number(id));
+
+     const { count: ferias } = await supabase
+  .from("ferias_licencas")
+  .select("*", {
+    count: "exact",
+    head: true,
+  })
+  .eq(
+    "municipio_id",
+    usuarioLogado.municipio_id
+  )
+  .eq("guarda_id", Number(id))
+  .eq("tipo", "FÉRIAS");
+
+const { count: licencas } = await supabase
+  .from("ferias_licencas")
+  .select("*", {
+    count: "exact",
+    head: true,
+  })
+  .eq(
+    "municipio_id",
+    usuarioLogado.municipio_id
+  )
+  .eq("guarda_id", Number(id))
+  .not("tipo", "eq", "FÉRIAS");
 
       const { count: ocorrencias } = await supabase
   .from("ocorrencias")
-  .select("*", { count: "exact", head: true })
-  .eq("guarda_responsavel_id", Number(id));
+.select("*", { count: "exact", head: true })
+.eq("municipio_id", usuarioLogado.municipio_id)
+.eq("guarda_responsavel_id", Number(id));
 
   const { data: ultimasOcorrencias } = await supabase
   .from("ocorrencias")
   .select("id, protocolo, tipo, data, status")
+  .eq("municipio_id", usuarioLogado.municipio_id)
   .eq("guarda_responsavel_id", Number(id))
   .order("data", { ascending: false })
   .limit(5);
@@ -137,9 +172,10 @@ const usuarioLogado =
 setOcorrenciasGuarda(ultimasOcorrencias || []);
 
 const { data: ultimosPatrulhamentos } = await supabase
-  .from("patrulhamentos")
-  .select("*")
-  .eq("guarda_id", Number(id))
+ .from("patrulhamentos")
+.select("*")
+.eq("municipio_id", usuarioLogado.municipio_id)
+.eq("guarda_id", Number(id))
   .order("data", { ascending: false })
   .limit(5);
 
@@ -150,15 +186,18 @@ setPatrulhamentosGuarda(
   const { count: patrulhamentos } = await supabase
   .from("patrulhamentos")
   .select("*", { count: "exact", head: true })
+  .eq("municipio_id", usuarioLogado.municipio_id)
   .eq("guarda_id", Number(id));
 
-    setStats({
+   setStats({
   documentos: documentos || 0,
   cursos: cursos || 0,
   patrulhamentos: patrulhamentos || 0,
   ocorrencias: ocorrencias || 0,
   elogios: elogios || 0,
   advertencias: advertencias || 0,
+  ferias: ferias || 0,
+  licencas: licencas || 0,
 });
   }
 
@@ -282,63 +321,80 @@ function calcularTempoServico(data?: string) {
         <MiniStat icone="📍" titulo="Patrulhamentos" valor={stats.patrulhamentos} />
         <MiniStat icone="🏆" titulo="Elogios" valor={stats.elogios} />
         <MiniStat icone="⚠️" titulo="Advertências" valor={stats.advertencias} />
+        <MiniStat
+  icone="🏖️"
+  titulo="Férias"
+  valor={stats.ferias}
+/>
+
+<MiniStat
+  icone="📄"
+  titulo="Licenças"
+  valor={stats.licencas}
+/>
       </div>
 
-      <div className="painel-premium p-6">
-  <h2 className="text-2xl font-black mb-4">
-    🚔 Últimas Ocorrências
-  </h2>
+      <div className="grid md:grid-cols-2 gap-5">
+  <div className="painel-premium p-6">
+    <h2 className="text-2xl font-black mb-4">
+      🚔 Últimas Ocorrências
+    </h2>
+
+    {ocorrenciasGuarda.length === 0 ? (
+      <p className="text-slate-400">
+        Nenhuma ocorrência vinculada a este guarda.
+      </p>
+    ) : (
+      <div className="space-y-3">
+        {ocorrenciasGuarda.map((oc) => (
+          <Link
+            key={oc.id}
+            href={`/sistema/ocorrencias/${oc.id}`}
+            className="block border border-slate-700 rounded-xl p-4 hover:bg-slate-900"
+          >
+            <p className="font-bold text-blue-400">
+              {oc.protocolo}
+            </p>
+
+            <p>{oc.tipo}</p>
+
+            <p className="text-sm text-slate-400">
+              {oc.data} • {oc.status}
+            </p>
+          </Link>
+        ))}
+      </div>
+    )}
+  </div>
 
   <div className="painel-premium p-6">
-  <h2 className="text-2xl font-black mb-4">
-    🛣️ Últimos Patrulhamentos
-  </h2>
+    <h2 className="text-2xl font-black mb-4">
+      🛣️ Últimos Patrulhamentos
+    </h2>
 
-  {patrulhamentosGuarda.length === 0 ? (
-    <p className="text-slate-400">
-      Nenhum patrulhamento encontrado.
-    </p>
-  ) : (
-    <div className="space-y-3">
-      {patrulhamentosGuarda.map((item) => (
-        <div
-          key={item.id}
-          className="border border-slate-700 rounded-xl p-4"
-        >
-          <p className="font-bold">
-            {item.data}
-          </p>
+    {patrulhamentosGuarda.length === 0 ? (
+      <p className="text-slate-400">
+        Nenhum patrulhamento encontrado.
+      </p>
+    ) : (
+      <div className="space-y-3">
+        {patrulhamentosGuarda.map((item) => (
+          <div
+            key={item.id}
+            className="border border-slate-700 rounded-xl p-4"
+          >
+            <p className="font-bold">
+              {item.data}
+            </p>
 
-          <p className="text-slate-400">
-            {item.status || "Concluído"}
-          </p>
-        </div>
-      ))}
-    </div>
-  )}
-</div>
-
-  {ocorrenciasGuarda.length === 0 ? (
-    <p className="text-slate-400">
-      Nenhuma ocorrência vinculada a este guarda.
-    </p>
-  ) : (
-    <div className="space-y-3">
-      {ocorrenciasGuarda.map((oc) => (
-        <Link
-          key={oc.id}
-          href={`/sistema/ocorrencias/${oc.id}`}
-          className="block border border-slate-700 rounded-xl p-4 hover:bg-slate-900"
-        >
-          <p className="font-bold text-blue-400">{oc.protocolo}</p>
-          <p>{oc.tipo}</p>
-          <p className="text-sm text-slate-400">
-            {oc.data} • {oc.status}
-          </p>
-        </Link>
-      ))}
-    </div>
-  )}
+            <p className="text-slate-400">
+              {item.status || "Concluído"}
+            </p>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
 </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -352,6 +408,18 @@ function calcularTempoServico(data?: string) {
   titulo="Histórico Profissional"
   icone={<Shield size={48} />}
   href={`/sistema/guardas/${id}/historico`}
+/>
+
+<CardDossie
+  titulo="Documentos"
+  icone={<FileText size={48} />}
+  href={`/sistema/guardas/${id}/documentos`}
+/>
+
+<CardDossie
+  titulo="Férias e Licenças"
+  icone={<HeartPulse size={48} />}
+  href={`/sistema/guardas/${id}/ferias-licencas`}
 />
 
 <CardDossie
@@ -388,6 +456,18 @@ function calcularTempoServico(data?: string) {
   titulo="Estatísticas"
   icone={<BarChart3 size={48} />}
   href={`/sistema/guardas/${id}/estatisticas`}
+/>
+
+<CardDossie
+  titulo="Banco de Horas"
+  icone={<CalendarDays size={48} />}
+  href={`/sistema/guardas/${id}/banco-horas`}
+/>
+
+<CardDossie
+  titulo="Cautelas"
+  icone={<Shield size={48} />}
+  href={`/sistema/guardas/${id}/cautelas`}
 />
       </div>
     </div>

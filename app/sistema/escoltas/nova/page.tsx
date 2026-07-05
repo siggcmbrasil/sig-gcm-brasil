@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { CarFront, Save, Users } from "lucide-react";
+import { CarFront, Save } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
@@ -94,12 +95,28 @@ export default function NovaEscoltaPage() {
     setSalvando(false);
 
     if (error) {
-      console.error(error);
-      alert(error.message);
-      return;
-    }
+  console.error(error);
+  alert(error.message);
+  return;
+}
 
-    alert("Escolta cadastrada com sucesso.");
+await registrarAuditoria({
+  modulo: "Escoltas",
+  acao: "CRIAR",
+  descricao: `Cadastrou escolta de ${localOrigem.trim()} para ${localDestino.trim()}.`,
+  tabela: "escoltas",
+  detalhes: {
+    tipo,
+    origem: localOrigem.trim(),
+    destino: localDestino.trim(),
+    solicitante: solicitante.trim(),
+    guarnicao_id: guarnicaoId || null,
+    guarda_id: guardaId || null,
+    viatura_id: viaturaId || null,
+  },
+});
+
+alert("Escolta cadastrada com sucesso.");
     router.push("/sistema/escoltas");
   }
 

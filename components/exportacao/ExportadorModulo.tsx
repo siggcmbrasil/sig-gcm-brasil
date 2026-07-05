@@ -4,6 +4,7 @@ import { Download } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Props = {
   titulo: string;
@@ -54,6 +55,19 @@ export default function ExportadorModulo({
 
     a.href = url;
     a.download = arquivo;
+
+await registrarAuditoria({
+  modulo: "Exportador",
+  acao,
+  tabela,
+  descricao: `Exportou ${tabela}.`,
+  detalhes: {
+    tabela,
+    arquivo,
+    quantidade: data?.length || 0,
+  },
+});
+
     a.click();
 
     window.URL.revokeObjectURL(url);

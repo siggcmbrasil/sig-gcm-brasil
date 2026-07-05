@@ -70,7 +70,9 @@ const observacoesRapidas = [
 ];
 
 export default function EntradaAlmoxarifadoPage() {
+  const [usuario, setUsuario] = useState<any>(null);
   const [entradas, setEntradas] = useState<any[]>([]);
+  const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
 
   const [item, setItem] = useState("");
@@ -82,71 +84,187 @@ export default function EntradaAlmoxarifadoPage() {
   const [local, setLocal] = useState("ALMOXARIFADO");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  useEffect(() => {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+    if (!dados?.id || !dados?.municipio_id) {
+      alert("Sessão inválida. Faça login novamente.");
+      setCarregando(false);
+      return;
+    }
 
-    const { data } = await supabase
+    setUsuario(dados);
+    registrarAcesso(dados);
+    carregar(dados);
+  }, []);
+
+  async function registrarAcesso(usuarioAtual: any) {
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "ACESSO",
+      descricao: "Acessou a tela de entrada do almoxarifado.",
+      tabela: "almoxarifado_entradas",
+      detalhes: {
+        municipio_id: usuarioAtual.municipio_id,
+        usuario_id: usuarioAtual.id,
+      },
+    });
+  }
+
+  async function carregar(usuarioAtual = usuario) {
+    if (!usuarioAtual?.municipio_id) {
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+
+    const { data, error } = await supabase
       .from("almoxarifado_entradas")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+      .select(`
+        id,
+        item,
+        categoria,
+        quantidade,
+        unidade,
+        fornecedor,
+        documento,
+        local,
+        observacao,
+        criado_em
+      `)
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .order("criado_em", { ascending: false })
+      .limit(100);
+
+    setCarregando(false);
+
+    if (error) {
+      await registrarAuditoria({
+        modulo: "Almoxarifado",
+        acao: "ERRO",
+        descricao: "Erro ao carregar entradas do almoxarifado.",
+        tabela: "almoxarifado_entradas",
+        detalhes: {
+          erro: error.message,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
+
+      alert("Erro ao carregar entradas do almoxarifado.");
+      return;
+    }
 
     setEntradas(data || []);
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
-
   async function registrarEntrada() {
-    if (!item.trim()) return alert("Informe o item.");
-    if (!quantidade || Number(quantidade) <= 0) return alert("Informe a quantidade.");
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Sessão inválida. Faça login novamente.");
+      return;
+    }
+
+    if (!item.trim()) {
+      alert("Informe o item.");
+      return;
+    }
+
+    if (item.trim().length < 2) {
+      alert("Informe um item válido.");
+      return;
+    }
+
+    if (!quantidade || Number(quantidade) <= 0) {
+      alert("Informe a quantidade.");
+      return;
+    }
+
+    if (Number(quantidade) > 100000) {
+      alert("Quantidade muito alta.");
+      return;
+    }
+
+    if (fornecedor.length > 200) {
+      alert("Fornecedor muito grande.");
+      return;
+    }
+
+    if (documento.length > 100) {
+      alert("Documento muito grande.");
+      return;
+    }
+
+    if (local.length > 100) {
+      alert("Local muito grande.");
+      return;
+    }
+
+    if (observacao.length > 1000) {
+      alert("Observação muito grande.");
+      return;
+    }
 
     setSalvando(true);
 
-    const { error } = await supabase.from("almoxarifado_entradas").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        item: item.trim(),
-        categoria,
-        quantidade: Number(quantidade),
-        unidade,
-        fornecedor: fornecedor.trim() || null,
-        documento: documento.trim() || null,
-        local: local.trim() || null,
-        observacao: observacao.trim() || null,
-      },
-    ]);
+    const dadosEntrada = {
+      municipio_id: usuario.municipio_id,
+      criado_por: usuario.id,
+      item: item.trim(),
+      categoria,
+      quantidade: Number(quantidade),
+      unidade,
+      fornecedor: fornecedor.trim() || null,
+      documento: documento.trim() || null,
+      local: local.trim() || null,
+      observacao: observacao.trim() || null,
+    };
+
+    const { data, error } = await supabase
+      .from("almoxarifado_entradas")
+      .insert([dadosEntrada])
+      .select("id")
+      .single();
 
     setSalvando(false);
 
     if (error) {
-  setSalvando(false);
-  return alert(error.message);
-}
+      await registrarAuditoria({
+        modulo: "Almoxarifado",
+        acao: "ERRO",
+        descricao: "Erro ao registrar entrada no almoxarifado.",
+        tabela: "almoxarifado_entradas",
+        detalhes: {
+          erro: error.message,
+          dados: dadosEntrada,
+        },
+      });
 
-await registrarAuditoria({
-  modulo: "Almoxarifado",
-  acao: "ENTRADA",
-  descricao: `Registrou entrada de ${quantidade} ${unidade} de ${item} no local ${local}.`,
-});
+      alert("Erro ao registrar entrada.");
+      return;
+    }
 
-setItem("");
-setCategoria("MATERIAL_CONSUMO");
-setQuantidade("");
-setUnidade("UN");
-setFornecedor("");
-setDocumento("");
-setLocal("ALMOXARIFADO");
-setObservacao("");
+    await registrarAuditoria({
+      modulo: "Almoxarifado",
+      acao: "CRIAR",
+      descricao: `Registrou entrada de ${quantidade} ${unidade} de ${item}.`,
+      tabela: "almoxarifado_entradas",
+      registro_id: data?.id,
+      detalhes: dadosEntrada,
+    });
 
-    carregar();
+    setItem("");
+    setCategoria("MATERIAL_CONSUMO");
+    setQuantidade("");
+    setUnidade("UN");
+    setFornecedor("");
+    setDocumento("");
+    setLocal("ALMOXARIFADO");
+    setObservacao("");
+
+    await carregar(usuario);
+
     alert("Entrada registrada com sucesso.");
   }
 
@@ -358,11 +476,15 @@ setObservacao("");
             </h2>
 
             <p className="text-slate-400 text-sm">
-              Últimos materiais recebidos no almoxarifado.
+              Últimos 100 materiais recebidos no almoxarifado.
             </p>
           </div>
 
-          {entradas.length === 0 ? (
+          {carregando ? (
+            <div className="painel-premium p-10 text-center">
+              <p className="text-slate-400">Carregando entradas...</p>
+            </div>
+          ) : entradas.length === 0 ? (
             <div className="painel-premium p-10 text-center">
               <p className="text-6xl mb-3">📥</p>
               <h2 className="text-white text-xl font-black">

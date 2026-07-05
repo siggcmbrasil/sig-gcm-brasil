@@ -38,35 +38,117 @@ export default function CadastroArmamentosPage() {
   const [localizacao, setLocalizacao] = useState("ARMARIA");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
+  const [carregando, setCarregando] = useState(true);
+  const [bloqueado, setBloqueado] = useState(false);
 
   const modelos = useMemo(() => {
     return MARCAS_MODELOS_ARMA_FOGO[marca] || ["Outro"];
   }, [marca]);
 
   useEffect(() => {
-    carregar();
-  }, []);
+  async function iniciar() {
+    const dados = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
-
-    const { data, error } = await supabase
-      .from("armamentos")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
-
-    if (error) {
-      alert(error.message);
+    if (!dados?.id || !dados?.municipio_id) {
+      setBloqueado(true);
+      setCarregando(false);
       return;
     }
 
-    setArmamentos(data || []);
+    if (
+      ![
+        "ADMIN",
+        "COMANDANTE",
+        "DIRETOR",
+        "DESENVOLVEDOR",
+      ].includes(dados.perfil || "")
+    ) {
+      await registrarAuditoria({
+        modulo: "Armamentos",
+        acao: "ACESSO_NEGADO",
+        descricao:
+          "Tentativa de acesso ao cadastro de armamentos.",
+        tabela: "armamentos",
+        detalhes: {
+          usuario_id: dados.id,
+          perfil: dados.perfil,
+        },
+      });
+
+      setBloqueado(true);
+      setCarregando(false);
+      return;
+    }
+
+    setUsuario(dados);
+
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ACESSO",
+      descricao:
+        "Acessou o cadastro de armamentos.",
+      tabela: "armamentos",
+      detalhes: {
+        usuario_id: dados.id,
+        municipio_id: dados.municipio_id,
+      },
+    });
+
+    await carregar(dados);
   }
+
+  iniciar();
+}, []);
+
+  async function carregar(usuarioAtual: any) {
+  setCarregando(true);
+
+  const { data, error } = await supabase
+    .from("armamentos")
+    .select(`
+      id,
+      tipo,
+      marca,
+      modelo,
+      calibre,
+      numero_serie,
+      patrimonio,
+      status,
+      localizacao,
+      observacao
+    `)
+    .eq(
+      "municipio_id",
+      usuarioAtual.municipio_id
+    )
+    .order("id", {
+      ascending: false,
+    })
+    .range(0, 499);
+
+  setCarregando(false);
+
+  if (error) {
+    await registrarAuditoria({
+      modulo: "Armamentos",
+      acao: "ERRO",
+      descricao:
+        "Erro ao carregar armamentos.",
+      tabela: "armamentos",
+      detalhes: {
+        erro: error.message,
+      },
+    });
+
+    alert(error.message);
+    return;
+  }
+
+  setArmamentos(data || []);
+}
 
   const resumo = useMemo(() => {
     return {
@@ -167,11 +249,14 @@ export default function CadastroArmamentosPage() {
     await registrarAuditoria({
   modulo: "Armamentos",
   acao: editando
-    ? "EDITAR_ARMAMENTO"
-    : "CRIAR_ARMAMENTO",
+    ? "EDITAR"
+    : "CRIAR",
   descricao: editando
-    ? `Atualizou o armamento ${marca} ${modelo} - Série ${numeroSerie}.`
-    : `Cadastrou o armamento ${marca} ${modelo} - Série ${numeroSerie}.`,
+    ? `Atualizou o armamento ${marca} ${modelo}.`
+    : `Cadastrou o armamento ${marca} ${modelo}.`,
+  tabela: "armamentos",
+  registro_id: editando?.id,
+  detalhes: dados,
 });
 
     alert(
@@ -181,11 +266,20 @@ export default function CadastroArmamentosPage() {
     );
 
     limpar();
-    carregar();
+    carregar(usuario);
   }
 
   async function excluir(id: number) {
-    if (!confirm("Deseja excluir este armamento?")) return;
+    const motivo = prompt(
+  "Informe o motivo da exclusão:"
+);
+
+if (!motivo?.trim()) {
+  alert(
+    "Informe o motivo da exclusão."
+  );
+  return;
+}
 
     const armamento = armamentos.find(
   (a) => a.id === id
@@ -204,18 +298,40 @@ export default function CadastroArmamentosPage() {
 
     await registrarAuditoria({
   modulo: "Armamentos",
-  acao: "EXCLUIR_ARMAMENTO",
+  acao: "EXCLUIR",
   descricao: `Excluiu o armamento ${
     armamento?.marca || ""
   } ${
     armamento?.modelo || ""
-  } - Série ${
-    armamento?.numero_serie || id
   }.`,
+  tabela: "armamentos",
+  registro_id: id,
+  detalhes: {
+    motivo,
+    dados: armamento,
+  },
 });
 
-    carregar();
+    carregar(usuario);
   }
+
+  if (bloqueado) {
+  return (
+    <div className="p-4 md:p-6">
+      <div className="painel-premium p-10 text-center">
+        <h2 className="text-2xl font-black text-white">
+          Acesso Restrito
+        </h2>
+
+        <p className="text-slate-400 mt-2">
+          Você não possui permissão
+          para acessar a Central de
+          Armamentos.
+        </p>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">

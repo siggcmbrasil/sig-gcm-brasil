@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
   CalendarClock,
   CarFront,
@@ -78,6 +79,7 @@ export default function EscoltasPage() {
   });
 
   return (
+  <ProtecaoModulo modulo="escoltas">
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Escoltas"
@@ -200,6 +202,7 @@ export default function EscoltasPage() {
           </div>
         )}
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

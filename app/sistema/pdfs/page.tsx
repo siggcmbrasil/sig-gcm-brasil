@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   FileText,
   FileSpreadsheet,
@@ -16,21 +18,25 @@ export default function PDFsPage() {
       titulo: "Ocorrências",
       descricao: "PDFs de ocorrências gerados pelo sistema.",
       icone: FileText,
+      href: "/sistema/ocorrencias",
     },
     {
       titulo: "Relatórios",
       descricao: "Relatórios operacionais e administrativos.",
       icone: FileSpreadsheet,
+      href: "/sistema/relatorios",
     },
     {
       titulo: "Ofícios",
       descricao: "Documentos oficiais emitidos pelo SIG.",
       icone: FileCheck,
+      href: "/sistema/oficios",
     },
     {
       titulo: "Impressões",
       descricao: "Central de documentos para impressão.",
       icone: Printer,
+      href: "/sistema/pdfs/impressao",
     },
   ];
 
@@ -47,7 +53,8 @@ export default function PDFsPage() {
           const Icone = item.icone;
 
           return (
-            <SigCard key={item.titulo}>
+            <Link key={item.titulo} href={item.href}>
+  <SigCard>
               <div className="flex flex-col items-center text-center py-6">
                 <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center mb-4">
                   <Icone className="w-8 h-8 text-cyan-400" />
@@ -61,7 +68,8 @@ export default function PDFsPage() {
                   {item.descricao}
                 </p>
               </div>
-            </SigCard>
+              </SigCard>
+</Link>
           );
         })}
       </div>

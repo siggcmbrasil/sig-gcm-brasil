@@ -20,7 +20,7 @@ export default function MenuOperacional() {
     <aside className="fixed left-0 top-0 z-50 hidden h-screen w-24 flex-col items-center border-r border-yellow-500/30 bg-[#020814]/95 p-2 backdrop-blur-xl lg:flex">
       <div className="mb-4 flex h-16 w-16 flex-col items-center justify-center rounded-2xl border border-yellow-400/60 bg-slate-950 shadow-[0_0_25px_rgba(250,204,21,0.25)]">
         <img
-          src="/brasao-gcm-v2.png"
+          src="/brasoes/sig-gcm-logo.png"
           alt="SIG-GCM"
           className="h-12 w-12 object-contain"
         />

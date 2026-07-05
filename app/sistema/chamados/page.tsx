@@ -83,14 +83,6 @@ function pode(modulo: string) {
   );
 }
 
-if (!usuarioLogado?.municipio_id) {
-  return (
-    <div className="p-6">
-      Município não identificado.
-    </div>
-  );
-}
-
 const podeVerChamados =
   pode("CHAMADOS");
 
@@ -292,8 +284,9 @@ async function atenderChamado(id: number) {
       data_atendimento: new Date().toISOString(),
     })
     .eq("id", id)
-    .select()
-    .single();
+.eq("municipio_id", usuarioLogado.municipio_id)
+.select()
+.single();
 
   if (error) {
     console.error(error);
@@ -403,7 +396,9 @@ if (chamado?.status === "Finalizado") {
   return;
 }
 
-const confirmar = confirm("Deseja excluir este chamado?");
+const confirmar = confirm(
+  `Deseja excluir o chamado ${chamado?.protocolo}?`
+);
 
 if (!confirmar) return;
 
@@ -484,6 +479,14 @@ carregarChamados();
   return texto.includes(busca.toLowerCase());
 });
 
+if (!usuarioLogado?.municipio_id) {
+  return (
+    <div className="p-6">
+      Município não identificado.
+    </div>
+  );
+}
+
   return (
     <div className="p-3 md:p-6 pb-24">
       <header className="mb-6">
@@ -502,7 +505,7 @@ carregarChamados();
   </div>
 </header>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <section className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
 
   <CardIndicador
     titulo="Total"
@@ -633,10 +636,10 @@ carregarChamados();
     (l) => String(l.id) === id
   );
 
-  if (localSelecionado) {
-    setLocal(localSelecionado.nome || "");
-
-  }
+ if (localSelecionado) {
+  setLocal(localSelecionado.nome || "");
+  setBairro(localSelecionado.nome || "");
+}
 }}
   >
     <option value="">Selecione um local</option>

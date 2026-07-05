@@ -120,12 +120,23 @@ if (!id) {
   }
 
   function corStatus(status: string) {
-    if (status === "PENDENTE") return "bg-yellow-500/15 text-yellow-300 border-yellow-500/40";
-    if (status === "ACEITA") return "bg-blue-500/15 text-blue-300 border-blue-500/40";
-    if (status === "APROVADA") return "bg-green-500/15 text-green-300 border-green-500/40";
-    if (status === "NEGADA") return "bg-red-500/15 text-red-300 border-red-500/40";
+  if (status === "PENDENTE")
+    return "bg-yellow-500/15 text-yellow-300 border-yellow-500/40";
+
+  if (status === "ACEITA")
+    return "bg-blue-500/15 text-blue-300 border-blue-500/40";
+
+  if (status === "APROVADA")
+    return "bg-green-500/15 text-green-300 border-green-500/40";
+
+  if (status === "NEGADA")
+    return "bg-red-500/15 text-red-300 border-red-500/40";
+
+  if (status === "CANCELADA")
     return "bg-slate-500/15 text-slate-300 border-slate-500/40";
-  }
+
+  return "bg-slate-500/15 text-slate-300 border-slate-500/40";
+}
 
   const permutasFiltradas = useMemo(() => {
     const termo = busca.toLowerCase();
@@ -149,8 +160,18 @@ if (!id) {
   const totalAprovada = permutas.filter((p) => p.status === "APROVADA").length;
   const totalAceita = permutas.filter((p) => p.status === "ACEITA").length;
   const totalNegada = permutas.filter((p) => p.status === "NEGADA").length;
+  const totalCancelada = permutas.filter((p) => p.status === "CANCELADA").length;
 
   async function salvarPermuta() {
+
+    const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+if (!usuario?.id || !municipioId) {
+  alert("Sessão inválida.");
+  return;
+}
     if (!dataOriginal || !dataTroca || !guardaSolicitanteId || !guardaSubstitutoId) {
       alert("Preencha todos os campos obrigatórios.");
       return;
@@ -160,6 +181,46 @@ if (!id) {
       alert("O solicitante e o substituto não podem ser o mesmo guarda.");
       return;
     }
+
+    if (dataOriginal === dataTroca) {
+  alert(
+    "A data da troca deve ser diferente da data original."
+  );
+  return;
+}
+
+const solicitante = guardas.find(
+  (g) => String(g.id) === guardaSolicitanteId
+);
+
+const substituto = guardas.find(
+  (g) => String(g.id) === guardaSubstitutoId
+);
+
+if (!solicitante || !substituto) {
+  alert("Guarda não encontrado.");
+  return;
+}
+const { data: afastado } =
+  await supabase
+    .from("ferias_licencas")
+    .select("id,tipo")
+    .eq("municipio_id", municipioId)
+    .eq(
+      "guarda_id",
+      Number(guardaSubstitutoId)
+    )
+    .eq("status", "ATIVO")
+    .lte("data_inicio", dataTroca)
+    .gte("data_fim", dataTroca)
+    .maybeSingle();
+
+if (afastado) {
+  alert(
+    `O guarda substituto está em ${afastado.tipo}.`
+  );
+  return;
+}
 
     const { error } = await supabase.from("permutas_plantao").insert([
       {
@@ -184,6 +245,17 @@ if (!id) {
   modulo: "Permutas",
   acao: "CRIAR",
   descricao: `Criou solicitação de ${nomeTipo(tipoSolicitacao)}.`,
+  detalhes: {
+    tipo: tipoSolicitacao,
+    solicitante_id: Number(
+      guardaSolicitanteId
+    ),
+    substituto_id: Number(
+      guardaSubstitutoId
+    ),
+    data_original: dataOriginal,
+    data_troca: dataTroca,
+  },
 });
 
     alert("Solicitação cadastrada com sucesso!");
@@ -199,7 +271,23 @@ if (!id) {
   }
 
   async function atualizarStatus(id: number, status: string) {
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    const usuario = JSON.parse(
+  localStorage.getItem("usuarioLogado") || "{}"
+);
+
+if (
+  status === "APROVADA" ||
+  status === "NEGADA"
+) {
+  if (
+    !["ADMIN", "COMANDANTE", "DESENVOLVEDOR"].includes(
+      usuario.perfil
+    )
+  ) {
+    alert("Você não possui permissão.");
+    return;
+  }
+}
 
     const atualizacao: any = { status };
 
@@ -220,20 +308,36 @@ if (!id) {
       return;
     }
 
-    await registrarAuditoria({
+   await registrarAuditoria({
   modulo: "Permutas",
   acao: status,
   descricao: `Alterou a solicitação #${id} para ${status}.`,
+  tabela: "permutas_plantao",
+  detalhes: {
+    permuta_id: id,
+    novo_status: status,
+    aprovado_por: usuario.nome,
+    usuario_id: usuario.id,
+    municipio_id: municipioId,
+  },
 });
 
     carregarPermutas(municipioId);
   }
 
   async function excluirPermuta(id: number) {
+    const permuta = permutas.find(
+  (p) => p.id === id
+);
+
+if (permuta?.status === "APROVADA") {
+  alert(
+    "Permutas aprovadas não podem ser excluídas."
+  );
+  return;
+}
     const confirmar = confirm("Deseja realmente excluir esta solicitação?");
     if (!confirmar) return;
-
-    const permuta = permutas.find((p) => p.id === id);
 
     const { error } = await supabase
   .from("permutas_plantao")
@@ -247,12 +351,20 @@ if (!id) {
       return;
     }
 
-    await registrarAuditoria({
+  await registrarAuditoria({
   modulo: "Permutas",
   acao: "EXCLUIR",
   descricao: `Excluiu solicitação de ${nomeTipo(
     permuta?.tipo_solicitacao
   )}.`,
+  detalhes: {
+    permuta_id: id,
+    tipo: permuta?.tipo_solicitacao,
+    solicitante:
+      permuta?.guarda_solicitante_id,
+    substituto:
+      permuta?.guarda_substituto_id,
+  },
 });
 
     carregarPermutas(municipioId);
@@ -267,11 +379,12 @@ if (!id) {
         </p>
       </header>
 
-      <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card titulo="Pendentes" valor={totalPendente} icone="🟡" />
         <Card titulo="Aceitas" valor={totalAceita} icone="🔵" />
         <Card titulo="Aprovadas" valor={totalAprovada} icone="🟢" />
         <Card titulo="Negadas" valor={totalNegada} icone="🔴" />
+        <Card titulo="Canceladas" valor={totalCancelada} icone="⚫" />
       </section>
 
       <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
@@ -438,40 +551,53 @@ if (!id) {
                   )}
 
                   <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
-                    {permuta.status === "PENDENTE" && (
-                      <button
-                        onClick={() => atualizarStatus(permuta.id, "ACEITA")}
-                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-xl font-semibold"
-                      >
-                        Aceitar
-                      </button>
-                    )}
+  {permuta.status === "PENDENTE" && (
+    <button
+      onClick={() => atualizarStatus(permuta.id, "ACEITA")}
+      className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-xl font-semibold"
+    >
+      Aceitar
+    </button>
+  )}
 
-                    {permuta.status === "ACEITA" && (
-                      <>
-                        <button
-                          onClick={() => atualizarStatus(permuta.id, "APROVADA")}
-                          className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl font-semibold"
-                        >
-                          Aprovar
-                        </button>
+  {permuta.status === "ACEITA" && (
+    <>
+      <button
+        onClick={() => atualizarStatus(permuta.id, "APROVADA")}
+        className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-2 rounded-xl font-semibold"
+      >
+        Aprovar
+      </button>
 
-                        <button
-                          onClick={() => atualizarStatus(permuta.id, "NEGADA")}
-                          className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-xl font-semibold"
-                        >
-                          Negar
-                        </button>
-                      </>
-                    )}
+      <button
+        onClick={() => atualizarStatus(permuta.id, "NEGADA")}
+        className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-xl font-semibold"
+      >
+        Negar
+      </button>
+    </>
+  )}
 
-                    <button
-                      onClick={() => excluirPermuta(permuta.id)}
-                      className="bg-slate-800 hover:bg-red-900 text-white px-4 py-2 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+  {permuta.status !== "APROVADA" &&
+    permuta.status !== "NEGADA" &&
+    permuta.status !== "CANCELADA" && (
+      <button
+        onClick={() => atualizarStatus(permuta.id, "CANCELADA")}
+        className="bg-slate-700 hover:bg-slate-800 text-white px-4 py-2 rounded-xl font-semibold"
+      >
+        Cancelar
+      </button>
+    )}
+
+  {permuta.status !== "APROVADA" && (
+    <button
+      onClick={() => excluirPermuta(permuta.id)}
+      className="bg-slate-800 hover:bg-red-900 text-white px-4 py-2 rounded-xl font-semibold"
+    >
+      Excluir
+    </button>
+  )}
+</div>
                 </div>
               ))}
             </div>

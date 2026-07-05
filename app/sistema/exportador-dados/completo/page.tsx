@@ -4,6 +4,7 @@ import { Download, Database } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function ExportacaoCompletaPage() {
   function pegarUsuario() {
@@ -12,7 +13,7 @@ export default function ExportacaoCompletaPage() {
     );
   }
 
-  async function registrarAuditoria() {
+  async function registrarExportacaoCompleta() {
     const usuario = pegarUsuario();
 
     await supabase.from("auditoria_sistema").insert({
@@ -27,7 +28,7 @@ export default function ExportacaoCompletaPage() {
   async function exportar() {
     const usuario = pegarUsuario();
 
-    if (!usuario?.municipio_id) {
+    if (!usuario?.id || !usuario?.municipio_id) {
       alert("Município não identificado.");
       return;
     }
@@ -141,12 +142,13 @@ export default function ExportacaoCompletaPage() {
 
     window.URL.revokeObjectURL(url);
 
-    await registrarAuditoria();
+    await registrarExportacaoCompleta();
 
     alert("Backup exportado com sucesso.");
   }
 
   return (
+  <ProtecaoModulo modulo="exportador_dados">
     <div className="p-4 md:p-6 space-y-6">
       <SigPageHeader
         titulo="Exportação Completa"
@@ -188,6 +190,7 @@ export default function ExportacaoCompletaPage() {
           </button>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

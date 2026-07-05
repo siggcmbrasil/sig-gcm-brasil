@@ -3,9 +3,22 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function PatrimonioPage() {
-  const [itens, setItens] = useState<any[]>([]);
+  type Patrimonio = {
+  id: number;
+  nome: string;
+  categoria: string;
+  numero_patrimonio: string | null;
+  status: string;
+  local: string | null;
+  observacao: string | null;
+  criado_em: string;
+};
+
+const [itens, setItens] =
+  useState<Patrimonio[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
@@ -16,31 +29,97 @@ export default function PatrimonioPage() {
   const [status, setStatus] = useState("OPERACIONAL");
   const [local, setLocal] = useState("");
   const [observacao, setObservacao] = useState("");
+  type UsuarioLogado = {
+  id: string;
+  perfil: string;
+  municipio_id: number;
+};
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+    if (!salvo) return null;
 
-    setCarregando(true);
+    const usuario = JSON.parse(salvo);
 
-    const { data } = await supabase
-      .from("patrimonios")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("criado_em", { ascending: false });
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
 
-    setItens(data || []);
+    return {
+      id: String(usuario.id),
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function carregar() {
+  const usuario = obterUsuarioLogado();
+
+  if (!usuario) {
     setCarregando(false);
+    return;
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
+  setCarregando(true);
 
+  const { data, error } = await supabase
+    .from("patrimonios")
+    .select(
+      "id, nome, categoria, numero_patrimonio, status, local, observacao, criado_em"
+    )
+    .eq("municipio_id", usuario.municipio_id)
+    .order("criado_em", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    console.error(error);
+
+    await registrarAuditoria({
+      modulo: "Patrimônio",
+      acao: "ERRO",
+      descricao: "Erro ao carregar itens patrimoniais.",
+      tabela: "patrimonios",
+      detalhes: {
+        erro: error.message,
+        municipio_id: usuario.municipio_id,
+      },
+    });
+
+    setCarregando(false);
+    return;
+  }
+
+  setItens(data || []);
+  setCarregando(false);
+}
+
+useEffect(() => {
+  const usuario = obterUsuarioLogado();
+
+  if (!usuario) {
+    setCarregando(false);
+    return;
+  }
+
+  void registrarAuditoria({
+    modulo: "Patrimônio",
+    acao: "ACESSO",
+    descricao: "Acessou o módulo de patrimônio.",
+    tabela: "patrimonios",
+    detalhes: {
+      municipio_id: usuario.municipio_id,
+      usuario_id: usuario.id,
+      perfil: usuario.perfil,
+    },
+  });
+
+  void carregar();
+}, []);
   const resumo = useMemo(() => {
     return {
       total: itens.length,
@@ -72,18 +151,69 @@ export default function PatrimonioPage() {
     setObservacao("");
   }
 
-  async function salvar() {
-    if (!nome.trim() || !categoria) {
-      alert("Preencha nome e categoria.");
+async function salvar() {
+  const usuario = obterUsuarioLogado();
+
+  if (!usuario) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (
+    ![
+      "DESENVOLVEDOR",
+      "ADMIN",
+      "COMANDANTE",
+      "DIRETOR",
+      "PLANTONISTA",
+    ].includes(usuario.perfil)
+  ) {
+    alert("Você não possui permissão para cadastrar patrimônio.");
+    return;
+  }
+
+  if (!nome.trim() || !categoria) {
+    alert("Preencha nome e categoria.");
+    return;
+  }
+
+  if (nome.trim().length < 3) {
+    alert("Nome do item muito curto.");
+    return;
+  }
+
+  setSalvando(true);
+
+  if (patrimonio.trim()) {
+    const { data: existente, error: erroDuplicidade } = await supabase
+      .from("patrimonios")
+      .select("id")
+      .eq("municipio_id", usuario.municipio_id)
+      .eq("numero_patrimonio", patrimonio.trim())
+      .maybeSingle();
+
+    if (erroDuplicidade) {
+      console.error(erroDuplicidade);
+      setSalvando(false);
+      alert("Erro ao verificar duplicidade.");
       return;
     }
 
-    setSalvando(true);
+    if (existente) {
+      setSalvando(false);
+      alert("Já existe item com este número de patrimônio neste município.");
+      return;
+    }
+  }
 
-    const { error } = await supabase.from("patrimonios").insert([
+  const { data, error } = await supabase
+    .from("patrimonios")
+    .insert([
       {
         municipio_id: usuario.municipio_id,
         criado_por: usuario.id,
+        criado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
         nome: nome.trim(),
         categoria,
         numero_patrimonio: patrimonio.trim() || null,
@@ -91,19 +221,49 @@ export default function PatrimonioPage() {
         local: local.trim() || null,
         observacao: observacao.trim() || null,
       },
-    ]);
+    ])
+    .select("id, nome")
+    .single();
 
-    setSalvando(false);
+  setSalvando(false);
 
-    if (error) {
-      alert(error.message);
-      return;
-    }
+  if (error) {
+    console.error(error);
 
-    limparFormulario();
-    carregar();
-    alert("Item patrimonial cadastrado com sucesso.");
+    await registrarAuditoria({
+      modulo: "Patrimônio",
+      acao: "ERRO",
+      descricao: "Erro ao cadastrar item patrimonial.",
+      tabela: "patrimonios",
+      detalhes: {
+        erro: error.message,
+        municipio_id: usuario.municipio_id,
+      },
+    });
+
+    alert("Erro ao cadastrar item patrimonial.");
+    return;
   }
+
+  await registrarAuditoria({
+    modulo: "Patrimônio",
+    acao: "CRIAR",
+    descricao: `Cadastrou item patrimonial: ${data?.nome}.`,
+    tabela: "patrimonios",
+    registro_id: data?.id,
+    detalhes: {
+      nome: data?.nome,
+      categoria,
+      numero_patrimonio: patrimonio.trim() || null,
+      status,
+      municipio_id: usuario.municipio_id,
+    },
+  });
+
+  limparFormulario();
+  await carregar();
+  alert("Item patrimonial cadastrado com sucesso.");
+}
 
   function nomeStatus(valor: string) {
     const nomes: Record<string, string> = {

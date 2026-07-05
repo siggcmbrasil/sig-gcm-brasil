@@ -91,6 +91,15 @@ if (!municipioId) {
 
   function selecionarGuarda(id: string) {
   const guarda = guardas.find((g) => String(g.id) === id);
+  if (!guarda) {
+  alert("Guarda não encontrado.");
+  return;
+}
+
+if (guarda.status !== "ATIVO") {
+  alert("Este guarda está inativo.");
+  return;
+}
 
   setGuardaId(id);
   setGuardaNome(guarda?.nome || "");
@@ -98,6 +107,11 @@ if (!municipioId) {
 }
 
   async function salvarEscala() {
+
+    if (!usuarioLogado?.id || !municipioId) {
+  alert("Sessão inválida.");
+  return;
+}
 
 if (!municipioId) {
   alert("Município não identificado.");
@@ -148,12 +162,12 @@ if (jaEscalado) {
 
       data_servico: dataServico,
       turno,
-      guarda_nome: guardaNome,
+      guarda_nome: guardaNome.trim(),
       matricula,
       equipe,
       viatura,
       funcao,
-      observacao,
+      observacao: observacao.trim() || null,
     },
   ]);
 
@@ -167,6 +181,15 @@ if (jaEscalado) {
   modulo: "Escalas",
   acao: "CRIAR",
   descricao: `Cadastrou escala para ${guardaNome} em ${dataServico}.`,
+  detalhes: {
+    guarda_id: Number(guardaId),
+    guarda_nome: guardaNome,
+    data_servico: dataServico,
+    turno,
+    equipe,
+    viatura,
+    funcao,
+  },
 });
 
     alert("Escala cadastrada com sucesso!");
@@ -213,6 +236,12 @@ await registrarAuditoria({
   modulo: "Escalas",
   acao: "EXCLUIR",
   descricao: `Excluiu a escala de ${escala?.guarda_nome || "Guarda"} em ${escala?.data_servico || ""}.`,
+  detalhes: {
+    escala_id: id,
+    guarda_nome: escala?.guarda_nome,
+    data_servico: escala?.data_servico,
+    turno: escala?.turno,
+  },
 });
 
 await carregarDados();

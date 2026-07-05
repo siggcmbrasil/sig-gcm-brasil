@@ -49,7 +49,10 @@ export default function EscalasExtrasPage() {
   }
 
   async function salvar() {
-    if (!municipioId) return alert("Município não identificado.");
+  if (!usuario?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
+  }
     if (!titulo || !guardaId || !data || !local) {
       return alert("Preencha título, guarda, data e local.");
     }
@@ -58,15 +61,15 @@ export default function EscalasExtrasPage() {
 
     const { error } = await supabase.from("escalas_extras").insert({
       municipio_id: municipioId,
-      titulo,
+      titulo: titulo.trim(),
       guarda_id: Number(guardaId),
       guarda_nome: guarda?.nome || "",
       data,
       hora_inicio: horaInicio,
       hora_fim: horaFim,
-      local,
+      local: local.trim(),
       tipo,
-      observacao,
+      observacao: observacao.trim() || null,
       status: "AGENDADO",
     });
 
@@ -94,7 +97,12 @@ export default function EscalasExtrasPage() {
   }
 
   async function excluir(id: number) {
-    if (!confirm("Excluir este serviço extra?")) return;
+  if (!usuario?.id || !municipioId) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  if (!confirm("Excluir este serviço extra?")) return;
 
     const registro = registros.find((r) => r.id === id);
 
@@ -110,7 +118,7 @@ export default function EscalasExtrasPage() {
     }
 
     await registrarAuditoria({
-      modulo: "Escalas",
+      modulo: "Escalas Extras",
       acao: "EXCLUIR_EXTRA",
       descricao: `Excluiu serviço extra ${registro?.titulo || `ID ${id}`}.`,
     });

@@ -5,8 +5,18 @@ import Link from "next/link";
 import jsPDF from "jspdf";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type UsuarioLogado = {
+  id: string;
+  nome?: string;
+  email?: string;
+  perfil: string;
+  municipio_id: number;
+};
 
 type Envolvido = {
   nome: string;
@@ -68,17 +78,61 @@ type Guarda = {
   nome: string;
 };
 
+const perfisVisualizacao = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+  "CONSULTA",
+];
+
+const perfisPDF = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+];
+
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      nome: usuario.nome,
+      email: usuario.email,
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
+
 export default function VisualizarOcorrencia() {
   const params = useParams();
-  const id = params.id;
+  const router = useRouter();
 
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : null;
+  const id =
+    typeof params.id === "string"
+      ? params.id
+      : params.id?.[0];
 
-const municipioId = usuarioLogado?.municipio_id;
-
+  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [ocorrencia, setOcorrencia] = useState<Ocorrencia | null>(null);
   const [carregando, setCarregando] = useState(true);
 
@@ -87,68 +141,101 @@ const municipioId = usuarioLogado?.municipio_id;
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
   const [guardas, setGuardas] = useState<Guarda[]>([]);
 
-  async function carregarOcorrencia() {
-    const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : null;
+  useEffect(() => {
+    const usuarioAtual = obterUsuarioLogado();
 
-const municipioId = usuarioLogado?.municipio_id;
+    if (!usuarioAtual) {
+      alert("Sessão inválida. Faça login novamente.");
+      router.push("/login");
+      return;
+    }
 
-if (!municipioId) {
-  alert("Município não identificado.");
-  return;
-}
+    if (!perfisVisualizacao.includes(usuarioAtual.perfil)) {
+      alert("Seu perfil não tem permissão para visualizar ocorrências.");
+      router.push("/sistema");
+      return;
+    }
 
-const { data, error } = await supabase
-  .from("ocorrencias")
-  .select("*")
-  .eq("id", id)
-  .eq("municipio_id", municipioId)
-  .single();
+    setUsuario(usuarioAtual);
+
+    void carregarOcorrencia(usuarioAtual);
+    void carregarDadosApoio(usuarioAtual.municipio_id);
+  }, []);
+
+  async function carregarOcorrencia(usuarioAtual: UsuarioLogado) {
+    if (!id) {
+      alert("ID da ocorrência não informado.");
+      setCarregando(false);
+      router.push("/sistema/ocorrencias");
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("ocorrencias")
+      .select("*")
+      .eq("id", id)
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .maybeSingle();
 
     if (error) {
-      console.error(error);
+      console.error("Erro ao carregar ocorrência:", error);
       alert("Erro ao carregar ocorrência.");
       setCarregando(false);
       return;
     }
 
+    if (!data) {
+      alert("Ocorrência não encontrada ou sem permissão para acessar.");
+      setCarregando(false);
+      router.push("/sistema/ocorrencias");
+      return;
+    }
+
     setOcorrencia(data);
+
+    await registrarAuditoria({
+      modulo: "OCORRENCIAS",
+      acao: "VISUALIZAR",
+      descricao: `Visualizou a ocorrência ${data.protocolo || id}.`,
+      registro_id: String(data.id),
+    });
+
     setCarregando(false);
   }
 
-  async function carregarDadosApoio() {
+  async function carregarDadosApoio(municipioId: number) {
+    const [
+      municipiosResp,
+      guarnicoesResp,
+      viaturasResp,
+      guardasResp,
+    ] = await Promise.all([
+      supabase
+        .from("municipios")
+        .select("id, nome, estado, brasao, nome_corporacao, sigla_corporacao")
+        .eq("id", municipioId),
 
-if (!municipioId) {
-  return;
-}
+      supabase
+        .from("guarnicoes")
+        .select("id, nome")
+        .eq("municipio_id", municipioId),
 
-  const { data: municipiosData } = await supabase
-    .from("municipios")
-.select("id, nome, estado, brasao, nome_corporacao, sigla_corporacao")
-.eq("id", municipioId);
+      supabase
+        .from("viaturas")
+        .select("id, prefixo")
+        .eq("municipio_id", municipioId),
 
-  const { data: guarnicoesData } = await supabase
-    .from("guarnicoes")
-.select("id, nome")
-.eq("municipio_id", municipioId);
+      supabase
+        .from("guardas")
+        .select("id, nome")
+        .eq("municipio_id", municipioId),
+    ]);
 
-  const { data: viaturasData } = await supabase
-    .from("viaturas")
-.select("id, prefixo")
-.eq("municipio_id", municipioId);
-
-  const { data: guardasData } = await supabase
-    .from("guardas")
-.select("id, nome")
-.eq("municipio_id", municipioId);
-
-  setMunicipios(municipiosData || []);
-  setGuarnicoes(guarnicoesData || []);
-  setViaturas(viaturasData || []);
-  setGuardas(guardasData || []);
-}
+    setMunicipios(municipiosResp.data || []);
+    setGuarnicoes(guarnicoesResp.data || []);
+    setViaturas(viaturasResp.data || []);
+    setGuardas(guardasResp.data || []);
+  }
 
   function obterEnvolvidos(): Envolvido[] {
     if (!ocorrencia?.envolvidos) return [];
@@ -162,38 +249,38 @@ if (!municipioId) {
   }
 
   function obterVeiculosEnvolvidos(): any[] {
-  if (!ocorrencia?.veiculos_envolvidos) return [];
+    if (!ocorrencia?.veiculos_envolvidos) return [];
 
-  try {
-    if (typeof ocorrencia.veiculos_envolvidos === "string") {
-      const dados = JSON.parse(ocorrencia.veiculos_envolvidos);
-      return Array.isArray(dados) ? dados : [];
+    try {
+      if (typeof ocorrencia.veiculos_envolvidos === "string") {
+        const dados = JSON.parse(ocorrencia.veiculos_envolvidos);
+        return Array.isArray(dados) ? dados : [];
+      }
+
+      return Array.isArray(ocorrencia.veiculos_envolvidos)
+        ? ocorrencia.veiculos_envolvidos
+        : [];
+    } catch {
+      return [];
     }
-
-    return Array.isArray(ocorrencia.veiculos_envolvidos)
-      ? ocorrencia.veiculos_envolvidos
-      : [];
-  } catch {
-    return [];
   }
-}
 
-function obterObjetosEnvolvidos(): any[] {
-  if (!ocorrencia?.armas_objetos) return [];
+  function obterObjetosEnvolvidos(): any[] {
+    if (!ocorrencia?.armas_objetos) return [];
 
-  try {
-    if (typeof ocorrencia.armas_objetos === "string") {
-      const dados = JSON.parse(ocorrencia.armas_objetos);
-      return Array.isArray(dados) ? dados : [];
+    try {
+      if (typeof ocorrencia.armas_objetos === "string") {
+        const dados = JSON.parse(ocorrencia.armas_objetos);
+        return Array.isArray(dados) ? dados : [];
+      }
+
+      return Array.isArray(ocorrencia.armas_objetos)
+        ? ocorrencia.armas_objetos
+        : [];
+    } catch {
+      return [];
     }
-
-    return Array.isArray(ocorrencia.armas_objetos)
-      ? ocorrencia.armas_objetos
-      : [];
-  } catch {
-    return [];
   }
-}
 
   function obterFotos(): string[] {
     if (!ocorrencia) return [];
@@ -203,14 +290,13 @@ function obterObjetosEnvolvidos(): any[] {
     if (ocorrencia.fotos_urls) {
       try {
         const dados = JSON.parse(ocorrencia.fotos_urls);
+
         if (Array.isArray(dados)) {
           dados.forEach((url) => {
             if (url && typeof url === "string") fotos.push(url);
           });
         }
-      } catch {
-        // ignora erro de JSON antigo
-      }
+      } catch {}
     }
 
     if (ocorrencia.foto_url && !fotos.includes(ocorrencia.foto_url)) {
@@ -221,17 +307,74 @@ function obterObjetosEnvolvidos(): any[] {
   }
 
   function municipioDaOcorrencia() {
-  if (!ocorrencia?.municipio_id) return null;
+    if (!ocorrencia?.municipio_id) return null;
 
-  return (
-    municipios.find(
-      (m) => m.id === ocorrencia.municipio_id
-    ) || null
-  );
-}
+    return (
+      municipios.find((m) => m.id === ocorrencia.municipio_id) || null
+    );
+  }
+
+  function nomeMunicipio(id: number | null) {
+    if (!id) return "-";
+
+    const municipio = municipios.find((m) => m.id === id);
+    return municipio ? `${municipio.nome} - ${municipio.estado}` : "-";
+  }
+
+  function nomeGuarnicao(id: number | null) {
+    if (!id) return "-";
+
+    const guarnicao = guarnicoes.find((g) => g.id === id);
+    return guarnicao?.nome || "-";
+  }
+
+  function prefixoViatura(id: number | null) {
+    if (!id) return "-";
+
+    const viatura = viaturas.find((v) => v.id === id);
+    return viatura?.prefixo || "-";
+  }
+
+  function nomeGuarda(id: number | null) {
+    if (!id) return "-";
+
+    const guarda = guardas.find((g) => g.id === id);
+    return guarda?.nome || "-";
+  }
+
+  async function auditarFoto(index: number) {
+    if (!ocorrencia) return;
+
+    await registrarAuditoria({
+      modulo: "OCORRENCIAS",
+      acao: "VISUALIZAR_FOTO",
+      descricao: `Visualizou a foto ${index + 1} da ocorrência ${ocorrencia.protocolo}.`,
+      registro_id: String(ocorrencia.id),
+    });
+  }
+
+  function adicionarMarcaDagua(pdf: jsPDF) {
+    const totalPaginas = pdf.getNumberOfPages();
+
+    for (let i = 1; i <= totalPaginas; i++) {
+      pdf.setPage(i);
+      pdf.setTextColor(220, 220, 220);
+      pdf.setFontSize(38);
+      pdf.text("SIG-GCM BRASIL", 105, 150, {
+        align: "center",
+        angle: 35,
+      });
+      pdf.setTextColor(0, 0, 0);
+    }
+  }
 
   async function gerarPDF() {
-    if (!ocorrencia) return;
+    if (!ocorrencia || !usuario) return;
+
+    if (!perfisPDF.includes(usuario.perfil)) {
+      alert("Seu perfil não tem permissão para gerar PDF.");
+      return;
+    }
 
     const pdf = new jsPDF();
 
@@ -247,10 +390,10 @@ function obterObjetosEnvolvidos(): any[] {
 
     try {
       if (municipioAtual?.brasao) {
-  brasaoBase64 = await carregarImagemBase64(municipioAtual.brasao);
-} else {
-  brasaoBase64 = await carregarImagemBase64("/brasao-gcm-v2.png");
-}
+        brasaoBase64 = await carregarImagemBase64(municipioAtual.brasao);
+      } else {
+        brasaoBase64 = await carregarImagemBase64("/brasoes/sig-gcm-logo.png");
+      }
     } catch {
       console.warn("Não foi possível carregar o brasão.");
     }
@@ -275,19 +418,18 @@ Local: ${ocorrencia.local}
       pdf.addImage(brasaoBase64, "PNG", 15, 10, 25, 25);
     }
 
-   pdf.text(
-  municipioAtual?.nome || "PREFEITURA MUNICIPAL",
-  105,
-  18,
-  { align: "center" }
-);
+    pdf.setFontSize(14);
+    pdf.text(municipioAtual?.nome || "PREFEITURA MUNICIPAL", 105, 18, {
+      align: "center",
+    });
 
-pdf.text(
-  municipioAtual?.nome_corporacao || "GUARDA CIVIL MUNICIPAL",
-  105,
-  27,
-  { align: "center" }
-);
+    pdf.setFontSize(12);
+    pdf.text(
+      municipioAtual?.nome_corporacao || "GUARDA CIVIL MUNICIPAL",
+      105,
+      27,
+      { align: "center" }
+    );
 
     pdf.setFontSize(11);
     pdf.text("RELATÓRIO DE OCORRÊNCIA", 105, 35, {
@@ -302,249 +444,137 @@ pdf.text(
 
     let y = 55;
 
-    pdf.setFontSize(11);
-    pdf.text(`Protocolo: ${ocorrencia.protocolo}`, 15, y);
-    y += 8;
-    pdf.text(`Tipo: ${ocorrencia.tipo}`, 15, y);
-    y += 8;
-    pdf.text(`Status: ${ocorrencia.status}`, 15, y);
-    y += 8;
-    pdf.text(`Data/Hora: ${ocorrencia.data} às ${ocorrencia.hora}`, 15, y);
-    y += 8;
-    pdf.text(`Bairro: ${ocorrencia.bairro || "-"}`, 15, y);
-    y += 8;
-    pdf.text(`Local: ${ocorrencia.local}`, 15, y);
-    y += 8;
-    pdf.text(`Número: ${ocorrencia.numero || "S/N"}`, 15, y);
-    y += 12;
-    pdf.text(
-  `Município: ${nomeMunicipio(ocorrencia.municipio_id)}`, 15, y
-);
-y += 8;
-
-pdf.text(
-  `Guarnição: ${nomeGuarnicao(ocorrencia.guarnicao_id)}`,
-  15,
-  y
-);
-y += 8;
-
-pdf.text(
-  `Viatura: ${prefixoViatura(ocorrencia.viatura_id)}`,
-  15,
-  y
-);
-y += 8;
-
-pdf.text(
-  `Responsável: ${nomeGuarda(ocorrencia.guarda_responsavel_id)}`,
-  15,
-  y
-);
-y += 12;
-
-    if (ocorrencia.latitude && ocorrencia.longitude) {
-      pdf.text(`Latitude: ${ocorrencia.latitude}`, 15, y);
-      y += 8;
-      pdf.text(`Longitude: ${ocorrencia.longitude}`, 15, y);
-      y += 12;
+    function novaPaginaSePrecisar(limite = 250) {
+      if (y > limite) {
+        pdf.addPage();
+        y = 20;
+      }
     }
 
-    
-        pdf.setFontSize(11);
+    function linha(label: string, valor: any) {
+      if (!valor) return;
+
+      novaPaginaSePrecisar();
+      pdf.setFontSize(11);
+      const texto = pdf.splitTextToSize(`${label}: ${valor}`, 175);
+      pdf.text(texto, 15, y);
+      y += texto.length * 7;
+    }
+
+    linha("Protocolo", ocorrencia.protocolo);
+    linha("Tipo", ocorrencia.tipo);
+    linha("Status", ocorrencia.status);
+    linha("Data/Hora", `${ocorrencia.data} às ${ocorrencia.hora}`);
+    linha("Bairro", ocorrencia.bairro || "-");
+    linha("Local", ocorrencia.local);
+    linha("Número", ocorrencia.numero || "S/N");
+    linha("Município", nomeMunicipio(ocorrencia.municipio_id));
+    linha("Guarnição", nomeGuarnicao(ocorrencia.guarnicao_id));
+    linha("Viatura", prefixoViatura(ocorrencia.viatura_id));
+    linha("Responsável", nomeGuarda(ocorrencia.guarda_responsavel_id));
+
+    if (ocorrencia.latitude && ocorrencia.longitude) {
+      linha("Latitude", ocorrencia.latitude);
+      linha("Longitude", ocorrencia.longitude);
+    }
+
+    y += 8;
+
+    pdf.setFontSize(14);
+    pdf.text("EQUIPE EMPENHADA", 15, y);
+    y += 8;
+
     const equipe = pdf.splitTextToSize(
       ocorrencia.equipe_empenhada || "Equipe não informada.",
       170
     );
-
+    pdf.setFontSize(11);
     pdf.text(equipe, 15, y);
     y += equipe.length * 7 + 10;
 
+    novaPaginaSePrecisar(220);
     pdf.setFontSize(14);
     pdf.text("DESCRIÇÃO DOS FATOS", 15, y);
     y += 8;
 
+    const descricao = pdf.splitTextToSize(ocorrencia.descricao || "-", 170);
     pdf.setFontSize(11);
-    const descricao = pdf.splitTextToSize(ocorrencia.descricao, 170);
     pdf.text(descricao, 15, y);
     y += descricao.length * 7 + 10;
 
     if (envolvidos.length > 0) {
-  if (y > 220) {
-    pdf.addPage();
-    y = 20;
-  }
+      novaPaginaSePrecisar(220);
+      pdf.setFontSize(14);
+      pdf.text("ENVOLVIDOS", 15, y);
+      y += 10;
 
-  pdf.setFontSize(14);
-  pdf.text("ENVOLVIDOS", 15, y);
-  y += 10;
-
-  pdf.setFontSize(11);
-
-  function linhaPessoa(label: string, valor: any) {
-    if (!valor) return;
-
-    pdf.text(`${label}: ${valor}`, 20, y);
-    y += 7;
-  }
-
-  envolvidos.forEach((pessoa, index) => {
-    if (y > 250) {
-      pdf.addPage();
-      y = 20;
+      envolvidos.forEach((pessoa, index) => {
+        novaPaginaSePrecisar(230);
+        linha(`${index + 1}. Nome`, pessoa.nome || "Sem nome");
+        linha("Tipo", pessoa.tipo);
+        linha("Documento", pessoa.documento);
+        linha("Telefone", pessoa.telefone);
+        linha("Endereço", pessoa.endereco);
+        linha("Observação", pessoa.observacao);
+        y += 5;
+      });
     }
-
-    pdf.text(
-      `${index + 1}. ${pessoa.nome || "Sem nome"}`,
-      15,
-      y
-    );
-    y += 7;
-
-    linhaPessoa("Tipo", pessoa.tipo);
-    linhaPessoa("Documento", pessoa.documento);
-    linhaPessoa("Telefone", pessoa.telefone);
-    linhaPessoa("Endereço", pessoa.endereco);
-
-    if (pessoa.observacao) {
-      const obs = pdf.splitTextToSize(
-        `Observação: ${pessoa.observacao}`,
-        165
-      );
-
-      pdf.text(obs, 20, y);
-      y += obs.length * 7;
-    }
-
-    y += 8;
-  });
-}
 
     if (veiculosEnvolvidos.length > 0) {
-  if (y > 220) {
-    pdf.addPage();
-    y = 20;
-  }
+      novaPaginaSePrecisar(220);
+      pdf.setFontSize(14);
+      pdf.text("VEÍCULOS ENVOLVIDOS", 15, y);
+      y += 10;
 
-  pdf.setFontSize(14);
-  pdf.text("VEÍCULOS ENVOLVIDOS", 15, y);
-  y += 10;
-
-  pdf.setFontSize(11);
-
-  function linhaVeiculo(label: string, valor: any) {
-    if (!valor) return;
-
-    pdf.text(`${label}: ${valor}`, 20, y);
-    y += 7;
-  }
-
-  veiculosEnvolvidos.forEach((veiculo: any, index: number) => {
-    if (y > 230) {
-      pdf.addPage();
-      y = 20;
+      veiculosEnvolvidos.forEach((veiculo: any, index: number) => {
+        novaPaginaSePrecisar(230);
+        linha(`${index + 1}. Veículo`, " ");
+        linha("Placa", veiculo.placa);
+        linha("Tipo/Espécie", veiculo.tipo_especie);
+        linha("Marca", veiculo.marca);
+        linha("Modelo", veiculo.modelo);
+        linha("Ano", veiculo.ano);
+        linha("Cor", veiculo.cor);
+        linha("Renavam", veiculo.renavam);
+        linha("Chassi", veiculo.chassi);
+        linha("Condutor", veiculo.condutor);
+        linha("Documento Condutor", veiculo.documento_condutor);
+        linha("Proprietário", veiculo.proprietario);
+        linha("CPF Proprietário", veiculo.cpf_proprietario);
+        linha("Telefone Proprietário", veiculo.telefone_proprietario);
+        linha("Situação", veiculo.situacao);
+        linha("Consulta", veiculo.situacao_consulta);
+        linha("Observação", veiculo.observacao);
+        y += 5;
+      });
     }
 
-    pdf.text(`${index + 1}. Veículo`, 15, y);
-    y += 7;
+    if (objetosEnvolvidos.length > 0) {
+      novaPaginaSePrecisar(220);
+      pdf.setFontSize(14);
+      pdf.text("OBJETOS ENVOLVIDOS", 15, y);
+      y += 10;
 
-    linhaVeiculo("Placa", veiculo.placa);
-    linhaVeiculo("Tipo/Espécie", veiculo.tipo_especie);
-    linhaVeiculo("Marca", veiculo.marca);
-    linhaVeiculo("Modelo", veiculo.modelo);
-    linhaVeiculo("Ano", veiculo.ano);
-    linhaVeiculo("Cor", veiculo.cor);
-    linhaVeiculo("Renavam", veiculo.renavam);
-    linhaVeiculo("Chassi", veiculo.chassi);
-
-    linhaVeiculo("Condutor", veiculo.condutor);
-    linhaVeiculo("Documento Condutor", veiculo.documento_condutor);
-
-    linhaVeiculo("Proprietário", veiculo.proprietario);
-    linhaVeiculo("CPF Proprietário", veiculo.cpf_proprietario);
-    linhaVeiculo("Telefone Proprietário", veiculo.telefone_proprietario);
-
-    linhaVeiculo("Situação", veiculo.situacao);
-    linhaVeiculo("Consulta", veiculo.situacao_consulta);
-
-    if (veiculo.observacao) {
-      const obs = pdf.splitTextToSize(
-        `Observação: ${veiculo.observacao}`,
-        165
-      );
-
-      pdf.text(obs, 20, y);
-      y += obs.length * 7;
+      objetosEnvolvidos.forEach((item: any, index: number) => {
+        novaPaginaSePrecisar(230);
+        linha(`${index + 1}. Item`, " ");
+        linha("Categoria", item.categoria);
+        linha("Descrição", item.descricao);
+        linha("Marca", item.marca);
+        linha("Modelo", item.modelo);
+        linha("Calibre", item.calibre);
+        linha("Numeração", item.numeracao);
+        linha("Quantidade", item.quantidade);
+        linha("Peso", item.peso ? `${item.peso} ${item.unidade_peso || ""}` : "");
+        linha("Valor Estimado", item.valor_estimado);
+        linha("Procedência", item.procedencia);
+        linha("Situação", item.situacao);
+        linha("Observação", item.observacao);
+        y += 5;
+      });
     }
 
-    y += 8;
-  });
-}
-
-if (objetosEnvolvidos.length > 0) {
-  if (y > 220) {
-    pdf.addPage();
-    y = 20;
-  }
-
-  pdf.setFontSize(14);
-  pdf.text("OBJETOS ENVOLVIDOS", 15, y);
-  y += 10;
-
-  pdf.setFontSize(11);
-
-  objetosEnvolvidos.forEach((item: any, index: number) => {
-    if (y > 230) {
-      pdf.addPage();
-      y = 20;
-    }
-
-    pdf.text(`${index + 1}. Item`, 15, y);
-    y += 7;
-
-    pdf.text(`Categoria: ${item.categoria || "-"}`, 20, y);
-    y += 7;
-
-    function linhaObjeto(label: string, valor: any) {
-  if (!valor) return;
-
-  pdf.text(`${label}: ${valor}`, 20, y);
-  y += 7;
-}
-
-linhaObjeto("Categoria", item.categoria);
-linhaObjeto("Descrição", item.descricao);
-linhaObjeto("Marca", item.marca);
-linhaObjeto("Modelo", item.modelo);
-linhaObjeto("Calibre", item.calibre);
-linhaObjeto("Numeração", item.numeracao);
-linhaObjeto("Quantidade", item.quantidade);
-
-if (item.peso) {
-  linhaObjeto(
-    "Peso",
-    `${item.peso} ${item.unidade_peso || ""}`
-  );
-}
-
-linhaObjeto("Valor Estimado", item.valor_estimado);
-linhaObjeto("Procedência", item.procedencia);
-linhaObjeto("Situação", item.situacao);
-
-    if (item.observacao) {
-      const obs = pdf.splitTextToSize(
-        `Observação: ${item.observacao}`,
-        165
-      );
-
-      pdf.text(obs, 20, y);
-      y += obs.length * 7;
-    }
-
-    y += 10;
-  });
-}
-
+    novaPaginaSePrecisar(230);
     pdf.line(15, 265, 90, 265);
     pdf.text("Guarda Responsável", 15, 273);
 
@@ -575,6 +605,15 @@ linhaObjeto("Situação", item.situacao);
       }
     }
 
+    adicionarMarcaDagua(pdf);
+
+    await registrarAuditoria({
+      modulo: "OCORRENCIAS",
+      acao: "GERAR_PDF",
+      descricao: `Gerou PDF da ocorrência ${ocorrencia.protocolo}.`,
+      registro_id: String(ocorrencia.id),
+    });
+
     pdf.save(`RELATORIO-${ocorrencia.protocolo}.pdf`);
   }
 
@@ -590,11 +629,6 @@ linhaObjeto("Situação", item.situacao);
     });
   }
 
-  useEffect(() => {
-  void carregarOcorrencia();
-  void carregarDadosApoio();
-}, []);
-
   if (carregando) {
     return <div className="p-6 text-slate-400">Carregando ocorrência...</div>;
   }
@@ -603,38 +637,10 @@ linhaObjeto("Situação", item.situacao);
     return <div className="p-6 text-slate-400">Ocorrência não encontrada.</div>;
   }
 
-const envolvidos = obterEnvolvidos();
-const veiculosEnvolvidos = obterVeiculosEnvolvidos();
-const objetosEnvolvidos = obterObjetosEnvolvidos();
-const fotos = obterFotos();
-
-function nomeMunicipio(id: number | null) {
-  if (!id) return "-";
-
-  const municipio = municipios.find((m) => m.id === id);
-  return municipio ? `${municipio.nome} - ${municipio.estado}` : "-";
-}
-
-function nomeGuarnicao(id: number | null) {
-  if (!id) return "-";
-
-  const guarnicao = guarnicoes.find((g) => g.id === id);
-  return guarnicao?.nome || "-";
-}
-
-function prefixoViatura(id: number | null) {
-  if (!id) return "-";
-
-  const viatura = viaturas.find((v) => v.id === id);
-  return viatura?.prefixo || "-";
-}
-
-function nomeGuarda(id: number | null) {
-  if (!id) return "-";
-
-  const guarda = guardas.find((g) => g.id === id);
-  return guarda?.nome || "-";
-}
+  const envolvidos = obterEnvolvidos();
+  const veiculosEnvolvidos = obterVeiculosEnvolvidos();
+  const objetosEnvolvidos = obterObjetosEnvolvidos();
+  const fotos = obterFotos();
 
   return (
     <div className="p-3 md:p-6 pb-24">
@@ -650,13 +656,15 @@ function nomeGuarda(id: number | null) {
         </div>
 
         <div className="flex flex-col md:flex-row gap-3">
-          <button
-            type="button"
-            onClick={gerarPDF}
-            className="bg-green-700 hover:bg-green-800 px-5 py-3 rounded-xl font-semibold"
-          >
-            Gerar PDF
-          </button>
+          {usuario && perfisPDF.includes(usuario.perfil) && (
+            <button
+              type="button"
+              onClick={gerarPDF}
+              className="bg-green-700 hover:bg-green-800 px-5 py-3 rounded-xl font-semibold"
+            >
+              Gerar PDF
+            </button>
+          )}
 
           <Link
             href="/sistema/ocorrencias"
@@ -668,48 +676,11 @@ function nomeGuarda(id: number | null) {
       </header>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-
-  <div className="card rounded-2xl shadow-lg p-4">
-    <p className="text-xs text-slate-400 uppercase">
-      Protocolo
-    </p>
-
-    <p className="text-xl font-bold mt-2">
-      {ocorrencia.protocolo}
-    </p>
-  </div>
-
-  <div className="card rounded-2xl shadow-lg p-4">
-    <p className="text-xs text-slate-400 uppercase">
-      Status
-    </p>
-
-    <p className="text-xl font-bold mt-2">
-      {ocorrencia.status}
-    </p>
-  </div>
-
-  <div className="card rounded-2xl shadow-lg p-4">
-    <p className="text-xs text-slate-400 uppercase">
-      Data
-    </p>
-
-    <p className="text-xl font-bold mt-2">
-      {ocorrencia.data}
-    </p>
-  </div>
-
-  <div className="card rounded-2xl shadow-lg p-4">
-    <p className="text-xs text-slate-400 uppercase">
-      Local
-    </p>
-
-    <p className="text-lg font-bold mt-2 truncate">
-      {ocorrencia.local}
-    </p>
-  </div>
-
-</div>
+        <ResumoCard titulo="Protocolo" valor={ocorrencia.protocolo} />
+        <ResumoCard titulo="Status" valor={ocorrencia.status} />
+        <ResumoCard titulo="Data" valor={ocorrencia.data} />
+        <ResumoCard titulo="Local" valor={ocorrencia.local} />
+      </div>
 
       <section className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="card rounded-2xl shadow-lg space-y-4">
@@ -740,11 +711,11 @@ function nomeGuarda(id: number | null) {
 
         <div className="card rounded-2xl shadow-lg space-y-4">
           <h2 className="text-xl font-bold">Equipe Empenhada</h2>
-          <Linha nome="Viatura" valor={ocorrencia.viatura_empenhada || "-"} />
-          <Linha nome="Município" valor={nomeMunicipio(ocorrencia.municipio_id)}/>
-          <Linha nome="Guarnição" valor={nomeGuarnicao(ocorrencia.guarnicao_id)}/>
-          <Linha nome="Viatura" valor={prefixoViatura(ocorrencia.viatura_id)}/>
-          <Linha nome="Responsável" valor={nomeGuarda(ocorrencia.guarda_responsavel_id)}/>
+          <Linha nome="Município" valor={nomeMunicipio(ocorrencia.municipio_id)} />
+          <Linha nome="Guarnição" valor={nomeGuarnicao(ocorrencia.guarnicao_id)} />
+          <Linha nome="Viatura" valor={prefixoViatura(ocorrencia.viatura_id)} />
+          <Linha nome="Responsável" valor={nomeGuarda(ocorrencia.guarda_responsavel_id)} />
+
           <div>
             <p className="text-slate-400 mb-2">Guardas</p>
             <pre className="whitespace-pre-wrap text-white font-sans">
@@ -760,31 +731,33 @@ function nomeGuarda(id: number | null) {
           </p>
         </div>
 
-        <div className="card space-y-4 md:col-span-2">
-          <h2 className="text-xl font-bold">Envolvidos</h2>
+        <BlocoEnvolvidos envolvidos={envolvidos} />
 
-          {envolvidos.length === 0 ? (
-            <p className="text-slate-400">Nenhum envolvido cadastrado.</p>
+        <div className="card space-y-4 md:col-span-2">
+          <h2 className="text-xl font-bold">🚗 Veículos Envolvidos</h2>
+
+          {veiculosEnvolvidos.length === 0 ? (
+            <p className="text-slate-400">Nenhum veículo cadastrado.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {envolvidos.map((pessoa, index) => (
+              {veiculosEnvolvidos.map((veiculo: any, index: number) => (
                 <div
                   key={index}
                   className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5"
                 >
-                  <h3 className="font-bold text-lg">
-                    {pessoa.nome || `Envolvido ${index + 1}`}
-                  </h3>
+                  <h3 className="font-bold text-lg">Veículo {index + 1}</h3>
 
-                  <Linha nome="Tipo" valor={pessoa.tipo || "-"} />
-                  <Linha nome="Documento" valor={pessoa.documento || "-"} />
-                  <Linha nome="Telefone" valor={pessoa.telefone || "-"} />
-                  <Linha nome="Endereço" valor={pessoa.endereco || "-"} />
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                    <Linha nome="Placa" valor={veiculo.placa || "-"} />
+                    <Linha nome="Marca" valor={veiculo.marca || "-"} />
+                    <Linha nome="Modelo" valor={veiculo.modelo || "-"} />
+                    <Linha nome="Ano" valor={veiculo.ano || "-"} />
+                    <Linha nome="Cor" valor={veiculo.cor || "-"} />
+                    <Linha nome="Situação" valor={veiculo.situacao || "-"} />
+                  </div>
 
-                  {pessoa.observacao && (
-                    <p className="text-slate-300 pt-2">
-                      {pessoa.observacao}
-                    </p>
+                  {veiculo.observacao && (
+                    <p className="text-slate-300 pt-3">{veiculo.observacao}</p>
                   )}
                 </div>
               ))}
@@ -793,163 +766,64 @@ function nomeGuarda(id: number | null) {
         </div>
 
         <div className="card space-y-4 md:col-span-2">
-  <h2 className="text-xl font-bold">
-    🚗 Veículos Envolvidos
-  </h2>
+          <h2 className="text-xl font-bold">📦 Objetos Envolvidos</h2>
 
-  {veiculosEnvolvidos.length === 0 ? (
-    <p className="text-slate-400">Nenhum veículo cadastrado.</p>
-  ) : (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {veiculosEnvolvidos.map((veiculo: any, index: number) => (
-        <div
-          key={index}
-          className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5"
-        >
-          <h3 className="font-bold text-lg">
-            Veículo {index + 1}
-          </h3>
+          {objetosEnvolvidos.length === 0 ? (
+            <p className="text-slate-400">Nenhum objeto cadastrado.</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {objetosEnvolvidos.map((item: any, index: number) => (
+                <div
+                  key={index}
+                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
+                >
+                  <h3 className="font-bold text-lg">Item {index + 1}</h3>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <Linha nome="Categoria" valor={item.categoria || "-"} />
+                    <Linha nome="Descrição" valor={item.descricao || "-"} />
+                    <Linha nome="Quantidade" valor={item.quantidade || "-"} />
+                    <Linha nome="Situação" valor={item.situacao || "-"} />
+                  </div>
 
-          <Linha nome="Placa" valor={veiculo.placa || "-"} />
-          {veiculo.marca && (
-          <Linha nome="Marca" valor={veiculo.marca || "-"} />
-          )}
-          {veiculo.modelo && (
-          <Linha nome="Modelo" valor={veiculo.modelo} />
-          )}
-          {veiculo.ano && (
-          <Linha nome="Ano" valor={veiculo.ano || "-"} />
-          )}
-          {veiculo.cor && (
-          <Linha nome="Cor" valor={veiculo.cor || "-"} />
-          )}
-          {veiculo.renavam && (
-          <Linha nome="Renavam" valor={veiculo.renavam} />
-          )}
-          {veiculo.condutor && (
-          <Linha nome="Condutor" valor={veiculo.condutor || "-"} />
-          )}
-          {veiculo.documento_condutor && (
-          <Linha nome="Documento do Condutor" valor={veiculo.documento_condutor || "-"} />
-          )}
-          {veiculo.proprietario && (
-          <Linha nome="Proprietário" valor={veiculo.proprietario || "-"} />
-          )}
-          {veiculo.cpf_proprietario && (
-          <Linha nome="CPF Proprietário" valor={veiculo.cpf_proprietario || "-"}/>
-          )}
-          {veiculo.situacao && (
-          <Linha nome="Situação" valor={veiculo.situacao || "-"} />
-          )}
-          {veiculo.situacao_consulta && (
-          <Linha nome="Situação da Consulta" valor={veiculo.situacao_consulta || "-"} />
-          )}
-
-          </div>
-
-          {veiculo.observacao && (
-            <p className="text-slate-300 pt-2">
-              {veiculo.observacao}
-            </p>
+                  {item.observacao && (
+                    <p className="text-slate-300 pt-2">{item.observacao}</p>
+                  )}
+                </div>
+              ))}
+            </div>
           )}
         </div>
-      ))}
-    </div>
-  )}
-</div>
-
-<div className="card space-y-4 md:col-span-2">
-  <h2 className="text-xl font-bold">
-    📦 Objetos Envolvidos
-  </h2>
-
-  {objetosEnvolvidos.length === 0 ? (
-    <p className="text-slate-400">
-      Nenhum objeto cadastrado.
-    </p>
-  ) : (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-      {objetosEnvolvidos.map((item: any, index: number) => (
-        <div
-          key={index}
-          className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-2"
-        >
-          <h3 className="font-bold text-lg">
-            Item {index + 1}
-          </h3>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-
-          <Linha nome="Categoria" valor={item.categoria || "-"} />
-
-          <Linha nome="Descrição" valor={item.descricao || "-"} />
-          {item.marca && (
-          <Linha nome="Marca" valor={item.marca || "-"} />
-          )}
-          {item.modelo && (
-          <Linha nome="Modelo" valor={item.modelo || "-"} />
-          )}
-          {item.calibre && (
-          <Linha nome="Calibre" valor={item.calibre || "-"} />
-          )}
-          {item.numeracao && (
-          <Linha nome="Numeração" valor={item.numeracao || "-"} />
-          )}
-          <Linha nome="Quantidade" valor={item.quantidade || "-"} />
-          {item.peso && (
-          <Linha nome="Peso" valor={`${item.peso || "-"} ${item.unidade_peso || ""}`} />
-          )}
-          {item.valor_estimado && (
-          <Linha nome="Valor Estimado" valor={item.valor_estimado || "-"} />
-          )}
-          {item.procedencia && (
-          <Linha nome="Procedência" valor={item.procedencia || "-"} />
-          )}
-          <Linha nome="Situação" valor={item.situacao || "-"} />
-
-          </div>
-
-          {item.observacao && (
-            <p className="text-slate-300 pt-2">
-              {item.observacao}
-            </p>
-          )}
-        </div>
-      ))}
-    </div>
-  )}
-</div>
 
         <div className="card space-y-4 md:col-span-2">
-          <h2 className="text-xl font-bold">
-            Fotos da Ocorrência
-          </h2>
+          <h2 className="text-xl font-bold">Fotos da Ocorrência</h2>
 
           {fotos.length === 0 ? (
             <p className="text-slate-400">Nenhuma foto anexada.</p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {fotos.map((foto, index) => (
-                <div
+                <a
                   key={foto}
-                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 shadow-lg"
+                  href={foto}
+                  target="_blank"
+                  onClick={() => void auditarFoto(index)}
+                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 shadow-lg block"
                 >
                   <p className="text-slate-400 text-xs uppercase tracking-wider mb-3">
                     Foto {index + 1}
                   </p>
 
                   <div className="w-full h-80 overflow-hidden rounded-xl border border-slate-700">
-  <Image
-    src={foto}
-    alt={`Foto ${index + 1} da ocorrência`}
-    width={900}
-    height={600}
-    className="w-full h-full object-cover"
-  />
-</div>
-                </div>
+                    <Image
+                      src={foto}
+                      alt={`Foto ${index + 1} da ocorrência`}
+                      width={900}
+                      height={600}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                </a>
               ))}
             </div>
           )}
@@ -959,22 +833,68 @@ function nomeGuarda(id: number | null) {
   );
 }
 
+function BlocoEnvolvidos({ envolvidos }: { envolvidos: Envolvido[] }) {
+  return (
+    <div className="card space-y-4 md:col-span-2">
+      <h2 className="text-xl font-bold">Envolvidos</h2>
+
+      {envolvidos.length === 0 ? (
+        <p className="text-slate-400">Nenhum envolvido cadastrado.</p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {envolvidos.map((pessoa, index) => (
+            <div
+              key={index}
+              className="bg-slate-950/40 border border-slate-700 rounded-2xl p-5"
+            >
+              <h3 className="font-bold text-lg">
+                {pessoa.nome || `Envolvido ${index + 1}`}
+              </h3>
+
+              <div className="grid grid-cols-2 gap-3 mt-3">
+                <Linha nome="Tipo" valor={pessoa.tipo || "-"} />
+                <Linha nome="Documento" valor={pessoa.documento || "-"} />
+                <Linha nome="Telefone" valor={pessoa.telefone || "-"} />
+                <Linha nome="Endereço" valor={pessoa.endereco || "-"} />
+              </div>
+
+              {pessoa.observacao && (
+                <p className="text-slate-300 pt-3">{pessoa.observacao}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResumoCard({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string | number | null | undefined;
+}) {
+  return (
+    <div className="card rounded-2xl shadow-lg p-4">
+      <p className="text-xs text-slate-400 uppercase">{titulo}</p>
+      <p className="text-xl font-bold mt-2 truncate">{valor ?? "-"}</p>
+    </div>
+  );
+}
+
 function Linha({
   nome,
   valor,
 }: {
   nome: string;
-  valor: string;
+  valor: string | number | null | undefined;
 }) {
   return (
     <div className="bg-slate-900/40 border border-slate-700 rounded-xl p-3">
-      <p className="text-xs uppercase tracking-wide text-slate-400">
-        {nome}
-      </p>
-
-      <p className="text-white font-semibold mt-1 break-words">
-        {valor}
-      </p>
+      <p className="text-xs uppercase tracking-wide text-slate-400">{nome}</p>
+      <p className="text-white font-semibold mt-1 break-words">{valor ?? "-"}</p>
     </div>
   );
 }

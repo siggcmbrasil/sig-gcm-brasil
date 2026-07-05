@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type Historico = {
   id: number;
@@ -22,40 +23,71 @@ export default function Historico() {
   const [busca, setBusca] = useState("");
 
   const [numeroAntigo, setNumeroAntigo] = useState("");
-  const [ano, setAno] = useState("");
+  const [ano, setAno] = useState(
+  String(new Date().getFullYear())
+);
   const [dataOcorrencia, setDataOcorrencia] = useState("");
   const [tipo, setTipo] = useState("");
   const [local, setLocal] = useState("");
   const [envolvidos, setEnvolvidos] = useState("");
   const [resumo, setResumo] = useState("");
   const [observacoes, setObservacoes] = useState("");
-  const [digitalizadoPor, setDigitalizadoPor] = useState("");
+  const [digitalizadoPor, setDigitalizadoPor] =
+  useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
+  const [inputKey, setInputKey] =
+  useState(Date.now());
 
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
+
+const municipioId = usuario?.municipio_id;
+
+useEffect(() => {
+  if (usuario?.nome) {
+    setDigitalizadoPor(usuario.nome);
+  }
+}, []);
 
   async function carregarHistorico() {
     setCarregando(true);
 
+    if (!municipioId) {
+  setCarregando(false);
+  return;
+}
+
     const { data, error } = await supabase
-      .from("ocorrencias_historicas")
-      .select("*")
-      .order("id", { ascending: false });
+.from("ocorrencias_historicas")
+.select("*")
+.eq("municipio_id", municipioId)
+.order("id", { ascending: false });
 
     if (error) {
-      console.error(error);
-      alert("Erro ao carregar arquivo histórico.");
-      setCarregando(false);
-      return;
-    }
+  console.error(error);
+  alert("Erro ao carregar arquivo histórico.");
+  setCarregando(false);
+  return;
+}
 
-    setRegistros(data || []);
-    setCarregando(false);
+setRegistros(data || []);
+setCarregando(false);
   }
 
   async function salvarHistorico() {
-    if (!numeroAntigo && !dataOcorrencia && !resumo) {
+    if (!municipioId) {
+  alert("Município não identificado.");
+  return;
+}
+    if (
+  !numeroAntigo.trim() &&
+  !dataOcorrencia &&
+  !resumo.trim()
+) {
       alert("Preencha pelo menos número antigo, data ou resumo.");
       return;
     }
@@ -65,10 +97,11 @@ export default function Historico() {
     let arquivoUrl = "";
 
     if (arquivo) {
-      const nomeArquivo = `historico-${Date.now()}-${arquivo.name}`;
+      const nomeArquivo =
+  `${municipioId}/historico-${Date.now()}-${arquivo.name}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("fotos-ocorrencias")
+        .from("historico-ocorrencias")
         .upload(nomeArquivo, arquivo);
 
       if (uploadError) {
@@ -79,7 +112,7 @@ export default function Historico() {
       }
 
       const { data: urlData } = supabase.storage
-        .from("fotos-ocorrencias")
+        .from("historico-ocorrencias")
         .getPublicUrl(nomeArquivo);
 
       arquivoUrl = urlData.publicUrl;
@@ -87,52 +120,101 @@ export default function Historico() {
 
     const { error } = await supabase.from("ocorrencias_historicas").insert([
       {
-        numero_antigo: numeroAntigo,
-        ano,
+  municipio_id: municipioId,
+  numero_antigo: numeroAntigo.trim() || null,
+       ano: ano.trim() || null,
         data_ocorrencia: dataOcorrencia || null,
-        tipo,
-        local,
-        envolvidos,
-        resumo,
-        observacoes,
-        arquivo_url: arquivoUrl,
-        digitalizado_por: digitalizadoPor,
+       tipo: tipo.trim() || null,
+        local: local.trim() || null,
+envolvidos:
+  envolvidos.trim() || null,
+resumo:
+  resumo.trim() || null,
+observacoes:
+  observacoes.trim() || null,
+        arquivo_url:
+  arquivoUrl || null,
+digitalizado_por:
+  digitalizadoPor.trim() || null,
       },
     ]);
 
     setSalvando(false);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar ocorrência histórica.");
-      return;
+if (error) {
+  setSalvando(false);
+
+  console.error(error);
+
+  if (arquivoUrl) {
+    const caminho =
+      arquivoUrl.split(
+        "/historico-ocorrencias/"
+      )[1];
+
+    if (caminho) {
+      await supabase.storage
+        .from("historico-ocorrencias")
+        .remove([caminho]);
     }
+  }
+
+  alert("Erro ao salvar ocorrência histórica.");
+  return;
+}
+
+const registroCriado =
+  numeroAntigo.trim() || "Sem número";
+
+    await registrarAuditoria({
+  modulo: "Arquivo Histórico",
+  acao: "CRIAR",
+  tabela: "ocorrencias_historicas",
+  descricao: `Arquivou ocorrência histórica ${registroCriado}.`,
+  detalhes: {
+    numero_antigo: numeroAntigo || null,
+    ano: ano || null,
+    tipo: tipo || null,
+  },
+});
 
     alert("Ocorrência histórica arquivada com sucesso!");
+    setBusca("");
 
     setNumeroAntigo("");
-    setAno("");
+    setAno(
+  String(new Date().getFullYear())
+);
     setDataOcorrencia("");
     setTipo("");
     setLocal("");
     setEnvolvidos("");
     setResumo("");
     setObservacoes("");
-    setDigitalizadoPor("");
+    setDigitalizadoPor(
+  usuario?.nome || ""
+);
     setArquivo(null);
+    setInputKey(Date.now());
 
     carregarHistorico();
   }
 
   async function excluirHistorico(id: number) {
-    const confirmar = confirm("Deseja excluir este registro histórico?");
+    const confirmar = confirm(
+  `Excluir a ocorrência ${
+    registros.find((r) => r.id === id)
+      ?.numero_antigo || ""
+  }?`
+);
 
     if (!confirmar) return;
 
     const { error } = await supabase
-      .from("ocorrencias_historicas")
-      .delete()
-      .eq("id", id);
+.from("ocorrencias_historicas")
+.delete()
+.eq("id", id)
+.eq("municipio_id", municipioId);
 
     if (error) {
       console.error(error);
@@ -140,12 +222,44 @@ export default function Historico() {
       return;
     }
 
+    const registro = registros.find(
+  (r) => r.id === id
+);
+
+if (registro?.arquivo_url) {
+  const caminho =
+    registro.arquivo_url.split(
+      "/historico-ocorrencias/"
+    )[1];
+
+  if (caminho) {
+    await supabase.storage
+      .from("historico-ocorrencias")
+      .remove([caminho]);
+  }
+}
+
+    await registrarAuditoria({
+  modulo: "Arquivo Histórico",
+  acao: "EXCLUIR",
+  tabela: "ocorrencias_historicas",
+  descricao: `Excluiu ocorrência histórica ${
+  registros.find((r) => r.id === id)
+    ?.numero_antigo || `ID ${id}`
+}.`,
+  detalhes: {
+    registro_id: id,
+  },
+});
+
     carregarHistorico();
   }
 
-  useEffect(() => {
+useEffect(() => {
+  if (municipioId) {
     carregarHistorico();
-  }, []);
+  }
+}, [municipioId]);
 
   const filtrados = registros.filter((item) => {
     const texto = `
@@ -282,8 +396,9 @@ export default function Historico() {
 
             <div>
               <label className="label">Arquivo digitalizado</label>
-              <input
-                type="file"
+<input
+  key={inputKey}
+  type="file"
                 accept="image/*,.pdf"
                 className="input"
                 onChange={(e) => setArquivo(e.target.files?.[0] || null)}

@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import { registrarAuditoria } from "@/lib/auditoria";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function NovaFeriasPage() {
   const router = useRouter();
@@ -42,10 +43,22 @@ export default function NovaFeriasPage() {
 
   async function carregarGuardas() {
     const usuario = JSON.parse(
-      localStorage.getItem(
-        "usuarioLogado"
-      ) || "{}"
-    );
+  localStorage.getItem(
+    "usuarioLogado"
+  ) || "{}"
+);
+
+if (!usuario?.municipio_id) return;
+
+if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
+
+if (!guardaId || !dataInicio || !dataFim) {
+  alert("Preencha guarda, data inicial e data final.");
+  return;
+}
 
     const { data } = await supabase
       .from("guardas")
@@ -72,11 +85,12 @@ export default function NovaFeriasPage() {
         .insert({
           municipio_id:
             usuario.municipio_id,
-          guarda_id: guardaId,
+          guarda_id: Number(guardaId),
+status: "ATIVO",
           tipo,
           data_inicio: dataInicio,
           data_fim: dataFim,
-          observacao,
+          observacao: observacao.trim() || null,
         });
 
     if (error) {
@@ -101,6 +115,7 @@ await registrarAuditoria({
   }
 
   return (
+  <ProtecaoModulo modulo="ferias_licencas">
     <div className="p-4 md:p-6 space-y-6">
       <SigPageHeader
         titulo="Nova Solicitação"
@@ -204,6 +219,7 @@ await registrarAuditoria({
           </button>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

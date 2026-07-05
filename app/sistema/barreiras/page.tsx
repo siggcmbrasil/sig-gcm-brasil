@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
   Plus,
   ShieldCheck,
@@ -43,9 +44,10 @@ export default function BarreirasPage() {
 
     const { data, error } = await supabase
       .from("barreiras")
-      .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("created_at", { ascending: false });
+.select("*")
+.eq("municipio_id", usuario.municipio_id)
+.order("created_at", { ascending: false })
+.range(0, 499);
 
     if (!error) setBarreiras(data || []);
     setCarregando(false);
@@ -109,6 +111,44 @@ async function registrarAuditoria(acao: string, detalhes: string) {
       return;
     }
 
+    if (
+  latitude &&
+  (Number(latitude) < -90 ||
+    Number(latitude) > 90)
+) {
+  alert("Latitude inválida.");
+  return;
+}
+
+if (
+  longitude &&
+  (Number(longitude) < -180 ||
+    Number(longitude) > 180)
+) {
+  alert("Longitude inválida.");
+  return;
+}
+
+if (nome.length > 150) {
+  alert("Nome muito grande.");
+  return;
+}
+
+if (local.length > 200) {
+  alert("Local muito grande.");
+  return;
+}
+
+if (objetivo.length > 3000) {
+  alert("Objetivo muito grande.");
+  return;
+}
+
+if (observacoes.length > 5000) {
+  alert("Observação muito grande.");
+  return;
+}
+
     const { error } = await supabase.from("barreiras").insert([
       {
         municipio_id: usuario.municipio_id,
@@ -128,9 +168,15 @@ async function registrarAuditoria(acao: string, detalhes: string) {
     ]);
 
     if (error) {
-      alert("Erro ao salvar barreira.");
       console.error(error);
-      return;
+
+await registrarAuditoria(
+  "ERRO_BARREIRA",
+  error.message
+);
+
+alert("Erro ao salvar barreira.");
+return;
     }
 
     await registrarAuditoria(
@@ -172,6 +218,40 @@ async function registrarAuditoria(acao: string, detalhes: string) {
     `Alterou a barreira ${id} para ${status}`
   );
 
+  carregarBarreiras();
+}
+
+async function excluirBarreira(id: number) {
+  const usuario = pegarUsuario();
+
+  const confirmar = confirm(
+    "Deseja excluir esta barreira?"
+  );
+
+  if (!confirmar) return;
+
+  const { error } = await supabase
+    .from("barreiras")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
+
+  if (error) {
+    await registrarAuditoria(
+      "ERRO_EXCLUIR_BARREIRA",
+      error.message
+    );
+
+    alert("Erro ao excluir barreira.");
+    return;
+  }
+
+  await registrarAuditoria(
+    "EXCLUIR_BARREIRA",
+    `Excluiu a barreira ${id}`
+  );
+
+  alert("Barreira excluída.");
   carregarBarreiras();
 }
 
@@ -409,6 +489,14 @@ async function registrarAuditoria(acao: string, detalhes: string) {
                       <CheckCircle size={16} />
                       Finalizar
                     </button>
+
+<button
+  onClick={() => excluirBarreira(b.id)}
+  className="bg-red-700 hover:bg-red-600 px-3 py-2 rounded-lg text-sm font-bold"
+>
+  Excluir
+</button>
+
                   </div>
                 </div>
               </div>

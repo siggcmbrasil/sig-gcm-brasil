@@ -50,7 +50,12 @@ function CardConfig({
   titulo,
   descricao,
   icone: Icone,
-}: any) {
+}: {
+  href: string;
+  titulo: string;
+  descricao: string;
+  icone: any;
+}) {
   return (
     <Link
       href={href}

@@ -6,6 +6,17 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
+const HIERARQUIA: Record<string, number> = {
+  DESENVOLVEDOR: 100,
+  ADMIN: 90,
+  COMANDANTE: 80,
+  DIRETOR: 70,
+  CMT_GUARNICAO: 60,
+  PLANTONISTA: 50,
+  GUARDA: 40,
+  CONSULTA: 10,
+};
+
 export async function POST(req: Request) {
   let authUserId: string | undefined;
 
@@ -52,26 +63,39 @@ export async function POST(req: Request) {
 
     const body = await req.json();
 
+    const nome = String(body.nome || "").trim();
+    const email = String(body.email || "").trim().toLowerCase();
+    const senha = String(body.senha || "");
+    const perfilNovo = String(body.perfil || "").toUpperCase();
+    const perfilLogado = String(usuarioLogado.perfil || "").toUpperCase();
+
     const {
-      nome,
       matricula,
       telefone,
-      email,
       cpf,
       cargo,
-      perfil,
       status,
       observacao,
       municipio_id,
-      senha,
     } = body;
-
-    const perfilLogado = String(usuarioLogado.perfil || "").toUpperCase();
-    const perfilNovo = String(perfil || "").toUpperCase();
 
     if (!nome || !email || !senha || !perfilNovo) {
       return NextResponse.json(
         { error: "Nome, email, senha e perfil são obrigatórios." },
+        { status: 400 }
+      );
+    }
+
+    if (senha.length < 6) {
+      return NextResponse.json(
+        { error: "A senha deve ter no mínimo 6 caracteres." },
+        { status: 400 }
+      );
+    }
+
+    if (!HIERARQUIA[perfilLogado] || !HIERARQUIA[perfilNovo]) {
+      return NextResponse.json(
+        { error: "Perfil inválido." },
         { status: 400 }
       );
     }
@@ -83,17 +107,27 @@ export async function POST(req: Request) {
       );
     }
 
-    if (perfilNovo === "DESENVOLVEDOR" && perfilLogado !== "DESENVOLVEDOR") {
+    if (
+      perfilLogado !== "DESENVOLVEDOR" &&
+      HIERARQUIA[perfilNovo] >= HIERARQUIA[perfilLogado]
+    ) {
       return NextResponse.json(
-        { error: "Somente DESENVOLVEDOR pode criar outro DESENVOLVEDOR." },
+        { error: "Você não pode criar usuário com perfil igual ou superior ao seu." },
         { status: 403 }
       );
     }
 
     const municipioFinal =
       perfilLogado === "DESENVOLVEDOR"
-        ? municipio_id || null
+        ? municipio_id
         : usuarioLogado.municipio_id;
+
+    if (!municipioFinal) {
+      return NextResponse.json(
+        { error: "Município é obrigatório." },
+        { status: 400 }
+      );
+    }
 
     if (
       perfilLogado !== "DESENVOLVEDOR" &&
@@ -102,6 +136,33 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { error: "Você não pode criar usuários em outro município." },
         { status: 403 }
+      );
+    }
+
+    const { data: municipioExiste } = await supabaseAdmin
+      .from("municipios")
+      .select("id")
+      .eq("id", municipioFinal)
+      .eq("ativo", true)
+      .single();
+
+    if (!municipioExiste) {
+      return NextResponse.json(
+        { error: "Município inválido ou inativo." },
+        { status: 400 }
+      );
+    }
+
+    const { data: emailExistente } = await supabaseAdmin
+      .from("usuarios")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (emailExistente) {
+      return NextResponse.json(
+        { error: "Já existe usuário com este email." },
+        { status: 400 }
       );
     }
 
@@ -121,7 +182,7 @@ export async function POST(req: Request) {
 
     authUserId = authData.user.id;
 
-    const { error: usuarioError } = await supabaseAdmin
+    const { data: novoUsuario, error: usuarioError } = await supabaseAdmin
       .from("usuarios")
       .insert([
         {
@@ -137,7 +198,9 @@ export async function POST(req: Request) {
           observacao,
           municipio_id: municipioFinal,
         },
-      ]);
+      ])
+      .select("id")
+      .single();
 
     if (usuarioError) {
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
@@ -148,6 +211,15 @@ export async function POST(req: Request) {
       );
     }
 
+    await supabaseAdmin.from("auditoria_sistema").insert({
+      municipio_id: municipioFinal,
+      usuario_id: usuarioLogado.id,
+      modulo: "USUARIOS",
+      acao: "CRIAR_USUARIO",
+      registro_id: String(novoUsuario?.id || authData.user.id),
+      detalhes: `Criou usuário ${nome} (${email}) com perfil ${perfilNovo}.`,
+    });
+
     return NextResponse.json({
       success: true,
       user_id: authData.user.id,
@@ -156,6 +228,8 @@ export async function POST(req: Request) {
     if (authUserId) {
       await supabaseAdmin.auth.admin.deleteUser(authUserId);
     }
+
+    console.error(error);
 
     return NextResponse.json(
       { error: "Erro interno ao criar usuário." },

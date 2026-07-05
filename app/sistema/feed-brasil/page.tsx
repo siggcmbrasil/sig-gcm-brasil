@@ -15,6 +15,7 @@ import {
 
 import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 export default function FeedBrasilPage() {
   const posts = [
@@ -41,6 +42,7 @@ export default function FeedBrasilPage() {
   ];
 
   return (
+  <ProtecaoModulo modulo="feed_brasil">
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Feed Brasil"
@@ -69,6 +71,24 @@ export default function FeedBrasilPage() {
           </Link>
         </div>
       </SigCard>
+
+      <SigCard>
+  <Link
+    href="/sistema/feed-brasil/nova"
+    className="
+      flex items-center justify-center
+      rounded-2xl border border-yellow-500/30
+      bg-yellow-500/10
+      p-5
+      hover:bg-yellow-500/20
+      transition
+    "
+  >
+    <span className="font-black text-yellow-400">
+      + Nova Publicação
+    </span>
+  </Link>
+</SigCard>
 
       <div className="grid md:grid-cols-4 gap-4">
         <SigCard>
@@ -106,7 +126,25 @@ export default function FeedBrasilPage() {
             <div key={post.id} className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                 <div>
-                  <p className="font-black text-white">{post.municipio}</p>
+                  <div className="flex items-center gap-2">
+  <p className="font-black text-white">
+    {post.municipio}
+  </p>
+
+  <span
+    className="
+      text-[10px]
+      px-2 py-1
+      rounded-full
+      bg-yellow-500/10
+      border border-yellow-500/30
+      text-yellow-400
+      font-bold
+    "
+  >
+    SIG-GCM
+  </span>
+</div>
                   <p className="text-sm text-slate-400">{post.autor}</p>
                 </div>
 
@@ -141,16 +179,23 @@ export default function FeedBrasilPage() {
               Funcionalidades Futuras
             </h3>
             <div className="mt-4 grid md:grid-cols-2 gap-3 text-sm text-slate-400">
-              <p>• Publicações entre municípios</p>
-              <p>• Curtidas e comentários</p>
-              <p>• Compartilhamento de projetos</p>
-              <p>• Feed nacional de ocorrências relevantes</p>
-              <p>• Fotos e vídeos</p>
-              <p>• Moderação e auditoria</p>
-            </div>
+  <p>• Publicações entre municípios</p>
+  <p>• Curtidas e comentários</p>
+  <p>• Compartilhamento de projetos</p>
+  <p>• Feed nacional de ocorrências relevantes</p>
+  <p>• Fotos e vídeos</p>
+  <p>• Moderação e auditoria</p>
+  <p>• Stories operacionais</p>
+  <p>• Reações com emojis</p>
+  <p>• Seguidores entre municípios</p>
+  <p>• Publicações oficiais do SIG-GCM Brasil</p>
+  <p>• Verificação de perfil institucional</p>
+  <p>• Mensagens privadas</p>
+</div>
           </div>
         </div>
       </SigCard>
-    </div>
-  );
+        </div>
+  </ProtecaoModulo>
+);
 }

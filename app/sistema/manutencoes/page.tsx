@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria }
+from "@/lib/auditoria";
 
 export default function ManutencoesPage() {
   const [viaturas, setViaturas] = useState<any[]>([]);
@@ -15,33 +17,92 @@ export default function ManutencoesPage() {
   const [valor, setValor] = useState("");
   const [oficina, setOficina] = useState("");
   const [descricao, setDescricao] = useState("");
+  const [quilometragem, setQuilometragem] = useState("");
+  const hoje = useMemo(() => {
+  const tzoffset =
+    new Date().getTimezoneOffset() * 60000;
+
+  return new Date(
+    Date.now() - tzoffset
+  )
+    .toISOString()
+    .split("T")[0];
+}, []);
+const [dataManutencao, setDataManutencao] = useState(hoje);
+const [proximaRevisao, setProximaRevisao] =
+  useState("");
+
+const [responsavelManutencao, setResponsavelManutencao] =
+  useState("");
+
+const [veiculoParado, setVeiculoParado] =
+  useState(false);
 
   const usuario =
     typeof window !== "undefined"
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
       : {};
 
-  async function carregar() {
-    if (!usuario?.municipio_id) return;
+async function carregar() {
+  if (!usuario?.municipio_id)
+    return;
 
-    setCarregando(true);
+  setCarregando(true);
 
-    const { data: listaViaturas } = await supabase
+  try {
+    const {
+      data: listaViaturas,
+      error: erroViaturas,
+    } = await supabase
       .from("viaturas")
       .select("*")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("prefixo", { ascending: true });
+      .eq(
+        "municipio_id",
+        usuario.municipio_id
+      )
+      .order("prefixo", {
+        ascending: true,
+      });
 
-    const { data: listaManutencoes } = await supabase
+    if (erroViaturas)
+      throw erroViaturas;
+
+    const {
+      data: listaManutencoes,
+      error: erroManutencoes,
+    } = await supabase
       .from("manutencoes_viaturas")
-      .select("*, viaturas(prefixo, placa, modelo)")
-      .eq("municipio_id", usuario.municipio_id)
-      .order("id", { ascending: false });
+      .select(
+        "*, viaturas(prefixo, placa, modelo)"
+      )
+      .eq(
+        "municipio_id",
+        usuario.municipio_id
+      )
+      .order("id", {
+        ascending: false,
+      });
 
-    setViaturas(listaViaturas || []);
-    setManutencoes(listaManutencoes || []);
+    if (erroManutencoes)
+      throw erroManutencoes;
+
+    setViaturas(
+      listaViaturas || []
+    );
+
+    setManutencoes(
+      listaManutencoes || []
+    );
+  } catch (error: any) {
+    console.error(error);
+
+    alert(
+      "Erro ao carregar dados."
+    );
+  } finally {
     setCarregando(false);
   }
+}
 
   useEffect(() => {
     carregar();
@@ -51,6 +112,10 @@ export default function ManutencoesPage() {
     const abertas = manutencoes.filter((m) => m.status === "ABERTA").length;
     const andamento = manutencoes.filter((m) => m.status === "EM_ANDAMENTO").length;
     const finalizadas = manutencoes.filter((m) => m.status === "FINALIZADA").length;
+    const paradas =
+  manutencoes.filter(
+    (m) => m.veiculo_parado
+  ).length;
     const totalValor = manutencoes.reduce(
       (acc, item) => acc + Number(item.valor || 0),
       0
@@ -61,6 +126,7 @@ export default function ManutencoesPage() {
       abertas,
       andamento,
       finalizadas,
+      paradas,
       totalValor,
     };
   }, [manutencoes]);
@@ -72,9 +138,23 @@ export default function ManutencoesPage() {
     setValor("");
     setOficina("");
     setDescricao("");
+    setQuilometragem("");
+setDataManutencao(hoje);
+setProximaRevisao("");
+setResponsavelManutencao("");
+setVeiculoParado(false);
   }
 
   async function salvar() {
+    if (
+  !usuario?.id ||
+  !usuario?.municipio_id
+) {
+  alert(
+    "Usuário ou município não identificado."
+  );
+  return;
+}
     if (!viaturaId) {
       alert("Selecione a viatura.");
       return;
@@ -95,7 +175,20 @@ export default function ManutencoesPage() {
         status,
         valor: Number(valor || 0),
         oficina: oficina.trim() || null,
+        quilometragem: Number(
+  quilometragem || 0
+),
         descricao: descricao.trim(),
+        data_manutencao: dataManutencao,
+        proxima_revisao:
+  proximaRevisao || null,
+
+responsavel_manutencao:
+  responsavelManutencao.trim() ||
+  null,
+
+veiculo_parado:
+  veiculoParado,
         criado_por: usuario.id,
       },
     ]);
@@ -106,6 +199,14 @@ export default function ManutencoesPage() {
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  acao:
+    "CADASTRO_MANUTENCAO",
+  modulo:
+    "MANUTENCOES_VIATURAS",
+  descricao: `Manutenção registrada na viatura ${viaturaId}`,
+});
 
     limparFormulario();
     carregar();
@@ -125,7 +226,7 @@ export default function ManutencoesPage() {
     if (tipo === "EMERGENCIAL") return "Emergencial";
     return tipo;
   }
-
+  
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <div className="painel-premium p-6">
@@ -142,12 +243,21 @@ export default function ManutencoesPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card titulo="Total" valor={String(resumo.total)} />
         <Card titulo="Abertas" valor={String(resumo.abertas)} />
         <Card titulo="Em andamento" valor={String(resumo.andamento)} />
         <Card titulo="Finalizadas" valor={String(resumo.finalizadas)} />
-        <Card titulo="Valor Total" valor={`R$ ${resumo.totalValor.toFixed(2)}`} />
+        <Card titulo="Viaturas Paradas" valor={String( resumo.paradas )} />
+        <Card titulo="Valor Total" valor={
+  resumo.totalValor.toLocaleString(
+    "pt-BR",
+    {
+      style: "currency",
+      currency: "BRL",
+    }
+  )
+} />
       </div>
 
       <div className="grid lg:grid-cols-3 gap-6">
@@ -205,12 +315,71 @@ export default function ManutencoesPage() {
             </div>
 
             <Campo
+  label="Quilometragem"
+  valor={quilometragem}
+  setValor={setQuilometragem}
+  placeholder="Ex: 52380"
+  type="number"
+/>
+
+            <Campo
               label="Valor"
               valor={valor}
               setValor={setValor}
               placeholder="Ex: 350.00"
               type="number"
             />
+
+            <div>
+  <label className="label">Data da manutenção</label>
+
+  <input
+    type="date"
+    className="input"
+    value={dataManutencao}
+    onChange={(e) =>
+      setDataManutencao(e.target.value)
+    }
+  />
+</div>
+
+<div>
+  <label className="label">
+    Próxima revisão
+  </label>
+
+  <input
+    type="date"
+    className="input"
+    value={proximaRevisao}
+    onChange={(e) =>
+      setProximaRevisao(e.target.value)
+    }
+  />
+</div>
+
+<Campo
+  label="Responsável"
+  valor={responsavelManutencao}
+  setValor={setResponsavelManutencao}
+  placeholder="Ex: Mecânico João"
+/>
+
+<label className="flex items-center gap-3">
+  <input
+    type="checkbox"
+    checked={veiculoParado}
+    onChange={(e) =>
+      setVeiculoParado(
+        e.target.checked
+      )
+    }
+  />
+
+  <span className="text-slate-300">
+    Viatura parada
+  </span>
+</label>
 
             <Campo
               label="Oficina"
@@ -266,11 +435,21 @@ export default function ManutencoesPage() {
             </div>
           ) : (
             <div className="grid xl:grid-cols-2 gap-4">
-              {manutencoes.map((item) => (
+              {manutencoes.map((item) => {
+  const revisaoVencida =
+    item.proxima_revisao &&
+    new Date(item.proxima_revisao) <
+      new Date();
+
+  return (
                 <div
-                  key={item.id}
-                  className="rounded-3xl border border-slate-800 bg-slate-950/70 p-5 shadow-xl"
-                >
+  key={item.id}
+  className={`rounded-3xl p-5 shadow-xl ${
+    revisaoVencida
+      ? "border border-red-500/40 bg-red-950/20"
+      : "border border-slate-800 bg-slate-950/70"
+  }`}
+>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-slate-400 text-sm">
@@ -302,10 +481,66 @@ export default function ManutencoesPage() {
                       valor={item.oficina || "Não informada"}
                     />
                     <Info
+                      titulo="Data"
+                      valor={
+                        item.data_manutencao
+                          ? new Date(
+  item.data_manutencao +
+    "T00:00:00"
+).toLocaleDateString("pt-BR")
+                          : "Não informada"
+                      }
+/>
+                    <Info
                       titulo="Situação"
                       valor={formatarStatus(item.status)}
                     />
+                    <Info
+                      titulo="Quilometragem"
+                      valor={
+                        item.quilometragem
+                          ? `${item.quilometragem} km`
+                          : "Não informada"
+                      }
+                    />
+
+                    <Info
+                      titulo="Próxima revisão"
+                      valor={
+                        item.proxima_revisao
+                          ? new Date(
+  item.proxima_revisao +
+    "T00:00:00"
+).toLocaleDateString(
+                              "pt-BR"
+                            )
+                          : "Não definida"
+                      }
+                    />
+
+                    <Info
+                      titulo="Responsável"
+                      valor={
+                        item.responsavel_manutencao ||
+                        "Não informado"
+                      }
+                    />
+
+                    <Info
+                      titulo="Viatura parada"
+                      valor={
+                        item.veiculo_parado
+                          ? "🚫 Sim"
+                          : "✅ Não"
+                      }
+                      />
                   </div>
+
+                  {revisaoVencida && (
+  <div className="mb-4 rounded-2xl border border-red-500/40 bg-red-950/30 p-3 text-red-300 text-sm font-bold">
+    ⚠️ Próxima revisão vencida.
+  </div>
+)}
 
                   <div className="mt-4 rounded-2xl bg-slate-900/70 p-4">
                     <p className="text-slate-500 text-xs mb-1">
@@ -317,7 +552,8 @@ export default function ManutencoesPage() {
                     </p>
                   </div>
                 </div>
-              ))}
+);
+})}
             </div>
           )}
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 type OcorrenciaOffline = {
   id_local: string;
@@ -18,31 +19,67 @@ export default function OfflinePage() {
   const [descricao, setDescricao] = useState("");
   const [local, setLocal] = useState("");
   const [pendentes, setPendentes] = useState<OcorrenciaOffline[]>([]);
-
-  const usuario =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+  const [usuario, setUsuario] = useState<any>(null);
 
   useEffect(() => {
-    setOnline(navigator.onLine);
-    carregarPendentes();
+    const usuarioSalvo = localStorage.getItem("usuarioLogado");
 
-    window.addEventListener("online", () => setOnline(true));
-    window.addEventListener("offline", () => setOnline(false));
+    if (!usuarioSalvo) {
+      alert("Usuário não identificado. Faça login novamente.");
+      return;
+    }
+
+    const dadosUsuario = JSON.parse(usuarioSalvo);
+
+    if (!dadosUsuario?.id || !dadosUsuario?.municipio_id) {
+      alert("Usuário sem município vinculado. Acesso bloqueado.");
+      return;
+    }
+
+    setUsuario(dadosUsuario);
+    setOnline(navigator.onLine);
+    carregarPendentes(dadosUsuario.municipio_id);
+
+    const ficarOnline = () => setOnline(true);
+    const ficarOffline = () => setOnline(false);
+
+    window.addEventListener("online", ficarOnline);
+    window.addEventListener("offline", ficarOffline);
+
+    return () => {
+      window.removeEventListener("online", ficarOnline);
+      window.removeEventListener("offline", ficarOffline);
+    };
   }, []);
 
-  function carregarPendentes() {
-    const dados = localStorage.getItem("ocorrencias_offline");
+  function chaveOffline(municipioId: number) {
+    return `ocorrencias_offline_${municipioId}`;
+  }
+
+  function carregarPendentes(municipioId?: number) {
+    if (!municipioId) return;
+
+    const dados = localStorage.getItem(chaveOffline(municipioId));
     setPendentes(dados ? JSON.parse(dados) : []);
   }
 
   function salvarLocal(lista: OcorrenciaOffline[]) {
-    localStorage.setItem("ocorrencias_offline", JSON.stringify(lista));
+    if (!usuario?.municipio_id) return;
+
+    localStorage.setItem(
+      chaveOffline(usuario.municipio_id),
+      JSON.stringify(lista)
+    );
+
     setPendentes(lista);
   }
 
   async function salvarOcorrencia() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Usuário inválido ou sem município. Faça login novamente.");
+      return;
+    }
+
     if (!titulo || !descricao) {
       alert("Preencha título e descrição.");
       return;
@@ -60,21 +97,28 @@ export default function OfflinePage() {
     if (navigator.onLine) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
-  municipio_id: usuario?.municipio_id || 1,
-  protocolo: `OFF-${Date.now()}`,
-  tipo: nova.titulo,
-  local: nova.local,
-  descricao: nova.descricao,
-  data: new Date(nova.data).toISOString().split("T")[0],
-  hora: new Date(nova.data).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }),
-  status: "Aberta",
-},
+          municipio_id: usuario.municipio_id,
+          protocolo: `OFF-${Date.now()}`,
+          tipo: nova.titulo,
+          local: nova.local,
+          descricao: nova.descricao,
+          data: new Date(nova.data).toISOString().split("T")[0],
+          hora: new Date(nova.data).toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          status: "Aberta",
+        },
       ]);
 
       if (!error) {
+        await registrarAuditoria({
+          modulo: "OCORRENCIAS_OFFLINE",
+          acao: "CRIAR_ONLINE",
+          descricao: `Ocorrência criada online pela tela offline: ${nova.titulo}`,
+          registro_id: nova.id_local,
+        });
+
         alert("Ocorrência salva online.");
         limparCampos();
         return;
@@ -87,6 +131,11 @@ export default function OfflinePage() {
   }
 
   async function sincronizar() {
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Usuário inválido ou sem município. Faça login novamente.");
+      return;
+    }
+
     if (!navigator.onLine) {
       alert("Sem internet para sincronizar.");
       return;
@@ -97,22 +146,29 @@ export default function OfflinePage() {
     for (const item of pendentes) {
       const { error } = await supabase.from("ocorrencias").insert([
         {
-  municipio_id: usuario?.municipio_id || 1,
-  protocolo: `OFF-${Date.now()}`,
-  tipo: item.titulo,
-  local: item.local,
-  descricao: item.descricao,
-  data: new Date(item.data).toISOString().split("T")[0],
-  hora: new Date(item.data).toLocaleTimeString("pt-BR", {
-    hour: "2-digit",
-    minute: "2-digit",
-  }),
-  status: "Aberta",
-},
+          municipio_id: usuario.municipio_id,
+          protocolo: `OFF-${Date.now()}-${item.id_local.slice(0, 6)}`,
+          tipo: item.titulo,
+          local: item.local,
+          descricao: item.descricao,
+          data: new Date(item.data).toISOString().split("T")[0],
+          hora: new Date(item.data).toLocaleTimeString("pt-BR", {
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          status: "Aberta",
+        },
       ]);
 
       if (error) {
         aindaPendentes.push(item);
+      } else {
+        await registrarAuditoria({
+          modulo: "OCORRENCIAS_OFFLINE",
+          acao: "SINCRONIZAR",
+          descricao: `Ocorrência offline sincronizada: ${item.titulo}`,
+          registro_id: item.id_local,
+        });
       }
     }
 
@@ -125,9 +181,20 @@ export default function OfflinePage() {
     }
   }
 
-  function excluirLocal(id: string) {
+  async function excluirLocal(id: string) {
+    const item = pendentes.find((ocorrencia) => ocorrencia.id_local === id);
     const novaLista = pendentes.filter((item) => item.id_local !== id);
+
     salvarLocal(novaLista);
+
+    if (usuario?.id && usuario?.municipio_id && item) {
+      await registrarAuditoria({
+        modulo: "OCORRENCIAS_OFFLINE",
+        acao: "EXCLUIR_LOCAL",
+        descricao: `Ocorrência offline excluída localmente: ${item.titulo}`,
+        registro_id: item.id_local,
+      });
+    }
   }
 
   function limparCampos() {

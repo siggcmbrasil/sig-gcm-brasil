@@ -48,44 +48,50 @@ export default function ConfiguracaoEscalaPage() {
     carregarDados();
   }, []);
 
-  async function carregarDados() {
-
-    if (!usuarioLogado.municipio_id) {
-  alert("Município não identificado.");
-  return;
-}
-
-setMunicipioId(
-  String(usuarioLogado.municipio_id)
-);
-
-    const { data: municipiosData } = await supabase
-      .from("municipios")
-      .select("id, nome, estado")
-      .eq("ativo", true)
-      .order("nome");
-
-    const { data: modelosData } = await supabase
-  .from("modelos_escala")
-  .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
-  .order("id", { ascending: false });
-
-    const modelosIds =
-  (modelosData || []).map((m) => m.id);
-
-const { data: gruposData } = await supabase
-  .from("grupos_escala")
-  .select("*")
-  .in("modelo_id", modelosIds)
-  .order("ordem", { ascending: true });
-
-    setMunicipios(municipiosData || []);
-    setModelos((modelosData as ModeloEscala[]) || []);
-    setGrupos((gruposData as GrupoEscala[]) || []);
+async function carregarDados() {
+  if (!usuarioLogado.municipio_id) {
+    alert("Município não identificado.");
+    return;
   }
 
+  setMunicipioId(String(usuarioLogado.municipio_id));
+
+  const { data: municipiosData } = await supabase
+    .from("municipios")
+    .select("id, nome, estado")
+    .eq("ativo", true)
+    .order("nome");
+
+  const { data: modelosData } = await supabase
+    .from("modelos_escala")
+    .select("*")
+    .eq("municipio_id", usuarioLogado.municipio_id)
+    .order("id", { ascending: false });
+
+  const modelosIds = (modelosData || []).map((m) => m.id);
+
+  let gruposData: GrupoEscala[] = [];
+
+  if (modelosIds.length > 0) {
+    const { data } = await supabase
+      .from("grupos_escala")
+      .select("*")
+      .in("modelo_id", modelosIds)
+      .order("ordem", { ascending: true });
+
+    gruposData = (data as GrupoEscala[]) || [];
+  }
+
+  setMunicipios(municipiosData || []);
+  setModelos((modelosData as ModeloEscala[]) || []);
+  setGrupos(gruposData);
+}
+
   async function salvarModelo() {
+    if (!usuarioLogado?.id || !usuarioLogado?.municipio_id) {
+  alert("Sessão inválida.");
+  return;
+}
     if (!usuarioLogado.municipio_id || !nomeModelo || !tipo || !quantidadeGrupos) {
       alert("Preencha município, nome, tipo e quantidade de grupos.");
       return;
@@ -93,7 +99,7 @@ const { data: gruposData } = await supabase
 
     const quantidade = Number(quantidadeGrupos);
 
-    if (quantidade < 0 || quantidade > 12) {
+    if (quantidade < 1 || quantidade > 12) {
       alert("A quantidade de grupos deve ser entre 0 e 12.");
       return;
     }
@@ -103,7 +109,7 @@ const { data: gruposData } = await supabase
       .insert([
         {
           municipio_id: usuarioLogado.municipio_id,
-          nome: nomeModelo,
+          nome: nomeModelo.trim(),
           tipo,
           horario_inicio: horarioInicio,
           horario_fim: horarioFim,
@@ -150,6 +156,13 @@ alert(
   modulo: "Escalas",
   acao: "CRIAR_MODELO",
   descricao: `Criou o modelo de escala ${nomeModelo}.`,
+  detalhes: {
+    nome: nomeModelo,
+    tipo,
+    horario_inicio: horarioInicio,
+    horario_fim: horarioFim,
+    quantidade_grupos: quantidade,
+  },
 });
 
     setNomeModelo("");
@@ -181,6 +194,11 @@ alert(
   modulo: "Escalas",
   acao: "RENOMEAR_GRUPO",
   descricao: `Renomeou o grupo ${nomeAtual} para ${novoNome}.`,
+  detalhes: {
+    grupo_id: id,
+    nome_antigo: nomeAtual,
+    nome_novo: novoNome,
+  },
 });
 
     carregarDados();

@@ -12,6 +12,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -60,11 +61,12 @@ const cards = [
 
 export default function CentralFrotaPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
-      <SigCentralHeader
-        titulo="Central de Frota"
-        descricao="Gestão completa das viaturas, abastecimentos, manutenções e controle da frota operacional."
-        icone={Truck}
+    <ProtecaoModulo modulo="frota">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
+        <SigCentralHeader
+          titulo="Central de Frota"
+          descricao="Gestão completa das viaturas, abastecimentos, manutenções e controle da frota operacional."
+          icone={Truck}
       />
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
@@ -78,6 +80,7 @@ export default function CentralFrotaPage() {
           />
         ))}
       </div>
-    </section>
-  );
+        </section>
+  </ProtecaoModulo>
+);
 }

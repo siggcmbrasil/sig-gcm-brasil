@@ -73,12 +73,12 @@ export default function PainelDesenvolvedor() {
       ]);
 
       setResumo({
-        municipios: totalMunicipios || 0,
-        municipiosAtivos: municipiosAtivos || 0,
-        usuarios: totalUsuarios || 0,
-        guardas: totalGuardas || 0,
-        ocorrencias: totalOcorrencias || 0,
-      });
+  municipios: totalMunicipios ?? 0,
+  municipiosAtivos: municipiosAtivos ?? 0,
+  usuarios: totalUsuarios ?? 0,
+  guardas: totalGuardas ?? 0,
+  ocorrencias: totalOcorrencias ?? 0,
+});
     } finally {
       setCarregando(false);
     }

@@ -6,10 +6,7 @@ import {
   CalendarDays,
   Bell,
   Newspaper,
-  Radio,
-  Mail,
   Globe,
-  FileText,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
@@ -39,18 +36,6 @@ const cards = [
     href: "/sistema/notificacoes",
     descricao: "Alertas automáticos e notificações.",
     icone: Bell,
-  },
-  {
-    titulo: "Feed SIG",
-    href: "/sistema/feed-sig",
-    descricao: "Atualizações e notícias do sistema.",
-    icone: Newspaper,
-  },
-  {
-    titulo: "Blog Operacional",
-    href: "/sistema/blog-operacional",
-    descricao: "Conteúdos e informativos operacionais.",
-    icone: FileText,
   },
   {
   titulo: "Feed SIG",

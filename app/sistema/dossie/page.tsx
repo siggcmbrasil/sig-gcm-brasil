@@ -32,16 +32,26 @@ export default function DossiePage() {
   const [guardaId, setGuardaId] = useState("");
   const [guarda, setGuarda] = useState<Guarda | null>(null);
   const [carregando, setCarregando] = useState(false);
+  const usuario =
+  typeof window !== "undefined"
+    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+    : {};
 
   useEffect(() => {
     carregarGuardas();
   }, []);
 
   async function carregarGuardas() {
-    const { data, error } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula")
-      .order("nome");
+    if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
+const { data, error } = await supabase
+  .from("guardas")
+  .select("id, nome, matricula")
+  .eq("municipio_id", usuario.municipio_id)
+  .order("nome");
 
     if (error) {
       alert(error.message);
@@ -64,7 +74,8 @@ export default function DossiePage() {
       .from("guardas")
       .select("*")
       .eq("id", Number(id))
-      .single();
+.eq("municipio_id", usuario.municipio_id)
+.single();
 
     setCarregando(false);
 

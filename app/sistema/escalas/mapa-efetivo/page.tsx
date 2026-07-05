@@ -28,26 +28,30 @@ export default function MapaEfetivoPage() {
       .from("guardas")
       .select("id,nome,matricula,status,lotacao")
       .eq("municipio_id", municipioId)
-      .order("nome");
+.eq("status", "ATIVO")
+.order("nome");
 
     const { data: administrativasData } = await supabase
       .from("escalas_administrativas")
-      .select("*")
-      .eq("municipio_id", municipioId)
-      .eq("data", hoje);
+.select("*")
+.eq("municipio_id", municipioId)
+.eq("status", "ATIVA")
+.eq("data", hoje);
 
     const { data: extrasData } = await supabase
       .from("escalas_extras")
-      .select("*")
-      .eq("municipio_id", municipioId)
-      .eq("data", hoje);
+.select("*")
+.eq("municipio_id", municipioId)
+.eq("status", "AGENDADO")
+.eq("data", hoje);
 
     const { data: afastamentosData } = await supabase
       .from("ferias_licencas")
-      .select("*")
-      .eq("municipio_id", municipioId)
-      .lte("data_inicio", hoje)
-      .gte("data_fim", hoje);
+.select("*")
+.eq("municipio_id", municipioId)
+.eq("status", "ATIVO")
+.lte("data_inicio", hoje)
+.gte("data_fim", hoje);
 
     setGuardas(guardasData || []);
     setAdministrativas(administrativasData || []);

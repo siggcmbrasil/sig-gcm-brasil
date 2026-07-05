@@ -3,14 +3,8 @@
 import {
   AlertTriangle,
   BarChart3,
-  CarFront,
-  FileText,
-  Package,
   PlusCircle,
-  Printer,
-  Search,
   ShieldCheck,
-  Users,
   Zap,
 } from "lucide-react";
 

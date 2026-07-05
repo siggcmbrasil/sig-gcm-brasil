@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 
@@ -57,8 +58,18 @@ export default function RelatorioEscoltasPage() {
     }
 
     setEscoltas(data || []);
-  }
 
+await registrarAuditoria({
+  modulo: "Escoltas",
+  acao: "RELATORIO",
+  descricao: "Acessou o relatório de escoltas.",
+  tabela: "escoltas",
+  detalhes: {
+    total: data?.length || 0,
+  },
+});
+  }
+  
   const hoje = new Date().toISOString().split("T")[0];
 
   const total = escoltas.length;

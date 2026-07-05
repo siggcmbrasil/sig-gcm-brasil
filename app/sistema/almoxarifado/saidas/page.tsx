@@ -42,23 +42,63 @@ export default function SaidaAlmoxarifadoPage() {
   const [finalidade, setFinalidade] = useState("USO_OPERACIONAL");
   const [observacao, setObservacao] = useState("");
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [usuario, setUsuario] = useState<any>(null);
+const [carregando, setCarregando] = useState(true);
+
+useEffect(() => {
+  const dados = JSON.parse(
+    localStorage.getItem("usuarioLogado") || "{}"
+  );
+
+  if (!dados?.id || !dados?.municipio_id) {
+    alert("Sessão inválida.");
+    setCarregando(false);
+    return;
+  }
+
+  setUsuario(dados);
+
+  registrarAuditoria({
+    modulo: "Almoxarifado",
+    acao: "ACESSO",
+    descricao: "Acessou a tela de saída do almoxarifado.",
+    tabela: "almoxarifado_saidas",
+  });
+}, []);
 
   async function carregar() {
+    setCarregando(true);
     if (!usuario?.municipio_id) return;
 
     const { data: listaEntradas } = await supabase
       .from("almoxarifado_entradas")
-      .select("*")
+      .select(`
+  id,
+  item,
+  categoria,
+  quantidade,
+  unidade,
+  local
+`)
+.limit(500)
       .eq("municipio_id", usuario.municipio_id)
       .order("item");
 
     const { data: listaSaidas } = await supabase
       .from("almoxarifado_saidas")
-      .select("*")
+      .select(`
+  id,
+  item,
+  categoria,
+  quantidade,
+  unidade,
+  destino,
+  responsavel,
+  finalidade,
+  observacao,
+  criado_em
+`)
+.limit(100)
       .eq("municipio_id", usuario.municipio_id)
       .order("criado_em", { ascending: false });
 
@@ -68,14 +108,17 @@ export default function SaidaAlmoxarifadoPage() {
       .eq("municipio_id", usuario.municipio_id)
       .order("nome");
 
+    setCarregando(false);
     setEntradas(listaEntradas || []);
     setSaidas(listaSaidas || []);
     setGuardas(listaGuardas || []);
   }
 
   useEffect(() => {
+  if (usuario?.municipio_id) {
     carregar();
-  }, []);
+  }
+}, [usuario]);
 
   const estoque = useMemo(() => {
     const mapa = new Map<string, any>();
@@ -121,6 +164,21 @@ export default function SaidaAlmoxarifadoPage() {
   }
 
   async function registrarSaida() {
+    if (!usuario?.municipio_id) {
+  return alert("Município não identificado.");
+}
+
+if (!usuario?.id) {
+  return alert("Sessão inválida.");
+}
+
+if (destino.length > 200) {
+  return alert("Destino muito grande.");
+}
+
+if (observacao.length > 1000) {
+  return alert("Observação muito grande.");
+}
     if (!itemAtual) return alert("Selecione o material.");
     if (!quantidade || Number(quantidade) <= 0) return alert("Informe a quantidade.");
 
@@ -130,31 +188,51 @@ export default function SaidaAlmoxarifadoPage() {
 
     setSalvando(true);
 
-    const { error } = await supabase.from("almoxarifado_saidas").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        criado_por: usuario.id,
-        item: itemAtual.item,
-        categoria: itemAtual.categoria,
-        quantidade: Number(quantidade),
-        unidade: itemAtual.unidade,
-        destino: destino.trim() || null,
-        responsavel: responsavel || null,
-        finalidade,
-        observacao: observacao.trim() || null,
-      },
-    ]);
+    const dadosSaida = {
+  municipio_id: usuario.municipio_id,
+  criado_por: usuario.id,
+  item: itemAtual.item,
+  categoria: itemAtual.categoria,
+  quantidade: Number(quantidade),
+  unidade: itemAtual.unidade,
+  destino: destino.trim() || null,
+  responsavel: responsavel || null,
+  finalidade,
+  observacao: observacao.trim() || null,
+};
+
+const { data, error } = await supabase
+  .from("almoxarifado_saidas")
+  .insert([dadosSaida])
+  .select("id")
+  .single();
 
     setSalvando(false);
 
 if (error) {
+  setSalvando(false);
+
+  await registrarAuditoria({
+    modulo: "Almoxarifado",
+    acao: "ERRO",
+    descricao: "Erro ao registrar saída.",
+    tabela: "almoxarifado_saidas",
+    detalhes: {
+      erro: error.message,
+      dados: dadosSaida,
+    },
+  });
+
   return alert(error.message);
 }
 
 await registrarAuditoria({
   modulo: "Almoxarifado",
-  acao: "SAIDA",
-  descricao: `Registrou saída de ${quantidade} ${itemAtual.unidade} de ${itemAtual.item} para ${destino || "destino não informado"}.`,
+  acao: "CRIAR",
+  descricao: `Registrou saída de ${quantidade} ${itemAtual.unidade} de ${itemAtual.item}.`,
+  tabela: "almoxarifado_saidas",
+  registro_id: data?.id,
+  detalhes: dadosSaida,
 });
 
 setItemSelecionado("");
@@ -376,7 +454,13 @@ setItemSelecionado("");
             </p>
           </div>
 
-          {saidas.length === 0 ? (
+          {carregando ? (
+  <div className="painel-premium p-10 text-center">
+    <p className="text-slate-400">
+      Carregando saídas...
+    </p>
+  </div>
+) : saidas.length === 0 ? (
             <div className="painel-premium p-10 text-center">
               <p className="text-6xl mb-3">📤</p>
 

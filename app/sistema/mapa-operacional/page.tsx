@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import {
   AlertTriangle,
   CalendarDays,
   CheckCircle,
   Crosshair,
+  Eye,
+  EyeOff,
   Map,
   RefreshCw,
   Shield,
@@ -25,6 +27,11 @@ const MapaOperacional = dynamic(
 );
 
 export default function MapaOperacionalPage() {
+  const hoje = useMemo(() => {
+    const tzoffset = new Date().getTimezoneOffset() * 60000;
+    return new Date(Date.now() - tzoffset).toISOString().split("T")[0];
+  }, []);
+
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [viaturas, setViaturas] = useState<any[]>([]);
   const [localizacoes, setLocalizacoes] = useState<any[]>([]);
@@ -33,26 +40,61 @@ export default function MapaOperacionalPage() {
   const [operacoesEspeciais, setOperacoesEspeciais] = useState<any[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
-
-  const hoje = new Date().toISOString().split("T")[0];
   const [dataFiltro, setDataFiltro] = useState(hoje);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState("");
+
+  const [mostrar, setMostrar] = useState({
+    ocorrencias: true,
+    viaturas: true,
+    gps: true,
+    blitzes: true,
+    barreiras: true,
+    operacoes: true,
+  });
+
+  function pegarUsuario() {
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+  }
+
+  function filtrarPorData(lista: any[], campos: string[]) {
+    if (!dataFiltro) return lista;
+
+    return lista.filter((item) =>
+      campos.some((campo) => {
+        const valor = item?.[campo];
+        if (!valor) return false;
+        return String(valor).split("T")[0] === dataFiltro;
+      })
+    );
+  }
+
+  function filtrarGpsAtivo(lista: any[]) {
+    const agora = Date.now();
+    const limiteMinutos = 5;
+
+    return lista.filter((item) => {
+      const data = item.atualizado_em || item.created_at;
+      if (!data) return false;
+
+      const diferencaMinutos = (agora - new Date(data).getTime()) / 60000;
+      return diferencaMinutos <= limiteMinutos;
+    });
+  }
 
   async function carregarDados() {
+    const usuario = pegarUsuario();
+
+    if (!usuario?.id || !usuario?.municipio_id) {
+      setErro("Usuário ou município não identificado.");
+      setCarregando(false);
+      return;
+    }
+
     try {
       setCarregando(true);
       setErro("");
 
-      const usuarioLogado = JSON.parse(
-        localStorage.getItem("usuarioLogado") || "{}"
-      );
-
-      const municipioId = usuarioLogado?.municipio_id;
-
-      if (!municipioId) {
-        setErro("Município do usuário não identificado.");
-        setCarregando(false);
-        return;
-      }
+      const municipioId = usuario.municipio_id;
 
       const [
         ocorrenciasRes,
@@ -120,30 +162,42 @@ export default function MapaOperacionalPage() {
       if (barreirasRes.error) throw barreirasRes.error;
       if (operacoesRes.error) throw operacoesRes.error;
 
-      const ocorrenciasData = ocorrenciasRes.data || [];
-      const viaturasData = viaturasRes.data || [];
-      const gpsData = gpsRes.data || [];
-      const blitzesData = blitzesRes.data || [];
-      const barreirasData = barreirasRes.data || [];
-      const operacoesData = operacoesRes.data || [];
+      setOcorrencias(
+        filtrarPorData(ocorrenciasRes.data || [], [
+          "data",
+          "criado_em",
+          "created_at",
+        ])
+      );
 
-      const filtrarPorData = (lista: any[], campos: string[]) => {
-        if (!dataFiltro) return lista;
+      setViaturas(
+        filtrarPorData(viaturasRes.data || [], [
+          "updated_at",
+          "atualizado_em",
+          "criado_em",
+          "created_at",
+        ])
+      );
 
-        return lista.filter((item) =>
-          campos.some((campo) => {
-            const valor = item?.[campo];
-            return valor?.split("T")[0] === dataFiltro;
-          })
-        );
-      };
+      setLocalizacoes(
+        filtrarGpsAtivo(
+          filtrarPorData(gpsRes.data || [], ["atualizado_em", "created_at"])
+        )
+      );
 
-      setOcorrencias(filtrarPorData(ocorrenciasData, ["data", "criado_em", "created_at"]));
-      setViaturas(filtrarPorData(viaturasData, ["updated_at", "atualizado_em", "criado_em", "created_at"]));
-      setLocalizacoes(filtrarPorData(gpsData, ["atualizado_em", "created_at"]));
-      setBlitzes(filtrarPorData(blitzesData, ["data", "created_at", "criado_em"]));
-      setBarreiras(filtrarPorData(barreirasData, ["data", "created_at", "criado_em"]));
-      setOperacoesEspeciais(filtrarPorData(operacoesData, ["data", "created_at", "criado_em"]));
+      setBlitzes(
+        filtrarPorData(blitzesRes.data || [], ["data", "created_at", "criado_em"])
+      );
+
+      setBarreiras(
+        filtrarPorData(barreirasRes.data || [], ["data", "created_at", "criado_em"])
+      );
+
+      setOperacoesEspeciais(
+        filtrarPorData(operacoesRes.data || [], ["data", "created_at", "criado_em"])
+      );
+
+      setUltimaAtualizacao(new Date().toLocaleTimeString("pt-BR"));
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
       setErro("Erro ao carregar dados do mapa operacional.");
@@ -155,12 +209,42 @@ export default function MapaOperacionalPage() {
   useEffect(() => {
     carregarDados();
 
-    const intervalo = setInterval(() => {
-      carregarDados();
-    }, 30000);
+    const usuario = pegarUsuario();
+    if (!usuario?.municipio_id) return;
 
-    return () => clearInterval(intervalo);
+    const canal = supabase
+      .channel(`mapa-operacional-${usuario.municipio_id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "ocorrencias" },
+        carregarDados
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "localizacoes_tempo_real" },
+        carregarDados
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "viaturas" },
+        carregarDados
+      )
+      .subscribe();
+
+    const intervalo = setInterval(carregarDados, 60000);
+
+    return () => {
+      clearInterval(intervalo);
+      supabase.removeChannel(canal);
+    };
   }, [dataFiltro]);
+
+  const ocorrenciasVisiveis = mostrar.ocorrencias ? ocorrencias : [];
+  const viaturasVisiveis = mostrar.viaturas ? viaturas : [];
+  const gpsVisiveis = mostrar.gps ? localizacoes : [];
+  const blitzesVisiveis = mostrar.blitzes ? blitzes : [];
+  const barreirasVisiveis = mostrar.barreiras ? barreiras : [];
+  const operacoesVisiveis = mostrar.operacoes ? operacoesEspeciais : [];
 
   const ocorrenciasHoje = ocorrencias.filter(
     (o) => o.data?.split("T")[0] === hoje
@@ -175,18 +259,25 @@ export default function MapaOperacionalPage() {
   ).length;
 
   const totalPontos =
-    ocorrencias.length +
-    viaturas.length +
-    localizacoes.length +
-    blitzes.length +
-    barreiras.length +
-    operacoesEspeciais.length;
+    ocorrenciasVisiveis.length +
+    viaturasVisiveis.length +
+    gpsVisiveis.length +
+    blitzesVisiveis.length +
+    barreirasVisiveis.length +
+    operacoesVisiveis.length;
+
+  function alternarCamada(camada: keyof typeof mostrar) {
+    setMostrar((atual) => ({
+      ...atual,
+      [camada]: !atual[camada],
+    }));
+  }
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Mapa Operacional"
-        subtitulo="Visualização em tempo real de ocorrências, GPS, viaturas, blitzes, barreiras e operações especiais."
+        subtitulo="Centro de comando em tempo real com ocorrências, GPS, viaturas, blitzes, barreiras e operações especiais."
         icone={Map}
       />
 
@@ -197,18 +288,20 @@ export default function MapaOperacionalPage() {
         <CardInfo titulo="Abertas" valor={abertas} icone={Siren} />
         <CardInfo titulo="Finalizadas" valor={finalizadas} icone={CheckCircle} />
         <CardInfo titulo="Viaturas" valor={viaturas.length} icone={Truck} />
-        <CardInfo titulo="GPS" valor={localizacoes.length} icone={Shield} />
-        <CardInfo titulo="Operações" valor={operacoesEspeciais.length + blitzes.length + barreiras.length} icone={Map} />
+        <CardInfo titulo="GPS ativo" valor={localizacoes.length} icone={Shield} />
+        <CardInfo
+          titulo="Operações"
+          valor={operacoesEspeciais.length + blitzes.length + barreiras.length}
+          icone={Map}
+        />
       </div>
 
       <SigCard>
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
           <div>
-            <h2 className="text-lg font-black text-white">
-              Filtros do mapa
-            </h2>
+            <h2 className="text-lg font-black text-white">Filtros do mapa</h2>
             <p className="text-sm text-slate-400">
-              Por padrão o mapa abre com os dados de hoje. Use “Todos” apenas quando precisar consultar histórico.
+              Última atualização: {ultimaAtualizacao || "aguardando..."}
             </p>
           </div>
 
@@ -220,28 +313,30 @@ export default function MapaOperacionalPage() {
               onChange={(e) => setDataFiltro(e.target.value)}
             />
 
-            <SigButton
-              type="green"
-              onClick={() => setDataFiltro(hoje)}
-            >
+            <SigButton type="green" onClick={() => setDataFiltro(hoje)}>
               Hoje
             </SigButton>
 
-            <SigButton
-              type="gray"
-              onClick={() => setDataFiltro("")}
-            >
+            <SigButton type="gray" onClick={() => setDataFiltro("")}>
               Todos
             </SigButton>
 
-            <SigButton
-              type="blue"
-              onClick={carregarDados}
-            >
+            <SigButton type="blue" onClick={carregarDados}>
               <RefreshCw className="w-4 h-4" />
               Atualizar
             </SigButton>
           </div>
+        </div>
+      </SigCard>
+
+      <SigCard>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          <BotaoCamada ativo={mostrar.ocorrencias} titulo="Ocorrências" onClick={() => alternarCamada("ocorrencias")} />
+          <BotaoCamada ativo={mostrar.viaturas} titulo="Viaturas" onClick={() => alternarCamada("viaturas")} />
+          <BotaoCamada ativo={mostrar.gps} titulo="GPS" onClick={() => alternarCamada("gps")} />
+          <BotaoCamada ativo={mostrar.blitzes} titulo="Blitzes" onClick={() => alternarCamada("blitzes")} />
+          <BotaoCamada ativo={mostrar.barreiras} titulo="Barreiras" onClick={() => alternarCamada("barreiras")} />
+          <BotaoCamada ativo={mostrar.operacoes} titulo="Operações" onClick={() => alternarCamada("operacoes")} />
         </div>
       </SigCard>
 
@@ -262,12 +357,12 @@ export default function MapaOperacionalPage() {
           <section className="xl:col-span-9">
             <SigCard className="p-3 h-[70vh] min-h-[460px] overflow-hidden">
               <MapaOperacional
-                ocorrencias={ocorrencias}
-                viaturas={viaturas}
-                localizacoes={localizacoes}
-                blitzes={blitzes}
-                barreiras={barreiras}
-                operacoesEspeciais={operacoesEspeciais}
+                ocorrencias={ocorrenciasVisiveis}
+                viaturas={viaturasVisiveis}
+                localizacoes={gpsVisiveis}
+                blitzes={blitzesVisiveis}
+                barreiras={barreirasVisiveis}
+                operacoesEspeciais={operacoesVisiveis}
               />
             </SigCard>
           </section>
@@ -276,19 +371,19 @@ export default function MapaOperacionalPage() {
             <PainelLista
               titulo="🚧 Blitzes e Barreiras"
               vazio="Nenhuma blitz ou barreira com GPS."
-              itens={[...blitzes, ...barreiras]}
+              itens={[...blitzesVisiveis, ...barreirasVisiveis]}
             />
 
             <PainelLista
               titulo="⭐ Operações Especiais"
               vazio="Nenhuma operação especial com GPS."
-              itens={operacoesEspeciais}
+              itens={operacoesVisiveis}
             />
 
             <PainelLista
               titulo="🚓 GPS Ativo"
-              vazio="Nenhum GPS ativo no período."
-              itens={localizacoes}
+              vazio="Nenhum GPS ativo nos últimos 5 minutos."
+              itens={gpsVisiveis}
             />
           </aside>
         </div>
@@ -315,10 +410,33 @@ function CardInfo({
         <Icone className="w-5 h-5 text-slate-400" />
       </div>
 
-      <h3 className="mt-3 text-3xl font-black text-white">
-        {valor}
-      </h3>
+      <h3 className="mt-3 text-3xl font-black text-white">{valor}</h3>
     </div>
+  );
+}
+
+function BotaoCamada({
+  ativo,
+  titulo,
+  onClick,
+}: {
+  ativo: boolean;
+  titulo: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-xl border px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 ${
+        ativo
+          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
+          : "border-slate-800 bg-slate-950/60 text-slate-500"
+      }`}
+    >
+      {ativo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+      {titulo}
+    </button>
   );
 }
 
@@ -333,9 +451,7 @@ function PainelLista({
 }) {
   return (
     <SigCard>
-      <h2 className="font-black mb-4 text-white">
-        {titulo}
-      </h2>
+      <h2 className="font-black mb-4 text-white">{titulo}</h2>
 
       <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
         {itens.length === 0 ? (
@@ -343,7 +459,7 @@ function PainelLista({
         ) : (
           itens.slice(0, 8).map((item) => (
             <div
-              key={item.id}
+              key={`${item.id}-${item.nome || item.prefixo || "registro"}`}
               className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
             >
               <p className="font-bold text-white">

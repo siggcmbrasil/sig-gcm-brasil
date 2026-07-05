@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import dynamic from "next/dynamic";
 import TelaMobile from "@/components/TelaMobile";
 
@@ -13,7 +14,6 @@ import {
   Cloud,
   AlertTriangle,
 CheckCircle,
-Home,
 Search,
 Bell,
 Mail,
@@ -129,6 +129,7 @@ export default function Dashboard() {
   const [busca, setBusca] = useState("");
   const [viatura, setViatura] = useState<Viatura | null>(null);
   const [avisos, setAvisos] = useState<Aviso[]>([]);
+  const [notificacoes, setNotificacoes] = useState<any[]>([]);
   const [permutas, setPermutas] = useState<Permuta[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
@@ -147,13 +148,26 @@ export default function Dashboard() {
 
   const [mostrarNotificacoes, setMostrarNotificacoes] = useState(false);
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
-
-  const [indiceMensagem, setIndiceMensagem] = useState(0);
   
-  const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : null;
+function obterUsuarioLogado() {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return usuario;
+  } catch {
+    return null;
+  }
+}
+
+const usuarioLogado = obterUsuarioLogado();
 
 const municipioId = usuarioLogado?.municipio_id;
 
@@ -211,14 +225,16 @@ const { data: datasHoje } = await supabase
   .eq("data_inicio", hoje)
   .eq("ativo", true);
 
-  const { data: chamadosData } = await supabase
+const { data: chamadosData } = await supabase
   .from("chamados")
-  .select("*")
-  .eq("municipio_id", municipioId);
+  .select("id, status, tipo, local, criado_em")
+  .eq("municipio_id", municipioId)
+  .order("id", { ascending: false })
+  .limit(50);
 
    const { data: municipioData } = await supabase
       .from("municipios")
-      .select("*")
+      .select("id, nome, estado, brasao, cor_principal, ativo")
       .eq("id", municipioId)
       .single();
 
@@ -232,7 +248,7 @@ const { data: datasHoje } = await supabase
 
     const { data: configEscalaData } = await supabase
       .from("escala_operacional_config")
-      .select("*")
+      .select("id, municipio_id, modelo_escala_id, data_base, guarnicao_base_id, ordem_guarnicoes, ativo")
       .eq("municipio_id", municipioId)
       .eq("ativo", true)
       .order("id", { ascending: false })
@@ -259,7 +275,8 @@ const { data: ocorrenciasData } = await supabase
     )
   `)
   .eq("municipio_id", municipioId)
-  .order("id", { ascending: false });
+.order("id", { ascending: false })
+.limit(50);
 
     const { data: guardasData } = await supabase
       .from("guardas")
@@ -268,34 +285,46 @@ const { data: ocorrenciasData } = await supabase
 
     const { data: viaturaData } = await supabase
       .from("viaturas")
-      .select("*")
+      .select("id, prefixo, modelo, placa, status, combustivel, quilometragem")
       .eq("municipio_id", municipioId)
       .order("id", { ascending: true })
       .limit(1)
-      .single();
+      .maybeSingle();
 
     const { data: avisosData } = await supabase
-  .from("avisos")
-  .select("*")
-  .eq("municipio_id", municipioId)
-  .order("id", { ascending: false });
+      .from("avisos")
+      .select("id, titulo, descricao")
+      .eq("municipio_id", municipioId)
+      .order("id", { ascending: false })
+      .limit(10);
+
+const { data: notificacoesData } = await supabase
+      .from("notificacoes")
+      .select("id, titulo, mensagem, lida, usuario_id, perfil_destino")
+      .eq("municipio_id", municipioId)
+      .or(
+        `usuario_id.eq.${usuarioLogado?.id},usuario_id.is.null,perfil_destino.eq.${usuarioLogado?.perfil}`
+      )
+      .eq("lida", false)
+      .order("id", { ascending: false });
 
     const { data: permutasData } = await supabase
-  .from("permutas_plantao")
-  .select("id, status")
-  .eq("municipio_id", municipioId);
+      .from("permutas_plantao")
+      .select("id, status")
+      .eq("municipio_id", municipioId);
 
       const { data: rondasData } = await supabase
-  .from("planos_ronda")
-.select("*")
-.eq("municipio_id", municipioId)
-.order("id", { ascending: false });
+      .from("planos_ronda")
+      .select("id, nome, status, ativo")
+      .eq("municipio_id", municipioId)
+      .order("id", { ascending: false })
+      .limit(50);
 
 setRondas(rondasData || []);
 
     const { data: guarnicoesData } = await supabase
       .from("guarnicoes")
-      .select("*")
+      .select("id, nome, comandante_id, viatura_id, ativa")
       .eq("municipio_id", municipioId)
       .eq("ativa", true)
       .order("id");
@@ -324,27 +353,26 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
 
     const { data: membrosGuarnicaoData } = await supabase
       .from("guarnicao_membros")
-.select("id, guarnicao_id, guarda_id")
-.eq("municipio_id", municipioId);
+      .select("id, guarnicao_id, guarda_id")
+      .eq("municipio_id", municipioId);
 
     const { data: viaturasData } = await supabase
       .from("viaturas")
-      .select("*")
-      .eq("municipio_id", municipioId);
+      .select("id, prefixo, modelo, placa, status, combustivel, quilometragem")
+      .eq("municipio_id", municipioId)
+      .limit(100);
 
     const hojeData = new Date().toISOString().split("T")[0];
 
     const { data: escalaHojeData } = await supabase
       .from("escalas_servico")
-      .select("*")
+      .select("id, data_servico, guarda_nome, matricula, tipo, turno, equipe")
       .eq("municipio_id", municipioId)
-.eq("data_servico", hojeData);
+      .eq("data_servico", hojeData);
 
     setMunicipioAtivo(municipioData || null);
     setModeloEscalaAtivo(modeloData?.nome || "Não configurado");
     setConfigEscala((configEscalaData as ConfigEscalaOperacional) || null);
-    
-    console.log("OCORRENCIAS:", ocorrenciasData);
     
     setOcorrencias((ocorrenciasData as Ocorrencia[]) || []);
     setChamados(chamadosData || []);
@@ -352,6 +380,7 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
     setGuardas(guardasData || []);
     setViatura(viaturaData || null);
     setAvisos(avisosData || []);
+    setNotificacoes(notificacoesData || []);
     setEscalaHoje(escalaHojeData || []);
     setViaturas(viaturasData || []);
     setPermutas(permutasData || []);
@@ -361,7 +390,21 @@ setGuarnicoesPlantao(guarnicoesPlantaoData || []);
     setDatasHoje(datasHoje || []);
   }
 
-  useEffect(() => {
+useEffect(() => {
+  if (usuarioLogado?.municipio_id) {
+    void registrarAuditoria({
+      modulo: "Dashboard",
+      acao: "ACESSO",
+      descricao: "Acessou o dashboard operacional.",
+      tabela: "dashboard",
+      detalhes: {
+        municipio_id: usuarioLogado.municipio_id,
+        usuario_id: usuarioLogado.id,
+        perfil: usuarioLogado.perfil,
+      },
+    });
+  }
+
   carregarDashboard();
   carregarMensagemDoDia();
 
@@ -509,8 +552,9 @@ const aniversariantesHoje = guardas.filter((g) => {
   escala={modeloEscalaAtivo}
   data={dataBR}
   hora={horaBR}
-  avisos={avisos}
-  usuarioLogado={usuarioLogado}
+avisos={avisos}
+notificacoes={notificacoes}
+usuarioLogado={usuarioLogado}
   mostrarNotificacoes={mostrarNotificacoes}
   setMostrarNotificacoes={setMostrarNotificacoes}
   mostrarMensagens={mostrarMensagens}
@@ -684,12 +728,11 @@ setMostrarPerfil={setMostrarPerfil}
   </div>
 
   <div className="xl:col-span-8 space-y-3">
-  <PainelResumo
-    finalizadas={finalizadas}
-    abertas={abertas}
-    guardasServico={guardasServico}
-    guardasFolga={guardasFolga}
-  />
+<PainelResumo
+  finalizadas={finalizadas}
+  abertas={abertas}
+  rondasAndamento={rondasAndamento}
+/>
 
   <PainelAtividades atividades={ultimasAtividades} />
 </div>
@@ -805,6 +848,7 @@ function PainelUltimasOcorrencias({
 function PainelTopo({
   municipio,
   avisos,
+  notificacoes,
   fraseDoDia,
   usuarioLogado,
   mostrarNotificacoes,
@@ -818,6 +862,7 @@ function PainelTopo({
   data,
 hora,
 }: any) {
+
   function sairSistema() {
     localStorage.removeItem("usuarioLogado");
     window.location.href = "/login";
@@ -827,7 +872,7 @@ hora,
     <header className="min-h-28 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)] relative z-[9999] overflow-visible">
       <div className="flex items-center gap-5 min-w-[350px]">
         <img
-          src={municipio?.brasao || "/brasao-gcm-v2.png"}
+          src={municipio?.brasao || "/brasoes/sig-gcm-logo.png"}
           alt="Brasão"
           className="w-16 h-16 object-contain"
         />
@@ -876,22 +921,17 @@ hora,
 </div>
 
       <div className="flex items-center gap-3 shrink-0 relative">
-        <button
-          type="button"
-          onClick={() => {
-            setMostrarNotificacoes(!mostrarNotificacoes);
-            setMostrarMensagens(false);
-            setMostrarPerfil(false);
-          }}
-          className="w-12 h-12 rounded-full border border-cyan-400/40 bg-slate-950/60 flex items-center justify-center hover:bg-blue-500/10 transition relative"
-        >
-          🔔
-          {avisos.length > 0 && (
-            <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-              {avisos.length}
-            </span>
-          )}
-        </button>
+        <Link
+  href="/sistema/notificacoes"
+  className="w-12 h-12 rounded-full border border-cyan-400/40 bg-slate-950/60 flex items-center justify-center hover:bg-blue-500/10 transition relative"
+>
+  🔔
+  {notificacoes.length > 0 && (
+    <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+      {notificacoes.length}
+    </span>
+  )}
+</Link>
 
         <button
           type="button"
@@ -954,22 +994,22 @@ hora,
               🔔 Notificações
             </h3>
 
-            {avisos.length === 0 ? (
+            {notificacoes.length === 0 ? (
               <p className="text-slate-400 text-sm">
                 Nenhuma notificação no momento.
               </p>
             ) : (
               <div className="space-y-3">
-                {avisos.slice(0, 5).map((aviso: any) => (
-                  <div
-                    key={aviso.id}
+               {notificacoes.slice(0, 5).map((item: any) => (
+  <div
+    key={item.id}
                     className="border-b border-slate-800 pb-2"
                   >
                     <p className="font-bold text-white text-sm">
-                      {aviso.titulo}
+                      {item.titulo}
                     </p>
                     <p className="text-slate-400 text-xs">
-                      {aviso.descricao}
+                      {item.mensagem}
                     </p>
                   </div>
                 ))}
@@ -1458,32 +1498,34 @@ function PainelViaturas({
 function PainelResumo({
   finalizadas,
   abertas,
-  guardasServico,
-  guardasFolga,
-}: any) {
+  rondasAndamento,
+}: {
+  finalizadas: number;
+  abertas: number;
+  rondasAndamento: number;
+}) {
   return (
     <div className="painel-premium p-5 h-30">
       <TituloPainel icone="📊" titulo="Estatísticas do Dia" />
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2 mt-5">
-       
         <ResumoMini
           titulo="Finalizadas"
           valor={finalizadas}
           icone={<CheckCircle className="w-7 h-7" />}
           cor="green"
         />
-        
+
         <ResumoMini
           titulo="Patrulhamentos"
-          valor={16}
+          valor={rondasAndamento}
           icone={<CarFront className="w-7 h-7" />}
           cor="cyan"
         />
 
         <ResumoMini
-          titulo="Averiguações"
-          valor={1}
+          titulo="Pendentes"
+          valor={abertas}
           icone={<Search className="w-7 h-7" />}
           cor="purple"
         />
@@ -1523,13 +1565,13 @@ function PainelAlertas({ avisos }: { avisos: Aviso[] }) {
           </>
         ) : (
           avisos.slice(0, 5).map((aviso) => (
-            <AlertaLinha
-              key={aviso.id}
-              icone="📢"
-              titulo={aviso.titulo}
-              detalhe={aviso.descricao}
-            />
-          ))
+  <AlertaLinha
+    key={aviso.id}
+    icone="📢"
+    titulo={aviso.titulo}
+    detalhe={aviso.descricao}
+  />
+))
         )}
       </div>
     </div>

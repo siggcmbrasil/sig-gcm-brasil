@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import ModalAniversariantes from "@/components/ModalAniversariantes";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
 
 type UsuarioLogado = {
@@ -37,111 +38,169 @@ export default function SistemaLayout({
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [verificando, setVerificando] = useState(true);
 
-  useEffect(() => {
-    async function verificarSessao() {
-  try {
-      const { data } = await supabase.auth.getUser();
+  async function verificarSessao() {
+    try {
+      const { data, error } = await supabase.auth.getUser();
 
-      if (!data.user) {
-        localStorage.removeItem("usuarioLogado");
-        router.push("/login");
+      if (error || !data.user) {
+        localStorage.clear();
+        sessionStorage.clear();
+        router.replace("/login");
         return;
       }
 
+      const { data: usuarioSistema, error: erroUsuario } = await supabase
+        .from("usuarios")
+        .select( "id, auth_id, nome, matricula, perfil, status, municipio_id, foto_url")
+        .eq("auth_id", data.user.id)
+        .single();
 
-      const { data: usuarioSistema } = await supabase
-  .from("usuarios")
-  .select("*")
-  .eq("auth_id", data.user.id)
-  .single();
+      if (erroUsuario || !usuarioSistema) {
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        router.replace("/login");
+        return;
+      }
 
-  if (!usuarioSistema) {
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  router.push("/login");
-  return;
-}
+      if (usuarioSistema.status !== "Ativo") {
+  await registrarAuditoria({
+    modulo: "Sistema",
+    acao: "ERRO",
+    descricao: "Tentativa de acesso com usuário inativo.",
+    tabela: "usuarios",
+    registro_id: usuarioSistema.id,
+    detalhes: {
+      usuario_id: usuarioSistema.id,
+      auth_id: data.user.id,
+      status: usuarioSistema.status,
+    },
+  });
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        router.replace("/login");
+        return;
+      }
 
-if (usuarioSistema.status !== "Ativo") {
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  router.push("/login");
-  return;
-}
+      if (!usuarioSistema.municipio_id) {
+  await registrarAuditoria({
+    modulo: "Sistema",
+    acao: "ERRO",
+    descricao: "Tentativa de acesso sem município vinculado.",
+    tabela: "usuarios",
+    registro_id: usuarioSistema.id,
+    detalhes: {
+      usuario_id: usuarioSistema.id,
+      auth_id: data.user.id,
+      perfil: usuarioSistema.perfil,
+    },
+  });
+        await supabase.auth.signOut();
+        localStorage.clear();
+        sessionStorage.clear();
+        router.replace("/login");
+        return;
+      }
 
-const { data: municipioUsuario } = await supabase
-  .from("municipios")
-  .select("nome")
-  .eq("id", usuarioSistema?.municipio_id)
-  .single();
+      const { data: municipioUsuario } = await supabase
+        .from("municipios")
+        .select("nome")
+        .eq("id", usuarioSistema.municipio_id)
+        .single();
 
-const usuarioAtual = {
-  id: usuarioSistema?.id,
-  auth_id: data.user.id,
-  nome: usuarioSistema?.nome || data.user.email || "Usuário",
-  matricula: usuarioSistema?.matricula || "",
-  email: data.user.email || "",
-  perfil: (usuarioSistema?.perfil || "GUARDA").toUpperCase(),
-  status: usuarioSistema?.status || "Ativo",
-  municipio_id: usuarioSistema?.municipio_id || 1,
-  municipio_nome: municipioUsuario?.nome || "",
-  foto_url: usuarioSistema?.foto_url || "",
-};
+      const usuarioAtual: UsuarioLogado = {
+        id: String(usuarioSistema.id),
+        auth_id: data.user.id,
+        nome: usuarioSistema.nome || data.user.email || "Usuário",
+        matricula: usuarioSistema.matricula || "",
+        email: data.user.email || "",
+        perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase() as UsuarioLogado["perfil"],
+        status: usuarioSistema.status || "Ativo",
+        municipio_id: usuarioSistema.municipio_id,
+        municipio_nome: municipioUsuario?.nome || "",
+        foto_url: usuarioSistema.foto_url || "",
+      };
 
-localStorage.setItem(
-  "usuarioLogado",
-  JSON.stringify(usuarioAtual)
-);
+localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
+
+await registrarAuditoria({
+  modulo: "Sistema",
+  acao: "ACESSO",
+  descricao: "Usuário acessou área protegida do sistema.",
+  tabela: "usuarios",
+  registro_id: usuarioSistema.id,
+  detalhes: {
+    usuario_id: usuarioSistema.id,
+    auth_id: data.user.id,
+    perfil: usuarioAtual.perfil,
+    municipio_id: usuarioAtual.municipio_id,
+  },
+});
+
 setUsuario(usuarioAtual);
 setVerificando(false);
+    } catch (error) {
+      console.error(error);
 
-} catch (error) {
-  console.error(error);
+      await supabase.auth.signOut();
+      localStorage.clear();
+      sessionStorage.clear();
+      router.replace("/login");
+    }
+  }
 
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  router.push("/login");
-  return;
-}
-}
+  useEffect(() => {
+    verificarSessao();
 
-verificarSessao();
-}, [router]);
+    const aoVoltarPeloNavegador = () => {
+      setVerificando(true);
+      verificarSessao();
+    };
+
+    window.addEventListener("pageshow", aoVoltarPeloNavegador);
+
+    return () => {
+      window.removeEventListener("pageshow", aoVoltarPeloNavegador);
+    };
+  }, []);
 
   if (verificando) {
     return (
-      
       <div className="min-h-screen bg-[#061426] flex items-center justify-center text-white text-xl">
-        Carregando sistema...
+        Verificando acesso...
       </div>
     );
   }
 
+  if (!usuario) {
+    return null;
+  }
+
   return (
-<>
-    <RegistrarServiceWorker />
-    
-  <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
-    {usuario && <Sidebar usuario={usuario} />}
+    <>
+      <RegistrarServiceWorker />
 
-    <main className="flex-1 w-full">
+      <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
+        <Sidebar usuario={usuario} />
 
-       <div className="text-white">
-        <ModalAniversariantes />
-        {children}
+        <main className="flex-1 w-full">
+          <div className="text-white">
+            <ModalAniversariantes />
 
-        <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">
-          SIG-GCM Brasil © {new Date().getFullYear()}
-          <br />
-          Desenvolvido por
-          <span className="text-blue-400 font-semibold">
-            {" "}Maick Lustosa Costa
-          </span>
-        </footer>
+            {children}
+
+            <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">
+              SIG-GCM Brasil © {new Date().getFullYear()}
+              <br />
+              Desenvolvido por{" "}
+              <span className="text-blue-400 font-semibold">
+                Maick Lustosa Costa
+              </span>
+            </footer>
+          </div>
+        </main>
       </div>
-
-    </main>
-      </div>
-  </>
+    </>
   );
 }

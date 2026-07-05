@@ -87,7 +87,7 @@ export default function IntegracoesPage() {
             </h3>
 
             <div className="mt-4 space-y-3 text-sm text-slate-400">
-              <p>• Consulta autorizada de placas e veículos</p>
+              <p>• Consulta de placas/veículos apenas por convênio oficial autorizado</p>
               <p>• Consulta global CPF/placa entre municípios</p>
               <p>• Notificações push</p>
               <p>• Portal do Cidadão</p>

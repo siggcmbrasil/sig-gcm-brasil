@@ -56,7 +56,8 @@ const [longitude, setLongitude] = useState("");
         resultados_blitz (*)
       `)
       .eq("municipio_id", usuario.municipio_id)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+.range(0, 499);
 
     if (!error) setBlitzes(data || []);
     setCarregando(false);
@@ -111,79 +112,111 @@ async function registrarAuditoria(
 }
 
   async function salvarBlitz() {
-    const usuario = pegarUsuario();
+  const usuario = pegarUsuario();
 
-    if (!usuario?.municipio_id) {
-      alert("Município do usuário não identificado.");
-      return;
-    }
-
-    if (!nome || !local || !data || !horaInicio) {
-      alert("Preencha nome, local, data e hora inicial.");
-      return;
-    }
-
-    const { data: blitzCriada, error } = await supabase
-      .from("blitzes")
-      .insert([
-        {
-          municipio_id: usuario.municipio_id,
-          nome,
-          tipo,
-          local,
-          data,
-          hora_inicio: horaInicio,
-          hora_fim: horaFim || null,
-          objetivo,
-          observacoes,
-          status: "PLANEJADA",
-          criado_por: usuario.id,
-          latitude: latitude ? Number(latitude) : null,
-longitude: longitude ? Number(longitude) : null,
-        },
-      ])
-      .select()
-      .single();
-
-    if (error) {
-      alert("Erro ao salvar blitz.");
-      console.error(error);
-      return;
-    }
-
-    await registrarAuditoria(
-  "CRIAR_BLITZ",
-  `Criou a blitz ${nome} em ${local}`
-);
-
-    if (blitzCriada?.id) {
-      await supabase.from("resultados_blitz").insert([
-        {
-          blitz_id: blitzCriada.id,
-          pessoas_abordadas: Number(pessoasAbordadas || 0),
-          veiculos_abordados: Number(veiculosAbordados || 0),
-          motos_abordadas: Number(motosAbordadas || 0),
-        },
-      ]);
-    }
-
-    setNome("");
-    setTipo("TRANSITO");
-    setLocal("");
-    setData("");
-    setHoraInicio("");
-    setHoraFim("");
-    setObjetivo("");
-    setObservacoes("");
-    setLatitude("");
-    setLongitude("");
-    setPessoasAbordadas("0");
-    setVeiculosAbordados("0");
-    setMotosAbordadas("0");
-
-    carregarBlitzes();
+  if (!usuario?.municipio_id) {
+    alert("Município do usuário não identificado.");
+    return;
   }
 
+  if (!nome || !local || !data || !horaInicio) {
+    alert("Preencha nome, local, data e hora inicial.");
+    return;
+  }
+
+  if (latitude && (Number(latitude) < -90 || Number(latitude) > 90)) {
+    alert("Latitude inválida.");
+    return;
+  }
+
+  if (longitude && (Number(longitude) < -180 || Number(longitude) > 180)) {
+    alert("Longitude inválida.");
+    return;
+  }
+
+  if (nome.length > 150) {
+    alert("Nome muito grande.");
+    return;
+  }
+
+  if (local.length > 200) {
+    alert("Local muito grande.");
+    return;
+  }
+
+  if (objetivo.length > 3000) {
+    alert("Objetivo muito grande.");
+    return;
+  }
+
+  if (observacoes.length > 5000) {
+    alert("Observação muito grande.");
+    return;
+  }
+
+  const { data: blitzCriada, error } = await supabase
+    .from("blitzes")
+    .insert([
+      {
+        municipio_id: usuario.municipio_id,
+        nome,
+        tipo,
+        local,
+        data,
+        hora_inicio: horaInicio,
+        hora_fim: horaFim || null,
+        objetivo,
+        observacoes,
+        status: "PLANEJADA",
+        criado_por: usuario.id,
+        latitude: latitude ? Number(latitude) : null,
+        longitude: longitude ? Number(longitude) : null,
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error(error);
+
+    await registrarAuditoria("ERRO_CRIAR_BLITZ", error.message);
+
+    alert("Erro ao salvar blitz.");
+    return;
+  }
+
+  await registrarAuditoria(
+    "CRIAR_BLITZ",
+    `Criou a blitz ${nome} em ${local}`
+  );
+
+  if (blitzCriada?.id) {
+    await supabase.from("resultados_blitz").insert([
+      {
+        blitz_id: blitzCriada.id,
+        pessoas_abordadas: Number(pessoasAbordadas || 0),
+        veiculos_abordados: Number(veiculosAbordados || 0),
+        motos_abordadas: Number(motosAbordadas || 0),
+      },
+    ]);
+  }
+
+  setNome("");
+  setTipo("TRANSITO");
+  setLocal("");
+  setData("");
+  setHoraInicio("");
+  setHoraFim("");
+  setObjetivo("");
+  setObservacoes("");
+  setLatitude("");
+  setLongitude("");
+  setPessoasAbordadas("0");
+  setVeiculosAbordados("0");
+  setMotosAbordadas("0");
+
+  carregarBlitzes();
+}
   async function atualizarStatus(id: string, status: string) {
     const usuario = pegarUsuario();
 
@@ -204,6 +237,30 @@ longitude: longitude ? Number(longitude) : null,
   function resultadoDaBlitz(b: any) {
     return b.resultados_blitz?.[0] || {};
   }
+
+  async function excluirBlitz(id: number) {
+  const usuario = pegarUsuario();
+
+  if (!confirm("Excluir blitz?")) return;
+
+  const { error } = await supabase
+    .from("blitzes")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", usuario.municipio_id);
+
+  if (error) {
+    alert("Erro ao excluir.");
+    return;
+  }
+
+  await registrarAuditoria(
+    "EXCLUIR_BLITZ",
+    `Excluiu a blitz ${id}`
+  );
+
+  carregarBlitzes();
+}
 
   async function apagarTestes() {
   const usuario = pegarUsuario();
@@ -332,8 +389,8 @@ longitude: longitude ? Number(longitude) : null,
  <input
   className="input-premium pr-12"
   type="time"
-  value={horaFim}
-  onChange={(e) => setHoraFim(e.target.value)}
+  value={horaInicio}
+  onChange={(e) => setHoraInicio(e.target.value)}
 />
 
   <Clock3
@@ -351,11 +408,11 @@ longitude: longitude ? Number(longitude) : null,
 
           <div className="relative">
   <input
-    className="input-premium pr-12"
-    type="time"
-    value={horaFim}
-    onChange={(e) => setHoraInicio(e.target.value)}
-  />
+  className="input-premium pr-12"
+  type="time"
+  value={horaFim}
+  onChange={(e) => setHoraFim(e.target.value)}
+/>
 
   <Clock3
     className="
@@ -509,6 +566,13 @@ longitude: longitude ? Number(longitude) : null,
                         <CheckCircle size={16} />
                         Finalizar
                       </button>
+
+                      <button
+  onClick={() => excluirBlitz(b.id)}
+  className="bg-red-700 hover:bg-red-600 px-3 py-2 rounded-lg text-sm font-bold"
+>
+  Excluir
+</button>
                     </div>
                   </div>
                 </div>
