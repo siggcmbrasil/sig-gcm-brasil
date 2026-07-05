@@ -2,10 +2,40 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+
+type Pneu = {
+  id: number;
+  codigo: string;
+  marca: string | null;
+  medida: string | null;
+  posicao: string;
+  status: string;
+  viatura_id: number | null;
+  viaturas: {
+    prefixo: string | null;
+    placa: string | null;
+  } | null;
+};
+
+type HistoricoTroca = {
+  id: number;
+  posicao_anterior: string;
+  km: string | null;
+  observacao: string | null;
+  criado_em: string;
+  pneus_viaturas: {
+    codigo: string;
+  } | null;
+  viaturas: {
+    prefixo: string | null;
+    placa: string | null;
+  } | null;
+};
 
 export default function TrocasPneusPage() {
-  const [pneus, setPneus] = useState<any[]>([]);
-  const [historico, setHistorico] = useState<any[]>([]);
+  const [pneus, setPneus] = useState<Pneu[]>([]);
+  const [historico, setHistorico] = useState<HistoricoTroca[]>([]);
   const [salvando, setSalvando] = useState(false);
 
   const [pneuAntigoId, setPneuAntigoId] = useState("");
@@ -32,8 +62,29 @@ export default function TrocasPneusPage() {
       .eq("tipo", "TROCA")
       .order("criado_em", { ascending: false });
 
-    setPneus(listaPneus || []);
-    setHistorico(listaHistorico || []);
+const pneusTratados: Pneu[] = (listaPneus || []).map(
+  (item: any) => ({
+    ...item,
+    viaturas: Array.isArray(item.viaturas)
+      ? item.viaturas[0] || null
+      : item.viaturas,
+  })
+);
+
+const historicoTratado: HistoricoTroca[] = (
+  listaHistorico || []
+).map((item: any) => ({
+  ...item,
+  pneus_viaturas: Array.isArray(item.pneus_viaturas)
+    ? item.pneus_viaturas[0] || null
+    : item.pneus_viaturas,
+  viaturas: Array.isArray(item.viaturas)
+    ? item.viaturas[0] || null
+    : item.viaturas,
+}));
+
+setPneus(pneusTratados);
+setHistorico(historicoTratado);
   }
 
   useEffect(() => {
@@ -43,6 +94,19 @@ export default function TrocasPneusPage() {
   async function registrarTroca() {
     const pneuAntigo = pneus.find((p) => String(p.id) === pneuAntigoId);
     const pneuNovo = pneus.find((p) => String(p.id) === pneuNovoId);
+
+    if (
+  ![
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "PLANTONISTA",
+  ].includes(usuario.perfil)
+) {
+  alert("Você não possui permissão.");
+  return;
+}
 
     if (!pneuAntigo) {
       alert("Selecione o pneu que será retirado.");
@@ -59,7 +123,7 @@ export default function TrocasPneusPage() {
       return;
     }
 
-    if (!km) {
+    if (!km || Number(km) <= 0) {
       alert("Informe o KM da troca.");
       return;
     }
@@ -123,6 +187,20 @@ export default function TrocasPneusPage() {
       alert(erroNovo.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Pneus",
+  acao: "CRIAR",
+  descricao: `Troca de pneu registrada.`,
+  tabela: "historico_pneus",
+  detalhes: {
+    pneu_retirado: pneuAntigo.codigo,
+    pneu_instalado: pneuNovo.codigo,
+    km,
+    municipio_id: usuario.municipio_id,
+    usuario_id: usuario.id,
+  },
+});
 
     setPneuAntigoId("");
     setPneuNovoId("");

@@ -32,12 +32,12 @@ const modulos = [
     descricao: "Consulta legislação, artigos e fundamentos jurídicos.",
     icone: Gavel,
   },
-  {
-    titulo: "IA Legislativa",
-    href: "/sistema/legislacao/ia",
-    descricao: "Apoio inteligente para leis, normas e atos municipais.",
-    icone: Scale,
-  },
+{
+  titulo: "SIG Legislação",
+  href: "/sistema/legislacao",
+  descricao: "Biblioteca jurídica, questões, simulados, flashcards e IA jurídica.",
+  icone: Scale,
+},
   {
     titulo: "Biblioteca Inteligente",
     href: "/sistema/sigia/biblioteca",

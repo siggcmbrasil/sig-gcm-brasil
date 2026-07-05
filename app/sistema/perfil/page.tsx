@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
-
+import { ativarPushMobile } from "@/lib/push-mobile";
 
 export default function PerfilPage() {
   const [usuario, setUsuario] = useState<any>(null);
@@ -256,10 +256,10 @@ function urlBase64ToUint8Array(base64String: string) {
           <div className="mt-6 flex flex-wrap gap-3">
             <button
   type="button"
-  onClick={ativarNotificacoes}
+  onClick={() => ativarPushMobile(usuario)}
   className="bg-green-600 hover:bg-green-700 px-5 py-3 rounded-xl font-bold"
 >
-  🔔 Ativar Notificações
+  🔔 Ativar Push Celular
 </button>
 
             <button className="bg-blue-600 px-5 py-3 rounded-xl font-bold">

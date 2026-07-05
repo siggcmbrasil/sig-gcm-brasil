@@ -4,41 +4,61 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   ArrowLeft,
+  AlertTriangle,
+  Clock,
   FileText,
   MapPin,
-  Clock,
+  Navigation,
   Shield,
-  AlertTriangle,
 } from "lucide-react";
 
 export default function DetalheOcorrenciaMobilePage() {
   const params = useParams();
   const router = useRouter();
 
+  const id = typeof params.id === "string" ? params.id : params.id?.[0];
+
   const [ocorrencia, setOcorrencia] = useState<any>(null);
+  const [usuario, setUsuario] = useState<any>(null);
   const [carregando, setCarregando] = useState(true);
 
-  function pegarUsuario() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-  }
-
   useEffect(() => {
-    carregarOcorrencia();
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const dados = JSON.parse(salvo);
+
+    if (!dados?.id || !dados?.municipio_id) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setUsuario(dados);
+    carregarOcorrencia(dados);
   }, []);
 
-  async function carregarOcorrencia() {
-    setCarregando(true);
+  async function carregarOcorrencia(usuarioAtual: any) {
+    if (!id) {
+      alert("ID da ocorrência não informado.");
+      router.push("/sistema/mobile/ocorrencias");
+      return;
+    }
 
-    const usuario = pegarUsuario();
+    setCarregando(true);
 
     const { data, error } = await supabase
       .from("ocorrencias")
       .select("*")
-      .eq("id", params.id)
-      .eq("municipio_id", usuario.municipio_id)
-      .single();
+      .eq("id", id)
+      .eq("municipio_id", usuarioAtual.municipio_id)
+      .maybeSingle();
 
     if (error) {
       console.error(error);
@@ -47,8 +67,35 @@ export default function DetalheOcorrenciaMobilePage() {
       return;
     }
 
+    if (!data) {
+      alert("Ocorrência não encontrada ou sem permissão.");
+      setCarregando(false);
+      router.push("/sistema/mobile/ocorrencias");
+      return;
+    }
+
     setOcorrencia(data);
+
+    await registrarAuditoria({
+      modulo: "OCORRENCIAS",
+      acao: "VISUALIZAR_MOBILE",
+      descricao: `Visualizou ocorrência mobile ${data.protocolo || data.id}.`,
+      registro_id: String(data.id),
+    });
+
     setCarregando(false);
+  }
+
+  function abrirMapa() {
+    if (!ocorrencia?.latitude || !ocorrencia?.longitude) {
+      alert("Esta ocorrência não possui GPS.");
+      return;
+    }
+
+    window.open(
+      `https://www.google.com/maps?q=${ocorrencia.latitude},${ocorrencia.longitude}`,
+      "_blank"
+    );
   }
 
   if (carregando) {
@@ -73,14 +120,15 @@ export default function DetalheOcorrenciaMobilePage() {
     <main className="min-h-screen bg-[#02060f] text-white p-4 pb-28">
       <header className="mb-5">
         <button
+          type="button"
           onClick={() => router.back()}
-          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-2 text-sm mb-5"
+          className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 border border-slate-800 px-4 py-2 text-sm mb-5 active:scale-95"
         >
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </button>
 
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+        <section className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
           <p className="text-blue-400 text-sm font-bold">
             {ocorrencia.protocolo || `#${ocorrencia.id}`}
           </p>
@@ -92,7 +140,13 @@ export default function DetalheOcorrenciaMobilePage() {
           <p className="text-slate-400 text-sm mt-2">
             Consulta rápida da ocorrência em campo.
           </p>
-        </div>
+
+          {usuario?.nome && (
+            <p className="text-slate-500 text-xs mt-3">
+              Acessado por: {usuario.nome}
+            </p>
+          )}
+        </section>
       </header>
 
       <section className="grid grid-cols-2 gap-3 mb-5">
@@ -109,13 +163,19 @@ export default function DetalheOcorrenciaMobilePage() {
         />
       </section>
 
-      <section className="space-y-3">
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <MapPin className="w-5 h-5 text-green-400" />
-            <h2 className="font-black">Local</h2>
-          </div>
+      {ocorrencia.latitude && ocorrencia.longitude && (
+        <button
+          type="button"
+          onClick={abrirMapa}
+          className="mb-5 w-full rounded-3xl bg-emerald-700 border border-emerald-500 p-4 font-black flex items-center justify-center gap-2 active:scale-95"
+        >
+          <Navigation className="w-5 h-5" />
+          Abrir localização no mapa
+        </button>
+      )}
 
+      <section className="space-y-3">
+        <Bloco titulo="Local" icone={MapPin} cor="text-green-400">
           <p className="text-slate-300">
             {ocorrencia.local || "Não informado"}
           </p>
@@ -125,29 +185,25 @@ export default function DetalheOcorrenciaMobilePage() {
               Bairro: {ocorrencia.bairro}
             </p>
           )}
-        </div>
 
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <Clock className="w-5 h-5 text-blue-400" />
-            <h2 className="font-black">Data e Hora</h2>
-          </div>
+          {ocorrencia.latitude && ocorrencia.longitude && (
+            <p className="text-emerald-400 text-xs mt-2">
+              GPS: {ocorrencia.latitude}, {ocorrencia.longitude}
+            </p>
+          )}
+        </Bloco>
 
+        <Bloco titulo="Data e Hora" icone={Clock} cor="text-blue-400">
           <p className="text-slate-300">
             {ocorrencia.data || "-"} {ocorrencia.hora || ""}
           </p>
-        </div>
+        </Bloco>
 
-        <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <FileText className="w-5 h-5 text-yellow-400" />
-            <h2 className="font-black">Descrição</h2>
-          </div>
-
+        <Bloco titulo="Descrição" icone={FileText} cor="text-yellow-400">
           <p className="text-slate-300 whitespace-pre-wrap">
             {ocorrencia.descricao || "Nenhuma descrição informada."}
           </p>
-        </div>
+        </Bloco>
       </section>
 
       <MobileBottomNav />
@@ -169,6 +225,29 @@ function Card({
       <Icone className="w-6 h-6 text-blue-400 mb-2" />
       <p className="text-slate-400 text-xs">{titulo}</p>
       <h2 className="font-black">{valor}</h2>
+    </div>
+  );
+}
+
+function Bloco({
+  titulo,
+  icone: Icone,
+  cor,
+  children,
+}: {
+  titulo: string;
+  icone: any;
+  cor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-3xl bg-slate-900 border border-slate-800 p-5">
+      <div className="flex items-center gap-2 mb-2">
+        <Icone className={`w-5 h-5 ${cor}`} />
+        <h2 className="font-black">{titulo}</h2>
+      </div>
+
+      {children}
     </div>
   );
 }

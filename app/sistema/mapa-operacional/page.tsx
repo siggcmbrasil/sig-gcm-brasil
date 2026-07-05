@@ -38,6 +38,8 @@ export default function MapaOperacionalPage() {
   const [blitzes, setBlitzes] = useState<any[]>([]);
   const [barreiras, setBarreiras] = useState<any[]>([]);
   const [operacoesEspeciais, setOperacoesEspeciais] = useState<any[]>([]);
+  const [alertasSOS, setAlertasSOS] = useState<any[]>([]);
+
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
   const [dataFiltro, setDataFiltro] = useState(hoje);
@@ -50,6 +52,7 @@ export default function MapaOperacionalPage() {
     blitzes: true,
     barreiras: true,
     operacoes: true,
+    sos: true,
   });
 
   function pegarUsuario() {
@@ -103,6 +106,7 @@ export default function MapaOperacionalPage() {
         blitzesRes,
         barreirasRes,
         operacoesRes,
+        sosRes,
       ] = await Promise.all([
         supabase
           .from("ocorrencias")
@@ -153,6 +157,13 @@ export default function MapaOperacionalPage() {
           .not("latitude", "is", null)
           .not("longitude", "is", null)
           .order("created_at", { ascending: false }),
+
+        supabase
+          .from("alertas_sos")
+          .select("*")
+          .eq("municipio_id", municipioId)
+          .neq("status", "FINALIZADO")
+          .order("criado_em", { ascending: false }),
       ]);
 
       if (ocorrenciasRes.error) throw ocorrenciasRes.error;
@@ -161,6 +172,7 @@ export default function MapaOperacionalPage() {
       if (blitzesRes.error) throw blitzesRes.error;
       if (barreirasRes.error) throw barreirasRes.error;
       if (operacoesRes.error) throw operacoesRes.error;
+      if (sosRes.error) throw sosRes.error;
 
       setOcorrencias(
         filtrarPorData(ocorrenciasRes.data || [], [
@@ -186,17 +198,30 @@ export default function MapaOperacionalPage() {
       );
 
       setBlitzes(
-        filtrarPorData(blitzesRes.data || [], ["data", "created_at", "criado_em"])
+        filtrarPorData(blitzesRes.data || [], [
+          "data",
+          "created_at",
+          "criado_em",
+        ])
       );
 
       setBarreiras(
-        filtrarPorData(barreirasRes.data || [], ["data", "created_at", "criado_em"])
+        filtrarPorData(barreirasRes.data || [], [
+          "data",
+          "created_at",
+          "criado_em",
+        ])
       );
 
       setOperacoesEspeciais(
-        filtrarPorData(operacoesRes.data || [], ["data", "created_at", "criado_em"])
+        filtrarPorData(operacoesRes.data || [], [
+          "data",
+          "created_at",
+          "criado_em",
+        ])
       );
 
+      setAlertasSOS(sosRes.data || []);
       setUltimaAtualizacao(new Date().toLocaleTimeString("pt-BR"));
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
@@ -229,6 +254,11 @@ export default function MapaOperacionalPage() {
         { event: "*", schema: "public", table: "viaturas" },
         carregarDados
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "alertas_sos" },
+        carregarDados
+      )
       .subscribe();
 
     const intervalo = setInterval(carregarDados, 60000);
@@ -245,6 +275,7 @@ export default function MapaOperacionalPage() {
   const blitzesVisiveis = mostrar.blitzes ? blitzes : [];
   const barreirasVisiveis = mostrar.barreiras ? barreiras : [];
   const operacoesVisiveis = mostrar.operacoes ? operacoesEspeciais : [];
+  const sosVisiveis = mostrar.sos ? alertasSOS : [];
 
   const ocorrenciasHoje = ocorrencias.filter(
     (o) => o.data?.split("T")[0] === hoje
@@ -264,7 +295,8 @@ export default function MapaOperacionalPage() {
     gpsVisiveis.length +
     blitzesVisiveis.length +
     barreirasVisiveis.length +
-    operacoesVisiveis.length;
+    operacoesVisiveis.length +
+    sosVisiveis.length;
 
   function alternarCamada(camada: keyof typeof mostrar) {
     setMostrar((atual) => ({
@@ -277,11 +309,11 @@ export default function MapaOperacionalPage() {
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
         titulo="Mapa Operacional"
-        subtitulo="Centro de comando em tempo real com ocorrências, GPS, viaturas, blitzes, barreiras e operações especiais."
+        subtitulo="Centro de comando em tempo real com ocorrências, GPS, viaturas, blitzes, barreiras, operações especiais e alertas SOS."
         icone={Map}
       />
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-3">
         <CardInfo titulo="Pontos" valor={totalPontos} icone={Crosshair} />
         <CardInfo titulo="Ocorrências" valor={ocorrencias.length} icone={AlertTriangle} />
         <CardInfo titulo="Hoje" valor={ocorrenciasHoje} icone={CalendarDays} />
@@ -294,6 +326,7 @@ export default function MapaOperacionalPage() {
           valor={operacoesEspeciais.length + blitzes.length + barreiras.length}
           icone={Map}
         />
+        <CardInfo titulo="SOS" valor={alertasSOS.length} icone={Siren} />
       </div>
 
       <SigCard>
@@ -330,13 +363,14 @@ export default function MapaOperacionalPage() {
       </SigCard>
 
       <SigCard>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
           <BotaoCamada ativo={mostrar.ocorrencias} titulo="Ocorrências" onClick={() => alternarCamada("ocorrencias")} />
           <BotaoCamada ativo={mostrar.viaturas} titulo="Viaturas" onClick={() => alternarCamada("viaturas")} />
           <BotaoCamada ativo={mostrar.gps} titulo="GPS" onClick={() => alternarCamada("gps")} />
           <BotaoCamada ativo={mostrar.blitzes} titulo="Blitzes" onClick={() => alternarCamada("blitzes")} />
           <BotaoCamada ativo={mostrar.barreiras} titulo="Barreiras" onClick={() => alternarCamada("barreiras")} />
           <BotaoCamada ativo={mostrar.operacoes} titulo="Operações" onClick={() => alternarCamada("operacoes")} />
+          <BotaoCamada ativo={mostrar.sos} titulo="SOS" onClick={() => alternarCamada("sos")} />
         </div>
       </SigCard>
 
@@ -363,11 +397,18 @@ export default function MapaOperacionalPage() {
                 blitzes={blitzesVisiveis}
                 barreiras={barreirasVisiveis}
                 operacoesEspeciais={operacoesVisiveis}
+                alertasSOS={sosVisiveis}
               />
             </SigCard>
           </section>
 
           <aside className="xl:col-span-3 space-y-4">
+            <PainelLista
+              titulo="🚨 SOS Ativos"
+              vazio="Nenhum SOS ativo."
+              itens={sosVisiveis}
+            />
+
             <PainelLista
               titulo="🚧 Blitzes e Barreiras"
               vazio="Nenhuma blitz ou barreira com GPS."
@@ -459,15 +500,15 @@ function PainelLista({
         ) : (
           itens.slice(0, 8).map((item) => (
             <div
-              key={`${item.id}-${item.nome || item.prefixo || "registro"}`}
+              key={`${item.id}-${item.nome || item.prefixo || item.nome_usuario || "registro"}`}
               className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
             >
               <p className="font-bold text-white">
-                {item.nome || item.prefixo || "Registro"}
+                {item.nome || item.prefixo || item.nome_usuario || "Registro"}
               </p>
 
               <p className="text-sm text-slate-400">
-                {item.local || item.observacao || "Local não informado"}
+                {item.local || item.observacao || item.status || "Local não informado"}
               </p>
 
               <p className="text-xs text-slate-500 mt-1">

@@ -67,6 +67,36 @@ const cards = [
     href: "/sistema/relatorios/plantao",
     icone: CalendarRange,
   },
+  {
+  titulo: "Relatórios de Ocorrências",
+  descricao: "Indicadores e estatísticas das ocorrências.",
+  href: "/sistema/ocorrencias/relatorios",
+  icone: FileText,
+},
+{
+  titulo: "Relatórios de Patrulhamento",
+  descricao: "Dados operacionais do patrulhamento.",
+  href: "/sistema/patrulhamento/relatorios",
+  icone: BarChart3,
+},
+{
+  titulo: "Relatórios de Viaturas",
+  descricao: "Abastecimentos, manutenções e uso da frota.",
+  href: "/sistema/viaturas/relatorios",
+  icone: PieChart,
+},
+{
+  titulo: "Relatórios de Guardas",
+  descricao: "Indicadores de efetivo e produtividade.",
+  href: "/sistema/guardas/relatorios",
+  icone: FileText,
+},
+{
+  titulo: "Relatórios Inteligentes IA",
+  descricao: "Análises e resumos gerados pela IA.",
+  href: "/sistema/relatorios/ia",
+  icone: Bot,
+},
 ];
 
 export default function RelatoriosPage() {
@@ -87,6 +117,13 @@ export default function RelatoriosPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
           {cards.map((card) => {
             const Icone = card.icone;
+
+            <div className="grid md:grid-cols-4 gap-4">
+  <Resumo titulo="Ocorrências" valor="0" />
+  <Resumo titulo="Patrulhamentos" valor="0" />
+  <Resumo titulo="Chamados" valor="0" />
+  <Resumo titulo="Relatórios Gerados" valor="0" />
+</div>
 
             return (
               <Link
@@ -132,5 +169,22 @@ export default function RelatoriosPage() {
         </div>
       </div>
     </ProtecaoModulo>
+  );
+}
+
+function Resumo({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="painel-premium p-5">
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className="text-3xl font-black text-white mt-2">
+        {valor}
+      </h2>
+    </div>
   );
 }

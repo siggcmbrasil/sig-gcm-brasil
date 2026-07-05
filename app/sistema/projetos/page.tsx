@@ -20,28 +20,32 @@ export default function ProjetosPage() {
     {
       nome: "Patrulha Escolar",
       categoria: "Prevenção",
-      status: "Planejado",
+      status: "PLANEJADO",
       responsavel: "Comando",
     },
     {
       nome: "Guarda Mirim",
       categoria: "Social",
-      status: "Em análise",
+      status: "EM_ANALISE",
       responsavel: "Coordenação",
     },
     {
       nome: "Ronda Comunitária",
       categoria: "Segurança",
-      status: "Ativo",
+      status: "ATIVO",
       responsavel: "Operacional",
     },
   ];
 
+  const total = projetos.length;
+  const ativos = projetos.filter((p) => p.status === "ATIVO").length;
+  const planejados = projetos.filter((p) => p.status === "PLANEJADO").length;
+
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
       <SigPageHeader
-        titulo="Projetos Institucionais"
-        subtitulo="Planejamento, acompanhamento e gestão de projetos da instituição."
+        titulo="Projetos Sociais"
+        subtitulo="Projetos comunitários, preventivos, institucionais e ações sociais da Guarda Municipal."
         icone={FolderKanban}
       />
 
@@ -53,46 +57,45 @@ export default function ProjetosPage() {
 
           <div>
             <p className="text-xs uppercase tracking-[0.25em] text-yellow-400 font-bold">
-              Gestão Institucional
+              Portal do Cidadão
             </p>
 
             <h2 className="text-2xl md:text-3xl font-black text-white mt-1">
-              Central de Projetos
+              Central de Projetos Sociais
             </h2>
 
             <p className="text-slate-400 mt-2 max-w-3xl leading-relaxed">
-              Área destinada ao cadastro, planejamento e acompanhamento de
-              projetos institucionais, sociais, preventivos e operacionais da
-              Guarda Municipal.
+              Área destinada à organização de projetos sociais, educacionais,
+              preventivos e comunitários divulgados ao cidadão.
             </p>
           </div>
         </div>
       </SigCard>
 
       <div className="grid md:grid-cols-4 gap-4">
-        <SigCard>
-          <ClipboardList className="w-8 h-8 text-yellow-400 mb-3" />
-          <h3 className="text-lg font-black text-white">Projetos</h3>
-          <p className="text-2xl font-black text-white mt-2">03</p>
-        </SigCard>
+        <ResumoCard
+          titulo="Projetos"
+          valor={total}
+          icone={<ClipboardList className="w-8 h-8 text-yellow-400" />}
+        />
 
-        <SigCard>
-          <CheckCircle className="w-8 h-8 text-emerald-400 mb-3" />
-          <h3 className="text-lg font-black text-white">Ativos</h3>
-          <p className="text-2xl font-black text-white mt-2">01</p>
-        </SigCard>
+        <ResumoCard
+          titulo="Ativos"
+          valor={ativos}
+          icone={<CheckCircle className="w-8 h-8 text-emerald-400" />}
+        />
 
-        <SigCard>
-          <CalendarDays className="w-8 h-8 text-blue-400 mb-3" />
-          <h3 className="text-lg font-black text-white">Planejados</h3>
-          <p className="text-2xl font-black text-white mt-2">01</p>
-        </SigCard>
+        <ResumoCard
+          titulo="Planejados"
+          valor={planejados}
+          icone={<CalendarDays className="w-8 h-8 text-blue-400" />}
+        />
 
-        <SigCard>
-          <Handshake className="w-8 h-8 text-orange-400 mb-3" />
-          <h3 className="text-lg font-black text-white">Parcerias</h3>
-          <p className="text-2xl font-black text-white mt-2">00</p>
-        </SigCard>
+        <ResumoCard
+          titulo="Parcerias"
+          valor={0}
+          icone={<Handshake className="w-8 h-8 text-orange-400" />}
+        />
       </div>
 
       <SigCard>
@@ -103,12 +106,12 @@ export default function ProjetosPage() {
             </h3>
 
             <p className="text-sm text-slate-400 mt-1">
-              Lista demonstrativa dos projetos institucionais.
+              Lista inicial dos projetos comunitários e institucionais.
             </p>
           </div>
 
           <Link
-            href="#"
+            href="/sistema/portal-cidadao/programas/nova"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-400 transition"
           >
             <FileText className="w-5 h-5" />
@@ -128,11 +131,13 @@ export default function ProjetosPage() {
             </thead>
 
             <tbody className="divide-y divide-slate-800">
-              {projetos.map((item, index) => (
-                <tr key={index} className="text-slate-300">
-                  <td className="p-3">{item.nome}</td>
+              {projetos.map((item) => (
+                <tr key={item.nome} className="text-slate-300">
+                  <td className="p-3 font-bold text-white">{item.nome}</td>
                   <td className="p-3">{item.categoria}</td>
-                  <td className="p-3">{item.status}</td>
+                  <td className="p-3">
+                    <Status status={item.status} />
+                  </td>
                   <td className="p-3">{item.responsavel}</td>
                 </tr>
               ))}
@@ -148,16 +153,67 @@ export default function ProjetosPage() {
         </h3>
 
         <div className="mt-4 grid md:grid-cols-2 gap-3 text-sm text-slate-400">
-          <p>• Patrulha Escolar</p>
-          <p>• Guarda Mirim</p>
-          <p>• Ronda Comunitária</p>
-          <p>• Educação no Trânsito</p>
-          <p>• Prevenção às Drogas</p>
-          <p>• Segurança nas Escolas</p>
-          <p>• Campanhas Institucionais</p>
-          <p>• Parcerias com Secretarias</p>
+          <Item texto="Patrulha Escolar" />
+          <Item texto="Guarda Mirim" />
+          <Item texto="Ronda Comunitária" />
+          <Item texto="Educação no Trânsito" />
+          <Item texto="Prevenção às Drogas" />
+          <Item texto="Segurança nas Escolas" />
+          <Item texto="Campanhas Institucionais" />
+          <Item texto="Parcerias com Secretarias" />
         </div>
       </SigCard>
+    </div>
+  );
+}
+
+function ResumoCard({
+  titulo,
+  valor,
+  icone,
+}: {
+  titulo: string;
+  valor: number;
+  icone: React.ReactNode;
+}) {
+  return (
+    <SigCard>
+      {icone}
+
+      <h3 className="text-lg font-black text-white mt-3">
+        {titulo}
+      </h3>
+
+      <p className="text-3xl font-black text-white mt-2">
+        {valor}
+      </p>
+    </SigCard>
+  );
+}
+
+function Status({ status }: { status: string }) {
+  const estilos: Record<string, string> = {
+    ATIVO: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+    PLANEJADO: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+    EM_ANALISE: "bg-yellow-500/20 text-yellow-300 border-yellow-500/30",
+  };
+
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 text-xs font-black ${
+        estilos[status] ||
+        "bg-slate-500/20 text-slate-300 border-slate-500/30"
+      }`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function Item({ texto }: { texto: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-950/70 border border-slate-800 p-4">
+      ✅ {texto}
     </div>
   );
 }

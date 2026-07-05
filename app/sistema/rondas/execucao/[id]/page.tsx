@@ -24,17 +24,61 @@ export default function ExecucaoRondaPage() {
   const [plano, setPlano] = useState<any>(null);
   const [pontos, setPontos] = useState<any[]>([]);
   const [checkins, setCheckins] = useState<any[]>([]);
+  const [execucao, setExecucao] = useState<any>(null);
   const [carregando, setCarregando] = useState(true);
 
   function pegarUsuario() {
     return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   }
 
-  useEffect(() => {
-    carregar();
-  }, []);
+ useEffect(() => {
+  carregar();
+
+  const channel = supabase
+    .channel(`ronda-execucao-${id}`)
+    .on(
+      "postgres_changes",
+      {
+        event: "*",
+        schema: "public",
+        table: "checkins_ronda",
+      },
+      () => {
+        carregar();
+      }
+    )
+    .subscribe();
+
+  return () => {
+    supabase.removeChannel(channel);
+  };
+}, [id]);
+
+async function iniciarRonda() {
+  const usuario = pegarUsuario();
+
+  const { data, error } = await supabase
+    .from("execucoes_ronda")
+    .insert({
+      municipio_id: usuario.municipio_id,
+      plano_id: Number(id),
+      usuario_id: usuario.id,
+      status: "EM_ANDAMENTO",
+    })
+    .select()
+    .single();
+
+  if (error) {
+    alert(error.message);
+    return;
+  }
+
+  setExecucao(data);
+  carregar();
+}
 
   async function carregar() {
+
     const usuario = pegarUsuario();
     const municipioId = usuario?.municipio_id;
 
@@ -86,69 +130,49 @@ export default function ExecucaoRondaPage() {
       return;
     }
 
+    const { data: execucaoData } = await supabase
+  .from("execucoes_ronda")
+  .select("*")
+  .eq("municipio_id", municipioId)
+  .eq("plano_id", Number(id))
+  .eq("status", "EM_ANDAMENTO")
+  .maybeSingle();
+
+setExecucao(execucaoData);
+
     setPlano(planoData);
     setPontos(pontosData || []);
     setCheckins(checkinsData || []);
     setCarregando(false);
+  } 
+
+  async function finalizarRonda() {
+  if (!execucao) return;
+
+  if (concluidos < total) {
+    alert(
+      "Ainda existem pontos pendentes. Finalize todos antes de encerrar."
+    );
+    return;
   }
 
-  async function iniciarRonda() {
-    const usuario = pegarUsuario();
-    const municipioId = usuario?.municipio_id;
+  const { error } = await supabase
+    .from("execucoes_ronda")
+    .update({
+      finalizado_em: new Date().toISOString(),
+      status: "FINALIZADA",
+    })
+    .eq("id", execucao.id);
 
-    if (!municipioId) {
-      alert("Município do usuário não identificado.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("planos_ronda")
-      .update({
-        status: "EM_ANDAMENTO",
-        data_inicio: new Date().toISOString(),
-        data_fim: null,
-      })
-      .eq("id", Number(id))
-      .eq("municipio_id", municipioId);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao iniciar ronda.");
-      return;
-    }
-
-    carregar();
+  if (error) {
+    alert(error.message);
+    return;
   }
 
-  async function encerrarRonda() {
-    const confirmar = confirm("Deseja encerrar esta ronda?");
-    if (!confirmar) return;
+  alert("Ronda finalizada.");
 
-    const usuario = pegarUsuario();
-    const municipioId = usuario?.municipio_id;
-
-    if (!municipioId) {
-      alert("Município do usuário não identificado.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("planos_ronda")
-      .update({
-        status: "CONCLUIDA",
-        data_fim: new Date().toISOString(),
-      })
-      .eq("id", Number(id))
-      .eq("municipio_id", municipioId);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao encerrar ronda.");
-      return;
-    }
-
-    carregar();
-  }
+  carregar();
+}
 
   const pontosVisitados = pontos.filter((ponto) =>
     checkins.some((checkin) => Number(checkin.ponto_id) === Number(ponto.id))
@@ -157,8 +181,27 @@ export default function ExecucaoRondaPage() {
   const total = pontos.length;
   const concluidos = pontosVisitados.length;
   const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+  const pendentes = total - concluidos;
 
-  const statusRonda = plano?.status || "ATIVA";
+  const duracaoRonda =
+  execucao?.iniciado_em && execucao?.finalizado_em
+    ? Math.floor(
+        (new Date(execucao.finalizado_em).getTime() -
+          new Date(execucao.iniciado_em).getTime()) /
+          1000
+      )
+    : null;
+
+const horas = duracaoRonda
+  ? Math.floor(duracaoRonda / 3600)
+  : 0;
+
+const minutos = duracaoRonda
+  ? Math.floor((duracaoRonda % 3600) / 60)
+  : 0;
+
+  const statusRonda =
+  execucao?.status || "ATIVA";
 
   if (carregando) {
     return <div className="p-6 text-white">Carregando execução...</div>;
@@ -203,17 +246,17 @@ export default function ExecucaoRondaPage() {
                   : "ATIVA"}
               </span>
 
-              {plano?.data_inicio && (
+              {execucao?.iniciado_em && (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 flex items-center gap-1">
                   <Clock size={13} />
-                  Início: {new Date(plano.data_inicio).toLocaleString("pt-BR")}
+                  Início: {new Date(execucao.iniciado_em).toLocaleString("pt-BR")}
                 </span>
               )}
 
-              {plano?.data_fim && (
+              {execucao?.finalizado_em && (
                 <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-800 text-slate-300 flex items-center gap-1">
                   <Clock size={13} />
-                  Fim: {new Date(plano.data_fim).toLocaleString("pt-BR")}
+                  Fim: {new Date(execucao.finalizado_em).toLocaleString("pt-BR")}
                 </span>
               )}
             </div>
@@ -234,7 +277,7 @@ export default function ExecucaoRondaPage() {
             {statusRonda === "EM_ANDAMENTO" && (
               <button
                 type="button"
-                onClick={encerrarRonda}
+                onClick={finalizarRonda}
                 className="bg-red-700 hover:bg-red-800 text-center px-5 py-3 rounded-2xl font-black flex items-center justify-center gap-2"
               >
                 <StopCircle size={18} />
@@ -264,9 +307,10 @@ export default function ExecucaoRondaPage() {
           <div className="flex justify-between mb-2">
             <span className="font-bold">Progresso</span>
 
-            <span className="text-blue-400 font-black">
-              {concluidos}/{total} • {percentual}%
-            </span>
+<span className="text-blue-400 font-black">
+  {concluidos}/{total} • {percentual}% • Pendentes: {pendentes}
+  {duracaoRonda && ` • Tempo: ${horas}h ${minutos}m`}
+</span>
           </div>
 
           <div className="h-4 bg-slate-900 rounded-full overflow-hidden border border-slate-700">
@@ -334,11 +378,33 @@ export default function ExecucaoRondaPage() {
                             {checkin.latitude}, {checkin.longitude}
                           </p>
 
+                          {checkin.distancia_metros !== null &&
+  checkin.distancia_metros !== undefined && (
+    <p className="text-cyan-400 text-sm mt-1">
+      Distância: {checkin.distancia_metros} m
+    </p>
+  )}
+
                           {checkin.observacao && (
                             <p className="text-slate-300 text-sm mt-1">
                               {checkin.observacao}
                             </p>
                           )}
+
+                          {checkin.latitude && checkin.longitude && (
+  <button
+    type="button"
+    onClick={() =>
+      window.open(
+        `https://www.google.com/maps?q=${checkin.latitude},${checkin.longitude}`,
+        "_blank"
+      )
+    }
+    className="mt-3 bg-blue-700 hover:bg-blue-800 px-3 py-2 rounded-lg text-sm font-bold"
+  >
+    Ver Local no Mapa
+  </button>
+)}
 
                           {checkin.foto_url && (
                             <img

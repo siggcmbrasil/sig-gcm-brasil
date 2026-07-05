@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 
 export default function PneusPage() {
   const [viaturas, setViaturas] = useState<any[]>([]);
@@ -30,6 +31,14 @@ export default function PneusPage() {
 
     setCarregando(true);
 
+    await registrarAuditoria({
+  modulo: "Pneus",
+  acao: "ACESSO",
+  descricao:
+    "Acessou o controle de pneus.",
+  tabela: "pneus_viaturas",
+});
+
     const { data: listaViaturas } = await supabase
       .from("viaturas")
       .select("id, prefixo, placa, modelo")
@@ -38,7 +47,23 @@ export default function PneusPage() {
 
     const { data: listaPneus } = await supabase
       .from("pneus_viaturas")
-      .select("*, viaturas(prefixo, placa, modelo)")
+      .select(`
+id,
+codigo,
+marca,
+modelo,
+medida,
+posicao,
+km_instalacao,
+status,
+observacao,
+criado_em,
+viaturas(
+prefixo,
+placa,
+modelo
+)
+`)
       .eq("municipio_id", usuario.municipio_id)
       .order("criado_em", { ascending: false });
 
@@ -73,12 +98,49 @@ export default function PneusPage() {
   }
 
   async function salvarPneu() {
+    if (!usuario?.municipio_id) {
+  alert("Município não identificado.");
+  return;
+}
+
+if (
+  ![
+    "DESENVOLVEDOR",
+    "ADMIN",
+    "COMANDANTE",
+    "DIRETOR",
+    "PLANTONISTA",
+  ].includes(usuario.perfil)
+) {
+  alert("Você não possui permissão.");
+  return;
+}
     if (!codigo.trim()) {
       alert("Informe o código ou identificação do pneu.");
       return;
     }
 
     setSalvando(true);
+
+    const { data: pneuExistente } =
+  await supabase
+    .from("pneus_viaturas")
+    .select("id")
+    .eq(
+      "municipio_id",
+      usuario.municipio_id
+    )
+    .eq(
+      "codigo",
+      codigo.trim().toUpperCase()
+    )
+    .maybeSingle();
+
+if (pneuExistente) {
+  setSalvando(false);
+  alert("Já existe um pneu com esse código.");
+  return;
+}
 
     const { error } = await supabase.from("pneus_viaturas").insert([
       {
@@ -99,9 +161,34 @@ export default function PneusPage() {
     setSalvando(false);
 
     if (error) {
+      await registrarAuditoria({
+  modulo: "Pneus",
+  acao: "ERRO",
+  descricao:
+    "Erro ao cadastrar pneu.",
+  tabela: "pneus_viaturas",
+  detalhes: {
+    erro: error.message,
+    codigo,
+  },
+});
       alert(error.message);
       return;
     }
+
+    await registrarAuditoria({
+  modulo: "Pneus",
+  acao: "CRIAR",
+  descricao:
+    `Cadastrou o pneu ${codigo}.`,
+  tabela: "pneus_viaturas",
+  detalhes: {
+    codigo,
+    viatura_id: viaturaId || null,
+    municipio_id:
+      usuario.municipio_id,
+  },
+});
 
     limparCadastro();
     carregar();

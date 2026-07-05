@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import {
   ArrowLeft,
   FileText,
@@ -23,6 +24,8 @@ export default function NovaOcorrenciaMobilePage() {
   const [descricao, setDescricao] = useState("");
   const [prioridade, setPrioridade] = useState("MÉDIA");
   const [salvando, setSalvando] = useState(false);
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   const [guarnicoes, setGuarnicoes] = useState<any[]>([]);
   const [viaturas, setViaturas] = useState<any[]>([]);
@@ -38,11 +41,15 @@ export default function NovaOcorrenciaMobilePage() {
     return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
   }
 
-  async function carregarApoio() {
-    const usuario = pegarUsuario();
-    const municipioId = usuario?.municipio_id;
+async function carregarApoio() {
+  const usuario = pegarUsuario();
 
-    if (!municipioId) return;
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert("Usuário inválido ou sem município. Faça login novamente.");
+    return;
+  }
+
+  const municipioId = usuario.municipio_id;
 
     const { data: guarnicoesData } = await supabase
       .from("guarnicoes")
@@ -68,6 +75,29 @@ export default function NovaOcorrenciaMobilePage() {
     setLocais(locaisData || []);
   }
 
+  function capturarGPS() {
+  if (!navigator.geolocation) {
+    alert("GPS não suportado neste dispositivo.");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      setLatitude(pos.coords.latitude);
+      setLongitude(pos.coords.longitude);
+      alert("GPS capturado com sucesso.");
+    },
+    () => {
+      alert("Não foi possível capturar o GPS.");
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 15000,
+      maximumAge: 0,
+    }
+  );
+}
+
   function gerarProtocolo() {
     const agora = new Date();
 
@@ -88,6 +118,12 @@ export default function NovaOcorrenciaMobilePage() {
     setSalvando(true);
 
     const usuario = pegarUsuario();
+    
+    if (!usuario?.id || !usuario?.municipio_id) {
+  alert("Usuário inválido ou sem município.");
+  setSalvando(false);
+  return;
+}
     const agora = new Date();
 
     const { error } = await supabase.from("ocorrencias").insert([
@@ -100,6 +136,8 @@ export default function NovaOcorrenciaMobilePage() {
         descricao,
         prioridade,
         status: "Aberta",
+        latitude,
+        longitude,
         data: agora.toISOString().slice(0, 10),
         hora: agora.toTimeString().slice(0, 5),
         guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
@@ -117,8 +155,15 @@ export default function NovaOcorrenciaMobilePage() {
       return;
     }
 
-    alert("Ocorrência registrada com sucesso.");
-    router.push("/sistema/mobile/ocorrencias");
+await registrarAuditoria({
+  modulo: "OCORRENCIAS",
+  acao: "CRIAR_MOBILE",
+  descricao: `Criou ocorrência mobile: ${tipo}.`,
+  registro_id: local,
+});
+
+alert("Ocorrência registrada com sucesso.");
+router.push("/sistema/mobile/ocorrencias");
   }
 
   return (
@@ -218,6 +263,24 @@ export default function NovaOcorrenciaMobilePage() {
             />
           </div>
         </div>
+
+        <button
+  type="button"
+  onClick={capturarGPS}
+  className="w-full rounded-3xl bg-emerald-700 border border-emerald-500 p-4 font-black active:scale-95"
+>
+  📍 Capturar GPS da Ocorrência
+</button>
+
+{latitude && longitude && (
+  <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/30 p-3 text-xs text-emerald-300">
+    GPS capturado:
+    <br />
+    Latitude: {latitude}
+    <br />
+    Longitude: {longitude}
+  </div>
+)}
 
         <div className="rounded-3xl bg-slate-900 border border-slate-800 p-4">
           <label className="text-sm text-slate-400 mb-2 block">

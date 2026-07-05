@@ -5,12 +5,20 @@ import {
   Search,
   Map,
   Activity,
+  ShieldAlert,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const cards = [
+    {
+    titulo: "Central SOS",
+    icone: ShieldAlert,
+    href: "/sistema/central-sos",
+    descricao:
+      "Monitoramento de alertas SOS, emergência e apoio imediato às equipes.",
+  },
   {
     titulo: "Estatísticas",
     icone: BarChart3,

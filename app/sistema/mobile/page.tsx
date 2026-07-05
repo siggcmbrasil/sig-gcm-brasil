@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { Geolocation } from "@capacitor/geolocation";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 import MobileBottomNav from "@/components/MobileBottomNav";
@@ -274,7 +275,7 @@ const { data: membros } =
     setTotalPatrulhamentos(patrulhamentosResp.count || 0);
   }
 
-  async function acionarSOS() {
+async function acionarSOS() {
   if (enviandoSOS) return;
 
   if (!usuario?.id || !usuario?.municipio_id) {
@@ -282,89 +283,92 @@ const { data: membros } =
     return;
   }
 
-  if (!navigator.geolocation) {
-    alert("GPS não suportado neste dispositivo.");
-    return;
-  }
-
-  const confirmar = confirm(
-    "Deseja realmente acionar o ALERTA SOS?"
-  );
-
+  const confirmar = confirm("Deseja realmente acionar o ALERTA SOS?");
   if (!confirmar) return;
 
   setEnviandoSOS(true);
 
-  navigator.geolocation.getCurrentPosition(
-    async (position) => {
-      try {
-        const latitude = position.coords.latitude.toString();
-        const longitude = position.coords.longitude.toString();
-        const precisao = position.coords.accuracy.toString();
+  try {
+    await registrarAuditoria({
+      modulo: "SOS",
+      acao: "CLICAR_SOS",
+      descricao: `Clicou no botão SOS.`,
+      registro_id: String(usuario.id),
+    });
 
-        const { error } = await supabase.from("alertas_sos").insert([
-          {
-            municipio_id: usuario.municipio_id,
-            usuario_id: usuario.id,
-            nome_usuario: usuario.nome || "Usuário não identificado",
-            latitude,
-            longitude,
-            precisao,
-            status: "ABERTO",
-          },
-        ]);
+    const permissao = await Geolocation.checkPermissions();
 
-        if (error) {
-          console.error(error);
-
-          await registrarAuditoria({
-            modulo: "SOS",
-            acao: "ERRO",
-            descricao: `Erro ao acionar SOS: ${error.message}`,
-            registro_id: String(usuario.id),
-          });
-
-          alert("Erro ao enviar SOS.");
-          setEnviandoSOS(false);
-          return;
-        }
-
-        await supabase.from("notificacoes").insert([
-          {
-            municipio_id: usuario.municipio_id,
-            titulo: "🚨 ALERTA SOS",
-            mensagem: `${usuario.nome || "Um guarda"} acionou o botão SOS.`,
-            tipo: "SOS",
-            link: "/sistema/central-sos",
-            lida: false,
-          },
-        ]);
-
-        await registrarAuditoria({
-          modulo: "SOS",
-          acao: "ACIONAR",
-          descricao: `Alerta SOS acionado por ${usuario.nome || "usuário"}.`,
-          registro_id: String(usuario.id),
-        });
-
-        alert("SOS enviado com sucesso. Sua localização foi compartilhada.");
-      } catch (erro) {
-        console.error(erro);
-        alert("Erro inesperado ao acionar SOS.");
-      } finally {
-        setEnviandoSOS(false);
-      }
-    },
-    () => {
-      alert("Não foi possível obter a localização.");
-      setEnviandoSOS(false);
-    },
-    {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
+    if (permissao.location !== "granted") {
+      await Geolocation.requestPermissions();
     }
-  );
+
+    const position = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: true,
+      timeout: 30000,
+      maximumAge: 0,
+    });
+
+    if (position.coords.accuracy > 100) {
+      alert(
+        `GPS com baixa precisão (${Math.round(
+          position.coords.accuracy
+        )} metros). Vá para área aberta e tente novamente.`
+      );
+      setEnviandoSOS(false);
+      return;
+    }
+
+    const { error } = await supabase.from("alertas_sos").insert([
+      {
+        municipio_id: usuario.municipio_id,
+        usuario_id: usuario.id,
+        nome_usuario: usuario.nome || "Usuário não identificado",
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        precisao: position.coords.accuracy,
+        status: "ABERTO",
+      },
+    ]);
+
+    if (error) {
+      await registrarAuditoria({
+        modulo: "SOS",
+        acao: "ERRO",
+        descricao: `Erro ao acionar SOS: ${error.message}`,
+        registro_id: String(usuario.id),
+      });
+
+      alert("Erro ao enviar SOS.");
+      return;
+    }
+
+    await supabase.from("notificacoes").insert([
+      {
+        municipio_id: usuario.municipio_id,
+        titulo: "🚨 ALERTA SOS",
+        mensagem: `${usuario.nome || "Um guarda"} acionou o botão SOS.`,
+        tipo: "SOS",
+        link: "/sistema/central-sos",
+        lida: false,
+      },
+    ]);
+
+    await registrarAuditoria({
+      modulo: "SOS",
+      acao: "ACIONAR",
+      descricao: `Alerta SOS acionado por ${usuario.nome || "usuário"}.`,
+      registro_id: String(usuario.id),
+    });
+
+    navigator.vibrate?.([500, 200, 500]);
+
+    alert("SOS enviado com sucesso. Sua localização foi compartilhada.");
+  } catch (erro) {
+    console.error(erro);
+    alert("Erro inesperado ao acionar SOS.");
+  } finally {
+    setEnviandoSOS(false);
+  }
 }
 
   return (

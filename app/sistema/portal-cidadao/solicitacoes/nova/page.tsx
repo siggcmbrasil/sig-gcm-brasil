@@ -2,56 +2,127 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Save } from "lucide-react";
+import { ClipboardList, Save, XCircle } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
+
+type UsuarioLogado = {
+  id: string;
+  perfil: string;
+  municipio_id: number;
+};
+
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
 
 export default function NovaSolicitacaoPage() {
   const router = useRouter();
 
-  const [nome, setNome] = useState("");
-  const [telefone, setTelefone] = useState("");
-  const [email, setEmail] = useState("");
+  const [nomeContato, setNomeContato] = useState("");
+  const [telefoneContato, setTelefoneContato] = useState("");
+  const [emailContato, setEmailContato] = useState("");
   const [tipo, setTipo] = useState("");
   const [local, setLocal] = useState("");
   const [descricao, setDescricao] = useState("");
   const [salvando, setSalvando] = useState(false);
 
   async function salvar() {
-    if (!tipo || !descricao) {
-      alert("Informe o tipo da solicitação e a descrição.");
+    const usuario = obterUsuarioLogado();
+
+    if (!usuario) {
+      alert("Sessão inválida.");
+      return;
+    }
+
+    if (!tipo.trim()) {
+      alert("Informe o tipo da solicitação.");
+      return;
+    }
+
+    if (descricao.trim().length < 10) {
+      alert("A descrição deve ter pelo menos 10 caracteres.");
       return;
     }
 
     setSalvando(true);
 
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
-
     const protocolo = `SOL-${new Date().getFullYear()}-${Date.now()}`;
 
-    const { error } = await supabase.from("solicitacoes_cidadao").insert({
-      municipio_id: usuario.municipio_id,
-      protocolo,
-      nome,
-      telefone,
-      email,
-      tipo,
-      local,
-      descricao,
-      status: "PENDENTE",
-    });
+    const { data, error } = await supabase
+      .from("solicitacoes_cidadao")
+      .insert({
+        municipio_id: usuario.municipio_id,
+        protocolo,
+        nome_contato: nomeContato.trim() || null,
+        telefone_contato: telefoneContato.trim() || null,
+        email_contato: emailContato.trim() || null,
+        tipo: tipo.trim(),
+        local: local.trim() || null,
+        descricao: descricao.trim(),
+        status: "PENDENTE",
+        criado_em: new Date().toISOString(),
+        atualizado_em: new Date().toISOString(),
+      })
+      .select("id, protocolo")
+      .single();
 
     setSalvando(false);
 
     if (error) {
       console.error(error);
+
+      await registrarAuditoria({
+        modulo: "Solicitações do Cidadão",
+        acao: "ERRO",
+        descricao: "Erro ao salvar solicitação do cidadão.",
+        tabela: "solicitacoes_cidadao",
+        detalhes: {
+          erro: error.message,
+          tipo: tipo.trim(),
+          municipio_id: usuario.municipio_id,
+          usuario_id: usuario.id,
+        },
+      });
+
       alert("Erro ao salvar solicitação.");
       return;
     }
+
+    await registrarAuditoria({
+      modulo: "Solicitações do Cidadão",
+      acao: "CRIAR",
+      descricao: `Criou solicitação ${data?.protocolo}.`,
+      tabela: "solicitacoes_cidadao",
+      registro_id: data?.id,
+      detalhes: {
+        protocolo: data?.protocolo,
+        tipo: tipo.trim(),
+        municipio_id: usuario.municipio_id,
+        usuario_id: usuario.id,
+      },
+    });
 
     alert(`Solicitação criada com sucesso. Protocolo: ${protocolo}`);
     router.push("/sistema/portal-cidadao/solicitacoes");
@@ -68,31 +139,45 @@ export default function NovaSolicitacaoPage() {
       <SigCard>
         <div className="space-y-4">
           <div className="grid md:grid-cols-3 gap-4">
-            <Campo label="Nome" value={nome} onChange={setNome} />
-            <Campo label="Telefone" value={telefone} onChange={setTelefone} />
-            <Campo label="E-mail" value={email} onChange={setEmail} />
+            <Campo label="Nome" value={nomeContato} onChange={setNomeContato} />
+
+            <Campo
+              label="Telefone"
+              value={telefoneContato}
+              onChange={setTelefoneContato}
+            />
+
+            <Campo
+              label="E-mail"
+              value={emailContato}
+              onChange={setEmailContato}
+            />
           </div>
 
           <div className="grid md:grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-bold text-slate-300">
-                Tipo de solicitação
-              </label>
+              <label className="label">Tipo de solicitação</label>
 
               <select
                 value={tipo}
                 onChange={(e) => setTipo(e.target.value)}
-                className="mt-2 w-full rounded-2xl bg-slate-950 border border-slate-800 p-3 text-white"
+                className="input mt-2"
               >
                 <option value="">Selecione</option>
-                <option value="Apoio em evento">Apoio em evento</option>
-                <option value="Ronda preventiva">Ronda preventiva</option>
-                <option value="Orientação ao cidadão">Orientação ao cidadão</option>
-                <option value="Fiscalização de trânsito">Fiscalização de trânsito</option>
-                <option value="Apoio escolar">Apoio escolar</option>
-                <option value="Perturbação do sossego">Perturbação do sossego</option>
-                <option value="Animais soltos">Animais soltos</option>
-                <option value="Outros serviços">Outros serviços</option>
+                <option value="APOIO_EVENTO">Apoio em evento</option>
+                <option value="RONDA_PREVENTIVA">Ronda preventiva</option>
+                <option value="ORIENTACAO_CIDADAO">
+                  Orientação ao cidadão
+                </option>
+                <option value="FISCALIZACAO_TRANSITO">
+                  Fiscalização de trânsito
+                </option>
+                <option value="APOIO_ESCOLAR">Apoio escolar</option>
+                <option value="PERTURBACAO_SOSSEGO">
+                  Perturbação do sossego
+                </option>
+                <option value="ANIMAIS_SOLTOS">Animais soltos</option>
+                <option value="OUTROS_SERVICOS">Outros serviços</option>
               </select>
             </div>
 
@@ -100,27 +185,40 @@ export default function NovaSolicitacaoPage() {
           </div>
 
           <div>
-            <label className="text-sm font-bold text-slate-300">
-              Descrição
-            </label>
+            <label className="label">Descrição</label>
 
             <textarea
               value={descricao}
               onChange={(e) => setDescricao(e.target.value)}
               rows={6}
+              maxLength={2000}
               placeholder="Descreva a solicitação..."
-              className="mt-2 w-full rounded-2xl bg-slate-950 border border-slate-800 p-3 text-white"
+              className="input mt-2"
             />
           </div>
 
-          <button
-            onClick={salvar}
-            disabled={salvando}
-            className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white hover:bg-emerald-500 disabled:opacity-60"
-          >
-            <Save size={18} />
-            {salvando ? "Salvando..." : "Salvar Solicitação"}
-          </button>
+          <div className="flex flex-col md:flex-row gap-3">
+            <button
+              type="button"
+              onClick={salvar}
+              disabled={salvando}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 font-bold text-white hover:bg-emerald-500 disabled:opacity-60"
+            >
+              <Save size={18} />
+              {salvando ? "Salvando..." : "Salvar Solicitação"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.push("/sistema/portal-cidadao/solicitacoes")
+              }
+              className="btn-secondary inline-flex items-center justify-center gap-2"
+            >
+              <XCircle size={18} />
+              Cancelar
+            </button>
+          </div>
         </div>
       </SigCard>
     </div>
@@ -134,18 +232,17 @@ function Campo({
 }: {
   label: string;
   value: string;
-  onChange: (v: string) => void;
+  onChange: (valor: string) => void;
 }) {
   return (
     <div>
-      <label className="text-sm font-bold text-slate-300">
-        {label}
-      </label>
+      <label className="label">{label}</label>
 
       <input
         value={value}
+        maxLength={120}
         onChange={(e) => onChange(e.target.value)}
-        className="mt-2 w-full rounded-2xl bg-slate-950 border border-slate-800 p-3 text-white"
+        className="input mt-2"
       />
     </div>
   );

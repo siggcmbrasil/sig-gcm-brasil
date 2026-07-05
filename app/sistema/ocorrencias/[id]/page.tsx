@@ -127,10 +127,19 @@ export default function VisualizarOcorrencia() {
   const params = useParams();
   const router = useRouter();
 
-  const id =
-    typeof params.id === "string"
-      ? params.id
-      : params.id?.[0];
+const idParam =
+  typeof params.id === "string"
+    ? params.id
+    : params.id?.[0];
+
+const rotasReservadas = [
+  "nova",
+  "expressa",
+  "offline",
+  "editar",
+];
+
+const id = Number(idParam);
 
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
   const [ocorrencia, setOcorrencia] = useState<Ocorrencia | null>(null);
@@ -163,12 +172,19 @@ export default function VisualizarOcorrencia() {
   }, []);
 
   async function carregarOcorrencia(usuarioAtual: UsuarioLogado) {
-    if (!id) {
-      alert("ID da ocorrência não informado.");
-      setCarregando(false);
-      router.push("/sistema/ocorrencias");
-      return;
-    }
+if (!idParam || rotasReservadas.includes(idParam)) {
+  setCarregando(false);
+  router.push("/sistema/ocorrencias");
+  return;
+}
+
+if (!id || Number.isNaN(id)) {
+  console.error("ID inválido recebido na URL:", idParam);
+  alert(`ID da ocorrência inválido: ${idParam}`);
+  setCarregando(false);
+  router.push("/sistema/ocorrencias");
+  return;
+}
 
     const { data, error } = await supabase
       .from("ocorrencias")
@@ -178,7 +194,10 @@ export default function VisualizarOcorrencia() {
       .maybeSingle();
 
     if (error) {
-      console.error("Erro ao carregar ocorrência:", error);
+      console.error(
+  "Erro ao carregar ocorrência:",
+  JSON.stringify(error, null, 2)
+);
       alert("Erro ao carregar ocorrência.");
       setCarregando(false);
       return;

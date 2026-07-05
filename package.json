@@ -24,6 +24,7 @@
     "@capacitor/geolocation": "^8.2.0",
     "@capacitor/push-notifications": "^8.1.1",
     "@supabase/supabase-js": "^2.106.2",
+    "firebase": "^12.15.0",
     "html5-qrcode": "^2.3.8",
     "jspdf": "^4.2.1",
     "jspdf-autotable": "^5.0.8",

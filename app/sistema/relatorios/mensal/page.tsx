@@ -1,7 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarDays, FileText, BarChart3 } from "lucide-react";
+import {
+  BarChart3,
+  CalendarDays,
+  FileText,
+  ShieldCheck,
+} from "lucide-react";
+
+import SigCard from "@/components/sig/SigCard";
+import SigPageHeader from "@/components/sig/SigPageHeader";
 
 export default function RelatorioMensalPage() {
   const hoje = new Date();
@@ -14,21 +22,20 @@ export default function RelatorioMensalPage() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 pb-24">
-      <div className="painel-premium p-6">
-        <h1 className="text-3xl md:text-4xl font-black text-white">
-          📅 Relatório Mensal
-        </h1>
+      <SigPageHeader
+        titulo="Relatório Mensal"
+        subtitulo={`Relatório operacional consolidado de ${mes} de ${ano}.`}
+        icone={CalendarDays}
+      />
 
-        <p className="text-slate-400 mt-2">
-          Relatório operacional consolidado de{" "}
-          <span className="font-bold capitalize">
-            {mes} de {ano}
-          </span>.
-        </p>
+      <div className="grid md:grid-cols-3 gap-4">
+        <ResumoCard titulo="Mês" valor={mes} />
+        <ResumoCard titulo="Ano" valor={String(ano)} />
+        <ResumoCard titulo="Formato" valor="PDF" />
       </div>
 
       <div className="grid md:grid-cols-2 gap-5">
-        <div className="painel-premium p-6">
+        <SigCard>
           <div className="flex items-center gap-3 mb-4">
             <CalendarDays className="w-8 h-8 text-cyan-400" />
 
@@ -38,7 +45,8 @@ export default function RelatorioMensalPage() {
           </div>
 
           <p className="text-slate-400 mb-6">
-            Gere automaticamente o relatório completo do mês atual.
+            Gere automaticamente o relatório completo do mês atual,
+            consolidando dados operacionais e estatísticos.
           </p>
 
           <Link
@@ -47,52 +55,92 @@ export default function RelatorioMensalPage() {
           >
             Gerar Relatório Mensal
           </Link>
-        </div>
+        </SigCard>
 
-        <div className="painel-premium p-6">
+        <SigCard>
           <div className="flex items-center gap-3 mb-4">
             <FileText className="w-8 h-8 text-cyan-400" />
 
             <h2 className="text-2xl font-black text-white">
-              O que entra no relatório
+              Conteúdo do relatório
             </h2>
           </div>
 
-          <ul className="text-slate-400 space-y-2">
-            <li>• Ocorrências do mês</li>
-            <li>• Patrulhamentos</li>
-            <li>• Chamados</li>
-            <li>• Pessoas abordadas</li>
-            <li>• Veículos abordados</li>
-            <li>• Abastecimentos</li>
-            <li>• Estatísticas gerais</li>
-            <li>• Exportação em PDF</li>
-          </ul>
-        </div>
+          <div className="grid gap-2">
+            <Item texto="Ocorrências do mês" />
+            <Item texto="Patrulhamentos" />
+            <Item texto="Chamados" />
+            <Item texto="Pessoas abordadas" />
+            <Item texto="Veículos abordados" />
+            <Item texto="Abastecimentos" />
+            <Item texto="Estatísticas gerais" />
+            <Item texto="Exportação em PDF" />
+          </div>
+        </SigCard>
       </div>
 
-      <div className="painel-premium p-6">
-        <div className="flex items-center gap-3 mb-4">
-          <BarChart3 className="w-8 h-8 text-cyan-400" />
+      <SigCard>
+        <h2 className="text-xl font-black text-white flex items-center gap-2 mb-4">
+          <BarChart3 className="w-6 h-6 text-cyan-400" />
+          Indicadores do Mês
+        </h2>
 
-          <h2 className="text-2xl font-black text-white">
-            Indicadores do Mês
-          </h2>
+        <div className="grid md:grid-cols-2 gap-3">
+          <Item texto="Gráfico de ocorrências por dia" />
+          <Item texto="Bairros com mais atendimentos" />
+          <Item texto="Guardas mais ativos" />
+          <Item texto="Viaturas mais utilizadas" />
+          <Item texto="Consumo de combustível" />
+          <Item texto="Comparativo com o mês anterior" />
         </div>
+      </SigCard>
 
-        <p className="text-slate-400">
-          Esta área poderá exibir futuramente:
-        </p>
+      <SigCard>
+        <h2 className="text-xl font-black text-white flex items-center gap-2 mb-4">
+          <ShieldCheck className="w-6 h-6 text-emerald-400" />
+          Regras do relatório mensal
+        </h2>
 
-        <ul className="text-slate-400 mt-4 space-y-2">
-          <li>• Gráfico de ocorrências por dia</li>
-          <li>• Bairros com mais atendimentos</li>
-          <li>• Guardas mais ativos</li>
-          <li>• Viaturas mais utilizadas</li>
-          <li>• Consumo de combustível</li>
-          <li>• Comparativo com o mês anterior</li>
-        </ul>
-      </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          <Regra texto="O relatório deve respeitar o município do usuário logado." />
+          <Regra texto="A exportação em PDF deve registrar auditoria." />
+          <Regra texto="Dados sensíveis devem aparecer somente para perfis autorizados." />
+          <Regra texto="O período mensal deve considerar o primeiro e o último dia do mês." />
+        </div>
+      </SigCard>
+    </div>
+  );
+}
+
+function ResumoCard({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <SigCard>
+      <p className="text-slate-400 text-sm">{titulo}</p>
+      <h2 className="text-3xl font-black text-white mt-2 capitalize">
+        {valor}
+      </h2>
+    </SigCard>
+  );
+}
+
+function Item({ texto }: { texto: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-950/70 border border-slate-800 p-3 text-slate-300">
+      ✅ {texto}
+    </div>
+  );
+}
+
+function Regra({ texto }: { texto: string }) {
+  return (
+    <div className="rounded-2xl bg-slate-950/70 border border-emerald-500/20 p-4 text-slate-300">
+      🛡️ {texto}
     </div>
   );
 }

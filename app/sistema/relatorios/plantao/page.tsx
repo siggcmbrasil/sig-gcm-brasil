@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { useSearchParams } from "next/navigation";
@@ -334,26 +335,11 @@ useEffect(() => {
   }
 }, [tipoRelatorio]);
 
- useEffect(() => {
-  void carregarRelatorio();
-}, [
-  data,
-  inicio,
-  fim,
-  mesReferencia,
-  anoReferencia,
-  tipoRelatorio,
-  incluirOcorrencias,
-  incluirChamados,
-  incluirPatrulhamentos,
-  incluirVisitas,
-  incluirApoios,
-  incluirEventos,
-  incluirOperacoes,
-  incluirPessoas,
-  incluirVeiculos,
-  incluirAbastecimentos,
-]);
+useEffect(() => {
+  if (tipoRelatorio !== "plantao") {
+    void carregarRelatorio();
+  }
+}, [tipoRelatorio]);
   async function gerarPDF() {
   const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
@@ -600,7 +586,7 @@ useEffect(() => {
       "Eventos",
       [["Nome", "Local", "Data"]],
       eventos.map((e) => [
-        e.nome || "-",
+        e.titulo || e.nome || "-",
         e.local || "-",
         e.data_evento
           ? new Date(e.data_evento).toLocaleString("pt-BR")
@@ -677,6 +663,19 @@ useEffect(() => {
     doc.setPage(i);
     adicionarRodape(i, totalPaginas);
   }
+
+  await registrarAuditoria({
+  modulo: "Relatórios",
+  acao: "EXPORTAR",
+  descricao: `Gerou PDF do relatório ${tipoRelatorio}.`,
+  tabela: "relatorios",
+  detalhes: {
+    tipo_relatorio: tipoRelatorio,
+    numero_relatorio: numeroRelatorio,
+    municipio_id: usuario.municipio_id,
+    emitido_por: usuario.id,
+  },
+});
 
   doc.save(`relatorio-${tipoRelatorio}-${numeroRelatorio}.pdf`);
 }
@@ -791,6 +790,18 @@ useEffect(() => {
     <Check label="Veículos" checked={incluirVeiculos} onChange={setIncluirVeiculos} />
     <Check label="Abastecimentos" checked={incluirAbastecimentos} onChange={setIncluirAbastecimentos} />
   </div>
+
+<div className="mt-5">
+  <button
+    type="button"
+    onClick={carregarRelatorio}
+    disabled={carregando}
+    className="sig-btn-gold disabled:opacity-50"
+  >
+    {carregando ? "Carregando..." : "Atualizar Relatório"}
+  </button>
+</div>
+
 </div>
       </header>
 

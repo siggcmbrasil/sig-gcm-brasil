@@ -7,7 +7,6 @@ import {
   Clock,
   HeartPulse,
   Medal,
-  Briefcase,
   ShieldCheck,
   UserCog,
   FileText,

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "720293842167",
+    "project_id": "sig-gcm-brasil-f7bf2",
+    "storage_bucket": "sig-gcm-brasil-f7bf2.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720293842167:android:647d89fda3dac84ecb17f2",
+        "android_client_info": {
+          "package_name": "br.com.gcm.biritinga"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVDQ5RR6VYJuqBZcIMo8nTc4qqYCjdUAk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
