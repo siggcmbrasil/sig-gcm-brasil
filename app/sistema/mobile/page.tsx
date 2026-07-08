@@ -5,7 +5,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   Bell,
-  CalendarDays,
   Car,
   ChevronRight,
   Circle,
@@ -72,37 +71,38 @@ export default function AppPage() {
   const dataHoje = useMemo(() => {
     return new Date()
       .toLocaleDateString("pt-BR", {
-        weekday: "long",
+        weekday: "short",
         day: "2-digit",
-        month: "long",
+        month: "short",
       })
+      .replace(".", "")
       .replace(/^./, (c) => c.toUpperCase());
   }, []);
 
   useEffect(() => {
     const usuarioLocal = pegarUsuario();
 
-if (!usuarioLocal?.id || !usuarioLocal?.municipio_id) {
-  window.location.href = "/login";
-  return;
-}
+    if (!usuarioLocal?.id || !usuarioLocal?.municipio_id) {
+      window.location.href = "/login";
+      return;
+    }
 
-if (!podeAcessarMobile(usuarioLocal.perfil)) {
-  alert("Seu perfil não tem permissão para acessar o mobile.");
-  window.location.href = "/sistema";
-  return;
-}
+    if (!podeAcessarMobile(usuarioLocal.perfil)) {
+      alert("Seu perfil não tem permissão para acessar o mobile.");
+      window.location.href = "/sistema";
+      return;
+    }
 
-setUsuario(usuarioLocal);
+    setUsuario(usuarioLocal);
 
-void registrarAuditoria({
-  modulo: "MOBILE",
-  acao: "ACESSAR_HOME",
-  descricao: "Acessou a Home Mobile do SIG-GCM Brasil.",
-  registro_id: String(usuarioLocal.id),
-});
+    void registrarAuditoria({
+      modulo: "MOBILE",
+      acao: "ACESSAR_HOME",
+      descricao: "Acessou a Home Mobile do SIG-GCM Brasil.",
+      registro_id: String(usuarioLocal.id),
+    });
 
-carregarTudo(usuarioLocal);
+    carregarTudo(usuarioLocal);
 
     const intervalo = setInterval(() => {
       carregarTudo(usuarioLocal);
@@ -177,15 +177,15 @@ carregarTudo(usuarioLocal);
       .select("*")
       .eq("municipio_id", municipioId);
 
-const idsGuarnicoes = (guarnicoes || []).map((g) => g.id);
+    const idsGuarnicoes = (guarnicoes || []).map((g) => g.id);
 
-const { data: membros } =
-  idsGuarnicoes.length > 0
-    ? await supabase
-        .from("guarnicao_membros")
-        .select("id, guarnicao_id, guarda_id")
-        .in("guarnicao_id", idsGuarnicoes)
-    : { data: [] };
+    const { data: membros } =
+      idsGuarnicoes.length > 0
+        ? await supabase
+            .from("guarnicao_membros")
+            .select("id, guarnicao_id, guarda_id")
+            .in("guarnicao_id", idsGuarnicoes)
+        : { data: [] };
 
     if (!configEscala || !configEscala.ordem_guarnicoes?.length) {
       setGuarnicaoDia(null);
@@ -256,195 +256,213 @@ const { data: membros } =
           .gte("data", hoje),
       ]);
 
-      if (
-  ocorrenciasResp.error ||
-  chamadosResp.error ||
-  patrulhamentosResp.error
-) {
-  console.error("Erro ao carregar resumo mobile:", {
-    ocorrencias: ocorrenciasResp.error,
-    chamados: chamadosResp.error,
-    patrulhamentos: patrulhamentosResp.error,
-  });
+    if (
+      ocorrenciasResp.error ||
+      chamadosResp.error ||
+      patrulhamentosResp.error
+    ) {
+      console.error("Erro ao carregar resumo mobile:", {
+        ocorrencias: ocorrenciasResp.error,
+        chamados: chamadosResp.error,
+        patrulhamentos: patrulhamentosResp.error,
+      });
 
-  return;
-}
+      return;
+    }
 
     setTotalOcorrencias(ocorrenciasResp.count || 0);
     setTotalChamados(chamadosResp.count || 0);
     setTotalPatrulhamentos(patrulhamentosResp.count || 0);
   }
 
-async function acionarSOS() {
-  if (enviandoSOS) return;
+  async function acionarSOS() {
+    if (enviandoSOS) return;
 
-  if (!usuario?.id || !usuario?.municipio_id) {
-    alert("Usuário inválido.");
-    return;
-  }
-
-  const confirmar = confirm("Deseja realmente acionar o ALERTA SOS?");
-  if (!confirmar) return;
-
-  setEnviandoSOS(true);
-
-  try {
-    await registrarAuditoria({
-      modulo: "SOS",
-      acao: "CLICAR_SOS",
-      descricao: `Clicou no botão SOS.`,
-      registro_id: String(usuario.id),
-    });
-
-    const permissao = await Geolocation.checkPermissions();
-
-    if (permissao.location !== "granted") {
-      await Geolocation.requestPermissions();
-    }
-
-    const position = await Geolocation.getCurrentPosition({
-      enableHighAccuracy: true,
-      timeout: 30000,
-      maximumAge: 0,
-    });
-
-    if (position.coords.accuracy > 100) {
-      alert(
-        `GPS com baixa precisão (${Math.round(
-          position.coords.accuracy
-        )} metros). Vá para área aberta e tente novamente.`
-      );
-      setEnviandoSOS(false);
+    if (!usuario?.id || !usuario?.municipio_id) {
+      alert("Usuário inválido.");
       return;
     }
 
-    const { error } = await supabase.from("alertas_sos").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        usuario_id: usuario.id,
-        nome_usuario: usuario.nome || "Usuário não identificado",
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-        precisao: position.coords.accuracy,
-        status: "ABERTO",
-      },
-    ]);
+    const confirmar = confirm("Deseja realmente acionar o ALERTA SOS?");
+    if (!confirmar) return;
 
-    if (error) {
+    setEnviandoSOS(true);
+
+    try {
       await registrarAuditoria({
         modulo: "SOS",
-        acao: "ERRO",
-        descricao: `Erro ao acionar SOS: ${error.message}`,
+        acao: "CLICAR_SOS",
+        descricao: `Clicou no botão SOS.`,
         registro_id: String(usuario.id),
       });
 
-      alert("Erro ao enviar SOS.");
-      return;
+      const permissao = await Geolocation.checkPermissions();
+
+      if (permissao.location !== "granted") {
+        await Geolocation.requestPermissions();
+      }
+
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0,
+      });
+
+      if (position.coords.accuracy > 100) {
+        alert(
+          `GPS com baixa precisão (${Math.round(
+            position.coords.accuracy
+          )} metros). Vá para área aberta e tente novamente.`
+        );
+        setEnviandoSOS(false);
+        return;
+      }
+
+      const { error } = await supabase.from("alertas_sos").insert([
+        {
+          municipio_id: usuario.municipio_id,
+          usuario_id: usuario.id,
+          nome_usuario: usuario.nome || "Usuário não identificado",
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          precisao: position.coords.accuracy,
+          status: "ABERTO",
+        },
+      ]);
+
+      if (error) {
+        await registrarAuditoria({
+          modulo: "SOS",
+          acao: "ERRO",
+          descricao: `Erro ao acionar SOS: ${error.message}`,
+          registro_id: String(usuario.id),
+        });
+
+        alert("Erro ao enviar SOS.");
+        return;
+      }
+
+      await supabase.from("notificacoes").insert([
+        {
+          municipio_id: usuario.municipio_id,
+          titulo: "🚨 ALERTA SOS",
+          mensagem: `${usuario.nome || "Um guarda"} acionou o botão SOS.`,
+          tipo: "SOS",
+          link: "/sistema/central-sos",
+          lida: false,
+        },
+      ]);
+
+      await registrarAuditoria({
+        modulo: "SOS",
+        acao: "ACIONAR",
+        descricao: `Alerta SOS acionado por ${usuario.nome || "usuário"}.`,
+        registro_id: String(usuario.id),
+      });
+
+      navigator.vibrate?.([500, 200, 500]);
+
+      alert("SOS enviado com sucesso. Sua localização foi compartilhada.");
+    } catch (erro) {
+      console.error(erro);
+      alert("Erro inesperado ao acionar SOS.");
+    } finally {
+      setEnviandoSOS(false);
     }
-
-    await supabase.from("notificacoes").insert([
-      {
-        municipio_id: usuario.municipio_id,
-        titulo: "🚨 ALERTA SOS",
-        mensagem: `${usuario.nome || "Um guarda"} acionou o botão SOS.`,
-        tipo: "SOS",
-        link: "/sistema/central-sos",
-        lida: false,
-      },
-    ]);
-
-    await registrarAuditoria({
-      modulo: "SOS",
-      acao: "ACIONAR",
-      descricao: `Alerta SOS acionado por ${usuario.nome || "usuário"}.`,
-      registro_id: String(usuario.id),
-    });
-
-    navigator.vibrate?.([500, 200, 500]);
-
-    alert("SOS enviado com sucesso. Sua localização foi compartilhada.");
-  } catch (erro) {
-    console.error(erro);
-    alert("Erro inesperado ao acionar SOS.");
-  } finally {
-    setEnviandoSOS(false);
   }
-}
 
   return (
-    <main className="relative min-h-screen overflow-hidden bg-[#02060f] px-4 pt-5 pb-32 text-white">
-      <img
-        src="/brasoes/sig-gcm-logo.png"
-        alt="SIG-GCM Brasil"
-        className="pointer-events-none absolute left-1/2 top-1/2 w-[520px] -translate-x-1/2 -translate-y-1/2 select-none opacity-[0.10]"
-      />
+    <main className="relative min-h-screen overflow-x-hidden bg-[#02060f] px-3 pt-3 pb-32 text-white">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#123e73_0%,transparent_34%),linear-gradient(180deg,#061426_0%,#02060f_55%)] opacity-80" />
 
-      <div className="relative z-10 space-y-6">
-        <header className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold text-blue-300">
-              SIG-GCM Brasil Mobile
-            </p>
+      <div className="relative z-10 mx-auto flex min-h-[calc(100vh-6rem)] max-w-md flex-col gap-3">
+        <header className="rounded-3xl border border-slate-800/80 bg-slate-950/65 p-3 shadow-xl backdrop-blur">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300">
+                SIG-GCM Mobile
+              </p>
 
-            <h1 className="mt-1 text-xl font-black">
-              Olá, {usuario?.nome?.split(" ")[0] || "Guarda"}
-            </h1>
+              <h1 className="mt-1 truncate text-xl font-black">
+                👮 {usuario?.nome?.split(" ")[0] || "Guarda"}
+              </h1>
 
-            <p className="text-sm text-slate-400">{saudacao}</p>
+              <p className="mt-0.5 text-xs text-slate-400">
+                {saudacao} • {dataHoje}
+              </p>
+            </div>
 
-            <p className="mt-1 text-[11px] text-slate-500">{dataHoje}</p>
+            <div className="flex shrink-0 items-center gap-2">
+              <span
+                className={`inline-flex h-9 items-center gap-1 rounded-2xl border px-2 text-[10px] font-black ${
+                  online
+                    ? "border-green-500/30 bg-green-500/15 text-green-400"
+                    : "border-red-500/30 bg-red-500/15 text-red-400"
+                }`}
+              >
+                {online ? (
+                  <Wifi className="h-3 w-3" />
+                ) : (
+                  <WifiOff className="h-3 w-3" />
+                )}
+                {online ? "ON" : "OFF"}
+              </span>
+
+              <Link
+                href="/sistema/notificacoes"
+                className="flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900"
+              >
+                <Bell className="h-4 w-4 text-blue-300" />
+              </Link>
+            </div>
           </div>
 
-          <div className="flex flex-col items-end gap-2">
-            <span
-              className={`inline-flex items-center gap-1 rounded-2xl border px-3 py-2 text-[10px] font-black ${
-                online
-                  ? "border-green-500/30 bg-green-500/15 text-green-400"
-                  : "border-red-500/30 bg-red-500/15 text-red-400"
-              }`}
-            >
-              {online ? (
-                <Wifi className="h-3 w-3" />
-              ) : (
-                <WifiOff className="h-3 w-3" />
-              )}
-              {online ? "ONLINE" : "OFFLINE"}
-            </span>
+          <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-3 py-2">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-slate-300">
+                {guarnicaoDia
+                  ? `${guarnicaoDia.viatura} • ${guarnicaoDia.nome}`
+                  : "Guarnição não localizada"}
+              </p>
+              <p className="truncate text-[11px] text-slate-500">
+                {guarnicaoDia
+                  ? `CMT: ${guarnicaoDia.comandante}`
+                  : "Configure a escala operacional"}
+              </p>
+            </div>
 
-            <Link
-              href="/sistema/notificacoes"
-              className="rounded-2xl border border-slate-800 bg-slate-900 p-3"
-            >
-              <Bell className="h-5 w-5 text-blue-300" />
-            </Link>
+            <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-green-400">
+              <Circle className="h-2.5 w-2.5 fill-current" />
+              Serviço
+            </span>
           </div>
         </header>
 
         <section className="grid grid-cols-2 gap-3">
           <Link
             href="/sistema/ocorrencias/expressa"
-            className="rounded-3xl border border-red-400/30 bg-red-600 p-5 text-center shadow-xl active:scale-95"
+            className="rounded-3xl border border-red-400/30 bg-red-600 p-4 text-center shadow-xl active:scale-95"
           >
-            <AlertTriangle className="mx-auto mb-2 h-9 w-9" />
-            <p className="text-lg font-black">Ocorrência</p>
-            <p className="mt-1 text-xs text-red-100">Registro rápido</p>
+            <AlertTriangle className="mx-auto mb-1.5 h-8 w-8" />
+            <p className="text-base font-black">Ocorrência</p>
+            <p className="text-[11px] text-red-100">Registro rápido</p>
           </Link>
 
           <Link
-            href="/sistema/patrulhamento"
-            className="rounded-3xl border border-blue-400/30 bg-blue-600 p-5 text-center shadow-xl active:scale-95"
+            href="/sistema/patrulhamento/novo"
+            className="rounded-3xl border border-blue-400/30 bg-blue-600 p-4 text-center shadow-xl active:scale-95"
           >
-            <Car className="mx-auto mb-2 h-9 w-9" />
-            <p className="text-lg font-black">Patrulhar</p>
-            <p className="mt-1 text-xs text-blue-100">Iniciar rota</p>
+            <Car className="mx-auto mb-1.5 h-8 w-8" />
+            <p className="text-base font-black">Patrulhar</p>
+            <p className="text-[11px] text-blue-100">Iniciar GPS</p>
           </Link>
         </section>
 
         <Link
           href="/sistema/mobile/guarnicao"
-          className="block rounded-3xl border border-slate-800 bg-slate-900/95 p-5 shadow-xl"
+          className="block rounded-3xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl"
         >
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Shield className="h-5 w-5 text-blue-400" />
               <p className="text-sm font-bold text-slate-300">
@@ -456,31 +474,29 @@ async function acionarSOS() {
           </div>
 
           {guarnicaoDia ? (
-            <>
-              <h2 className="text-2xl font-black text-blue-300">
-                {guarnicaoDia.viatura} / {guarnicaoDia.nome}
-              </h2>
+            <div className="grid grid-cols-[1fr_auto] items-end gap-3">
+              <div className="min-w-0">
+                <h2 className="truncate text-2xl font-black text-blue-300">
+                  {guarnicaoDia.viatura}
+                </h2>
 
-              <p className="mt-2 text-xs text-slate-400">
-                Comandante: {guarnicaoDia.comandante}
-              </p>
+                <p className="truncate text-sm font-bold text-white">
+                  {guarnicaoDia.nome}
+                </p>
 
-              <p className="mt-1 text-xs text-slate-500">
-                {guarnicaoDia.membros.length} integrante(s)
-              </p>
-
-              <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  07:00 às 07:00
-                </span>
-
-                <span className="flex items-center gap-1 text-green-400">
-                  <Circle className="h-3 w-3 fill-current" />
-                  Em andamento
-                </span>
+                <p className="mt-1 text-xs text-slate-400">
+                  {guarnicaoDia.membros.length} integrante(s)
+                </p>
               </div>
-            </>
+
+              <div className="text-right text-[11px] text-slate-400">
+                <p className="flex items-center justify-end gap-1">
+                  <Clock className="h-3.5 w-3.5" />
+                  07h às 07h
+                </p>
+                <p className="mt-1 text-green-400">Em andamento</p>
+              </div>
+            </div>
           ) : (
             <p className="text-sm text-slate-400">
               Nenhuma guarnição encontrada para hoje.
@@ -489,119 +505,85 @@ async function acionarSOS() {
         </Link>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-black">Operação rápida</h2>
-            <span className="text-[11px] text-slate-500">
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-base font-black">Operação rápida</h2>
+            <span className="text-[10px] text-slate-500">
               {carregando
                 ? "Atualizando..."
                 : atualizadoEm
-                ? `Atualizado ${atualizadoEm.toLocaleTimeString("pt-BR", {
+                ? atualizadoEm.toLocaleTimeString("pt-BR", {
                     hour: "2-digit",
                     minute: "2-digit",
-                  })}`
-                : "Atualizado agora"}
+                  })
+                : "Agora"}
             </span>
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-2">
             <Atalho
               href="/sistema/ocorrencias/offline"
               icone={FileText}
               texto="Offline"
               destaque="emerald"
             />
-            <Atalho
-              href="/sistema/chamados"
-              icone={Radio}
-              texto="Chamados"
-            />
-            <Atalho
-              href="/sistema/mobile/gps"
-              icone={MapPin}
-              texto="GPS"
-            />
-            <Atalho
-              href="/sistema/viaturas"
-              icone={Car}
-              texto="Viaturas"
-            />
-            <Atalho
-              href="/sistema/mobile/guarnicao"
-              icone={UserRound}
-              texto="Equipe"
-            />
-            <Atalho
-              href="/sistema/relatorios/plantao"
-              icone={ClipboardList}
-              texto="Plantão"
-            />
+            <Atalho href="/sistema/chamados" icone={Radio} texto="Chamados" />
+            <Atalho href="/sistema/mobile/gps" icone={MapPin} texto="GPS" />
+            <Atalho href="/sistema/viaturas" icone={Car} texto="Viaturas" />
+            <Atalho href="/sistema/mobile/guarnicao" icone={UserRound} texto="Equipe" />
+            <Atalho href="/sistema/relatorios/plantao" icone={ClipboardList} texto="Plantão" />
           </div>
         </section>
 
         <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-black">Resumo do dia</h2>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-base font-black">Resumo do dia</h2>
             <Link href="/sistema/relatorios" className="text-xs text-blue-400">
-              Ver relatório
+              Relatório
             </Link>
           </div>
 
           <div className="grid grid-cols-3 gap-2">
-            <Resumo
-              titulo="Ocorrências"
-              valor={String(totalOcorrencias)}
-              detalhe="Hoje"
-            />
-            <Resumo titulo="Chamados" valor={String(totalChamados)} detalhe="Hoje" />
-            <Resumo
-              titulo="Patrulhas"
-              valor={String(totalPatrulhamentos)}
-              detalhe="Hoje"
-            />
+            <Resumo titulo="Ocorr." valor={String(totalOcorrencias)} />
+            <Resumo titulo="Cham." valor={String(totalChamados)} />
+            <Resumo titulo="Patr." valor={String(totalPatrulhamentos)} />
           </div>
         </section>
 
-        <section className="rounded-3xl border border-yellow-500/20 bg-gradient-to-r from-slate-900 to-slate-800 p-5">
-          <p className="mb-2 text-sm font-bold text-yellow-400">
-            Frase do Dia
-          </p>
-
-          <p className="text-sm italic text-slate-200">
+        <section className="rounded-3xl border border-yellow-500/20 bg-slate-900/80 px-4 py-3">
+          <p className="text-xs font-bold text-yellow-400">Frase do Dia</p>
+          <p className="mt-1 text-xs italic text-slate-200">
             "Disciplina hoje, liberdade amanhã."
           </p>
-
-          <p className="mt-2 text-xs text-slate-500">SIG-GCM Brasil</p>
         </section>
 
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-lg font-black">Avisos importantes</h2>
+        <section className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4">
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-400" />
 
-            <Link href="/sistema/notificacoes" className="text-xs text-blue-400">
-              Ver todos
-            </Link>
-          </div>
-
-          <div className="flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-900 p-5">
-            <AlertTriangle className="h-6 w-6 text-yellow-400" />
-
-            <div>
-              <p className="text-sm font-bold">Acompanhe as notificações</p>
-              <p className="text-xs text-slate-400">
+            <div className="min-w-0">
+              <p className="text-sm font-bold">Avisos importantes</p>
+              <p className="truncate text-xs text-slate-400">
                 Alertas operacionais aparecerão aqui.
               </p>
             </div>
+
+            <Link
+              href="/sistema/notificacoes"
+              className="ml-auto shrink-0 text-xs text-blue-400"
+            >
+              Ver
+            </Link>
           </div>
         </section>
 
-<button
-  type="button"
-  onClick={acionarSOS}
-  disabled={enviandoSOS}
-  className="fixed bottom-24 right-5 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-red-600 shadow-2xl active:scale-95 disabled:opacity-60"
->
-  <AlertTriangle className="h-8 w-8 text-white" />
-</button>
+        <button
+          type="button"
+          onClick={acionarSOS}
+          disabled={enviandoSOS}
+          className="fixed bottom-[5.25rem] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-red-300/30 bg-red-600 shadow-2xl active:scale-95 disabled:opacity-60"
+        >
+          <AlertTriangle className="h-7 w-7 text-white" />
+        </button>
 
         <MobileBottomNav />
       </div>
@@ -628,15 +610,15 @@ function Atalho({
   return (
     <Link
       href={href}
-      className="flex min-h-28 flex-col items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 p-3 text-center transition active:scale-95"
+      className="flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 text-center transition active:scale-95"
     >
       <div
-        className={`flex h-11 w-11 items-center justify-center rounded-2xl ${classeIcone}`}
+        className={`flex h-9 w-9 items-center justify-center rounded-2xl ${classeIcone}`}
       >
-        <Icone className="h-6 w-6" />
+        <Icone className="h-5 w-5" />
       </div>
 
-      <span className="text-xs font-semibold">{texto}</span>
+      <span className="text-[11px] font-semibold leading-tight">{texto}</span>
     </Link>
   );
 }
@@ -644,17 +626,17 @@ function Atalho({
 function Resumo({
   titulo,
   valor,
-  detalhe,
 }: {
   titulo: string;
   valor: string;
-  detalhe: string;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900 p-3">
-      <p className="text-[11px] text-slate-400">{titulo}</p>
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/95 p-3 text-center">
+      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
+        {titulo}
+      </p>
       <h3 className="mt-1 text-2xl font-black">{valor}</h3>
-      <p className="mt-1 text-[11px] text-blue-400">{detalhe}</p>
+      <p className="text-[10px] text-blue-400">Hoje</p>
     </div>
   );
 }

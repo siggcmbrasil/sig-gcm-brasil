@@ -158,30 +158,6 @@ export default function MobileLayout({
 
       <div className="min-h-screen">
         {children}
-
-        <button
-          type="button"
-          onClick={acionarSOS}
-          disabled={enviandoSOS}
-          className="
-            fixed
-            bottom-24
-            right-5
-            z-50
-            h-16
-            w-16
-            rounded-full
-            bg-red-600
-            text-white
-            text-3xl
-            shadow-2xl
-            animate-pulse
-            active:scale-95
-            disabled:opacity-60
-          "
-        >
-          {enviandoSOS ? "…" : "🚨"}
-        </button>
       </div>
     </div>
   );
