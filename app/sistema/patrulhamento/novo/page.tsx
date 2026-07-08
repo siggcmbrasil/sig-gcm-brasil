@@ -5,11 +5,8 @@ import { useEffect, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
-import { obterLocalizacao } from "@/lib/gps";
 import { registrarAuditoria } from "@/lib/auditoria";
-import {
-  iniciarBackgroundRastreamento,
-} from "@/lib/gps/backgroundRastreamento";
+import { criarPatrulhamentoV2 } from "@/lib/patrulhamento/criarPatrulhamento";
 
 type Guarda = {
   id: number;
@@ -43,15 +40,11 @@ export default function NovoPatrulhamentoPage() {
   const [data, setData] = useState("");
   const [hora, setHora] = useState("");
   const [local, setLocal] = useState("");
-  const [guarda, setGuarda] = useState("");
   const [viatura, setViatura] = useState("");
   const [observacao, setObservacao] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
   const [guarnicaoSelecionadaId, setGuarnicaoSelecionadaId] = useState("");
 
   const [mostrarListaGuardas, setMostrarListaGuardas] = useState(false);
-  const [capturandoGps, setCapturandoGps] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   const usuarioLogado =
@@ -74,7 +67,6 @@ export default function NovoPatrulhamentoPage() {
       .order("nome", { ascending: true });
 
     if (error) {
-      console.error("Erro ao carregar guardas:", error);
       alert("Erro ao carregar guardas.");
       return;
     }
@@ -91,7 +83,6 @@ export default function NovoPatrulhamentoPage() {
       .order("prefixo", { ascending: true });
 
     if (error) {
-      console.error("Erro ao carregar viaturas:", error);
       alert("Erro ao carregar viaturas.");
       return;
     }
@@ -173,18 +164,11 @@ export default function NovoPatrulhamentoPage() {
       .eq("guarnicao_id", guarnicaoAtual.id)
       .eq("guardas.municipio_id", municipioId);
 
-    if (!membros || membros.length === 0) {
-      setGuardasSelecionados([]);
-      setGuarda("");
-      return;
-    }
-
-    const nomes = membros
+    const nomes = (membros || [])
       .map((m: any) => m.guardas?.nome)
       .filter(Boolean);
 
     setGuardasSelecionados(nomes);
-    setGuarda(nomes[0] || "");
   }
 
   async function selecionarGuarnicaoServico(guarnicaoId: string) {
@@ -223,18 +207,11 @@ export default function NovoPatrulhamentoPage() {
       .eq("guarnicao_id", guarnicao.id)
       .eq("guardas.municipio_id", usuarioLogado.municipio_id);
 
-    if (!membros || membros.length === 0) {
-      setGuardasSelecionados([]);
-      setGuarda("");
-      return;
-    }
-
-    const nomes = membros
+    const nomes = (membros || [])
       .map((m: any) => m.guardas?.nome)
       .filter(Boolean);
 
     setGuardasSelecionados(nomes);
-    setGuarda(nomes[0] || "");
   }
 
   function selecionarGuarda(nome: string) {
@@ -248,24 +225,6 @@ export default function NovoPatrulhamentoPage() {
     setGuardasSelecionados([...guardasSelecionados, nome]);
   }
 
-  async function capturarGps() {
-    try {
-      setCapturandoGps(true);
-
-      const localizacao = await obterLocalizacao();
-
-      setLatitude(localizacao.latitude.toString());
-      setLongitude(localizacao.longitude.toString());
-
-      alert("GPS capturado com sucesso.");
-    } catch (error) {
-      console.error("Erro ao capturar GPS:", error);
-      alert("Não foi possível obter a localização.");
-    } finally {
-      setCapturandoGps(false);
-    }
-  }
-
   async function salvarPatrulhamento() {
     if (!podeEditar) {
       alert("Você não possui permissão para registrar patrulhamentos.");
@@ -273,107 +232,49 @@ export default function NovoPatrulhamentoPage() {
     }
 
     const equipe = guardasSelecionados.join("\n");
-    const guardaPrincipal = guardasSelecionados[0] || guarda;
+    const guardaPrincipal = guardasSelecionados[0];
 
     if (!data || !hora || !local || !guardaPrincipal) {
-      alert(
-        `Faltando: ${[
-          !data ? "data" : "",
-          !hora ? "hora" : "",
-          !local ? "local" : "",
-          !guardaPrincipal ? "guarda/equipe" : "",
-        ]
-          .filter(Boolean)
-          .join(", ")}`
-      );
+      alert("Preencha data, hora, local e equipe/guarda.");
       return;
     }
 
     setSalvando(true);
 
-    let latitudeFinal = latitude;
-    let longitudeFinal = longitude;
-
-    if (!latitudeFinal || !longitudeFinal) {
-      try {
-        const localizacao = await obterLocalizacao();
-        latitudeFinal = String(localizacao.latitude);
-        longitudeFinal = String(localizacao.longitude);
-      } catch {
-        latitudeFinal = "";
-        longitudeFinal = "";
-      }
-    }
-
-    const { data: novoPatrulhamento, error } = await supabase
-      .from("patrulhamentos")
-      .insert([
-        {
-          municipio_id: usuarioLogado.municipio_id,
-          criado_por: usuarioLogado.auth_id || null,
-          criado_em: new Date().toISOString(),
-          data,
-          hora,
-          local,
-          guarda: guardaPrincipal,
-          equipe,
-          viatura,
-          latitude: latitudeFinal,
-          longitude: longitudeFinal,
-          observacao,
-          status: "EM_ANDAMENTO",
-        },
-      ])
-      .select()
-      .single();
-
-    setSalvando(false);
-
-    if (error) {
-      console.error("Erro ao salvar patrulhamento:", error);
-      alert("Erro ao salvar patrulhamento.");
-      return;
-    }
-
-    await registrarAuditoria({
-      modulo: "Patrulhamento",
-      acao: "CRIAR",
-      descricao: `Iniciou patrulhamento em ${local}.`,
-      tabela: "patrulhamentos",
-      registro_id: novoPatrulhamento.id,
-      detalhes: {
-        municipio_id: usuarioLogado.municipio_id,
-        usuario_id: Number(usuarioLogado.id),
-        viatura,
+    try {
+      const novo = await criarPatrulhamentoV2({
+        usuarioLogado,
+        data,
+        hora,
+        local,
+        guarda: guardaPrincipal,
         equipe,
-        latitude: latitudeFinal,
-        longitude: longitudeFinal,
-      },
-    });
+        viatura,
+        observacao,
+      });
 
-    if (novoPatrulhamento?.id) {
-      localStorage.setItem(
-        "patrulhamentoAtivoId",
-        String(novoPatrulhamento.id)
-      );
-
-      try {
-        await iniciarBackgroundRastreamento({
+      await registrarAuditoria({
+        modulo: "Patrulhamento",
+        acao: "CRIAR",
+        descricao: `Iniciou patrulhamento em ${local}.`,
+        tabela: "patrulhamentos",
+        registro_id: novo.id,
+        detalhes: {
           municipio_id: usuarioLogado.municipio_id,
-          patrulhamento_id: novoPatrulhamento.id,
-        });
-      } catch (error) {
-        console.error("Erro ao iniciar rastreamento:", error);
+          usuario_id: Number(usuarioLogado.id),
+          viatura,
+          equipe,
+        },
+      });
 
-        alert(
-          "Patrulhamento registrado, mas o rastreamento GPS não iniciou. Verifique a permissão de localização do celular."
-        );
-      }
+      alert("Patrulhamento iniciado com sucesso!");
+      window.location.href = `/sistema/patrulhamento/${novo.id}`;
+    } catch (error: any) {
+      console.error("Erro ao iniciar patrulhamento:", error);
+      alert(error?.message || "Erro ao iniciar patrulhamento.");
+    } finally {
+      setSalvando(false);
     }
-
-    alert("Patrulhamento registrado com sucesso!");
-
-    window.location.href = "/sistema/patrulhamento";
   }
 
   useEffect(() => {
@@ -388,16 +289,6 @@ export default function NovoPatrulhamentoPage() {
         hour12: false,
       })
     );
-
-    void registrarAuditoria({
-      modulo: "Patrulhamento",
-      acao: "ACESSO",
-      descricao: "Acessou a tela de novo patrulhamento.",
-      tabela: "patrulhamentos",
-      detalhes: {
-        municipio_id: usuarioLogado.municipio_id,
-      },
-    });
 
     void carregarGuardas();
     void carregarViaturas();
@@ -422,7 +313,7 @@ export default function NovoPatrulhamentoPage() {
             </h1>
 
             <p className="text-slate-400 text-base md:text-lg mt-1">
-              Registre e inicie um patrulhamento com equipe, viatura e GPS.
+              Registre e inicie um patrulhamento com GPS obrigatório.
             </p>
           </div>
         </div>
@@ -552,26 +443,6 @@ export default function NovoPatrulhamentoPage() {
           </div>
 
           <div>
-            <button
-              type="button"
-              onClick={capturarGps}
-              disabled={capturandoGps}
-              className="btn-secondary w-full text-lg disabled:opacity-50"
-            >
-              {capturandoGps
-                ? "Capturando localização..."
-                : "📍 Capturar GPS Inicial"}
-            </button>
-
-            {latitude && longitude && (
-              <div className="mt-3 rounded-xl border border-green-700 bg-green-950/40 p-3 text-sm text-green-300">
-                <p>Latitude: {latitude}</p>
-                <p>Longitude: {longitude}</p>
-              </div>
-            )}
-          </div>
-
-          <div>
             <label className="label">Observação</label>
             <textarea
               className="input h-32 resize-none"
@@ -588,7 +459,7 @@ export default function NovoPatrulhamentoPage() {
             className="btn-primary w-full text-lg disabled:opacity-50"
           >
             {salvando
-              ? "Registrando patrulhamento..."
+              ? "Capturando GPS e iniciando..."
               : "🚔 Registrar e Iniciar Patrulhamento"}
           </button>
         </div>

@@ -2,16 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
-import { obterLocalizacao } from "@/lib/gps";
+import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
-import {
-  iniciarBackgroundRastreamento,
-  pararBackgroundRastreamento,
-  limparUltimoPontoGPS,
-} from "@/lib/gps/backgroundRastreamento";
-
+import { finalizarPatrulhamentoV2 } from "@/lib/patrulhamento/finalizarPatrulhamento";
+import { restaurarPatrulhamentoAtivo } from "@/lib/patrulhamento/restaurarPatrulhamento";
 
 type Patrulhamento = {
   id: number;
@@ -25,154 +20,53 @@ type Patrulhamento = {
   longitude: string | null;
   observacao: string | null;
   status: string | null;
+  municipio_id: number;
 };
 
-type Guarda = {
-  id: number;
-  matricula: string;
-  nome: string;
-  cargo: string;
-  status: string;
-};
-
-type Viatura = {
-  id: number;
-  prefixo: string;
-  modelo: string;
-  placa: string;
-  status: string;
-};
-
-type GuarnicaoCompleta = {
-  id: number;
-  nome: string;
-  comandante_id: number | null;
-  viatura_id: number | null;
-};
-
-export default function Patrulhamento() {
+export default function PatrulhamentoPage() {
   const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
-  const [guardas, setGuardas] = useState<Guarda[]>([]);
-  const [viaturas, setViaturas] = useState<Viatura[]>([]);
-  const [guardasSelecionados, setGuardasSelecionados] = useState<string[]>([]);
   const [busca, setBusca] = useState("");
-
-  const [data, setData] = useState("");
-  const [hora, setHora] = useState("");
-  const [local, setLocal] = useState("");
-  const [guarda, setGuarda] = useState("");
-  const [viatura, setViatura] = useState("");
-  const [observacao, setObservacao] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  
-  const [rastreamentoAtivo, setRastreamentoAtivo] = useState(false);
-  const [patrulhamentoAtivoId, setPatrulhamentoAtivoId] = useState<number | null>(null);
-  
-  const [guarnicoesServico, setGuarnicoesServico] = useState<GuarnicaoCompleta[]>([]);
-  const [guarnicaoSelecionadaId, setGuarnicaoSelecionadaId] = useState("");
-  const [mostrarListaGuardas, setMostrarListaGuardas] = useState(false);
-
   const [carregando, setCarregando] = useState(true);
-  const [capturandoGps, setCapturandoGps] = useState(false);
-  
+  const [finalizandoId, setFinalizandoId] = useState<number | null>(null);
+  const [patrulhamentoAtivoId, setPatrulhamentoAtivoId] = useState<number | null>(null);
+
   const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
-const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
+  const podeEditar = perfilUsuario !== "CONSULTA";
 
-const podeEditar = perfilUsuario !== "CONSULTA";
-
-if (!usuarioLogado?.municipio_id) {
-  return (
-    <div className="p-6">
-      Município não identificado.
-    </div>
-  );
-}
-
-async function selecionarGuarnicaoServico(guarnicaoId: string) {
-
-  setGuarnicaoSelecionadaId(guarnicaoId);
-
-  const guarnicao = guarnicoesServico.find(
-    (g) => Number(g.id) === Number(guarnicaoId)
-  );
-
-  if (!guarnicao) return;
-
-  setLocal(`Ronda preventiva - ${guarnicao.nome}`);
-
-  if (guarnicao.viatura_id) {
-
-    const { data: viaturaAtual } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, placa, status")
-      .eq("municipio_id", usuarioLogado.municipio_id)
-      .eq("id", guarnicao.viatura_id)
-      .single();
-
-    if (viaturaAtual) {
-      setViatura(viaturaAtual.prefixo);
-    }
+  if (!usuarioLogado?.municipio_id) {
+    return <div className="p-6 text-white">Município não identificado.</div>;
   }
 
-  const { data: membros } = await supabase
-  .from("guarnicao_membros")
-  .select(`
-    guarda_id,
-    guardas!inner (
-      nome,
-      municipio_id
-    )
-  `)
-  .eq("guarnicao_id", guarnicao.id)
-  .eq(
-    "guardas.municipio_id",
-    usuarioLogado.municipio_id
-  );
-
-if (!membros || membros.length === 0) {
-  setGuardasSelecionados([]);
-  setGuarda("");
-  return;
-}
-
-const nomes = membros
-  .map((m: any) => m.guardas?.nome)
-  .filter(Boolean);
-
-setGuardasSelecionados(nomes);
-setGuarda(nomes[0] || "");
-}
-
-async function carregarPatrulhamentos() {
-
+  async function carregarPatrulhamentos() {
     setCarregando(true);
 
     const { data, error } = await supabase
-.from("patrulhamentos")
-.select(`
-  id,
-  data,
-  hora,
-  local,
-  guarda,
-  equipe,
-  viatura,
-  latitude,
-  longitude,
-  observacao,
-  status
-`)
-.eq("municipio_id", usuarioLogado.municipio_id)
-.order("id", { ascending: false })
-.limit(200);
+      .from("patrulhamentos")
+      .select(`
+        id,
+        municipio_id,
+        data,
+        hora,
+        local,
+        guarda,
+        equipe,
+        viatura,
+        latitude,
+        longitude,
+        observacao,
+        status
+      `)
+      .eq("municipio_id", Number(usuarioLogado.municipio_id))
+      .order("id", { ascending: false })
+      .limit(300);
 
     if (error) {
-      console.error(error);
+      console.error("Erro ao carregar patrulhamentos:", error);
       alert("Erro ao carregar patrulhamentos.");
       setCarregando(false);
       return;
@@ -182,447 +76,342 @@ async function carregarPatrulhamentos() {
     setCarregando(false);
   }
 
-  async function carregarGuardas() {
-    const { data, error } = await supabase
-      .from("guardas")
-      .select("id, matricula, nome, cargo, status")
-      .eq("municipio_id", usuarioLogado.municipio_id)
-      .order("nome", { ascending: true });
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar guardas.");
+  async function finalizar(id: number) {
+    if (!podeEditar) {
+      alert("Você não possui permissão para finalizar patrulhamento.");
       return;
     }
 
-    setGuardas(data || []);
-  }
+    const confirmar = confirm("Deseja finalizar este patrulhamento?");
+    if (!confirmar) return;
 
-  async function carregarViaturas() {
-    const { data, error } = await supabase
-  .from("viaturas")
-  .select("id, prefixo, modelo, placa, status")
-  .eq("municipio_id", usuarioLogado.municipio_id)
-  .in("status", ["Operacional", "Reserva"])
-  .order("prefixo", { ascending: true });
+    setFinalizandoId(id);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar viaturas.");
-      return;
+    try {
+      await finalizarPatrulhamentoV2({
+        municipio_id: Number(usuarioLogado.municipio_id),
+        patrulhamento_id: Number(id),
+      });
+
+      await registrarAuditoria({
+        modulo: "Patrulhamento",
+        acao: "FINALIZAR",
+        descricao: `Finalizou o patrulhamento ${id}.`,
+        tabela: "patrulhamentos",
+        registro_id: id,
+        detalhes: {
+          municipio_id: Number(usuarioLogado.municipio_id),
+          usuario_id: usuarioLogado.id,
+        },
+      });
+
+      setPatrulhamentoAtivoId(null);
+      alert("Patrulhamento finalizado com sucesso.");
+      await carregarPatrulhamentos();
+    } catch (error: any) {
+      console.error("Erro ao finalizar patrulhamento:", error);
+      alert(error?.message || "Erro ao finalizar patrulhamento.");
+    } finally {
+      setFinalizandoId(null);
     }
-
-    setViaturas(data || []);
-  }
-
-  function selecionarGuarda(nome: string) {
-    if (guardasSelecionados.includes(nome)) {
-      setGuardasSelecionados(
-        guardasSelecionados.filter((item) => item !== nome)
-      );
-      return;
-    }
-
-    setGuardasSelecionados([...guardasSelecionados, nome]);
-  }
-
-  async function capturarGps() {
-  try {
-    setCapturandoGps(true);
-
-    const localizacao = await obterLocalizacao();
-
-    setLatitude(localizacao.latitude.toString());
-    setLongitude(localizacao.longitude.toString());
-
-    alert("GPS capturado com sucesso.");
-  } catch (error) {
-    console.error(error);
-    alert("Não foi possível obter a localização.");
-  } finally {
-    setCapturandoGps(false);
-  }
-}
-
-  async function salvarPatrulhamento() {
-  if (!podeEditar) {
-    alert("Você não possui permissão para registrar patrulhamentos.");
-    return;
-  }
-    const equipe = guardasSelecionados.join("\n");
-    const guardaPrincipal = guardasSelecionados[0] || guarda;
-
-    if (!data || !hora || !local || !guardaPrincipal) {
-      alert(
-  `Faltando: ${[
-    !data ? "data" : "",
-    !hora ? "hora" : "",
-    !local ? "local" : "",
-    !guardaPrincipal ? "guarda/equipe" : "",
-  ].filter(Boolean).join(", ")}`
-);
-      return;
-    }
-
-    let latitudeFinal = latitude;
-let longitudeFinal = longitude;
-
-if (!latitudeFinal || !longitudeFinal) {
-  try {
-    const localizacao = await obterLocalizacao();
-    latitudeFinal = String(localizacao.latitude);
-    longitudeFinal = String(localizacao.longitude);
-  } catch {
-    latitudeFinal = "";
-    longitudeFinal = "";
-  }
-}
-
-   const { data: novoPatrulhamento, error } = await supabase
-  .from("patrulhamentos")
-  .insert([
-{
-    municipio_id: usuarioLogado.municipio_id,
-    criado_por: usuarioLogado.auth_id || null,
-    criado_em: new Date().toISOString(),
-    data,
-    hora,
-    local,
-    guarda: guardaPrincipal,
-    equipe,
-    viatura,
-    latitude: latitudeFinal,
-    longitude: longitudeFinal,
-    observacao,
-    status: "EM_ANDAMENTO",
-  },
-])
-  .select()
-  .single();
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar patrulhamento.");
-      return;
-    }
-
-await registrarAuditoria({
-  modulo: "Patrulhamento",
-  acao: "CRIAR",
-  descricao:
-    `Iniciou patrulhamento em ${local}.`,
-  tabela: "patrulhamentos",
-  registro_id:
-    novoPatrulhamento.id,
-  detalhes: {
-    municipio_id:
-      usuarioLogado.municipio_id,
-    viatura,
-    equipe,
-    latitude:
-      latitudeFinal,
-    longitude:
-      longitudeFinal,
-  },
-});
-
-    if (novoPatrulhamento?.id) {
-  setPatrulhamentoAtivoId(
-    novoPatrulhamento.id
-  );
-
-  localStorage.setItem(
-    "patrulhamentoAtivoId",
-    String(novoPatrulhamento.id)
-  );
-
-  try {
-  await iniciarBackgroundRastreamento({
-    municipio_id: usuarioLogado.municipio_id,
-    patrulhamento_id: novoPatrulhamento.id,
-  });
-
-  setRastreamentoAtivo(true);
-} catch (error) {
-  console.error("Erro ao iniciar rastreamento:", error);
-
-  alert(
-    "Patrulhamento registrado, mas o rastreamento GPS não iniciou. Verifique a permissão de localização do celular."
-  );
-
-  setRastreamentoAtivo(false);
-}
-
-setRastreamentoAtivo(true);
-}
-
-    alert("Patrulhamento registrado com sucesso!");
-
-    setData("");
-    setHora("");
-    setLocal("");
-    setGuarda("");
-    setViatura("");
-    setObservacao("");
-    setLatitude("");
-    setLongitude("");
-    setGuardasSelecionados([]);
-
-    carregarPatrulhamentos();
   }
 
   async function excluirPatrulhamento(id: number) {
-      const motivo = prompt(
-  "Informe o motivo da exclusão:"
-);
+    if (!podeEditar) {
+      alert("Você não possui permissão para excluir patrulhamentos.");
+      return;
+    }
 
-if (!motivo?.trim()) {
-  alert("Informe o motivo.");
-  return;
-}
-  if (!podeEditar) {
-    alert("Você não possui permissão para excluir patrulhamentos.");
-    return;
-  }
-    const confirmar = confirm("Deseja excluir este patrulhamento?");
+    const motivo = prompt("Informe o motivo da exclusão:");
+    if (!motivo?.trim()) {
+      alert("Informe o motivo.");
+      return;
+    }
 
+    const confirmar = confirm("Deseja realmente excluir este patrulhamento?");
     if (!confirmar) return;
 
     const { error } = await supabase
       .from("patrulhamentos")
       .delete()
-.eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+      .eq("id", id)
+      .eq("municipio_id", Number(usuarioLogado.municipio_id));
 
     if (error) {
-      console.error(error);
+      console.error("Erro ao excluir patrulhamento:", error);
       alert("Erro ao excluir patrulhamento.");
       return;
     }
 
-await registrarAuditoria({
-  modulo: "Patrulhamento",
-  acao: "EXCLUIR",
-  descricao: `Excluiu o patrulhamento ${id}.`,
-  tabela: "patrulhamentos",
-  registro_id: id,
-  detalhes: {
-    motivo,
-    municipio_id:
-      usuarioLogado.municipio_id,
-  },
-});
-
-    carregarPatrulhamentos();
-  }
-
-async function finalizarPatrulhamento(id: number) {
-  if (
-  ![
-    "DESENVOLVEDOR",
-    "ADMIN",
-    "COMANDANTE",
-    "DIRETOR",
-    "PLANTONISTA",
-  ].includes(perfilUsuario)
-) {
-  alert("Sem permissão.");
-  return;
-}
-  await pararBackgroundRastreamento();
-
-  const { error } = await supabase
-    .from("patrulhamentos")
-    .update({
-      status: "FINALIZADO",
-    })
-    .eq("id", id)
-    .eq("municipio_id", usuarioLogado.municipio_id);
-
-  if (error) {
-    console.error(error);
-    return;
-  }
-
-await registrarAuditoria({
-  modulo: "Patrulhamento",
-  acao: "FINALIZAR",
-  tabela: "patrulhamentos",
-  registro_id: id,
-  descricao:
-    `Finalizou o patrulhamento ${id}.`,
-});
-
-  setRastreamentoAtivo(false);
-  setPatrulhamentoAtivoId(null);
-
-  localStorage.removeItem("patrulhamentoAtivoId");
-  limparUltimoPontoGPS();
-
-  alert("Patrulhamento finalizado com sucesso.");
-
-  carregarPatrulhamentos();
-}
-
-async function carregarPlantaoAutomatico() {
-  const municipioId = usuarioLogado.municipio_id;
-
-  const { data: configEscala } = await supabase
-    .from("escala_operacional_config")
-    .select("*")
-    .eq("municipio_id", municipioId)
-    .eq("ativo", true)
-    .single();
-
-  const { data: guarnicoes } = await supabase
-    .from("guarnicoes")
-    .select("id, nome, comandante_id, viatura_id")
-    .eq("municipio_id", municipioId)
-    .eq("ativa", true);
-
-  if (!configEscala || !guarnicoes || !configEscala.ordem_guarnicoes?.length) {
-    return;
-  }
-
-  const dataBase = new Date(`${configEscala.data_base}T07:00:00`);
-  const agora = new Date();
-
-  const diasPassados = Math.floor(
-    (agora.getTime() - dataBase.getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-
-  const ordem = configEscala.ordem_guarnicoes;
-
-  const indiceBase = ordem.findIndex(
-    (id: number) => Number(id) === Number(configEscala.guarnicao_base_id)
-  );
-
-  if (indiceBase === -1) return;
-
-  const indiceAtual =
-    ((indiceBase + diasPassados) % ordem.length + ordem.length) %
-    ordem.length;
-
-  const guarnicaoAtual = guarnicoes.find(
-    (g: GuarnicaoCompleta) =>
-      Number(g.id) === Number(ordem[indiceAtual])
-  );
-
-  if (!guarnicaoAtual) return;
-
-  setGuarnicoesServico([guarnicaoAtual]);
-  setGuarnicaoSelecionadaId(String(guarnicaoAtual.id));
-  setLocal(`Ronda preventiva - ${guarnicaoAtual.nome}`);
-
-  if (guarnicaoAtual.viatura_id) {
-    const { data: viaturaAtual } = await supabase
-      .from("viaturas")
-      .select("id, prefixo, modelo, placa, status")
-      .eq("municipio_id", municipioId)
-      .eq("id", guarnicaoAtual.viatura_id)
-      .single();
-
-    if (viaturaAtual) {
-      setViatura(viaturaAtual.prefixo);
-    }
-  }
-
-  const { data: membros } = await supabase
-    .from("guarnicao_membros")
-    .select(`
-      guarda_id,
-      guardas!inner (
-        nome,
-        municipio_id
-      )
-    `)
-    .eq("guarnicao_id", guarnicaoAtual.id)
-    .eq("guardas.municipio_id", municipioId);
-
-  if (!membros || membros.length === 0) {
-    setGuardasSelecionados([]);
-    setGuarda("");
-    return;
-  }
-
-  const nomes = membros
-    .map((m: any) => m.guardas?.nome)
-    .filter(Boolean);
-
-  setGuardasSelecionados(nomes);
-  setGuarda(nomes[0] || "");
-}
-
-useEffect(() => {
-  void registrarAuditoria({
-    modulo: "Patrulhamento",
-    acao: "ACESSO",
-    descricao:
-      "Acessou o módulo de patrulhamento.",
-    tabela: "patrulhamentos",
-    detalhes: {
-      municipio_id:
-        usuarioLogado.municipio_id,
-      usuario_id:
-        usuarioLogado.id,
-    },
-  });
-}, []);
-
-  useEffect(() => {
-  const agora = new Date();
-
-  setData(agora.toISOString().split("T")[0]);
-
-  setHora(
-    agora.toLocaleTimeString("pt-BR", {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-  );
-
-  void carregarPatrulhamentos();
-  void carregarGuardas();
-  void carregarViaturas();
-  void carregarPlantaoAutomatico();
-}, []);
-
-useEffect(() => {
-  const restaurar = async () => {
-    const idSalvo = localStorage.getItem("patrulhamentoAtivoId");
-
-    if (!idSalvo) return;
-
-    const patrulhamentoId = Number(idSalvo);
-
-    setPatrulhamentoAtivoId(patrulhamentoId);
-
-    await iniciarBackgroundRastreamento({
-      municipio_id: usuarioLogado.municipio_id,
-      patrulhamento_id: patrulhamentoId,
+    await registrarAuditoria({
+      modulo: "Patrulhamento",
+      acao: "EXCLUIR",
+      descricao: `Excluiu o patrulhamento ${id}.`,
+      tabela: "patrulhamentos",
+      registro_id: id,
+      detalhes: {
+        motivo,
+        municipio_id: Number(usuarioLogado.municipio_id),
+        usuario_id: usuarioLogado.id,
+      },
     });
 
-    setRastreamentoAtivo(true);
-  };
+    await carregarPatrulhamentos();
+  }
 
-  restaurar();
-}, []);
+  useEffect(() => {
+    const ativo = restaurarPatrulhamentoAtivo({
+      municipio_id: Number(usuarioLogado.municipio_id),
+    });
 
-const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
-  const texto = `
-    ${item.data}
-    ${item.hora}
-    ${item.local}
-    ${item.guarda}
-    ${item.equipe || ""}
-    ${item.viatura || ""}
-    ${item.observacao || ""}
-  `.toLowerCase();
+    if (ativo) {
+      setPatrulhamentoAtivoId(ativo);
+    }
 
-  return texto.includes(busca.toLowerCase());
-});
+    void carregarPatrulhamentos();
+
+    void registrarAuditoria({
+      modulo: "Patrulhamento",
+      acao: "ACESSO",
+      descricao: "Acessou a central de patrulhamento.",
+      tabela: "patrulhamentos",
+      detalhes: {
+        municipio_id: Number(usuarioLogado.municipio_id),
+        usuario_id: usuarioLogado.id,
+      },
+    });
+  }, []);
+
+  const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
+    const texto = `
+      ${item.id}
+      ${item.data}
+      ${item.hora}
+      ${item.local}
+      ${item.guarda}
+      ${item.equipe || ""}
+      ${item.viatura || ""}
+      ${item.observacao || ""}
+      ${item.status || ""}
+    `.toLowerCase();
+
+    return texto.includes(busca.toLowerCase());
+  });
+
+  const total = patrulhamentos.length;
+  const emAndamento = patrulhamentos.filter(
+    (p) => p.status !== "FINALIZADO"
+  ).length;
+  const finalizados = patrulhamentos.filter(
+    (p) => p.status === "FINALIZADO"
+  ).length;
+  const hoje = patrulhamentos.filter(
+    (p) => p.data === new Date().toISOString().split("T")[0]
+  ).length;
+
+  return (
+    <div className="p-3 md:p-6 pb-24">
+      <header className="mb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
+          <div>
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+              Patrulhamento
+            </h1>
+
+            <p className="text-slate-400 text-base md:text-lg mt-1">
+              Controle de patrulhamentos, GPS, rotas e finalizações.
+            </p>
+
+            {patrulhamentoAtivoId && (
+              <p className="mt-3 inline-flex rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-bold text-green-300">
+                GPS ativo no patrulhamento #{patrulhamentoAtivoId}
+              </p>
+            )}
+          </div>
+
+          {podeEditar && (
+            <Link
+              href="/sistema/patrulhamento/novo"
+              className="btn-primary text-center"
+            >
+              🚔 Novo Patrulhamento
+            </Link>
+          )}
+        </div>
+      </header>
+
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <CardIndicador titulo="Total" valor={total} icone="🚔" cor="blue" />
+        <CardIndicador titulo="Em andamento" valor={emAndamento} icone="🟡" cor="yellow" />
+        <CardIndicador titulo="Finalizados" valor={finalizados} icone="✅" cor="green" />
+        <CardIndicador titulo="Hoje" valor={hoje} icone="📍" cor="purple" />
+      </section>
+
+      <section className="card">
+        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold">
+              Patrulhamentos Registrados
+            </h2>
+            <p className="text-slate-400 text-sm mt-1">
+              Abra a rota para visualizar os pontos GPS registrados.
+            </p>
+          </div>
+
+          <div className="w-full md:w-96">
+            <label className="label">Buscar</label>
+            <input
+              className="input"
+              placeholder="Buscar por ID, data, local, equipe, viatura..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {carregando ? (
+          <p className="text-slate-400">Carregando patrulhamentos...</p>
+        ) : patrulhamentosFiltrados.length === 0 ? (
+          <p className="text-slate-400">Nenhum patrulhamento encontrado.</p>
+        ) : (
+          <>
+            <div className="md:hidden space-y-4">
+              {patrulhamentosFiltrados.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
+                >
+                  <div className="flex justify-between gap-3">
+                    <div>
+                      <p className="text-blue-400 font-bold">
+                        #{item.id} • {item.data} às {item.hora}
+                      </p>
+                      <h3 className="text-xl font-black">{item.local}</h3>
+                    </div>
+
+                    <StatusPatrulhamento status={item.status} />
+                  </div>
+
+                  <div className="text-slate-300 space-y-1 text-sm">
+                    <p><span className="text-slate-500">Viatura:</span> {item.viatura || "-"}</p>
+                    <p><span className="text-slate-500">Guarda:</span> {item.guarda || "-"}</p>
+
+                    {item.equipe && (
+                      <div>
+                        <p className="text-slate-500">Equipe:</p>
+                        <pre className="whitespace-pre-wrap font-sans text-slate-300">
+                          {item.equipe}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-2">
+                    <Link
+                      href={`/sistema/patrulhamento/${item.id}`}
+                      className="bg-blue-700 hover:bg-blue-800 text-white text-center px-4 py-3 rounded-xl font-semibold"
+                    >
+                      Ver Rota
+                    </Link>
+
+                    {podeEditar && item.status !== "FINALIZADO" && (
+                      <button
+                        type="button"
+                        onClick={() => finalizar(item.id)}
+                        disabled={finalizandoId === item.id}
+                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-60"
+                      >
+                        {finalizandoId === item.id ? "Finalizando..." : "Finalizar"}
+                      </button>
+                    )}
+
+                    {podeEditar && (
+                      <button
+                        type="button"
+                        onClick={() => excluirPatrulhamento(item.id)}
+                        className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                      >
+                        Excluir
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="text-slate-400 border-b border-slate-700">
+                  <tr>
+                    <th className="text-left py-3">ID</th>
+                    <th className="text-left py-3">Data</th>
+                    <th className="text-left py-3">Hora</th>
+                    <th className="text-left py-3">Local</th>
+                    <th className="text-left py-3">Viatura</th>
+                    <th className="text-left py-3">Guarda</th>
+                    <th className="text-left py-3">Status</th>
+                    <th className="text-right py-3">Ações</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {patrulhamentosFiltrados.map((item) => (
+                    <tr key={item.id} className="border-b border-slate-800">
+                      <td className="py-4 text-blue-400 font-bold">
+                        #{item.id}
+                      </td>
+                      <td>{item.data}</td>
+                      <td>{item.hora}</td>
+                      <td className="text-slate-300 max-w-[280px] truncate">
+                        {item.local}
+                      </td>
+                      <td>{item.viatura || "-"}</td>
+                      <td>{item.guarda || "-"}</td>
+                      <td>
+                        <StatusPatrulhamento status={item.status} />
+                      </td>
+                      <td className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Link
+                            href={`/sistema/patrulhamento/${item.id}`}
+                            className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
+                          >
+                            Ver Rota
+                          </Link>
+
+                          {podeEditar && item.status !== "FINALIZADO" && (
+                            <button
+                              type="button"
+                              onClick={() => finalizar(item.id)}
+                              disabled={finalizandoId === item.id}
+                              className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs disabled:opacity-60"
+                            >
+                              {finalizandoId === item.id ? "..." : "Finalizar"}
+                            </button>
+                          )}
+
+                          {podeEditar && (
+                            <button
+                              type="button"
+                              onClick={() => excluirPatrulhamento(item.id)}
+                              className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+                            >
+                              Excluir
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
 
 function StatusPatrulhamento({ status }: { status: string | null }) {
   if (status === "FINALIZADO") {
@@ -639,412 +428,3 @@ function StatusPatrulhamento({ status }: { status: string | null }) {
     </span>
   );
 }
-  return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="mb-6">
-  <div className="flex flex-col gap-4 border-b border-slate-800 pb-5">
-
-    <div>
-      <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-        Patrulhamento
-      </h1>
-
-      <p className="text-slate-400 text-base md:text-lg mt-1">
-        Controle das rondas, equipes, viaturas e áreas patrulhadas.
-      </p>
-    </div>
-
-  </div>
-</header>
-
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-
-  <CardIndicador
-    titulo="Total"
-    valor={patrulhamentos.length}
-    icone="🚔"
-    cor="blue"
-  />
-
-  <CardIndicador
-    titulo="Viaturas"
-    valor={
-      new Set(
-  patrulhamentos
-    .map((p) => p.viatura)
-    .filter(Boolean)
-).size
-    }
-    icone="🚓"
-    cor="purple"
-  />
-
-  <CardIndicador
-    titulo="Equipes"
-    valor={
-      new Set(
-  patrulhamentos
-    .map((p) => p.equipe)
-    .filter(Boolean)
-).size
-    }
-    icone="👮"
-    cor="green"
-  />
-
-  <CardIndicador
-    titulo="Hoje"
-    valor={
-      patrulhamentos.filter(
-        (p) =>
-          p.data ===
-          new Date().toISOString().split("T")[0]
-      ).length
-    }
-    icone="📍"
-    cor="yellow"
-  />
-
-</section>
-
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {podeEditar && (
-  <div className="card">
-    <h2 className="text-xl md:text-2xl font-bold mb-4">
-      Nova Ronda
-    </h2>
-
-          <div className="space-y-4">
-            <div>
-              <label className="label">Data</label>
-              <input
-                type="date"
-                className="input"
-                value={data}
-                onChange={(e) => setData(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="label">Hora</label>
-              <input
-                type="time"
-                className="input"
-                value={hora}
-                onChange={(e) => setHora(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="label">Local da ronda</label>
-              <input
-                className="input"
-                value={local}
-                onChange={(e) => setLocal(e.target.value)}
-                placeholder="Ex: Praça Principal"
-              />
-            </div>
-
-            <div>
-              <label className="label">Viatura</label>
-              <select
-                className="input"
-                value={viatura}
-                onChange={(e) => setViatura(e.target.value)}
-              >
-                <option value="">Selecione uma viatura</option>
-
-                {viaturas.map((v) => (
-                  <option key={v.id} value={v.prefixo}>
-                    {v.prefixo} • {v.modelo} • {v.status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="border-t border-slate-800 pt-4">
-  <label className="label">Guarnição de serviço</label>
-
-  <select
-    className="input mb-3"
-    value={guarnicaoSelecionadaId}
-    onChange={(e) => selecionarGuarnicaoServico(e.target.value)}
-  >
-    <option value="">Selecione a guarnição</option>
-
-    {guarnicoesServico.map((g) => (
-      <option key={g.id} value={g.id}>
-        {g.nome}
-      </option>
-    ))}
-  </select>
-
-  {guardasSelecionados.length > 0 && (
-    <div className="mb-3 rounded-xl border border-cyan-700 bg-cyan-950/30 p-3">
-      <p className="font-semibold text-cyan-300 mb-2">
-        Equipe selecionada
-      </p>
-
-      <div className="space-y-1">
-        {guardasSelecionados.map((nome) => (
-          <p key={nome} className="text-sm text-slate-200">
-            👮 {nome}
-          </p>
-        ))}
-      </div>
-    </div>
-  )}
-
-  <button
-    type="button"
-    onClick={() => setMostrarListaGuardas(!mostrarListaGuardas)}
-    className="btn-secondary w-full"
-  >
-    {mostrarListaGuardas ? "Ocultar guardas" : "+ Adicionar guarda extra"}
-  </button>
-
-  {mostrarListaGuardas && (
-    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 mt-3">
-      {guardas.map((g) => (
-        <label
-          key={g.id}
-          className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 flex gap-3 items-start cursor-pointer"
-        >
-          <input
-            type="checkbox"
-            checked={guardasSelecionados.includes(g.nome)}
-            onChange={() => selecionarGuarda(g.nome)}
-            className="mt-1"
-          />
-
-          <div>
-            <p className="font-bold">{g.nome}</p>
-            <p className="text-sm text-slate-400">
-              {g.matricula} • {g.cargo}
-            </p>
-            <p className="text-xs text-blue-400">{g.status}</p>
-          </div>
-        </label>
-      ))}
-    </div>
-  )}
-</div>
-
-            <div>
-              <button
-                type="button"
-                onClick={capturarGps}
-                disabled={capturandoGps}
-                className="btn-secondary w-full text-lg disabled:opacity-50"
-              >
-                {capturandoGps
-  ? "Capturando localização..."
-  : "📍 Capturar GPS Inicial"}
-              </button>
-
-               {latitude && longitude && (
-                <div className="mt-3 rounded-xl border border-green-700 bg-green-950/40 p-3 text-sm text-green-300">
-                  <p>Latitude: {latitude}</p>
-                  <p>Longitude: {longitude}</p>
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="label">Observação</label>
-              <textarea
-                className="input h-32 resize-none"
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Ex: ronda preventiva sem alterações."
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={salvarPatrulhamento}
-              className="btn-primary w-full text-lg"
-            >
-              🚔 Registrar e Iniciar Patrulhamento
-            </button>
-          </div>
-          </div>
-)}
-
-        <div className="card xl:col-span-2">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Patrulhamentos Registrados
-          </h2>
-
-          <div className="mb-5">
-            <label className="label">Buscar patrulhamento</label>
-            <input
-              className="input"
-              placeholder="Buscar por data, local, guarda, equipe, viatura..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-
-          {carregando ? (
-            <p className="text-slate-400">Carregando patrulhamentos...</p>
-          ) : patrulhamentosFiltrados.length === 0 ? (
-            <p className="text-slate-400">Nenhum patrulhamento encontrado.</p>
-          ) : (
-            <>
-              <div className="md:hidden space-y-4">
-                {patrulhamentosFiltrados.map((item) => (
-                  <div
-                    key={item.id}
-                    className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
-                  >
-                    <div className="flex justify-between gap-3 items-start">
-                      <div>
-                        <p className="text-blue-400 font-semibold">
-                          {item.data} às {item.hora}
-                        </p>
-
-                        <h3 className="text-xl font-bold">{item.local}</h3>
-                      </div>
-
-                      <StatusPatrulhamento status={item.status} />
-                    </div>
-
-                    <div className="text-slate-300 space-y-1">
-                      <p>
-                        <span className="text-slate-500">Viatura: </span>
-                        {item.viatura || "-"}
-                      </p>
-
-                      <p>
-                        <span className="text-slate-500">Guarda principal: </span>
-                        {item.guarda}
-                      </p>
-
-                      {item.equipe && (
-                        <div>
-                          <p className="text-slate-500">Equipe:</p>
-                          <pre className="whitespace-pre-wrap font-sans text-slate-300">
-                            {item.equipe}
-                          </pre>
-                        </div>
-                      )}
-
-                      {item.latitude && item.longitude && (
-                        <a
-                          href={`https://www.google.com/maps?q=${item.latitude},${item.longitude}`}
-                          target="_blank"
-                          className="block bg-blue-700 hover:bg-blue-800 text-center px-4 py-3 rounded-xl font-semibold mt-3"
-                        >
-                          Abrir GPS
-                        </a>
-                      )}
-
-                      {item.observacao && (
-                        <p className="pt-2 text-slate-400">
-                          {item.observacao}
-                        </p>
-                      )}
-                    </div>
-
-                    {podeEditar && item.status !== "FINALIZADO" && (
-  <button
-    type="button"
-    onClick={() => finalizarPatrulhamento(item.id)}
-    className="w-full bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold"
-  >
-    Finalizar Patrulhamento
-  </button>
-)}
-
-                    {podeEditar && (
-  <button
-    type="button"
-    onClick={() => excluirPatrulhamento(item.id)}
-    className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-  >
-    Excluir
-  </button>
-)}
-                  </div>
-                ))}
-              </div>
-
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-slate-400 border-b border-slate-700">
-                    <tr>
-                      <th className="text-left py-3">Data</th>
-                      <th className="text-left py-3">Hora</th>
-                      <th className="text-left py-3">Local</th>
-                      <th className="text-left py-3">Viatura</th>
-                      <th className="text-left py-3">Guarda</th>
-                      <th className="text-left py-3">Status</th>
-                      <th className="text-right py-3">Ações</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {patrulhamentosFiltrados.map((item) => (
-                      <tr key={item.id} className="border-b border-slate-800">
-                        <td className="py-4 text-blue-400 font-semibold">
-                          {item.data}
-                        </td>
-
-                        <td>{item.hora}</td>
-
-                        <td className="text-slate-400">{item.local}</td>
-
-                        <td>{item.viatura || "-"}</td>
-
-                        <td>{item.guarda || "-"}</td>
-
-                        <td>
-  <StatusPatrulhamento status={item.status} />
-</td>
-
-                        <td className="text-right">
-  <div className="flex justify-end gap-2">
-
-    {podeEditar && item.status !== "FINALIZADO" && (
-      <button
-        type="button"
-        onClick={() => finalizarPatrulhamento(item.id)}
-        className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs"
-      >
-        Finalizar
-      </button>
-    )}
-
-   <Link
-  href={`/sistema/patrulhamento/${item.id}`}
-  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
->
-  Ver Rota
-</Link>
-
-    {podeEditar && (
-      <button
-        type="button"
-        onClick={() => excluirPatrulhamento(item.id)}
-        className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-      >
-        Excluir
-      </button>
-    )}
-
-  </div>
-</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
