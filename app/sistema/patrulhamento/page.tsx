@@ -283,7 +283,7 @@ if (!latitudeFinal || !longitudeFinal) {
   .insert([
 {
     municipio_id: usuarioLogado.municipio_id,
-    criado_por: usuarioLogado.id,
+    criado_por: usuarioLogado.auth_id || null,
     criado_em: new Date().toISOString(),
     data,
     hora,
@@ -339,7 +339,6 @@ await registrarAuditoria({
   try {
   await iniciarBackgroundRastreamento({
     municipio_id: usuarioLogado.municipio_id,
-    usuario_id: String(usuarioLogado.id),
     patrulhamento_id: novoPatrulhamento.id,
   });
 
@@ -602,7 +601,6 @@ useEffect(() => {
 
     await iniciarBackgroundRastreamento({
       municipio_id: usuarioLogado.municipio_id,
-      usuario_id: String(usuarioLogado.id),
       patrulhamento_id: patrulhamentoId,
     });
 

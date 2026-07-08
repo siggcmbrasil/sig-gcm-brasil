@@ -310,7 +310,7 @@ export default function NovoPatrulhamentoPage() {
       .insert([
         {
           municipio_id: usuarioLogado.municipio_id,
-          criado_por: usuarioLogado.id,
+          criado_por: usuarioLogado.auth_id || null,
           criado_em: new Date().toISOString(),
           data,
           hora,
@@ -343,7 +343,7 @@ export default function NovoPatrulhamentoPage() {
       registro_id: novoPatrulhamento.id,
       detalhes: {
         municipio_id: usuarioLogado.municipio_id,
-        usuario_id: usuarioLogado.id,
+        usuario_id: Number(usuarioLogado.id),
         viatura,
         equipe,
         latitude: latitudeFinal,
@@ -360,7 +360,6 @@ export default function NovoPatrulhamentoPage() {
       try {
         await iniciarBackgroundRastreamento({
           municipio_id: usuarioLogado.municipio_id,
-          usuario_id: String(usuarioLogado.id),
           patrulhamento_id: novoPatrulhamento.id,
         });
       } catch (error) {
@@ -397,7 +396,6 @@ export default function NovoPatrulhamentoPage() {
       tabela: "patrulhamentos",
       detalhes: {
         municipio_id: usuarioLogado.municipio_id,
-        usuario_id: usuarioLogado.id,
       },
     });
 
