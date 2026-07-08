@@ -1,7 +1,7 @@
 "use client";
 
+import Link from "next/link";
 import {
-  BookOpen,
   Bot,
   Brain,
   CreditCard,
@@ -9,63 +9,48 @@ import {
   FileText,
   Gavel,
   Search,
-  Scale,
   ShieldCheck,
-  Sparkles,
+  Scale,
 } from "lucide-react";
 
 import SIGIAChat from "@/components/sigia/SIGIAChat";
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
-import SigCentralCard from "@/components/sig/SigCentralCard";
 import SigCard from "@/components/sig/SigCard";
 
-const modulos = [
+const atalhos = [
   {
     titulo: "IA Operacional",
     href: "/sistema/ia",
-    descricao: "Apoio em ocorrências, patrulhamento e rotina de plantão.",
     icone: ShieldCheck,
   },
   {
     titulo: "IA Jurídica",
     href: "/sistema/ia-juridica",
-    descricao: "Consulta legislação, artigos e fundamentos jurídicos.",
     icone: Gavel,
   },
-{
-  titulo: "SIG Legislação",
-  href: "/sistema/legislacao",
-  descricao: "Biblioteca jurídica, questões, simulados, flashcards e IA jurídica.",
-  icone: Scale,
-},
   {
-    titulo: "Biblioteca Inteligente",
-    href: "/sistema/sigia/biblioteca",
-    descricao: "Consulta PDFs, POPs, manuais e materiais internos.",
-    icone: BookOpen,
+    titulo: "Legislação",
+    href: "/sistema/legislacao",
+    icone: Scale,
   },
   {
-    titulo: "Busca Inteligente",
+    titulo: "Busca",
     href: "/sistema/busca",
-    descricao: "Pesquisa unificada em ocorrências, pessoas, veículos e documentos.",
     icone: Search,
   },
   {
-    titulo: "Relatórios Inteligentes",
+    titulo: "Relatórios IA",
     href: "/sistema/sigia/relatorios",
-    descricao: "Geração de resumos e documentos operacionais com IA.",
     icone: FileText,
   },
   {
-    titulo: "Créditos IA",
+    titulo: "Créditos",
     href: "/sistema/ia-creditos",
-    descricao: "Controle de saldo e consumo das inteligências artificiais.",
     icone: CreditCard,
   },
   {
-    titulo: "Histórico IA",
+    titulo: "Auditoria",
     href: "/sistema/auditoria",
-    descricao: "Auditoria das consultas e interações realizadas com IA.",
     icone: FileClock,
   },
 ];
@@ -75,117 +60,57 @@ export default function SIGIAPage() {
     <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="SIGIA"
-        descricao="Central oficial de inteligência artificial do SIG-GCM Brasil."
-        icone={Bot}
+        descricao="Assistente inteligente do SIG-GCM Brasil."
+        icone={Brain}
       />
 
       <SigCard>
-        <div className="flex flex-col md:flex-row md:items-start gap-4">
-          <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center shrink-0">
-            <Brain className="w-9 h-9 text-cyan-400" />
+        <div className="mb-4 flex items-center gap-4">
+          <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-500/30 bg-cyan-500/10">
+            <Bot className="h-9 w-9 text-cyan-400" />
           </div>
 
-          <div className="flex-1">
-            <p className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-bold">
-              Inteligência Artificial
-            </p>
-
-            <h2 className="text-2xl md:text-3xl font-black text-white mt-1">
-              Central SIGIA
+          <div>
+            <h2 className="text-2xl font-black text-white">
+              Converse com a SIGIA
             </h2>
 
-            <p className="text-slate-400 mt-2 max-w-3xl leading-relaxed">
-              O SIGIA concentra todas as funções de inteligência artificial:
-              apoio operacional, jurídico, legislativo, busca inteligente,
-              biblioteca, relatórios, créditos e histórico de uso.
+            <p className="text-sm text-slate-400">
+              Use para apoio operacional, jurídico, relatórios e dúvidas do sistema.
             </p>
           </div>
         </div>
-      </SigCard>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Resumo titulo="Módulos IA" valor="8" icone={Sparkles} cor="cyan" />
-        <Resumo titulo="Operacional" valor="Ativo" icone={ShieldCheck} cor="green" />
-        <Resumo titulo="Jurídico" valor="Ativo" icone={Gavel} cor="yellow" />
-        <Resumo titulo="Auditoria" valor="Logs" icone={FileClock} cor="blue" />
-      </div>
-
-      <div>
-        <h2 className="text-xl font-black text-white mb-1">
-          Módulos Inteligentes
-        </h2>
-        <p className="text-slate-400 text-sm mb-4">
-          Acesse as ferramentas de IA disponíveis no SIG-GCM Brasil.
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-6">
-          {modulos.map((modulo) => (
-            <SigCentralCard
-              key={modulo.href}
-              titulo={modulo.titulo}
-              descricao={modulo.descricao}
-              href={modulo.href}
-              icone={modulo.icone}
-            />
-          ))}
-        </div>
-      </div>
-
-      <SigCard>
-        <div className="mb-4">
-          <p className="text-xs uppercase tracking-[0.25em] text-cyan-400 font-bold">
-            Assistente Central
-          </p>
-
-          <h2 className="text-2xl font-black text-white">
-            Chat SIGIA
-          </h2>
-
-          <p className="text-slate-400 text-sm mt-1">
-            Converse com a inteligência central do sistema para apoio rápido.
-          </p>
-        </div>
-
-        <div className="rounded-2xl border border-cyan-500/20 bg-slate-950/70 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-cyan-500/20 bg-slate-950/70">
           <SIGIAChat />
         </div>
       </SigCard>
+
+      <section>
+        <h2 className="mb-3 text-lg font-black text-white">
+          Atalhos rápidos
+        </h2>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+          {atalhos.map((atalho) => {
+            const Icone = atalho.icone;
+
+            return (
+              <Link
+                key={atalho.href}
+                href={atalho.href}
+                className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center transition hover:border-[#C9A227]/70 hover:bg-white/10"
+              >
+                <Icone className="mx-auto h-6 w-6 text-[#C9A227]" />
+
+                <p className="mt-2 text-sm font-bold text-white">
+                  {atalho.titulo}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      </section>
     </section>
-  );
-}
-
-function Resumo({
-  titulo,
-  valor,
-  icone: Icone,
-  cor,
-}: {
-  titulo: string;
-  valor: string;
-  icone: any;
-  cor: "cyan" | "green" | "yellow" | "blue";
-}) {
-  const cores = {
-    cyan: "text-cyan-400 border-cyan-500/30 bg-cyan-500/10",
-    green: "text-green-400 border-green-500/30 bg-green-500/10",
-    yellow: "text-yellow-400 border-yellow-500/30 bg-yellow-500/10",
-    blue: "text-blue-400 border-blue-500/30 bg-blue-500/10",
-  };
-
-  return (
-    <SigCard>
-      <div className="flex items-center gap-3">
-        <div
-          className={`w-12 h-12 rounded-2xl border flex items-center justify-center ${cores[cor]}`}
-        >
-          <Icone size={24} />
-        </div>
-
-        <div>
-          <p className="text-slate-400 text-sm">{titulo}</p>
-          <h3 className="text-xl font-black text-white">{valor}</h3>
-        </div>
-      </div>
-    </SigCard>
   );
 }

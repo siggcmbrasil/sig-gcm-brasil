@@ -1,6 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
@@ -13,46 +16,44 @@ type Usuario = {
   telefone: string | null;
   email: string | null;
   cpf: string | null;
+  cargo: string | null;
   perfil: string | null;
   status: string | null;
   observacao: string | null;
   municipio_id: number | null;
+  foto_url: string | null;
+  ultimo_login: string | null;
+  ultimo_ip: string | null;
+  ultimo_dispositivo: string | null;
+  ultimo_navegador: string | null;
+  tentativas_login: number | null;
 };
 
 export default function Usuarios() {
+  const router = useRouter();
+
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-const [busca, setBusca] = useState("");
+  const [municipios, setMunicipios] = useState<any[]>([]);
+  const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(true);
 
-const [cpf, setCpf] = useState("");
-const [municipioId, setMunicipioId] = useState("");
-const [municipios, setMunicipios] = useState<any[]>([]);
+  const usuarioLogado =
+    typeof window !== "undefined"
+      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
+      : {};
 
-const [nome, setNome] = useState("");
-const [matricula, setMatricula] = useState("");
-const [telefone, setTelefone] = useState("");
-const [cargo, setCargo] = useState("");
-const [email, setEmail] = useState("");
-const [senha, setSenha] = useState("");
-const [perfil, setPerfil] = useState("GUARDA");
-const [status, setStatus] = useState("Ativo");
-const [observacao, setObservacao] = useState("");
-const [editandoId, setEditandoId] = useState<number | null>(null);
+  async function carregarUsuarios() {
+    setCarregando(true);
 
-const [carregando, setCarregando] = useState(true);
+    let query = supabase.from("usuarios").select("*").order("id", {
+      ascending: false,
+    });
 
-const usuarioLogado =
-  typeof window !== "undefined"
-    ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-    : {};
+    if (usuarioLogado.perfil !== "DESENVOLVEDOR") {
+      query = query.eq("municipio_id", usuarioLogado.municipio_id);
+    }
 
-async function carregarUsuarios() {
-  setCarregando(true);
-
-  const { data, error } = await supabase
-  .from("usuarios")
-  .select("*")
-  .eq("municipio_id", usuarioLogado.municipio_id)
-  .order("id", { ascending: false });
+    const { data, error } = await query;
 
     if (error) {
       console.error(error);
@@ -62,182 +63,75 @@ async function carregarUsuarios() {
     }
 
     setUsuarios(data || []);
-const { data: municipiosData } = await supabase
-  .from("municipios")
-  .select("id, nome, estado")
-  .order("nome");
 
-setMunicipios(municipiosData || []);
+    const { data: municipiosData } = await supabase
+      .from("municipios")
+      .select("id, nome, estado")
+      .order("nome");
 
+    setMunicipios(municipiosData || []);
     setCarregando(false);
   }
 
-function editarUsuario(usuario: Usuario) {
-  setEditandoId(usuario.id);
+  useEffect(() => {
+    carregarUsuarios();
+  }, []);
 
-  setNome(usuario.nome || "");
-  setMatricula(usuario.matricula || "");
-  setTelefone(usuario.telefone || "");
-  setEmail(usuario.email || "");
-  setCpf(usuario.cpf || "");
-  setPerfil(usuario.perfil || "GUARDA");
-  setStatus(usuario.status || "Ativo");
-  setObservacao(usuario.observacao || "");
-  setMunicipioId(
-    usuario.municipio_id ? String(usuario.municipio_id) : ""
-  );
-}
+  async function alterarStatusUsuario(
+    usuario: Usuario,
+    novoStatus: "ATIVO" | "INATIVO" | "BLOQUEADO"
+  ) {
+    const confirmar = confirm(
+      `Deseja alterar o status de ${usuario.nome} para ${novoStatus}?`
+    );
 
-  async function salvarUsuario() {
-  if (!nome || !email || !perfil) {
-    alert("Preencha nome, email e perfil.");
-    return;
-  }
+    if (!confirmar) return;
 
-  if (!senha) {
-    alert("Informe uma senha.");
-    return;
-  }
-
-  if (editandoId) {
-    const { data: emailExistente } = await supabase
-      .from("usuarios")
-      .select("id")
-      .eq("email", email)
-      .neq("id", editandoId)
-      .maybeSingle();
-
-    if (emailExistente) {
-      alert("Já existe outro usuário cadastrado com este e-mail.");
-      return;
-    }
-
-    const { error } = await supabase
+    let query = supabase
       .from("usuarios")
       .update({
-        nome,
-        matricula,
-        telefone,
-        email,
-        cpf,
-        
-        perfil,
-        status,
-        observacao,
-        municipio_id: municipioId ? Number(municipioId) : null,
+        status: novoStatus,
+        aprovado_por: usuarioLogado.id,
+        aprovado_em: new Date().toISOString(),
+        tentativas_login: novoStatus === "ATIVO" ? 0 : usuario.tentativas_login,
       })
-      .eq("id", editandoId)
-      .eq("municipio_id", usuarioLogado.municipio_id);
+      .eq("id", usuario.id);
+
+    if (usuarioLogado.perfil !== "DESENVOLVEDOR") {
+      query = query.eq("municipio_id", usuarioLogado.municipio_id);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error(error);
-      alert(error.message);
+      alert("Erro ao alterar status do usuário.");
       return;
     }
 
     await registrarAuditoria({
-  modulo: "Usuários",
-  acao: "EDITAR",
-  descricao: `Atualizou o usuário ${nome}.`,
-});
-
-    alert("Usuário atualizado com sucesso!");
-
-    setEditandoId(null);
-    setNome("");
-    setMatricula("");
-    setTelefone("");
-    setCpf("");
-    setMunicipioId("");
-    setEmail("");
-    setSenha("");
-    setPerfil("GUARDA");
-    setStatus("Ativo");
-    setObservacao("");
+      modulo: "Usuários",
+      acao: "ALTERAR_STATUS",
+      descricao: `Alterou o status do usuário ${usuario.nome} para ${novoStatus}.`,
+    });
 
     carregarUsuarios();
-    return;
   }
-
-  const { data: emailExistente } = await supabase
-    .from("usuarios")
-    .select("id")
-    .eq("email", email)
-    .maybeSingle();
-
-  if (emailExistente) {
-    alert("Já existe usuário cadastrado com este e-mail.");
-    return;
-  }
-
-  const resposta = await fetch("/api/criar-usuario", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-  nome,
-  matricula,
-  telefone,
-  email,
-  cpf,
-  cargo,
-  senha,
-  perfil,
-  status,
-  observacao,
-  municipio_id: municipioId
-    ? Number(municipioId)
-    : null,
-
-  perfil_logado: usuarioLogado.perfil,
-  municipio_logado: usuarioLogado.municipio_id,
-}),
-});
-
-const resultado = await resposta.json();
-
-if (!resposta.ok) {
-  alert(resultado.error);
-  return;
-}
-
-await registrarAuditoria({
-  modulo: "Usuários",
-  acao: "CRIAR",
-  descricao: `Cadastrou o usuário ${nome}.`,
-});
-
-    alert("Usuário cadastrado com sucesso!");
-
-  setNome("");
-  setMatricula("");
-  setTelefone("");
-  setCpf("");
-  setMunicipioId("");
-  setEmail("");
-  setSenha("");
-  setPerfil("GUARDA");
-  setStatus("Ativo");
-  setObservacao("");
-
-  carregarUsuarios();
-}
 
   async function excluirUsuario(id: number) {
     const confirmar = confirm("Deseja excluir este usuário?");
 
     if (!confirmar) return;
 
-    const usuarioExcluido = usuarios.find(
-  (u) => u.id === id
-);
+    const usuarioExcluido = usuarios.find((u) => u.id === id);
 
-    const { error } = await supabase
-      .from("usuarios")
-      .delete()
-.eq("id", id)
-.eq("municipio_id", usuarioLogado.municipio_id);
+    let query = supabase.from("usuarios").delete().eq("id", id);
+
+    if (usuarioLogado.perfil !== "DESENVOLVEDOR") {
+      query = query.eq("municipio_id", usuarioLogado.municipio_id);
+    }
+
+    const { error } = await query;
 
     if (error) {
       console.error(error);
@@ -246,26 +140,21 @@ await registrarAuditoria({
     }
 
     await registrarAuditoria({
-  modulo: "Usuários",
-  acao: "EXCLUIR",
-  descricao: `Excluiu o usuário ${
-    usuarioExcluido?.nome || `ID ${id}`
-  }.`,
-});
+      modulo: "Usuários",
+      acao: "EXCLUIR",
+      descricao: `Excluiu o usuário ${usuarioExcluido?.nome || `ID ${id}`}.`,
+    });
 
     carregarUsuarios();
   }
 
-  useEffect(() => {
-    carregarUsuarios();
-  }, []);
-
   const usuariosFiltrados = usuarios.filter((usuario) => {
     const texto = `
-      ${usuario.nome}
+      ${usuario.nome || ""}
       ${usuario.matricula || ""}
       ${usuario.telefone || ""}
       ${usuario.email || ""}
+      ${usuario.cpf || ""}
       ${usuario.perfil || ""}
       ${usuario.status || ""}
       ${usuario.observacao || ""}
@@ -275,214 +164,71 @@ await registrarAuditoria({
   });
 
   return (
-  <ProtecaoModulo modulo="usuarios">
-    <div className="p-3 md:p-6 pb-24">
-      <header className="mb-6">
-  <div className="border-b border-slate-800 pb-5">
-    <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-      Usuários
-    </h1>
+    <ProtecaoModulo modulo="usuarios">
+      <div className="p-3 md:p-6 pb-24">
+        <header className="mb-6">
+          <div className="border-b border-slate-800 pb-5">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+              Usuários
+            </h1>
 
-    <p className="text-slate-400 text-base md:text-lg mt-1">
-      Gestão de acessos, perfis e permissões do sistema.
-    </p>
-  </div>
-</header>
+            <p className="text-slate-400 text-base md:text-lg mt-1">
+              Gestão de acessos, perfis, segurança e permissões do sistema.
+            </p>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-
-  <CardIndicador
-    titulo="Usuários"
-    valor={usuarios.length}
-    icone="👮"
-    cor="blue"
-  />
-
-  <CardIndicador
-    titulo="Ativos"
-    valor={usuarios.filter((u) => u.status === "Ativo").length}
-    icone="✅"
-    cor="green"
-  />
-
-  <CardIndicador
-    titulo="Admins"
-    valor={usuarios.filter((u) => u.perfil === "ADMIN").length}
-    icone="🛡️"
-    cor="purple"
-  />
-
-  <CardIndicador
-    titulo="Inativos"
-    valor={usuarios.filter((u) => u.status !== "Ativo").length}
-    icone="⛔"
-    cor="red"
-  />
-
-</section>
-
-      <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        <div className="card">
-          <h2 className="text-xl md:text-2xl font-bold mb-4">
-            Novo Usuário
-          </h2>
-
-          <div className="space-y-4">
-            <Campo
-              label="Nome completo"
-              valor={nome}
-              setValor={setNome}
-              placeholder="Nome do usuário"
-            />
-
-            <Campo
-              label="Matrícula"
-              valor={matricula}
-              setValor={setMatricula}
-              placeholder="Ex: GCM-001"
-            />
-
-            <div>
-  <label className="label">Telefone</label>
-
-  <input
-    className="input"
-    value={telefone}
-    placeholder="(75) 99999-9999"
-    onChange={(e) => {
-      let valor = e.target.value.replace(/\D/g, "");
-
-      valor = valor
-        .replace(/^(\d{2})(\d)/g, "($1) $2")
-        .replace(/(\d)(\d{4})$/, "$1-$2");
-
-      setTelefone(valor);
-    }}
-  />
-</div>
-
-            <div>
-  <label className="label">CPF</label>
-
-  <input
-    className="input"
-    value={cpf}
-    placeholder="000.000.000-00"
-    onChange={(e) => {
-      let valor = e.target.value.replace(/\D/g, "");
-
-      valor = valor
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d)/, "$1.$2")
-        .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-
-      setCpf(valor);
-    }}
-  />
-</div>
-
-          <div>
-  <label className="label">Município</label>
-
-            <select
-              className="input"
-              value={municipioId}
-              onChange={(e) => setMunicipioId(e.target.value)}
+            <div className="flex flex-wrap gap-3 mt-4">
+              <Link
+                href="/sistema/usuarios/novo"
+                className="inline-flex items-center justify-center rounded-xl bg-green-700 px-4 py-3 text-sm font-bold text-white hover:bg-green-600"
               >
-    <option value="">Selecione</option>
+                ➕ Novo Usuário
+              </Link>
 
-    {municipios.map((m) => (
-      <option key={m.id} value={m.id}>
-        {m.nome} - {m.estado}
-      </option>
-    ))}
-  </select>
-</div>
-
-            <Campo
-              label="Cargo/Função"
-              valor={cargo}
-              setValor={setCargo}
-              placeholder="Ex: Guarda Municipal"
-            />
-
-            <Campo
-              label="Email de acesso"
-              valor={email}
-              setValor={setEmail}
-              placeholder="usuario@email.com"
-            />
-
-<Campo
-  label="Senha Inicial"
-  valor={senha}
-  setValor={setSenha}
-  placeholder="Digite a senha"
-/>
-
-            <div>
-              <label className="label">Perfil</label>
-              <select
-                className="input"
-                value={perfil}
-                onChange={(e) => setPerfil(e.target.value)}
+              <Link
+                href="/sistema/usuarios/convites"
+                className="inline-flex items-center justify-center rounded-xl bg-cyan-700 px-4 py-3 text-sm font-bold text-white hover:bg-cyan-600"
               >
-                <option>ADMIN</option>
-<option>COMANDANTE</option>
-<option>DIRETOR</option>
-<option>CMT_GUARNICAO</option>
-<option>PLANTONISTA</option>
-<option>CONSULTA</option>
-              </select>
-            </div>
+                🔗 Convites por Link
+              </Link>
 
-            <div>
-              <label className="label">Status</label>
-              <select
-                className="input"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
+              <Link
+                href="/sistema/usuarios/recuperacao-senha"
+                className="inline-flex items-center justify-center rounded-xl bg-yellow-700 px-4 py-3 text-sm font-bold text-white hover:bg-yellow-600"
               >
-                <option>Ativo</option>
-                <option>Inativo</option>
-                <option>Bloqueado</option>
-              </select>
+                🔐 Recuperação de Senha
+              </Link>
             </div>
-
-            <div>
-              <label className="label">Observação</label>
-              <textarea
-                className="input h-28 resize-none"
-                value={observacao}
-                onChange={(e) => setObservacao(e.target.value)}
-                placeholder="Observações sobre o usuário..."
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={salvarUsuario}
-              className="btn-primary w-full text-lg"
-            >
-{editandoId ? "Atualizar Usuário" : "Salvar Usuário"}            </button>
           </div>
-        </div>
+        </header>
 
-        <div className="card xl:col-span-2">
+        <section className="grid grid-cols-2 md:grid-cols-5 xl:grid-cols-10 gap-3 mb-6">
+          <CardIndicador titulo="Total" valor={usuarios.length} icone="👮" cor="blue" />
+          <CardIndicador titulo="Ativos" valor={usuarios.filter((u) => u.status === "ATIVO").length} icone="🟢" cor="green" />
+          <CardIndicador titulo="Pendentes" valor={usuarios.filter((u) => u.status === "PENDENTE").length} icone="🟡" cor="yellow" />
+          <CardIndicador titulo="Bloqueados" valor={usuarios.filter((u) => u.status === "BLOQUEADO").length} icone="🔴" cor="red" />
+          <CardIndicador titulo="Inativos" valor={usuarios.filter((u) => u.status === "INATIVO").length} icone="⚫" cor="purple" />
+          <CardIndicador titulo="Admins" valor={usuarios.filter((u) => u.perfil === "ADMIN").length} icone="🛡️" cor="purple" />
+          <CardIndicador titulo="Comandantes" valor={usuarios.filter((u) => u.perfil === "COMANDANTE").length} icone="⭐" cor="blue" />
+          <CardIndicador titulo="Guardas" valor={usuarios.filter((u) => u.perfil === "GUARDA").length} icone="👮" cor="green" />
+          <CardIndicador titulo="Consulta" valor={usuarios.filter((u) => u.perfil === "CONSULTA").length} icone="📄" cor="blue" />
+          <CardIndicador titulo="Bloq. Login" valor={usuarios.filter((u) => (u.tentativas_login || 0) >= 5).length} icone="🔒" cor="red" />
+        </section>
+
+        <section className="card">
           <h2 className="text-xl md:text-2xl font-bold mb-4">
             Usuários Cadastrados
           </h2>
 
           <div className="mb-5 bg-slate-950/30 border border-slate-800 rounded-2xl p-4">
-  <label className="label">🔍 Buscar usuário</label>
+            <label className="label">🔍 Buscar usuário</label>
 
-  <input
-    className="input"
-    placeholder="Nome, email, matrícula ou perfil..."
-    value={busca}
-    onChange={(e) => setBusca(e.target.value)}
-  />
-</div>
+            <input
+              className="input"
+              placeholder="Nome, CPF, email, matrícula, perfil ou status..."
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
           {carregando ? (
             <p className="text-slate-400">Carregando usuários...</p>
@@ -502,9 +248,7 @@ await registrarAuditoria({
                           {usuario.matricula || "Sem matrícula"}
                         </p>
 
-                        <h3 className="text-xl font-bold">
-                          {usuario.nome}
-                        </h3>
+                        <h3 className="text-xl font-bold">{usuario.nome}</h3>
                       </div>
 
                       <Status status={usuario.status || "-"} />
@@ -513,20 +257,60 @@ await registrarAuditoria({
                     <Linha nome="Email" valor={usuario.email || "-"} />
                     <Linha nome="Telefone" valor={usuario.telefone || "-"} />
                     <Linha nome="Perfil" valor={usuario.perfil || "-"} />
+                    <Linha
+                      nome="Último login"
+                      valor={
+                        usuario.ultimo_login
+                          ? new Date(usuario.ultimo_login).toLocaleString("pt-BR")
+                          : "-"
+                      }
+                    />
 
-                    {usuario.observacao && (
-                      <p className="text-slate-400">
-                        {usuario.observacao}
-                      </p>
-                    )}
+                    <div className="grid grid-cols-2 gap-2 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => router.push(`/sistema/usuarios/${usuario.id}`)}
+                        className="bg-cyan-700 hover:bg-cyan-800 text-white px-4 py-3 rounded-xl font-semibold"
+                      >
+                        Ver
+                      </button>
 
-                    <button
-                      type="button"
-                      onClick={() => excluirUsuario(usuario.id)}
-                      className="w-full bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Excluir
-                    </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          router.push(`/sistema/usuarios/${usuario.id}/editar`)
+                        }
+                        className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-3 rounded-xl font-semibold"
+                      >
+                        Editar
+                      </button>
+
+                      {usuario.status === "BLOQUEADO" ? (
+                        <button
+                          type="button"
+                          onClick={() => alterarStatusUsuario(usuario, "ATIVO")}
+                          className="bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold"
+                        >
+                          Desbloquear
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => alterarStatusUsuario(usuario, "BLOQUEADO")}
+                          className="bg-yellow-700 hover:bg-yellow-800 text-white px-4 py-3 rounded-xl font-semibold"
+                        >
+                          Bloquear
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => excluirUsuario(usuario.id)}
+                        className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
+                      >
+                        Excluir
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -535,13 +319,15 @@ await registrarAuditoria({
                 <table className="w-full text-sm">
                   <thead className="text-slate-400 border-b border-slate-700">
                     <tr>
-                      <th className="text-left py-3">Nome</th>
+                      <th className="text-left py-3">Usuário</th>
                       <th className="text-left py-3">Matrícula</th>
                       <th className="text-left py-3">CPF</th>
                       <th className="text-left py-3">Município</th>
                       <th className="text-left py-3">Email</th>
                       <th className="text-left py-3">Perfil</th>
                       <th className="text-left py-3">Status</th>
+                      <th className="text-left py-3">Último Login</th>
+                      <th className="text-left py-3">Tentativas</th>
                       <th className="text-right py-3">Ações</th>
                     </tr>
                   </thead>
@@ -549,41 +335,128 @@ await registrarAuditoria({
                   <tbody>
                     {usuariosFiltrados.map((usuario) => (
                       <tr key={usuario.id} className="border-b border-slate-800">
-                        <td className="py-4 text-blue-400 font-semibold">
-                          {usuario.nome}
+                        <td className="py-4">
+                          <div className="flex items-center gap-3">
+                            {usuario.foto_url ? (
+                              <img
+                                src={usuario.foto_url}
+                                alt={usuario.nome}
+                                className="w-10 h-10 rounded-full object-cover border border-slate-700"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-xs font-black text-slate-400">
+                                {usuario.nome?.charAt(0) || "U"}
+                              </div>
+                            )}
+
+                            <span className="text-blue-400 font-semibold">
+                              {usuario.nome}
+                            </span>
+                          </div>
                         </td>
+
                         <td>{usuario.matricula || "-"}</td>
-<td>{usuario.cpf || "-"}</td>
+                        <td>{usuario.cpf || "-"}</td>
 
-<td>
-  {municipios.find(
-    (m) => m.id === usuario.municipio_id
-  )?.nome || "-"}
-</td>
-
-                        <td className="text-slate-400">
-                          {usuario.email || "-"}
+                        <td>
+                          {municipios.find((m) => m.id === usuario.municipio_id)
+                            ?.nome || "-"}
                         </td>
+
+                        <td className="text-slate-400">{usuario.email || "-"}</td>
                         <td>{usuario.perfil || "-"}</td>
+
                         <td>
                           <Status status={usuario.status || "-"} />
                         </td>
+
+                        <td className="text-xs text-slate-300">
+                          {usuario.ultimo_login
+                            ? new Date(usuario.ultimo_login).toLocaleString("pt-BR")
+                            : "-"}
+                        </td>
+
+                        <td>
+                          {(usuario.tentativas_login || 0) >= 5 ? (
+                            <span className="bg-red-700 text-red-100 px-2 py-1 rounded">
+                              🔒 {usuario.tentativas_login}
+                            </span>
+                          ) : (
+                            <span>{usuario.tentativas_login || 0}</span>
+                          )}
+                        </td>
+
                         <td className="text-right">
-                          
-                          <button
-  type="button"
-  onClick={() => editarUsuario(usuario)}
-  className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
->
-  Editar
-</button>
-                          <button
-                            type="button"
-                            onClick={() => excluirUsuario(usuario.id)}
-                            className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Excluir
-                          </button>
+                          <div className="flex flex-wrap justify-end gap-2">
+                            {usuario.status === "PENDENTE" && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    alterarStatusUsuario(usuario, "ATIVO")
+                                  }
+                                  className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs"
+                                >
+                                  Aprovar
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    alterarStatusUsuario(usuario, "BLOQUEADO")
+                                  }
+                                  className="bg-yellow-700 hover:bg-yellow-800 text-white px-3 py-2 rounded-lg text-xs"
+                                >
+                                  Rejeitar
+                                </button>
+                              </>
+                            )}
+
+                            <Link
+                              href={`/sistema/usuarios/${usuario.id}`}
+                              className="bg-cyan-700 hover:bg-cyan-800 text-white px-3 py-2 rounded-lg text-xs"
+                            >
+                              Ver
+                            </Link>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                router.push(`/sistema/usuarios/${usuario.id}/editar`)
+                              }
+                              className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
+                            >
+                              Editar
+                            </button>
+
+                            {usuario.status === "BLOQUEADO" ? (
+                              <button
+                                type="button"
+                                onClick={() => alterarStatusUsuario(usuario, "ATIVO")}
+                                className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs"
+                              >
+                                Desbloquear
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  alterarStatusUsuario(usuario, "BLOQUEADO")
+                                }
+                                className="bg-yellow-700 hover:bg-yellow-800 text-white px-3 py-2 rounded-lg text-xs"
+                              >
+                                Bloquear
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => excluirUsuario(usuario.id)}
+                              className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
+                            >
+                              Excluir
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -592,38 +465,11 @@ await registrarAuditoria({
               </div>
             </>
           )}
-        </div>
-      </section>
-        </div>
+        </section>
+      </div>
     </ProtecaoModulo>
-);
-}
-
-function Campo({
-  label,
-  valor,
-  setValor,
-  placeholder,
-}: {
-  label: string;
-  valor: string;
-  setValor: (valor: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <div>
-      <label className="label">{label}</label>
-
-      <input
-        className="input"
-        placeholder={placeholder}
-        value={valor}
-        onChange={(e) => setValor(e.target.value)}
-      />
-    </div>
   );
 }
-
 
 function Linha({ nome, valor }: { nome: string; valor: string }) {
   return (
@@ -637,9 +483,10 @@ function Linha({ nome, valor }: { nome: string; valor: string }) {
 function Status({ status }: { status: string }) {
   let cor = "bg-slate-700 text-slate-100";
 
-  if (status === "Ativo") cor = "bg-green-700 text-green-100";
-  if (status === "Inativo") cor = "bg-yellow-600 text-yellow-100";
-  if (status === "Bloqueado") cor = "bg-red-700 text-red-100";
+  if (status === "ATIVO") cor = "bg-green-700 text-green-100";
+  if (status === "PENDENTE") cor = "bg-yellow-600 text-yellow-100";
+  if (status === "INATIVO") cor = "bg-slate-700 text-slate-100";
+  if (status === "BLOQUEADO") cor = "bg-red-700 text-red-100";
 
   return (
     <span className={`${cor} px-3 py-2 rounded text-xs inline-block`}>

@@ -30,12 +30,6 @@ const cards = [
     descricao: "Registro rápido de ocorrência para uso em campo.",
     icone: Zap,
   },
-  {
-    titulo: "Estatísticas",
-    href: "/sistema/estatisticas",
-    descricao: "Indicadores e gráficos das ocorrências.",
-    icone: BarChart3,
-  },
 ];
 
 export default function CentralOcorrenciasPage() {

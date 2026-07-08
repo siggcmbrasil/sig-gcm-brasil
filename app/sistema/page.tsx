@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
 import dynamic from "next/dynamic";
 import TelaMobile from "@/components/TelaMobile";
+import CardNoticiasClima from "@/components/dashboard/CardNoticiasClima";
 
 import {
   Shield,
@@ -626,10 +627,11 @@ setMostrarPerfil={setMostrarPerfil}
 
     </section>
 
-<section className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+<section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
   <Link
     href="/sistema/consultas"
     className="
+      xl:col-span-4
       painel-premium
       p-5
       flex items-center gap-4
@@ -639,13 +641,15 @@ setMostrarPerfil={setMostrarPerfil}
       hover:scale-[1.01]
     "
   >
-    <div className="
-      w-16 h-16
-      rounded-2xl
-      bg-yellow-500/15
-      border border-yellow-500/30
-      flex items-center justify-center
-    ">
+    <div
+      className="
+        w-16 h-16
+        rounded-2xl
+        bg-yellow-500/15
+        border border-yellow-500/30
+        flex items-center justify-center
+      "
+    >
       <Search className="w-8 h-8 text-yellow-400" />
     </div>
 
@@ -659,14 +663,18 @@ setMostrarPerfil={setMostrarPerfil}
       </p>
     </div>
   </Link>
+
+  <div className="xl:col-span-8">
+    <CardNoticiasClima />
+  </div>
 </section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
-  <div className="xl:col-span-8">
+  <div className="xl:col-span-7">
     <PainelMapa ocorrencias={ocorrencias} />
   </div>
 
-  <div className="xl:col-span-4 flex flex-col justify-between gap-3">
+  <div className="xl:col-span-5 grid grid-cols-1 gap-3">
     <PainelGuarnicao
       guarnicao={guarnicaoPlantaoHoje}
       comandante={comandantePlantao?.nome || "Não informado"}

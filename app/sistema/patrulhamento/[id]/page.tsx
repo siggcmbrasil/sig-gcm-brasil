@@ -233,7 +233,7 @@ export default function RotaPatrulhamentoPage() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-4 gap-4">
           <div className="card xl:col-span-1 space-y-3">
-            <h2 className="text-xl font-bold">Dados da Ronda</h2>
+            <h2 className="text-xl font-bold">Dados do Patrulhamento</h2>
 
             <p>
               <span className="text-slate-500">Data: </span>

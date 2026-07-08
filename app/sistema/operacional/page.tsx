@@ -14,10 +14,16 @@ import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const cards = [
   {
-    titulo: "Central de Patrulhamentos",
+    titulo: "Central de Patrulhamento",
     icone: CarFront,
-    href: "/sistema/central-patrulhamento",
-    descricao: "Controle de rondas, equipes e áreas patrulhadas.",
+    href: "/sistema/patrulhamento",
+    descricao: "Patrulhamentos, GPS, rotas, histórico e rastreamento.",
+  },
+  {
+    titulo: "Visitas Preventivas",
+    icone: Handshake,
+    href: "/sistema/patrulhamento/visitas",
+    descricao: "Pontos visitados, QR Code, check-in e visitas comunitárias.",
   },
   {
     titulo: "Consultas Operacionais",
@@ -26,46 +32,17 @@ const cards = [
     descricao: "Consulta de pessoas, veículos e informações operacionais.",
   },
   {
-    titulo: "Central de Pessoas",
+    titulo: "Central de Abordagens",
     icone: Users,
-    href: "/sistema/central-pessoas",
-    descricao: "Cadastro e histórico de pessoas abordadas.",
+    href: "/sistema/abordagens",
+    descricao: "Pessoas, veículos, consultas e histórico de abordagens.",
   },
   {
-    titulo: "Central de Veículos",
-    icone: CarFront,
-    href: "/sistema/central-veiculos",
-    descricao: "Cadastro e histórico de veículos abordados.",
-  },
-  {
-    titulo: "Central de Blitze e Barreiras",
+    titulo: "Operações Integradas",
     icone: Shield,
-    href: "/sistema/central-blitzes",
-    descricao: "Registro de barreiras, abordagens e fiscalizações.",
-  },
-  {
-    titulo: "Central de Operações Especiais",
-    icone: Shield,
-    href: "/sistema/central-operacoes",
-    descricao: "Controle de operações planejadas e missões especiais.",
-  },
-  {
-    titulo: "Central de Visitas Preventivas",
-    icone: Handshake,
-    href: "/sistema/central-visitas",
-    descricao: "Ações preventivas, Guarda na Escola e visitas comunitárias.",
-  },
-  {
-    titulo: "Central de Escoltas",
-    icone: CarFront,
-    href: "/sistema/central-escoltas",
-    descricao: "Controle de escoltas e deslocamentos oficiais.",
-  },
-  {
-    titulo: "Central de Apoios",
-    icone: PhoneCall,
-    href: "/sistema/central-apoios",
-    descricao: "Registro de apoios a órgãos, secretarias e instituições.",
+    href: "/sistema/operacoes",
+    descricao:
+      "Blitze, barreiras, operações especiais, escoltas e apoios em uma única central.",
   },
 ];
 
@@ -96,7 +73,7 @@ const cardsFiltrados = cards.filter((card) => {
     <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Centro Operacional"
-        descricao="Execução operacional, patrulhamento, ocorrências, rondas e apoios."
+        descricao="Execução operacional, patrulhamento, visitas preventivas, consultas, apoios e operações."
         icone={Shield}
       />
 

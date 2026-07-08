@@ -305,7 +305,19 @@ cep_proprietario: "",
   .order("nome");
 
   if (error) {
-    console.error(error);
+    console.error("ERRO COMPLETO AO SALVAR NOVA OCORRÊNCIA:", {
+  message: error.message,
+  details: error.details,
+  hint: error.hint,
+  code: error.code,
+  error,
+});
+
+alert(
+  `Erro ao salvar ocorrência.\n\nCódigo: ${error.code || "sem código"}\nMensagem: ${
+    error.message || "sem mensagem"
+  }\nDetalhes: ${error.details || "sem detalhes"}`
+);
     return;
   }
 
@@ -521,8 +533,8 @@ const { data: ocorrenciaCriada, error } = await supabase
       local_id: localId ? Number(localId) : null,
       numero,
       envolvidos: JSON.stringify(envolvidosValidos),
-      veiculos_envolvidos: JSON.stringify(veiculosEnvolvidos),
-      armas_objetos: JSON.stringify(itensOcorrencia),
+      veiculos_envolvidos: veiculosEnvolvidos,
+      armas_objetos: itensOcorrencia,
       descricao: descricao.trim(),
       foto_url: fotosUrls[0] || "",
       fotos_urls: JSON.stringify(fotosUrls),
@@ -536,7 +548,18 @@ const { data: ocorrenciaCriada, error } = await supabase
     setSalvando(false);
 
 if (error) {
-  console.error(error);
+  console.error(
+  "ERRO AO INSERIR OCORRÊNCIA:",
+  error,
+  JSON.stringify(error, null, 2)
+);
+
+alert(`
+Código: ${error?.code}
+Mensagem: ${error?.message}
+Detalhes: ${error?.details}
+Hint: ${error?.hint}
+`);
 
   await registrarAuditoria({
     modulo: "Ocorrências",
@@ -763,7 +786,7 @@ const { error: erroInserirPessoa } = await supabase
   .from("pessoas_abordadas")
   .insert({
     municipio_id: municipioId,
-    criado_por: usuarioAtual.id,
+    usuario_id: Number(usuarioAtual.id),
     criado_em: new Date().toISOString(),
     atualizado_em: new Date().toISOString(),
     nome: pessoa.nome,

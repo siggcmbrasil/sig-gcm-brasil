@@ -68,6 +68,13 @@ export default function SobrePage() {
         </div>
       </SigCard>
 
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+  <MiniInfo titulo="Módulos" valor="30+" />
+  <MiniInfo titulo="Centrais" valor="12" />
+  <MiniInfo titulo="IA" valor="SIGIA" />
+  <MiniInfo titulo="Versão" valor="1.0" />
+</div>
+
       <div className="grid md:grid-cols-3 gap-4">
         <Valor
           titulo="Missão"
@@ -187,6 +194,41 @@ export default function SobrePage() {
       </SigCard>
 
       <SigCard>
+  <h2 className="text-2xl font-black text-white mb-4">
+    Roadmap Oficial
+  </h2>
+
+  <div className="space-y-3">
+    <p className="text-slate-300">
+      ✅ Fase 1 - Gestão Operacional e Administrativa
+    </p>
+
+    <p className="text-slate-300">
+      🚧 Fase 2 - Inteligência Operacional e Georreferenciamento
+    </p>
+
+    <p className="text-slate-300">
+      🚀 Fase 3 - Ecossistema SIG-GCM Brasil
+    </p>
+  </div>
+</SigCard>
+
+<SigCard>
+  <h2 className="text-2xl font-black text-white mb-4">
+    Tecnologias Utilizadas
+  </h2>
+
+  <div className="grid md:grid-cols-3 gap-3">
+    <SigInfo titulo="Frontend" valor="Next.js + React" />
+    <SigInfo titulo="Banco de Dados" valor="Supabase" />
+    <SigInfo titulo="Aplicativo" valor="Capacitor Android" />
+    <SigInfo titulo="Mapas" valor="Leaflet + OpenStreetMap" />
+    <SigInfo titulo="IA" valor="Gemini + SIGIA" />
+    <SigInfo titulo="Hospedagem" valor="Vercel" />
+  </div>
+</SigCard>
+
+      <SigCard>
         <h2 className="text-2xl font-black text-white mb-4">
           Suporte e contato
         </h2>
@@ -197,6 +239,15 @@ export default function SobrePage() {
           <Contato icone={Globe} titulo="Site" valor="siggcmbrasil.com" />
         </div>
       </SigCard>
+
+      <div className="text-center">
+  <div className="inline-flex items-center gap-2 rounded-full bg-green-500/10 border border-green-500/30 px-4 py-2">
+    <ShieldCheck className="w-5 h-5 text-green-400" />
+    <span className="text-green-300 font-bold">
+      Sistema Oficial SIG-GCM Brasil
+    </span>
+  </div>
+</div>
 
       <div className="painel-premium p-6 text-center">
         <p className="font-black text-white text-lg">

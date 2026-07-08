@@ -33,21 +33,9 @@ const cards = [
   },
   {
     titulo: "Efetivo",
-    href: "/sistema/guarnicoes",
+    href: "/sistema/",
     descricao: "Guarnições e equipes envolvidas na operação.",
     icone: Users,
-  },
-  {
-    titulo: "Relatórios",
-    href: "/sistema/relatorios",
-    descricao: "Relatórios das operações realizadas.",
-    icone: FileText,
-  },
-  {
-    titulo: "Estatísticas",
-    href: "/sistema/estatisticas",
-    descricao: "Indicadores das operações especiais.",
-    icone: BarChart3,
   },
 ];
 

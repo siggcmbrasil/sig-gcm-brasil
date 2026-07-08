@@ -58,7 +58,7 @@ tipo_combustivel
 
       if (erroViaturas) throw erroViaturas;
 
-      let query = supabase
+  let query = supabase
   .from("abastecimentos")
   .select("*, viaturas(prefixo, placa)")
   .eq("municipio_id", usuario.municipio_id)

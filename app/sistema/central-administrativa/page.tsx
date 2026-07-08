@@ -48,7 +48,7 @@ const cards = [
       {
         titulo: "Planos e Assinaturas",
         icone: CreditCard,
-        href: "/sistema/planos",
+        href: "/sistema/planos-assinaturas",
         descricao:
           "Controlar planos, vencimentos, limites e situação dos municípios.",
       },

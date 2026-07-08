@@ -49,7 +49,7 @@ if (foto.size > 5 * 1024 * 1024) {
 const nomeArquivo = `${usuario.municipio_id}/${usuario.id}-${Date.now()}-${nomeSeguro}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("fotos-guardas")
+      .from("usuarios-fotos")
       .upload(nomeArquivo, foto);
 
     if (uploadError) {
@@ -60,7 +60,7 @@ const nomeArquivo = `${usuario.municipio_id}/${usuario.id}-${Date.now()}-${nomeS
     }
 
     const { data } = supabase.storage
-      .from("fotos-guardas")
+      .from("usuarios-fotos")
       .getPublicUrl(nomeArquivo);
 
     const novaFotoUrl = data.publicUrl;

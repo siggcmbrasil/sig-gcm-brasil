@@ -607,20 +607,117 @@ if (!usuarioLogado?.municipio_id) {
                 onChange={(e) => setTipo(e.target.value)}
               >
                 <option value="">Selecione</option>
-                <option value="Apoio ao SAMU">Apoio ao SAMU</option>
-                <option value="Perturbação do sossego">Perturbação do sossego</option>
-                <option value="Apoio ao cidadão">Apoio ao cidadão</option>
-                <option value="Fiscalização">Fiscalização</option>
-                <option value="Ronda preventiva">Ronda preventiva</option>
-                <option value="Acidente">Acidente</option>
-                <option value="Conselho Tutelar">Conselho Tutelar</option>
-                <option value="CAPS">CAPS</option>
-                <option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
-                <option value="Apoio em evento cultural">Apoio em evento cultural</option>
-                <option value="Apoio em evento religioso">Apoio em evento religioso</option>
-                <option value="Apoio à saúde">Apoio à saúde</option>
-                <option value="Averiguação de denúncia">Averiguação de denúncia</option>
-                <option value="Outro">Outro</option>
+
+{/* Apoios */}
+<option value="Apoio ao SAMU">Apoio ao SAMU</option>
+<option value="Apoio à Polícia Militar">Apoio à Polícia Militar</option>
+<option value="Apoio à Polícia Civil">Apoio à Polícia Civil</option>
+<option value="Apoio ao Corpo de Bombeiros">Apoio ao Corpo de Bombeiros</option>
+<option value="Apoio ao Conselho Tutelar">Apoio ao Conselho Tutelar</option>
+<option value="Apoio ao cidadão">Apoio ao cidadão</option>
+<option value="Apoio à saúde">Apoio à saúde</option>
+<option value="Apoio à Secretaria de Educação">Apoio à Secretaria de Educação</option>
+<option value="Apoio à Assistência Social">Apoio à Assistência Social</option>
+<option value="Apoio ao CRAS">Apoio ao CRAS</option>
+<option value="Apoio ao CREAS">Apoio ao CREAS</option>
+<option value="Apoio ao CAPS">Apoio ao CAPS</option>
+<option value="Apoio ao Ministério Público">Apoio ao Ministério Público</option>
+<option value="Apoio ao Poder Judiciário">Apoio ao Poder Judiciário</option>
+
+{/* Patrulhamento */}
+<option value="Patrulhamento preventivo">Patrulhamento preventivo</option>
+<option value="Patrulhamento escolar">Patrulhamento escolar</option>
+<option value="Patrulhamento comercial">Patrulhamento comercial</option>
+<option value="Patrulhamento rural">Patrulhamento rural</option>
+<option value="Patrulhamento em praças">Patrulhamento em praças</option>
+<option value="Patrulhamento em prédios públicos">Patrulhamento em prédios públicos</option>
+<option value="Ronda preventiva">Ronda preventiva</option>
+<option value="Ponto base">Ponto base</option>
+
+{/* Fiscalizações */}
+<option value="Fiscalização">Fiscalização</option>
+<option value="Fiscalização de trânsito">Fiscalização de trânsito</option>
+<option value="Fiscalização ambiental">Fiscalização ambiental</option>
+<option value="Fiscalização de comércio">Fiscalização de comércio</option>
+<option value="Fiscalização de ambulantes">Fiscalização de ambulantes</option>
+<option value="Fiscalização de obras">Fiscalização de obras</option>
+<option value="Fiscalização de feira livre">Fiscalização de feira livre</option>
+<option value="Fiscalização de evento">Fiscalização de evento</option>
+
+{/* Ocorrências gerais */}
+<option value="Perturbação do sossego">Perturbação do sossego</option>
+<option value="Averiguação de denúncia">Averiguação de denúncia</option>
+<option value="Averiguação de atitude suspeita">Averiguação de atitude suspeita</option>
+<option value="Pessoa em atitude suspeita">Pessoa em atitude suspeita</option>
+<option value="Veículo em atitude suspeita">Veículo em atitude suspeita</option>
+<option value="Pessoa desaparecida">Pessoa desaparecida</option>
+<option value="Pessoa perdida">Pessoa perdida</option>
+<option value="Pessoa em situação de rua">Pessoa em situação de rua</option>
+<option value="Desordem">Desordem</option>
+<option value="Briga">Briga</option>
+<option value="Vias de fato">Vias de fato</option>
+<option value="Ameaça">Ameaça</option>
+<option value="Violência doméstica">Violência doméstica</option>
+<option value="Maus-tratos">Maus-tratos</option>
+<option value="Abandono de incapaz">Abandono de incapaz</option>
+<option value="Apoio a mulher vítima de violência">Apoio a mulher vítima de violência</option>
+
+{/* Trânsito */}
+<option value="Acidente">Acidente</option>
+<option value="Acidente com vítima">Acidente com vítima</option>
+<option value="Acidente sem vítima">Acidente sem vítima</option>
+<option value="Atropelamento">Atropelamento</option>
+<option value="Veículo abandonado">Veículo abandonado</option>
+<option value="Veículo irregular">Veículo irregular</option>
+<option value="Obstrução de via">Obstrução de via</option>
+<option value="Controle de trânsito">Controle de trânsito</option>
+<option value="Sinalização de via">Sinalização de via</option>
+
+{/* Meio ambiente */}
+<option value="Crime ambiental">Crime ambiental</option>
+<option value="Poluição sonora">Poluição sonora</option>
+<option value="Queimada">Queimada</option>
+<option value="Desmatamento">Desmatamento</option>
+<option value="Animal solto em via pública">Animal solto em via pública</option>
+<option value="Resgate de animal">Resgate de animal</option>
+<option value="Maus-tratos a animais">Maus-tratos a animais</option>
+
+{/* Patrimônio público */}
+<option value="Dano ao patrimônio público">Dano ao patrimônio público</option>
+<option value="Vandalismo">Vandalismo</option>
+<option value="Depredação">Depredação</option>
+<option value="Invasão de prédio público">Invasão de prédio público</option>
+<option value="Furto em patrimônio público">Furto em patrimônio público</option>
+
+{/* Eventos */}
+<option value="Apoio em evento esportivo">Apoio em evento esportivo</option>
+<option value="Apoio em evento cultural">Apoio em evento cultural</option>
+<option value="Apoio em evento religioso">Apoio em evento religioso</option>
+<option value="Apoio em evento político">Apoio em evento político</option>
+<option value="Apoio em festa popular">Apoio em festa popular</option>
+<option value="Segurança de evento">Segurança de evento</option>
+
+{/* Educação */}
+<option value="Apoio escolar">Apoio escolar</option>
+<option value="Conflito em unidade escolar">Conflito em unidade escolar</option>
+<option value="Patrulha escolar">Patrulha escolar</option>
+
+{/* Saúde */}
+<option value="CAPS">CAPS</option>
+<option value="Conselho Tutelar">Conselho Tutelar</option>
+<option value="Transporte de paciente">Transporte de paciente</option>
+<option value="Pessoa em surto">Pessoa em surto</option>
+<option value="Tentativa de suicídio">Tentativa de suicídio</option>
+
+{/* Administrativas */}
+<option value="Cumprimento de ordem de serviço">Cumprimento de ordem de serviço</option>
+<option value="Entrega de documento">Entrega de documento</option>
+<option value="Acompanhamento institucional">Acompanhamento institucional</option>
+<option value="Visita comunitária">Visita comunitária</option>
+<option value="Atividade preventiva">Atividade preventiva</option>
+<option value="Orientação ao cidadão">Orientação ao cidadão</option>
+
+<option value="Outro">Outro</option>
               </select>
             
   <label className="label">Local Cadastrado</label>

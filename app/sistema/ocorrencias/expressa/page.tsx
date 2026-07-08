@@ -148,11 +148,23 @@ const nomeArquivo = `${usuario.municipio_id}/${protocolo}-${Date.now()}-${nomeSe
 
     setSalvando(false);
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar ocorrência.");
-      return;
-    }
+if (error) {
+  console.error("ERRO COMPLETO AO SALVAR OCORRÊNCIA EXPRESSA:", {
+    message: error.message,
+    details: error.details,
+    hint: error.hint,
+    code: error.code,
+    error,
+  });
+
+  alert(
+    `Erro ao salvar ocorrência.\n\nCódigo: ${error.code || "sem código"}\nMensagem: ${
+      error.message || "sem mensagem"
+    }`
+  );
+
+  return;
+}
 
 await registrarAuditoria({
   modulo: "OCORRENCIAS",

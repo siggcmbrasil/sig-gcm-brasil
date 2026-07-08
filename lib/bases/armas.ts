@@ -7,11 +7,16 @@ export const TIPOS_ARMA_FOGO = [
   "Rifle",
   "Garrucha",
   "Submetralhadora",
+  "Metralhadora",
+  "Arma artesanal",
+  "Arma de pressão",
+  "Airsoft",
+  "Simulacro",
   "Outro",
 ];
 
 export const MARCAS_ARMA_FOGO = [
-  "Taurus",
+   "Taurus",
   "CBC",
   "Imbel",
   "Glock",
@@ -23,24 +28,43 @@ export const MARCAS_ARMA_FOGO = [
   "Smith & Wesson",
   "Colt",
   "CZ",
-  "Outra",
+  "Ruger",
+  "Bersa",
+  "Canik",
+  "Springfield",
+  "Mossberg",
+  "Remington",
+  "Browning",
+  "Walther",
+  "Outro",
 ];
 
 export const CALIBRES_ARMA_FOGO = [
+   ".17",
   ".22",
+  ".25",
   ".32",
+  ".36",
   ".38",
+  ".357",
   ".380",
-  "9mm",
   ".40",
+  ".44",
   ".45",
+  ".50",
+  "9mm",
+  "10mm",
+  "5.56",
+  "7.62",
+  ".223",
+  ".308",
   "12",
   "16",
   "20",
+  "24",
   "28",
+  "32",
   "36",
-  "5.56",
-  "7.62",
   "Outro",
 ];
 
@@ -54,18 +78,30 @@ export const TIPOS_ARMA_BRANCA = [
   "Estilete",
   "Foice",
   "Espada",
+  "Machete",
+  "Chave de fenda",
+  "Pé de cabra",
+  "Barra de ferro",
   "Outro",
 ];
 
 export const SITUACOES_ARMA = [
   "APREENDIDA",
   "ENCONTRADA",
-  "ENTREGUE",
   "RECUPERADA",
+  "ENTREGUE",
+  "RECOLHIDA",
+  "ABANDONADA",
+  "FURTADA",
+  "ROUBADA",
   "SEM NUMERAÇÃO",
   "NUMERAÇÃO SUPRIMIDA",
   "COM MUNIÇÃO",
   "SEM MUNIÇÃO",
+  "DESMUNICIADA",
+  "CARREGADA",
+  "DEFEITUOSA",
+  "INUTILIZADA",
 ];
 
 export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
@@ -77,9 +113,11 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
     "PT 101",
     "PT 111",
     "PT 140",
+    "PT 1911",
     "TH9",
     "TH40",
     "G2C",
+    "G3",
     "GX4",
     "TS9",
     "RT 82",
@@ -91,32 +129,36 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
   ],
 
   Glock: [
-    "G17",
+     "G17",
     "G19",
     "G22",
     "G23",
+    "G25",
     "G26",
     "G34",
     "G42",
     "G43",
+    "G43X",
     "G45",
     "G48",
     "Outro",
   ],
 
-  Imbel: [
+   Imbel: [
     "MD1",
     "MD2",
     "MD5",
     "IA2",
     "GC",
     "M973",
+    "1911",
     "Outro",
   ],
 
   CBC: [
     "Espingarda Pump",
     "Espingarda Monotiro",
+    "Espingarda Military",
     "Carabina 7022",
     "Carabina 8122",
     "Outro",
@@ -125,6 +167,7 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
   Rossi: [
     "Revolver 38",
     "Revolver 357",
+    "Revolver 22",
     "Carabina Puma",
     "Espingarda",
     "Outro",
@@ -134,6 +177,7 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
     "Espingarda Monotiro",
     "Espingarda Dois Canos",
     "Espingarda Pump",
+    "Miura",
     "Outro",
   ],
 
@@ -151,6 +195,7 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
     "P320",
     "P365",
     "MCX",
+    "MPX",
     "Outro",
   ],
 
@@ -169,6 +214,7 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
     "Python",
     "Detective Special",
     "M4",
+    "AR-15",
     "Outro",
   ],
 
@@ -187,5 +233,58 @@ export const MARCAS_MODELOS_ARMA_FOGO: Record<string, string[]> = {
     "Outro",
   ],
 
-  Outra: ["Outro"],
+  Ruger: [
+    "LCP",
+    "Security-9",
+    "GP100",
+    "Mini-14",
+    "Outro",
+  ],
+
+  Bersa: [
+    "Thunder 380",
+    "Thunder 9",
+    "Outro",
+  ],
+
+  Canik: [
+    "TP9",
+    "Mete SFT",
+    "Outro",
+  ],
+
+  Springfield: [
+    "XD",
+    "Hellcat",
+    "1911",
+    "Outro",
+  ],
+
+  Mossberg: [
+    "500",
+    "590",
+    "930",
+    "Outro",
+  ],
+
+  Remington: [
+    "870",
+    "700",
+    "Outro",
+  ],
+
+  Browning: [
+    "Buck Mark",
+    "BAR",
+    "Outro",
+  ],
+
+  Walther: [
+    "PPK",
+    "P99",
+    "PDP",
+    "Outro",
+  ],
+
+  Outro: ["Outro"],
 };

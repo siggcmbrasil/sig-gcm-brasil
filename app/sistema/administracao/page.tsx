@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect } from "react";
+import { ehAdministradorGlobal } from "@/lib/perfis";
 import {
   Bell,
   ClipboardCheck,
@@ -101,7 +102,6 @@ export default function AdministracaoPage() {
       ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
       : {};
 
-  const perfisPermitidos = ["ADMIN", "COMANDANTE", "DIRETOR"];
 
   useEffect(() => {
     registrarAuditoria({
@@ -113,7 +113,7 @@ export default function AdministracaoPage() {
 
   if (
     typeof window !== "undefined" &&
-    !perfisPermitidos.includes(usuario.perfil)
+    !ehAdministradorGlobal(usuario.perfil)
   ) {
     return (
       <div className="p-6">
@@ -166,7 +166,8 @@ export default function AdministracaoPage() {
                 .filter(
                   (card: any) =>
                     !card.perfis ||
-                    card.perfis.includes(usuario.perfil)
+                    usuario.perfil === "DESENVOLVEDOR" ||
+card.perfis.includes(usuario.perfil)
                 )
                 .map((card) => {
                   const Icone = card.icone;

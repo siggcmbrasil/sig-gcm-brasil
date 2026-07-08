@@ -1,14 +1,12 @@
 "use client";
 
 import {
-  CarFront,
-  Route,
-  Map,
-  BarChart3,
-  FileText,
-  ClipboardList,
   Activity,
+  CarFront,
+  ClipboardList,
   History,
+  Map,
+  Route,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
@@ -16,52 +14,40 @@ import SigCentralCard from "@/components/sig/SigCentralCard";
 
 const cards = [
   {
-    titulo: "Patrulhamentos",
-    href: "/sistema/patrulhamento",
-    descricao: "Registro e acompanhamento das rondas realizadas.",
-    icone: CarFront,
+    titulo: "Novo Patrulhamento",
+    descricao: "Inicie um novo patrulhamento e ative o rastreamento GPS.",
+    href: "/sistema/patrulhamento/novo",
+    icone: Route,
   },
   {
-  titulo: "Nova Ronda",
-  href: "/sistema/patrulhamento/novo",
-  descricao: "Iniciar um novo patrulhamento operacional.",
-  icone: Route,
-},
-  {
-    titulo: "Plano de Rondas",
-    href: "/sistema/rondas",
-    descricao: "Planejamento e organização das rondas preventivas.",
-    icone: ClipboardList,
+    titulo: "Histórico de Patrulhamentos",
+    descricao: "Consulte patrulhamentos realizados, horários, equipes e status.",
+    href: "/sistema/patrulhamento/historico",
+    icone: History,
   },
   {
     titulo: "Mapa de Patrulhamento",
-    href: "/sistema/mapa-operacional",
-    descricao: "Visualização geográfica das equipes e patrulhamentos.",
+    descricao: "Visualização geográfica das equipes, rotas e pontos registrados.",
+    href: "/sistema/patrulhamento/rotas",
     icone: Map,
   },
   {
     titulo: "Rastreamento em Tempo Real",
+    descricao: "Monitoramento das equipes em serviço pelo GPS.",
     href: "/sistema/localizacao",
-    descricao: "Monitoramento das equipes em serviço.",
     icone: Activity,
   },
   {
-    titulo: "Histórico de Rotas",
-    href: "/sistema/patrulhamento/rotas",
-    descricao: "Consulta de patrulhamentos e rotas executadas.",
-    icone: History,
+    titulo: "Visitas e QR Code",
+    descricao: "Pontos visitados, check-in, QR Code e presença preventiva.",
+    href: "/sistema/patrulhamento/visitas",
+    icone: ClipboardList,
   },
   {
-    titulo: "Relatórios",
-    href: "/sistema/relatorios",
-    descricao: "Relatórios de rondas e patrulhamentos.",
-    icone: FileText,
-  },
-  {
-    titulo: "Estatísticas",
-    href: "/sistema/estatisticas",
-    descricao: "Indicadores e desempenho operacional.",
-    icone: BarChart3,
+    titulo: "Gerar QR Code",
+    descricao: "Cadastrar ponto de visita e gerar QR Code institucional.",
+    href: "/sistema/patrulhamento/visitas/qrcode",
+    icone: ClipboardList,
   },
 ];
 
@@ -70,7 +56,7 @@ export default function CentralPatrulhamentoPage() {
     <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Patrulhamento"
-        descricao="Controle das rondas, equipes, rastreamento e monitoramento operacional."
+        descricao="Controle dos patrulhamentos, equipes, rastreamento, histórico e visitas preventivas."
         icone={CarFront}
       />
 

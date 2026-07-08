@@ -4,9 +4,13 @@ export async function podeVerModulo(
   perfil: string,
   modulo: string
 ): Promise<boolean> {
-  if (perfil?.toUpperCase() === "DESENVOLVEDOR") {
-  return true;
-}
+  console.log("Perfil:", perfil);
+  console.log("Módulo:", modulo);
+
+  if (String(perfil).toUpperCase() === "DESENVOLVEDOR") {
+    console.log("DESENVOLVEDOR LIBERADO");
+    return true;
+  }
 
   const { data, error } = await supabase
     .from("permissoes_perfis")
@@ -14,6 +18,8 @@ export async function podeVerModulo(
     .eq("perfil", perfil)
     .eq("modulo", modulo)
     .single();
+
+  console.log("Permissão banco:", data, error);
 
   if (error || !data) return false;
 

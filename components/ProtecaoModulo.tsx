@@ -27,9 +27,16 @@ export default function ProtecaoModulo({
 
         const usuario = JSON.parse(dados);
 
-        if (usuario.status !== "Ativo") {
+const statusUsuario = String(usuario.status || "").toUpperCase();
+
+if (statusUsuario !== "ATIVO") {
   localStorage.removeItem("usuarioLogado");
   location.replace("/login");
+  return;
+}
+
+if (String(usuario.perfil || "").toUpperCase() === "DESENVOLVEDOR") {
+  setStatus("liberado");
   return;
 }
 

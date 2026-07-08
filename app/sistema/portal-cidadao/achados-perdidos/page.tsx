@@ -31,11 +31,11 @@ export default function AchadosPerdidosPage() {
 
       <div className="grid md:grid-cols-3 gap-4">
         <SigActionCard
-          href="/sistema/portal-cidadao/achados-perdidos/nova"
-          titulo="Novo Registro"
-          descricao="Cadastrar objeto encontrado ou perdido."
-          icone={PlusCircle}
-        />
+  href="/sistema/portal-cidadao/achados-perdidos"
+  titulo="Novo Registro"
+  descricao="Cadastrar objeto encontrado ou perdido. Módulo em estruturação."
+  icone={PlusCircle}
+/>
 
         <SigActionCard
           href="/sistema/portal-cidadao/achados-perdidos"
@@ -82,10 +82,10 @@ export default function AchadosPerdidosPage() {
             o primeiro cadastro.
           </p>
 
-          <Link
-            href="/sistema/portal-cidadao/achados-perdidos/nova"
-            className="btn-primary inline-flex items-center justify-center gap-2 mt-6"
-          >
+<Link
+  href="/sistema/portal-cidadao/achados-perdidos"
+  className="btn-primary inline-flex items-center justify-center gap-2 mt-6 opacity-70"
+>
             <PlusCircle className="w-5 h-5" />
             Cadastrar Objeto
           </Link>

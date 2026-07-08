@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -26,21 +27,43 @@ export default function VisitasPage() {
 
   async function carregar() {
     const { data } = await supabase
-  .from("visitas")
-  .select(`*,guarnicoes (nome)`)
-  .eq("municipio_id", usuario.municipio_id)
-  .order("data_visita", { ascending: false });
+      .from("visitas")
+      .select(`*, guarnicoes(nome)`)
+      .eq("municipio_id", usuario.municipio_id)
+      .order("data_visita", { ascending: false });
 
     setVisitas(data || []);
   }
 
-  useEffect(() => {
-  if (usuario?.municipio_id) {
-    carregar();
-    carregarLocais();
-    carregarGuarnicoes();
+  async function carregarGuarnicoes() {
+    const { data } = await supabase
+      .from("guarnicoes")
+      .select("id,nome")
+      .eq("municipio_id", usuario.municipio_id)
+      .eq("ativa", true)
+      .order("nome");
+
+    setGuarnicoes(data || []);
   }
-}, []);
+
+  async function carregarLocais() {
+    const { data } = await supabase
+      .from("locais")
+      .select("id,nome,tipo")
+      .eq("municipio_id", usuario.municipio_id)
+      .eq("ativo", true)
+      .order("nome");
+
+    setLocais(data || []);
+  }
+
+  useEffect(() => {
+    if (usuario?.municipio_id) {
+      carregar();
+      carregarLocais();
+      carregarGuarnicoes();
+    }
+  }, []);
 
   async function salvar() {
     if (!local || !dataVisita) {
@@ -50,21 +73,19 @@ export default function VisitasPage() {
 
     setSalvando(true);
 
-    const { error } = await supabase
-      .from("visitas")
-      .insert([
-        {
-  municipio_id: usuario.municipio_id,
-  criado_por: usuario.id,
-  guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
-  tipo,
-          local,
-          responsavel,
-          participantes,
-          descricao,
-          data_visita: dataVisita,
-        },
-      ]);
+    const { error } = await supabase.from("visitas").insert([
+      {
+        municipio_id: usuario.municipio_id,
+        criado_por: usuario.id,
+        guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
+        tipo,
+        local,
+        responsavel,
+        participantes,
+        descricao,
+        data_visita: dataVisita,
+      },
+    ]);
 
     setSalvando(false);
 
@@ -84,45 +105,27 @@ export default function VisitasPage() {
     carregar();
   }
 
-async function carregarGuarnicoes() {
-  const { data } = await supabase
-    .from("guarnicoes")
-    .select("id,nome")
-    .eq("municipio_id", usuario.municipio_id)
-    .eq("ativa", true)
-    .order("nome");
-
-  setGuarnicoes(data || []);
-}
-
-  async function carregarLocais() {
-  const { data } = await supabase
-    .from("locais")
-    .select("id,nome,tipo")
-    .eq("municipio_id", usuario.municipio_id)
-    .eq("ativo", true)
-    .order("nome");
-
-  setLocais(data || []);
-}
-
   return (
-    <div className="p-6">
+    <div className="p-6 pb-24">
       <div className="painel-premium p-6 mb-6">
         <h1 className="text-3xl font-black">
           Visitas e Ações Preventivas
         </h1>
+
+        <p className="text-slate-400 mt-2">
+          Registro de visitas preventivas, ações comunitárias e pontos com QR Code.
+        </p>
       </div>
 
       <div className="painel-premium p-6 mb-6">
-        <div className="grid md:grid-cols-2 gap-4">
+        <h2 className="text-xl font-black mb-4">Registrar Visita</h2>
 
+        <div className="grid md:grid-cols-2 gap-4">
           <select
             className="input"
             value={tipo}
             onChange={(e) => setTipo(e.target.value)}
           >
-
             <option value="GUARDA_ESCOLA">Guarda na Escola</option>
             <option value="COMUNIDADE">Comunidade</option>
             <option value="FEIRA_LIVRE">Feira Livre</option>
@@ -135,55 +138,49 @@ async function carregarGuarnicoes() {
           </select>
 
           <select
-  className="input"
-  value={guarnicaoId}
-  onChange={(e) => setGuarnicaoId(e.target.value)}
->
-  <option value="">Selecione a Guarnição</option>
+            className="input"
+            value={guarnicaoId}
+            onChange={(e) => setGuarnicaoId(e.target.value)}
+          >
+            <option value="">Selecione a Guarnição</option>
 
-  {guarnicoes.map((g) => (
-    <option key={g.id} value={g.id}>
-      {g.nome}
-    </option>
-  ))}
-</select>
+            {guarnicoes.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.nome}
+              </option>
+            ))}
+          </select>
 
           <select
-  className="input"
-  value={localId}
-  onChange={(e) => {
-    const id = e.target.value;
+            className="input"
+            value={localId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setLocalId(id);
 
-    setLocalId(id);
+              const localSelecionado = locais.find(
+                (l) => String(l.id) === id
+              );
 
-    const localSelecionado = locais.find(
-      (l) => String(l.id) === id
-    );
+              setLocal(localSelecionado?.nome || "");
+            }}
+          >
+            <option value="">Selecione um local</option>
 
-    setLocal(localSelecionado?.nome || "");
-  }}
->
-  <option value="">
-    Selecione um local
-  </option>
+            {locais.map((item) => (
+              <option key={item.id} value={item.id}>
+                {item.nome}
+                {item.tipo ? ` - ${item.tipo.replaceAll("_", " ")}` : ""}
+              </option>
+            ))}
+          </select>
 
-  {locais.map((item) => (
-    <option
-      key={item.id}
-      value={item.id}
-    >
-      {item.nome}
-      {item.tipo ? ` - ${item.tipo.replaceAll("_", " ")}` : ""}
-    </option>
-  ))}
-</select>
-
-<input
-  className="input mt-3"
-  placeholder="Ou digite outro local"
-  value={local}
-  onChange={(e) => setLocal(e.target.value)}
-/>
+          <input
+            className="input"
+            placeholder="Ou digite outro local"
+            value={local}
+            onChange={(e) => setLocal(e.target.value)}
+          />
 
           <input
             className="input"
@@ -215,8 +212,10 @@ async function carregarGuarnicoes() {
         />
 
         <button
+          type="button"
           onClick={salvar}
-          className="sig-btn-gold mt-4"
+          disabled={salvando}
+          className="sig-btn-gold mt-4 disabled:opacity-50"
         >
           {salvando ? "Salvando..." : "Registrar Visita"}
         </button>
@@ -224,49 +223,50 @@ async function carregarGuarnicoes() {
 
       <div className="space-y-4">
         {visitas.map((item) => (
-          <div
-            key={item.id}
-            className="painel-premium p-5"
-          >
-
-<p className="text-3xl">
-  {item.tipo === "GUARDA_ESCOLA" && "🏫"}
-  {item.tipo === "COMUNIDADE" && "🏘️"}
-  {item.tipo === "COMERCIO" && "🏪"}
-  {item.tipo === "PATRULHA_PREVENTIVA" && "🚔"}
-  {item.tipo === "PROJETO_SOCIAL" && "🤝"}
-  {item.tipo === "FISCALIZACAO" && "📋"}
-</p>
+          <div key={item.id} className="painel-premium p-5">
+            <p className="text-3xl">
+              {item.tipo === "GUARDA_ESCOLA" && "🏫"}
+              {item.tipo === "COMUNIDADE" && "🏘️"}
+              {item.tipo === "FEIRA_LIVRE" && "🧺"}
+              {item.tipo === "COMERCIO" && "🏪"}
+              {item.tipo === "INSTITUCIONAL" && "🏛️"}
+              {item.tipo === "PATRULHA_PREVENTIVA" && "🚔"}
+              {item.tipo === "PROJETO_SOCIAL" && "🤝"}
+              {item.tipo === "FISCALIZACAO" && "📋"}
+              {item.tipo === "OUTRO" && "📍"}
+            </p>
 
             <h2 className="font-black text-xl">
-              {item.tipo}
+              {item.tipo?.replaceAll("_", " ")}
             </h2>
 
             {item.guarnicoes?.nome && (
-            <p className="text-blue-400 text-sm">
-            🚔 {item.guarnicoes.nome}
-            </p>
+              <p className="text-blue-400 text-sm">
+                🚔 {item.guarnicoes.nome}
+              </p>
             )}
 
-            <p className="text-yellow-400">
+            <p className="text-yellow-400 font-bold mt-2">
               {item.local}
             </p>
 
             {item.responsavel && (
-            <p className="text-slate-400 text-sm">
-            👤 {item.responsavel}
-            </p>
+              <p className="text-slate-400 text-sm">
+                👤 {item.responsavel}
+              </p>
             )}
 
             {item.participantes && (
-            <p className="text-slate-400 text-sm mt-1">
-            👥 {item.participantes}
-            </p>
+              <p className="text-slate-400 text-sm mt-1">
+                👥 {item.participantes}
+              </p>
             )}
 
-            <p className="text-slate-300 mt-3">
-              {item.descricao}
-            </p>
+            {item.descricao && (
+              <p className="text-slate-300 mt-3">
+                {item.descricao}
+              </p>
+            )}
 
             <p className="text-xs text-slate-500 mt-3">
               {new Date(item.data_visita).toLocaleString("pt-BR")}

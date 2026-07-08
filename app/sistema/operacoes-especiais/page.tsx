@@ -209,7 +209,17 @@ atualizado_em: new Date().toISOString(),
     ]);
 
 if (error) {
-  console.error(error);
+  console.error("ERRO AO SALVAR OPERAÇÃO ESPECIAL:", {
+  code: error?.code,
+  message: error?.message,
+  details: error?.details,
+  hint: error?.hint,
+  error,
+});
+
+alert(
+  `Erro ao salvar operação especial.\n\nCódigo: ${error?.code || "sem código"}\nMensagem: ${error?.message || "sem mensagem"}\nDetalhes: ${error?.details || "sem detalhes"}`
+);
 
   await registrarAuditoria({
     modulo: "Operações Especiais",
@@ -261,49 +271,115 @@ await registrarAuditoria({
     carregarOperacoes();
   }
 
-  async function atualizarStatus(id: string, status: string) {
-    const usuario = pegarUsuario();
+async function atualizarStatus(id: string, status: string) {
+  const usuario = pegarUsuario();
 
-const { error } =
-  await supabase
+  if (!usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  const { error } = await supabase
     .from("operacoes_especiais")
     .update({
       status,
-      atualizado_em:
-        new Date().toISOString(),
-      latitude:
-        status === "FINALIZADA"
-          ? null
-          : undefined,
-      longitude:
-        status === "FINALIZADA"
-          ? null
-          : undefined,
+      atualizado_em: new Date().toISOString(),
     })
     .eq("id", id)
-    .eq(
-      "municipio_id",
-      usuario.municipio_id
-    );
+    .eq("municipio_id", Number(usuario.municipio_id));
 
-if (error) {
-  alert("Erro ao atualizar.");
-  return;
+  if (error) {
+    console.error("ERRO AO ATUALIZAR OPERAÇÃO ESPECIAL:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      error,
+    });
+
+    alert(
+      `Erro ao atualizar operação.\n\nCódigo: ${error.code || "sem código"}\nMensagem: ${
+        error.message || "sem mensagem"
+      }`
+    );
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Operações Especiais",
+    acao: "EDITAR",
+    descricao: `Alterou status para ${status}.`,
+    tabela: "operacoes_especiais",
+    registro_id: id,
+    detalhes: {
+      status,
+      municipio_id: usuario.municipio_id,
+    },
+  });
+
+  await carregarOperacoes();
 }
 
-await registrarAuditoria({
-  modulo: "Operações Especiais",
-  acao: "EDITAR",
-  descricao: `Alterou status para ${status}.`,
-  tabela: "operacoes_especiais",
-  registro_id: id,
-  detalhes: {
-    status,
-    municipio_id: usuario.municipio_id,
-  },
-});
+async function excluirOperacao(id: string, nomeOperacao: string) {
+  const usuario = pegarUsuario();
 
-await carregarOperacoes();
+  if (!usuario?.municipio_id) {
+    alert("Sessão inválida.");
+    return;
+  }
+
+  const motivo = prompt(
+    `Informe o motivo da exclusão da operação:\n\n${nomeOperacao}`
+  );
+
+  if (!motivo?.trim()) {
+    alert("Informe o motivo da exclusão.");
+    return;
+  }
+
+  const confirmar = confirm(
+    `Deseja realmente excluir esta operação?\n\n${nomeOperacao}`
+  );
+
+  if (!confirmar) return;
+
+  const { error } = await supabase
+    .from("operacoes_especiais")
+    .delete()
+    .eq("id", id)
+    .eq("municipio_id", Number(usuario.municipio_id));
+
+  if (error) {
+    console.error("ERRO AO EXCLUIR OPERAÇÃO ESPECIAL:", {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      error,
+    });
+
+    alert(
+      `Erro ao excluir operação.\n\nCódigo: ${error.code || "sem código"}\nMensagem: ${
+        error.message || "sem mensagem"
+      }`
+    );
+    return;
+  }
+
+  await registrarAuditoria({
+    modulo: "Operações Especiais",
+    acao: "EXCLUIR",
+    descricao: `Excluiu a operação ${nomeOperacao}.`,
+    tabela: "operacoes_especiais",
+    registro_id: id,
+    detalhes: {
+      motivo,
+      municipio_id: usuario.municipio_id,
+    },
+  });
+
+  setOperacoes((lista) => lista.filter((item) => item.id !== id));
+  alert("Operação excluída com sucesso.");
 }
 
 async function apagarTestes() {
@@ -628,6 +704,14 @@ alert("Operações de teste apagadas.");
                     >
                       <CheckCircle size={16} />
                       Finalizar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => excluirOperacao(o.id, o.nome)}
+                      className="bg-red-700 hover:bg-red-600 px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2"
+                    >
+                      <Trash2 size={16} />
+                      Excluir
                     </button>
                   </div>
                 </div>

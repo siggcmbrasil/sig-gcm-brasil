@@ -41,13 +41,6 @@ const cards = [
     descricao:
       "Inventário físico e conferência dos bens da Guarda.",
   },
-  {
-    titulo: "Armamentos",
-    icone: Shield,
-    href: "/sistema/armamentos",
-    descricao:
-      "Gestão e controle de armamentos institucionais.",
-  },
 ];
 
 export default function CentralPatrimonioPage() {

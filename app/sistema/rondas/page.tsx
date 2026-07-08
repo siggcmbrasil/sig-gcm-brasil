@@ -116,9 +116,17 @@ export default function RelatorioRondasPage() {
 
     if (checkinsResp.error || pontosResp.error || planosResp.error) {
       const erro =
-        checkinsResp.error || pontosResp.error || planosResp.error;
+  checkinsResp.error || pontosResp.error || planosResp.error;
 
-      console.error(erro);
+if (erro) {
+  console.error("ERRO AO CARREGAR RELATÓRIO DE RONDAS:", {
+    message: erro.message,
+    details: erro.details,
+    hint: erro.hint,
+    code: erro.code,
+    erroCompleto: JSON.stringify(erro, null, 2),
+  });
+}
 
       await registrarAuditoria({
         modulo: "Rondas",

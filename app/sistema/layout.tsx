@@ -51,7 +51,7 @@ export default function SistemaLayout({
 
       const { data: usuarioSistema, error: erroUsuario } = await supabase
         .from("usuarios")
-        .select( "id, auth_id, nome, matricula, perfil, status, municipio_id, foto_url")
+        .select("id, auth_id, nome, matricula, perfil, status, municipio_id, foto_url")
         .eq("auth_id", data.user.id)
         .single();
 
@@ -63,19 +63,20 @@ export default function SistemaLayout({
         return;
       }
 
-      if (usuarioSistema.status !== "Ativo") {
-  await registrarAuditoria({
-    modulo: "Sistema",
-    acao: "ERRO",
-    descricao: "Tentativa de acesso com usuário inativo.",
-    tabela: "usuarios",
-    registro_id: usuarioSistema.id,
-    detalhes: {
-      usuario_id: usuarioSistema.id,
-      auth_id: data.user.id,
-      status: usuarioSistema.status,
-    },
-  });
+      // CORREÇÃO APLICADA: "ATIVO" em maiúsculas
+      if (usuarioSistema.status !== "ATIVO") {
+        await registrarAuditoria({
+          modulo: "Sistema",
+          acao: "ERRO",
+          descricao: "Tentativa de acesso com usuário inativo.",
+          tabela: "usuarios",
+          registro_id: usuarioSistema.id,
+          detalhes: {
+            usuario_id: usuarioSistema.id,
+            auth_id: data.user.id,
+            status: usuarioSistema.status,
+          },
+        });
         await supabase.auth.signOut();
         localStorage.clear();
         sessionStorage.clear();
@@ -84,18 +85,18 @@ export default function SistemaLayout({
       }
 
       if (!usuarioSistema.municipio_id) {
-  await registrarAuditoria({
-    modulo: "Sistema",
-    acao: "ERRO",
-    descricao: "Tentativa de acesso sem município vinculado.",
-    tabela: "usuarios",
-    registro_id: usuarioSistema.id,
-    detalhes: {
-      usuario_id: usuarioSistema.id,
-      auth_id: data.user.id,
-      perfil: usuarioSistema.perfil,
-    },
-  });
+        await registrarAuditoria({
+          modulo: "Sistema",
+          acao: "ERRO",
+          descricao: "Tentativa de acesso sem município vinculado.",
+          tabela: "usuarios",
+          registro_id: usuarioSistema.id,
+          detalhes: {
+            usuario_id: usuarioSistema.id,
+            auth_id: data.user.id,
+            perfil: usuarioSistema.perfil,
+          },
+        });
         await supabase.auth.signOut();
         localStorage.clear();
         sessionStorage.clear();
@@ -116,30 +117,30 @@ export default function SistemaLayout({
         matricula: usuarioSistema.matricula || "",
         email: data.user.email || "",
         perfil: (usuarioSistema.perfil || "GUARDA").toUpperCase() as UsuarioLogado["perfil"],
-        status: usuarioSistema.status || "Ativo",
+        status: usuarioSistema.status || "ATIVO", // CORREÇÃO APLICADA
         municipio_id: usuarioSistema.municipio_id,
         municipio_nome: municipioUsuario?.nome || "",
         foto_url: usuarioSistema.foto_url || "",
       };
 
-localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
+      localStorage.setItem("usuarioLogado", JSON.stringify(usuarioAtual));
 
-await registrarAuditoria({
-  modulo: "Sistema",
-  acao: "ACESSO",
-  descricao: "Usuário acessou área protegida do sistema.",
-  tabela: "usuarios",
-  registro_id: usuarioSistema.id,
-  detalhes: {
-    usuario_id: usuarioSistema.id,
-    auth_id: data.user.id,
-    perfil: usuarioAtual.perfil,
-    municipio_id: usuarioAtual.municipio_id,
-  },
-});
+      await registrarAuditoria({
+        modulo: "Sistema",
+        acao: "ACESSO",
+        descricao: "Usuário acessou área protegida do sistema.",
+        tabela: "usuarios",
+        registro_id: usuarioSistema.id,
+        detalhes: {
+          usuario_id: usuarioSistema.id,
+          auth_id: data.user.id,
+          perfil: usuarioAtual.perfil,
+          municipio_id: usuarioAtual.municipio_id,
+        },
+      });
 
-setUsuario(usuarioAtual);
-setVerificando(false);
+      setUsuario(usuarioAtual);
+      setVerificando(false);
     } catch (error) {
       console.error(error);
 
@@ -184,20 +185,13 @@ setVerificando(false);
       <div className="flex flex-col md:flex-row min-h-screen bg-[#061426]">
         <Sidebar usuario={usuario} />
 
-        <main className="flex-1 w-full">
-          <div className="text-white">
+<main className="flex-1 min-w-0 w-full overflow-x-hidden">
+  <div className="w-full text-white">
             <ModalAniversariantes />
 
             {children}
 
-            <footer className="text-center py-6 text-xs text-slate-500 border-t border-slate-800 mt-10">
-              SIG-GCM Brasil © {new Date().getFullYear()}
-              <br />
-              Desenvolvido por{" "}
-              <span className="text-blue-400 font-semibold">
-                Maick Lustosa Costa
-              </span>
-            </footer>
+            
           </div>
         </main>
       </div>

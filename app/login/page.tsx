@@ -56,7 +56,64 @@ password: senha,
 setCarregando(false);
 
 if (error || !data.user) {
-  alert("Usuário ou senha inválidos.");
+  const { data: tentativa } =
+    await supabase
+      .from("usuarios")
+      .select(
+        "id,tentativas_login"
+      )
+      .eq(
+        "email",
+        email
+          .trim()
+          .toLowerCase()
+      )
+      .single();
+
+  if (tentativa) {
+    const tentativas =
+      (tentativa.tentativas_login ||
+        0) + 1;
+
+    if (tentativas >= 5) {
+      await supabase
+        .from("usuarios")
+        .update({
+          tentativas_login:
+            tentativas,
+          status:
+            "BLOQUEADO",
+        })
+        .eq(
+          "id",
+          tentativa.id
+        );
+
+      alert(
+        "Usuário bloqueado após 5 tentativas."
+      );
+    } else {
+      await supabase
+        .from("usuarios")
+        .update({
+          tentativas_login:
+            tentativas,
+        })
+        .eq(
+          "id",
+          tentativa.id
+        );
+
+      alert(
+        `Usuário ou senha inválidos. Tentativa ${tentativas}/5`
+      );
+    }
+  } else {
+    alert(
+      "Usuário ou senha inválidos."
+    );
+  }
+
   return;
 }
 
@@ -90,6 +147,29 @@ if (usuarioError || !usuario) {
 
 const authUser = data.user;
 
+const status = String(usuario.status || "").toUpperCase();
+
+if (status === "PENDENTE") {
+  alert("Seu cadastro ainda está aguardando aprovação.");
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
+
+if (status === "BLOQUEADO") {
+  alert("Seu usuário está bloqueado.");
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
+
+if (status === "INATIVO") {
+  alert("Seu usuário está inativo.");
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  return;
+}
+
 const { data: municipioUsuario } =
   await supabase
     .from("municipios")
@@ -108,7 +188,7 @@ if (
   matricula: usuario.matricula || "",
   email: authUser.email || usuario.email,
   perfil: (usuario.perfil || "GUARDA").toUpperCase(),
-  status: usuario.status || "ATIVO",
+  status: String(usuario.status || "ATIVO").toUpperCase(),
   municipio_id: usuario.municipio_id ?? null,
   municipio_nome: municipioUsuario?.nome || "",
   foto_url: usuario.foto_url || "",
@@ -118,6 +198,25 @@ if (
     "usuarioLogado",
     JSON.stringify(dadosUsuario)
   );
+
+await fetch("/api/auth/registrar-login", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    usuario_id: usuario.id,
+    municipio_id: usuario.municipio_id,
+    email: authUser.email || usuario.email,
+  }),
+});
+
+await supabase
+  .from("usuarios")
+  .update({
+    tentativas_login: 0,
+  })
+  .eq("id", usuario.id);
 
   router.push("/sistema");
   return;
@@ -130,20 +229,6 @@ if (
 ) {
   alert(
     "Seu usuário ainda não possui município vinculado."
-  );
-
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
-
-if (
-  String(
-    usuario.status || ""
-  ).toUpperCase() !== "ATIVO"
-) {
-  alert(
-    `Acesso não liberado. Status atual: ${usuario.status}`
   );
 
   await supabase.auth.signOut();
@@ -166,8 +251,7 @@ const dadosUsuario = {
     usuario.perfil ||
     "GUARDA"
   ).toUpperCase(),
-  status:
-    usuario.status || "ATIVO",
+  status: String(usuario.status || "ATIVO").toUpperCase(),
   municipio_id:
     usuario.municipio_id ?? null,
   municipio_nome:
@@ -180,6 +264,25 @@ localStorage.setItem(
   "usuarioLogado",
   JSON.stringify(dadosUsuario)
 );
+
+await fetch("/api/auth/registrar-login", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+    usuario_id: usuario.id,
+    municipio_id: usuario.municipio_id,
+    email: authUser.email || usuario.email,
+  }),
+});
+
+await supabase
+  .from("usuarios")
+  .update({
+    tentativas_login: 0,
+  })
+  .eq("id", usuario.id);
 
 router.push("/sistema");
 router.refresh();
@@ -198,13 +301,13 @@ router.refresh();
               <img
   src="/brasoes/sig-gcm-logo.png"
   alt="SIG-GCM Brasil"
-  className="w-72 h-72 object-contain drop-shadow-[0_0_60px_rgba(212,175,55,0.35)] animate-[pulseGlow_4s_ease-in-out_infinite]"/>
+  className="w-130 h-130 object-contain drop-shadow-[0_0_60px_rgba(212,175,55,0.35)] animate-[pulseGlow_4s_ease-in-out_infinite]"/>
 <div>
-                <h1 className="text-7xl font-black tracking-tight sig-title">
+                <h1 className="text-8xl font-black tracking-tight sig-title">
                   SIG-GCM
                 </h1>
 
-                <p className="text-yellow-400 font-black text-4xl tracking-[0.35em]">
+                <p className="text-yellow-400 font-black text-5xl tracking-[0.35em]">
                   BRASIL
                 </p>
               </div>
@@ -223,7 +326,7 @@ router.refresh();
                         </div>
           </div>
 
-          <div className="grid grid-cols-4 gap-4 mt-10">
+          <div className="grid grid-cols-4 gap-5 mt-12">
             <MiniSelo icone="🛡️" titulo="Gestão" texto="Integrada" />
             <MiniSelo icone="🚔" titulo="Operação" texto="24h" />
             <MiniSelo icone="📊" titulo="Dados" texto="Estratégicos" />
@@ -303,6 +406,13 @@ router.refresh();
   >
     Solicitar cadastro
   </button>
+  <button
+  type="button"
+  onClick={() => router.push("/esqueci-senha")}
+  className="text-slate-400 hover:text-yellow-300 font-bold text-sm mt-3"
+>
+  Esqueci minha senha
+</button>
 </div>
               </div>
 

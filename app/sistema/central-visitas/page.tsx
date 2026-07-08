@@ -2,11 +2,9 @@
 
 import {
   Handshake,
-  PlusCircle,
   School,
-  Store,
+  QrCode,
   FileText,
-  BarChart3,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
@@ -15,40 +13,28 @@ import SigCentralCard from "@/components/sig/SigCentralCard";
 const cards = [
   {
     titulo: "Visitas Preventivas",
-    href: "/sistema/visitas",
-    descricao: "Ações preventivas, comunitárias e institucionais.",
+    href: "/sistema/rondas",
+    descricao: "Registrar e listar visitas preventivas realizadas.",
     icone: Handshake,
   },
   {
-    titulo: "Nova Visita",
-    href: "/sistema/visitas",
-    descricao: "Registrar nova visita preventiva.",
-    icone: PlusCircle,
-  },
-  {
-    titulo: "Guarda na Escola",
-    href: "/sistema/visitas",
-    descricao: "Acompanhamento de ações em unidades escolares.",
+    titulo: "Pontos de Visita",
+    href: "/sistema/visitas/pontos",
+    descricao: "Cadastrar escolas, prefeitura, comércios e locais com QR Code.",
     icone: School,
   },
   {
-    titulo: "Comércio Protegido",
-    href: "/sistema/visitas",
-    descricao: "Visitas preventivas em comércios e áreas públicas.",
-    icone: Store,
-  },
-  {
-    titulo: "Relatórios",
-    href: "/sistema/relatorios",
-    descricao: "Relatórios das visitas preventivas.",
+    titulo: "Histórico de Comprovações",
+    href: "/sistema/visitas/historico",
+    descricao: "Consultar visitas comprovadas por QR Code e GPS.",
     icone: FileText,
   },
   {
-    titulo: "Estatísticas",
-    href: "/sistema/estatisticas",
-    descricao: "Indicadores das ações preventivas.",
-    icone: BarChart3,
-  },
+  titulo: "Ler QR Code",
+  href: "/sistema/visitas/ler-qrcode",
+  descricao: "Escanear QR Code do local e confirmar a visita com GPS.",
+  icone: QrCode,
+},
 ];
 
 export default function CentralVisitasPage() {
