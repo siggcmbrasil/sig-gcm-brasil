@@ -60,7 +60,7 @@ tipo_combustivel
 
   let query = supabase
   .from("abastecimentos")
-  .select("*, viaturas(prefixo, placa)")
+  .select("*")
   .eq("municipio_id", usuario.municipio_id)
   .order("data_abastecimento", {
     ascending: false,
@@ -82,10 +82,15 @@ tipo_combustivel
 
       setViaturas(listaViaturas || []);
       setAbastecimentos(listaAbastecimentos || []);
-    } catch (error) {
-      console.error("Erro ao carregar abastecimentos:", error);
-      alert("Erro ao carregar abastecimentos.");
-    } finally {
+    } catch (error: any) {
+  console.error("Erro ao carregar abastecimentos:", JSON.stringify(error, null, 2));
+  alert(
+    error?.message ||
+    error?.details ||
+    error?.hint ||
+    "Erro ao carregar abastecimentos."
+  );
+} finally {
       setCarregando(false);
     }
   }

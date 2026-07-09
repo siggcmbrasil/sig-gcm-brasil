@@ -19,22 +19,40 @@ function limparTexto(texto: string) {
     .trim();
 }
 
+function gerarId(link: string, titulo: string) {
+  return Buffer.from(`${link}-${titulo}`).toString("base64url");
+}
+
 function extrairItens(xml: string) {
   const itens = [...xml.matchAll(/<item>([\s\S]*?)<\/item>/g)];
 
   return itens.map((match) => {
     const item = match[1];
 
-    const titulo = item.match(/<title>([\s\S]*?)<\/title>/)?.[1] || "";
-    const link = item.match(/<link>([\s\S]*?)<\/link>/)?.[1] || "";
+    const titulo = limparTexto(
+      item.match(/<title>([\s\S]*?)<\/title>/)?.[1] || ""
+    );
+
+    const link = limparTexto(
+      item.match(/<link>([\s\S]*?)<\/link>/)?.[1] || ""
+    );
+
     const data = item.match(/<pubDate>([\s\S]*?)<\/pubDate>/)?.[1] || "";
-    const fonte = item.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1] || "";
+
+    const fonte = limparTexto(
+      item.match(/<source[^>]*>([\s\S]*?)<\/source>/)?.[1] ||
+        "Google Notícias"
+    );
 
     return {
-      titulo: limparTexto(titulo),
-      link: limparTexto(link),
-      fonte: limparTexto(fonte || "Google Notícias"),
+      id: gerarId(link, titulo),
+      titulo,
+      link,
+      fonte,
+      categoria: "Segurança Pública",
+      resumo: null,
       data_publicacao: data ? new Date(data).toISOString() : null,
+      destaque: false,
     };
   });
 }
@@ -58,7 +76,7 @@ export async function GET() {
     }
 
     const unicas = Array.from(
-      new Map(noticias.map((n) => [n.link, n])).values()
+      new Map(noticias.map((n) => [n.link || n.id, n])).values()
     ).slice(0, 40);
 
     return NextResponse.json({

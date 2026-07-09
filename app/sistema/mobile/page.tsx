@@ -24,6 +24,11 @@ import { Geolocation } from "@capacitor/geolocation";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import MobileHeader from "@/components/mobile/MobileHeader";
+import MobileActionCard from "@/components/mobile/MobileActionCard";
+import MobileGuarnicaoCard from "@/components/mobile/MobileGuarnicaoCard";
+import MobileQuickMenu from "@/components/mobile/MobileQuickMenu";
+import MobileStats from "@/components/mobile/MobileStats";
 
 type UsuarioLogado = {
   id?: string | number;
@@ -376,267 +381,67 @@ export default function AppPage() {
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,#123e73_0%,transparent_34%),linear-gradient(180deg,#061426_0%,#02060f_55%)] opacity-80" />
 
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-6rem)] max-w-md flex-col gap-3">
-        <header className="rounded-3xl border border-slate-800/80 bg-slate-950/65 p-3 shadow-xl backdrop-blur">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-blue-300">
-                SIG-GCM Mobile
-              </p>
 
-              <h1 className="mt-1 truncate text-xl font-black">
-                👮 {usuario?.nome?.split(" ")[0] || "Guarda"}
-              </h1>
+        <MobileHeader
+  usuario={usuario}
+  online={online}
+  saudacao={saudacao}
+  dataHoje={dataHoje}
+  guarnicaoDia={guarnicaoDia}
+/>
 
-              <p className="mt-0.5 text-xs text-slate-400">
-                {saudacao} • {dataHoje}
-              </p>
-            </div>
+<section className="grid grid-cols-2 gap-3">
+  <MobileActionCard
+    href="/sistema/ocorrencias/expressa"
+    icon={AlertTriangle}
+    title="Ocorrência"
+    subtitle="Registro rápido"
+    color="red"
+  />
 
-            <div className="flex shrink-0 items-center gap-2">
-              <span
-                className={`inline-flex h-9 items-center gap-1 rounded-2xl border px-2 text-[10px] font-black ${
-                  online
-                    ? "border-green-500/30 bg-green-500/15 text-green-400"
-                    : "border-red-500/30 bg-red-500/15 text-red-400"
-                }`}
-              >
-                {online ? (
-                  <Wifi className="h-3 w-3" />
-                ) : (
-                  <WifiOff className="h-3 w-3" />
-                )}
-                {online ? "ON" : "OFF"}
-              </span>
+  <MobileActionCard
+    href="/sistema/patrulhamento/novo"
+    icon={Car}
+    title="Patrulhar"
+    subtitle="Iniciar GPS"
+    color="blue"
+  />
+</section>
 
-              <Link
-                href="/sistema/notificacoes"
-                className="flex h-9 w-9 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900"
-              >
-                <Bell className="h-4 w-4 text-blue-300" />
-              </Link>
-            </div>
-          </div>
+<MobileGuarnicaoCard guarnicaoDia={guarnicaoDia} />
 
-          <div className="mt-3 flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/70 px-3 py-2">
-            <div className="min-w-0">
-              <p className="truncate text-xs font-bold text-slate-300">
-                {guarnicaoDia
-                  ? `${guarnicaoDia.viatura} • ${guarnicaoDia.nome}`
-                  : "Guarnição não localizada"}
-              </p>
-              <p className="truncate text-[11px] text-slate-500">
-                {guarnicaoDia
-                  ? `CMT: ${guarnicaoDia.comandante}`
-                  : "Configure a escala operacional"}
-              </p>
-            </div>
+<MobileQuickMenu
+  carregando={carregando}
+  atualizadoEm={atualizadoEm}
+/>
 
-            <span className="flex shrink-0 items-center gap-1 text-[11px] font-bold text-green-400">
-              <Circle className="h-2.5 w-2.5 fill-current" />
-              Serviço
-            </span>
-          </div>
-        </header>
+<MobileStats
+  totalOcorrencias={totalOcorrencias}
+  totalChamados={totalChamados}
+  totalPatrulhamentos={totalPatrulhamentos}
+/>
 
-        <section className="grid grid-cols-2 gap-3">
-          <Link
-            href="/sistema/ocorrencias/expressa"
-            className="rounded-3xl border border-red-400/30 bg-red-600 p-4 text-center shadow-xl active:scale-95"
-          >
-            <AlertTriangle className="mx-auto mb-1.5 h-8 w-8" />
-            <p className="text-base font-black">Ocorrência</p>
-            <p className="text-[11px] text-red-100">Registro rápido</p>
-          </Link>
+<section className="rounded-3xl border border-yellow-500/20 bg-slate-900/80 px-4 py-3">
+  <p className="text-xs font-bold text-yellow-400">
+    Frase do Dia
+  </p>
 
-          <Link
-            href="/sistema/patrulhamento/novo"
-            className="rounded-3xl border border-blue-400/30 bg-blue-600 p-4 text-center shadow-xl active:scale-95"
-          >
-            <Car className="mx-auto mb-1.5 h-8 w-8" />
-            <p className="text-base font-black">Patrulhar</p>
-            <p className="text-[11px] text-blue-100">Iniciar GPS</p>
-          </Link>
-        </section>
-
-        <Link
-          href="/sistema/mobile/guarnicao"
-          className="block rounded-3xl border border-slate-800 bg-slate-900/90 p-4 shadow-xl"
-        >
-          <div className="mb-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-400" />
-              <p className="text-sm font-bold text-slate-300">
-                Guarnição do Dia
-              </p>
-            </div>
-
-            <ChevronRight className="h-5 w-5 text-slate-500" />
-          </div>
-
-          {guarnicaoDia ? (
-            <div className="grid grid-cols-[1fr_auto] items-end gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-2xl font-black text-blue-300">
-                  {guarnicaoDia.viatura}
-                </h2>
-
-                <p className="truncate text-sm font-bold text-white">
-                  {guarnicaoDia.nome}
-                </p>
-
-                <p className="mt-1 text-xs text-slate-400">
-                  {guarnicaoDia.membros.length} integrante(s)
-                </p>
-              </div>
-
-              <div className="text-right text-[11px] text-slate-400">
-                <p className="flex items-center justify-end gap-1">
-                  <Clock className="h-3.5 w-3.5" />
-                  07h às 07h
-                </p>
-                <p className="mt-1 text-green-400">Em andamento</p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-slate-400">
-              Nenhuma guarnição encontrada para hoje.
-            </p>
-          )}
-        </Link>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-black">Operação rápida</h2>
-            <span className="text-[10px] text-slate-500">
-              {carregando
-                ? "Atualizando..."
-                : atualizadoEm
-                ? atualizadoEm.toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "Agora"}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Atalho
-              href="/sistema/ocorrencias/offline"
-              icone={FileText}
-              texto="Offline"
-              destaque="emerald"
-            />
-            <Atalho href="/sistema/chamados" icone={Radio} texto="Chamados" />
-            <Atalho href="/sistema/mobile/gps" icone={MapPin} texto="GPS" />
-            <Atalho href="/sistema/viaturas" icone={Car} texto="Viaturas" />
-            <Atalho href="/sistema/mobile/guarnicao" icone={UserRound} texto="Equipe" />
-            <Atalho href="/sistema/relatorios/plantao" icone={ClipboardList} texto="Plantão" />
-          </div>
-        </section>
-
-        <section>
-          <div className="mb-2 flex items-center justify-between">
-            <h2 className="text-base font-black">Resumo do dia</h2>
-            <Link href="/sistema/relatorios" className="text-xs text-blue-400">
-              Relatório
-            </Link>
-          </div>
-
-          <div className="grid grid-cols-3 gap-2">
-            <Resumo titulo="Ocorr." valor={String(totalOcorrencias)} />
-            <Resumo titulo="Cham." valor={String(totalChamados)} />
-            <Resumo titulo="Patr." valor={String(totalPatrulhamentos)} />
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-yellow-500/20 bg-slate-900/80 px-4 py-3">
-          <p className="text-xs font-bold text-yellow-400">Frase do Dia</p>
-          <p className="mt-1 text-xs italic text-slate-200">
-            "Disciplina hoje, liberdade amanhã."
-          </p>
-        </section>
-
-        <section className="rounded-3xl border border-slate-800 bg-slate-900/90 p-4">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="h-5 w-5 text-yellow-400" />
-
-            <div className="min-w-0">
-              <p className="text-sm font-bold">Avisos importantes</p>
-              <p className="truncate text-xs text-slate-400">
-                Alertas operacionais aparecerão aqui.
-              </p>
-            </div>
-
-            <Link
-              href="/sistema/notificacoes"
-              className="ml-auto shrink-0 text-xs text-blue-400"
-            >
-              Ver
-            </Link>
-          </div>
-        </section>
+  <p className="mt-1 text-xs italic text-slate-200">
+    "Disciplina hoje, liberdade amanhã."
+  </p>
+</section>
 
         <button
-          type="button"
-          onClick={acionarSOS}
-          disabled={enviandoSOS}
-          className="fixed bottom-[5.25rem] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-red-300/30 bg-red-600 shadow-2xl active:scale-95 disabled:opacity-60"
-        >
-          <AlertTriangle className="h-7 w-7 text-white" />
-        </button>
+  type="button"
+  onClick={acionarSOS}
+  disabled={enviandoSOS}
+  className="fixed bottom-24 right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-red-300/30 bg-red-600 shadow-2xl active:scale-95 disabled:opacity-60"
+>
+  <AlertTriangle className="h-7 w-7 text-white" />
+</button>
 
-        <MobileBottomNav />
+<MobileBottomNav />
       </div>
     </main>
-  );
-}
-
-function Atalho({
-  href,
-  icone: Icone,
-  texto,
-  destaque,
-}: {
-  href: string;
-  icone: any;
-  texto: string;
-  destaque?: "emerald";
-}) {
-  const classeIcone =
-    destaque === "emerald"
-      ? "bg-emerald-600/20 text-emerald-400"
-      : "bg-blue-600/20 text-blue-400";
-
-  return (
-    <Link
-      href={href}
-      className="flex min-h-[82px] flex-col items-center justify-center gap-1.5 rounded-2xl border border-slate-800 bg-slate-900/95 p-2 text-center transition active:scale-95"
-    >
-      <div
-        className={`flex h-9 w-9 items-center justify-center rounded-2xl ${classeIcone}`}
-      >
-        <Icone className="h-5 w-5" />
-      </div>
-
-      <span className="text-[11px] font-semibold leading-tight">{texto}</span>
-    </Link>
-  );
-}
-
-function Resumo({
-  titulo,
-  valor,
-}: {
-  titulo: string;
-  valor: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-900/95 p-3 text-center">
-      <p className="text-[10px] font-bold uppercase tracking-wide text-slate-500">
-        {titulo}
-      </p>
-      <h3 className="mt-1 text-2xl font-black">{valor}</h3>
-      <p className="text-[10px] text-blue-400">Hoje</p>
-    </div>
   );
 }

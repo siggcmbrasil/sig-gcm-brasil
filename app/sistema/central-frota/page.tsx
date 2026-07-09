@@ -25,35 +25,35 @@ const cards = [
   {
     titulo: "Abastecimentos",
     icone: Fuel,
-    href: "/sistema/abastecimentos",
+    href: "/sistema/central-frota/abastecimentos",
     descricao:
       "Controle de combustível e consumo das viaturas.",
   },
   {
     titulo: "Manutenções",
     icone: Wrench,
-    href: "/sistema/manutencoes",
+    href: "/sistema/central-frota/manutencoes",
     descricao:
       "Registro de manutenções preventivas e corretivas.",
   },
   {
     titulo: "Checklist de Viaturas",
     icone: ClipboardCheck,
-    href: "/sistema/checklist-viaturas",
+    href: "/sistema/central-frota/checklist-viaturas",
     descricao:
       "Inspeção operacional antes e depois do serviço.",
   },
   {
     titulo: "Danos em Viaturas",
     icone: AlertTriangle,
-    href: "/sistema/danos-viaturas",
+    href: "/sistema/central-frota/danos-viaturas",
     descricao:
       "Registro de avarias, danos e ocorrências com veículos.",
   },
   {
     titulo: "Pneus",
     icone: CircleGauge,
-    href: "/sistema/pneus",
+    href: "/sistema/central-frota/pneus",
     descricao:
       "Controle de pneus, trocas, vida útil e manutenção.",
   },
