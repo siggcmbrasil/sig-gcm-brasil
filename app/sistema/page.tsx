@@ -7,22 +7,28 @@ import { registrarAuditoria } from "@/lib/auditoria";
 import dynamic from "next/dynamic";
 import TelaMobile from "@/components/TelaMobile";
 import CardNoticiasClima from "@/components/dashboard/CardNoticiasClima";
+import {
+  lerMunicipioContextoLocal,
+  obterMunicipioIdEfetivo,
+} from "@/lib/contextoMunicipio";
 
 import {
   Shield,
   CarFront,
   PhoneCall,
-  Cloud,
   AlertTriangle,
-CheckCircle,
-Search,
-Bell,
-Mail,
-User,
-ChevronDown,
-Settings,
-LogOut,
-MapPin,
+  BarChart3,
+  Bell,
+  CalendarDays,
+  CheckCircle,
+  ChevronDown,
+  LogOut,
+  Mail,
+  MapPin,
+  Megaphone,
+  Search,
+  User,
+  Settings,
 } from "lucide-react";
 
 const MapaOperacional = dynamic(
@@ -151,26 +157,68 @@ export default function Dashboard() {
   const [mostrarMensagens, setMostrarMensagens] = useState(false);
   
 function obterUsuarioLogado() {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
   try {
-    const salvo = localStorage.getItem("usuarioLogado");
+    const salvo =
+      localStorage.getItem(
+        "usuarioLogado"
+      );
 
-    if (!salvo) return null;
-
-    const usuario = JSON.parse(salvo);
-
-    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+    if (!salvo) {
       return null;
     }
 
-    return usuario;
+    const usuario =
+      JSON.parse(salvo);
+
+    if (
+      !usuario?.id ||
+      !usuario?.perfil
+    ) {
+      return null;
+    }
+
+    const contexto =
+      lerMunicipioContextoLocal();
+
+    const municipioIdEfetivo =
+      obterMunicipioIdEfetivo({
+        perfil:
+          usuario.perfil,
+        municipioIdUsuario:
+          usuario.municipio_id,
+      });
+
+    if (!municipioIdEfetivo) {
+      return null;
+    }
+
+    return {
+      ...usuario,
+      municipio_id:
+        municipioIdEfetivo,
+      municipio_nome:
+        String(
+          contexto?.nome ||
+          usuario.municipio_nome ||
+          ""
+        ),
+    };
   } catch {
     return null;
   }
 }
 
-const usuarioLogado = obterUsuarioLogado();
+const usuarioLogado =
+  obterUsuarioLogado();
 
-const municipioId = usuarioLogado?.municipio_id;
+const municipioId =
+  usuarioLogado?.municipio_id;
 
   const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
   const ehDesenvolvedor = perfilUsuario === "DESENVOLVEDOR";
@@ -574,100 +622,132 @@ setMostrarPerfil={setMostrarPerfil}
   </div>
 ) : (
   <>
-    <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-6 gap-3 mb-3">
-      <CardComando
-  titulo="Plantão Ativo"
-  valor={guarnicaoAtual?.nome?.replace("Guarnição ", "") || "Ativo"}
-  detalhe="Em andamento"
-  icone={<Shield className="w-8 h-8" />}
-  cor="green"
-/>
+    <section className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+      <Link href="/sistema/escalas" className="block">
+        <CardComando
+          titulo="Plantão Atual"
+          valor={
+            guarnicaoAtual?.nome?.replace(
+              "Guarnição ",
+              ""
+            ) || "Ativo"
+          }
+          detalhe="Ver escala de serviço"
+          icone={
+            <Shield className="h-8 w-8" />
+          }
+          cor="green"
+        />
+      </Link>
 
-<CardComando
-  titulo="Ocorrências Pendentes"
-  valor={String(abertas)}
-  detalhe="Aguardando atendimento"
-  icone={<AlertTriangle className="w-8 h-8" />}
-  cor="blue"
-/>
+      <Link
+        href="/sistema/ocorrencias"
+        className="block"
+      >
+        <CardComando
+          titulo="Ocorrências Pendentes"
+          valor={String(abertas)}
+          detalhe="Abrir central"
+          icone={
+            <AlertTriangle className="h-8 w-8" />
+          }
+          cor="blue"
+        />
+      </Link>
 
-<Link href="/sistema/chamados">
-  <CardComando
-    titulo="Chamados Abertos"
-    valor={String(chamadosAbertos)}
-    detalhe="Clique para acessar"
-    icone={<PhoneCall className="w-8 h-8" />}
-    cor="cyan"
-  />
-</Link>
+      <Link
+        href="/sistema/chamados"
+        className="block"
+      >
+        <CardComando
+          titulo="Chamados Abertos"
+          valor={String(chamadosAbertos)}
+          detalhe="Abrir chamados"
+          icone={
+            <PhoneCall className="h-8 w-8" />
+          }
+          cor="cyan"
+        />
+      </Link>
 
-<CardComando
-  titulo="Viaturas em Serviço"
-  valor={String(viaturas.length)}
-  detalhe="Frota operacional"
-  icone={<CarFront className="w-8 h-8" />}
-  cor="purple"
-/>
+      <Link
+        href="/sistema/viatura"
+        className="block"
+      >
+        <CardComando
+          titulo="Viaturas em Serviço"
+          valor={String(viaturas.length)}
+          detalhe="Abrir frota"
+          icone={
+            <CarFront className="h-8 w-8" />
+          }
+          cor="purple"
+        />
+      </Link>
 
-<CardComando
-  titulo="Rondas"
-  valor={String(rondasAndamento)}
-  detalhe={`${rondasConcluidas} concluídas • ${rondasAtivas} ativas`}
-  icone="🚔"
-  cor="cyan"
-/>
+      <Link
+        href="/sistema/patrulhamento"
+        className="block"
+      >
+        <CardComando
+          titulo="Patrulhamentos"
+          valor={String(rondasAndamento)}
+          detalhe={`${rondasConcluidas} concluídos`}
+          icone="🚔"
+          cor="cyan"
+        />
+      </Link>
 
-<CardComando
-  titulo="Sincronização"
-  valor="Online"
-  detalhe="Sistema atualizado"
-  icone={<Cloud className="w-8 h-8" />}
-  cor="gold"
-/>
+      <Link
+        href="/sistema/comunicacao"
+        className="block"
+      >
+        <CardComando
+          titulo="Mural Operacional"
+          valor={String(avisos.length)}
+          detalhe="Avisos institucionais"
+          icone={
+            <Megaphone className="h-8 w-8" />
+          }
+          cor="indigo"
+        />
+      </Link>
 
+      <Link
+        href="/sistema/escalas"
+        className="block"
+      >
+        <CardComando
+          titulo="Plantões Ativos"
+          valor={String(
+            guarnicoesPlantao.length
+          )}
+          detalhe="Ver equipes em serviço"
+          icone={
+            <CalendarDays className="h-8 w-8" />
+          }
+          cor="green"
+        />
+      </Link>
+
+      <Link
+        href="/sistema/estatisticas"
+        className="block"
+      >
+        <CardComando
+          titulo="Estatísticas"
+          valor={String(
+            ocorrenciasHoje
+          )}
+          detalhe="Indicadores do dia"
+          icone={
+            <BarChart3 className="h-8 w-8" />
+          }
+          cor="gold"
+        />
+      </Link>
     </section>
 
-<section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
-  <Link
-    href="/sistema/consultas"
-    className="
-      xl:col-span-4
-      painel-premium
-      p-5
-      flex items-center gap-4
-      border border-yellow-500/30
-      hover:border-yellow-400
-      transition-all
-      hover:scale-[1.01]
-    "
-  >
-    <div
-      className="
-        w-16 h-16
-        rounded-2xl
-        bg-yellow-500/15
-        border border-yellow-500/30
-        flex items-center justify-center
-      "
-    >
-      <Search className="w-8 h-8 text-yellow-400" />
-    </div>
-
-    <div>
-      <h2 className="text-xl font-black text-white">
-        Consultas Integradas
-      </h2>
-
-      <p className="text-slate-400 text-sm">
-        CPF, placa, RENAVAM e pesquisa global SIG Brasil.
-      </p>
-    </div>
-  </Link>
-
-  <div className="xl:col-span-8">
-    <CardNoticiasClima />
-  </div>
-</section>
 
     <section className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
   <div className="xl:col-span-7">
@@ -696,54 +776,70 @@ setMostrarPerfil={setMostrarPerfil}
   </div>
 </section>
 
-<section className="grid grid-cols-1 xl:grid-cols-12 gap-3 min-h-[260px]">
-  <div className="xl:col-span-4 space-y-3">
-    <PainelAlertas avisos={avisos} />
-
-    <div className="painel-premium p-3">
-  <TituloPainel icone="📅" titulo="Datas Importantes de Hoje" />
-
-  <div className="space-y-3 mt-3">
-    {datasHoje.length === 0 && aniversariantesHoje.length === 0 ? (
-      <p className="text-slate-400 text-sm">
-        Nenhuma data importante hoje.
-      </p>
-    ) : (
-      <>
-        {aniversariantesHoje.map((guarda) => (
-          <div
-            key={`aniv-${guarda.id}`}
-            className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
-          >
-            <p className="font-bold">🎂 {guarda.nome}</p>
-            <p className="text-slate-400 text-sm">Aniversariante</p>
-          </div>
-        ))}
-
-        {datasHoje.map((item) => (
-          <div
-            key={`data-${item.id}`}
-            className="bg-slate-900/50 border border-slate-800 rounded-lg p-3"
-          >
-            <p className="font-bold">{item.titulo}</p>
-            <p className="text-slate-400 text-sm">{item.categoria}</p>
-          </div>
-        ))}
-      </>
-    )}
+<section className="mb-3">
+  <div className="h-[190px] overflow-hidden rounded-2xl">
+    <CardNoticiasClima />
   </div>
-</div>
+</section>
+
+<section className="grid min-h-[220px] grid-cols-1 gap-3 xl:grid-cols-12">
+  <div className="xl:col-span-4">
+    <div className="painel-premium h-full p-3">
+      <TituloPainel
+        icone="📅"
+        titulo="Datas Importantes de Hoje"
+      />
+
+      <div className="mt-3 space-y-3">
+        {datasHoje.length === 0 &&
+        aniversariantesHoje.length === 0 ? (
+          <p className="text-sm text-slate-400">
+            Nenhuma data importante hoje.
+          </p>
+        ) : (
+          <>
+            {aniversariantesHoje
+              .slice(0, 3)
+              .map((guarda) => (
+                <div
+                  key={`aniv-${guarda.id}`}
+                  className="rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+                >
+                  <p className="font-bold">
+                    🎂 {guarda.nome}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    Aniversariante
+                  </p>
+                </div>
+              ))}
+
+            {datasHoje
+              .slice(0, 3)
+              .map((item) => (
+                <div
+                  key={`data-${item.id}`}
+                  className="rounded-lg border border-slate-800 bg-slate-900/50 p-3"
+                >
+                  <p className="font-bold">
+                    {item.titulo}
+                  </p>
+                  <p className="text-sm text-slate-400">
+                    {item.categoria}
+                  </p>
+                </div>
+              ))}
+          </>
+        )}
+      </div>
+    </div>
   </div>
 
-  <div className="xl:col-span-8 space-y-3">
-<PainelResumo
-  finalizadas={finalizadas}
-  abertas={abertas}
-  rondasAndamento={rondasAndamento}
-/>
-
-  <PainelAtividades atividades={ultimasAtividades} />
-</div>
+  <div className="xl:col-span-8">
+    <PainelAtividades
+      atividades={ultimasAtividades}
+    />
+  </div>
 </section>
   </>
 )}
@@ -879,11 +975,11 @@ hora,
   return (
     <header className="min-h-28 rounded-2xl border border-blue-500/20 bg-slate-950/80 backdrop-blur-md px-6 flex items-center justify-between shadow-[0_0_30px_rgba(0,80,255,.15)] relative z-[9999] overflow-visible">
       <div className="flex items-center gap-5 min-w-[350px]">
-        <img
-          src={municipio?.brasao || "/brasoes/sig-gcm-logo.png"}
-          alt="Brasão"
-          className="w-16 h-16 object-contain"
-        />
+<img
+  src="/brasoes/sig-gcm-logo.png"
+  alt="SIG-GCM Brasil"
+  className="w-16 h-16 object-contain"
+/>
 
         <div>
           <h1 className="text-3xl font-black text-white">
@@ -1159,7 +1255,7 @@ function CardComando({
   const estilo = cores[cor as keyof typeof cores];
 
   return (
-    <div className="painel-premium relative p-4 h-[110px] overflow-hidden hover:scale-[1.01] transition-all duration-300">
+    <div className="painel-premium relative h-[104px] cursor-pointer overflow-hidden p-3 transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-400/50 hover:shadow-[0_0_24px_rgba(34,211,238,0.12)]">
 
       <div className="absolute top-3 right-3">
         <span className="w-3 h-3 bg-green-400 rounded-full block shadow-lg shadow-green-500/70" />
@@ -1168,7 +1264,7 @@ function CardComando({
       <div className="flex items-center gap-4 h-full">
 
         <div
-          className={`w-14 h-14 shrink-0 rounded-2xl flex items-center justify-center text-3xl border ${estilo.icone}`}
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border text-2xl ${estilo.icone}`}
         >
           {icone}
         </div>
@@ -1181,11 +1277,11 @@ function CardComando({
             {titulo}
           </p>
 
-          <h2 className="text-3xl font-black text-white leading-none mt-1">
+          <h2 className="mt-1 text-2xl font-black leading-none text-white">
             {valor}
           </h2>
 
-          <p className="text-sm text-slate-400 mt-1">
+          <p className="mt-1 truncate text-xs text-slate-400">
             {detalhe}
           </p>
 

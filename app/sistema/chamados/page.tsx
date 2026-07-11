@@ -36,6 +36,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
 
 type ContextoChamados = {
   usuario_id: number;
@@ -304,7 +305,38 @@ export default function ChamadosPage() {
   ) {
     const accessToken = await obterAccessToken();
 
-    const resposta = await fetch("/api/chamados", {
+    let usuarioCache:
+      | {
+          perfil?: string;
+          municipio_id?: number;
+        }
+      | null = null;
+
+    try {
+      const salvo =
+        localStorage.getItem(
+          "usuarioLogado"
+        );
+
+      usuarioCache =
+        salvo
+          ? JSON.parse(salvo)
+          : null;
+    } catch {
+      usuarioCache = null;
+    }
+
+    const url =
+      montarUrlComMunicipioContexto({
+        url: "/api/chamados",
+        perfil:
+          usuarioCache?.perfil,
+        municipioIdUsuario:
+          usuarioCache
+            ?.municipio_id,
+      });
+
+    const resposta = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${accessToken}`,

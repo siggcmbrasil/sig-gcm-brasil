@@ -7,8 +7,13 @@ import { useRouter } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import ModalAniversariantes from "@/components/ModalAniversariantes";
 import RegistrarServiceWorker from "@/components/RegistrarServiceWorker";
+import SeletorMunicipioDev from "@/components/SeletorMunicipioDev";
 import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
+import {
+  lerMunicipioContextoLocal,
+  obterMunicipioIdEfetivo,
+} from "@/lib/contextoMunicipio";
 
 const PERFIS_VALIDOS = [
   "DESENVOLVEDOR",
@@ -211,46 +216,85 @@ export default function SistemaLayout({
         return;
       }
 
-      let municipioNome = "";
+      const contextoLocal =
+        perfil === "DESENVOLVEDOR"
+          ? lerMunicipioContextoLocal()
+          : null;
 
-      if (data.municipio_id) {
-        const { data: municipio, error: municipioError } = await supabase
+      const municipioIdAtual =
+        obterMunicipioIdEfetivo({
+          perfil,
+          municipioIdUsuario:
+            data.municipio_id,
+        });
+
+      let municipioNome =
+        contextoLocal?.nome || "";
+
+      if (municipioIdAtual) {
+        const {
+          data: municipio,
+          error: municipioError,
+        } = await supabase
           .from("municipios")
           .select("nome")
-          .eq("id", data.municipio_id)
+          .eq("id", municipioIdAtual)
           .maybeSingle();
 
         if (municipioError) {
-          console.error("Erro ao carregar município do usuário:", {
-            message: municipioError.message,
-            details: municipioError.details,
-            hint: municipioError.hint,
-            code: municipioError.code,
-          });
+          console.error(
+            "Erro ao carregar município do contexto:",
+            {
+              message:
+                municipioError.message,
+              details:
+                municipioError.details,
+              hint:
+                municipioError.hint,
+              code:
+                municipioError.code,
+              municipio_id:
+                municipioIdAtual,
+            }
+          );
 
           await encerrarAcesso();
           return;
         }
 
-        if (!municipio && perfil !== "DESENVOLVEDOR") {
+        if (
+          !municipio &&
+          perfil !== "DESENVOLVEDOR"
+        ) {
           await encerrarAcesso();
           return;
         }
 
-        municipioNome = municipio?.nome || "";
+        municipioNome =
+          municipio?.nome ||
+          municipioNome;
       }
 
       const usuarioAtual: UsuarioLogado = {
         id: String(data.id),
         auth_id: authUser.id,
-        nome: data.nome || authUser.email || "Usuário",
-        matricula: data.matricula || "",
-        email: authUser.email || "",
+        nome:
+          data.nome ||
+          authUser.email ||
+          "Usuário",
+        matricula:
+          data.matricula || "",
+        email:
+          authUser.email || "",
         perfil,
         status: "ATIVO",
-        municipio_id: data.municipio_id ?? undefined,
-        municipio_nome: municipioNome,
-        foto_url: data.foto_url || "",
+        municipio_id:
+          municipioIdAtual ||
+          undefined,
+        municipio_nome:
+          municipioNome,
+        foto_url:
+          data.foto_url || "",
       };
 
       /*
@@ -360,6 +404,9 @@ export default function SistemaLayout({
 
         <main className="min-w-0 w-full flex-1 overflow-x-hidden">
           <div className="w-full text-white">
+            <SeletorMunicipioDev
+              usuario={usuario}
+            />
             <ModalAniversariantes />
             {children}
           </div>

@@ -15,10 +15,14 @@ type UsuarioSistema = {
   municipio_id: number | null;
 };
 
-function responder(
-  corpo: Record<string, unknown>,
-  status: number
-) {
+type Municipio = {
+  id: number;
+  nome: string | null;
+  brasao_gcm: string | null;
+  ativo: boolean | null;
+};
+
+function responder(corpo: Record<string, unknown>, status: number) {
   return NextResponse.json(corpo, {
     status,
     headers: {
@@ -28,14 +32,23 @@ function responder(
 }
 
 function obterToken(request: NextRequest) {
-  const authorization =
-    request.headers.get("authorization");
+  const authorization = request.headers.get("authorization");
 
   if (!authorization?.startsWith("Bearer ")) {
     return null;
   }
 
   return authorization.slice(7).trim() || null;
+}
+
+function numeroId(valor: unknown) {
+  const numero = Number(valor);
+
+  if (!Number.isSafeInteger(numero) || numero <= 0) {
+    return null;
+  }
+
+  return numero;
 }
 
 export async function GET(request: NextRequest) {
@@ -69,15 +82,11 @@ export async function GET(request: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("usuarios")
-      .select(
-        "id,nome,email,perfil,status,municipio_id"
-      )
+      .select("id,nome,email,perfil,status,municipio_id")
       .eq("auth_id", authUser.id)
-      .maybeSingle();
+      .maybeSingle<UsuarioSistema>();
 
-    const usuario = data as UsuarioSistema | null;
-
-    if (error || !usuario) {
+    if (error || !data) {
       return responder(
         {
           ok: false,
@@ -87,13 +96,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const perfil = String(
-      usuario.perfil || ""
-    ).toUpperCase();
+    const perfil = String(data.perfil || "")
+      .trim()
+      .toUpperCase();
 
-    const status = String(
-      usuario.status || ""
-    ).toUpperCase();
+    const status = String(data.status || "")
+      .trim()
+      .toUpperCase();
 
     if (status !== "ATIVO") {
       return responder(
@@ -105,29 +114,58 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    let municipioId = numeroId(data.municipio_id);
+
+    if (perfil === "DESENVOLVEDOR") {
+      const municipioContexto = numeroId(
+        request.nextUrl.searchParams.get("municipio_id")
+      );
+
+      if (municipioContexto) {
+        municipioId = municipioContexto;
+      }
+    }
+
     let municipioNome: string | null = null;
     let brasaoGcm: string | null = null;
 
-    if (usuario.municipio_id) {
-      const { data: municipio, error: municipioError } =
-        await supabaseAdmin
-          .from("municipios")
-          .select("id,nome,brasao_gcm")
-          .eq("id", usuario.municipio_id)
-          .maybeSingle();
+    if (municipioId) {
+      const { data: municipio, error: municipioError } = await supabaseAdmin
+        .from("municipios")
+        .select("id,nome,brasao_gcm,ativo")
+        .eq("id", municipioId)
+        .maybeSingle<Municipio>();
 
       if (municipioError) {
-        console.error(
-          "Erro ao carregar município do menu:",
-          municipioError.message
+        console.error("Erro ao carregar município do menu:", {
+          message: municipioError.message,
+          details: municipioError.details,
+          hint: municipioError.hint,
+          code: municipioError.code,
+          municipio_id: municipioId,
+        });
+
+        return responder(
+          {
+            ok: false,
+            erro: "Não foi possível carregar o município do menu.",
+          },
+          500
         );
-      } else if (municipio) {
-        municipioNome =
-          String(municipio.nome || "").trim() || null;
-        brasaoGcm =
-          String(municipio.brasao_gcm || "").trim() ||
-          null;
       }
+
+      if (!municipio || municipio.ativo === false) {
+        return responder(
+          {
+            ok: false,
+            erro: "Município inexistente ou inativo.",
+          },
+          404
+        );
+      }
+
+      municipioNome = String(municipio.nome || "").trim() || null;
+      brasaoGcm = String(municipio.brasao_gcm || "").trim() || null;
     }
 
     if (perfil === "DESENVOLVEDOR") {
@@ -135,7 +173,7 @@ export async function GET(request: NextRequest) {
         {
           ok: true,
           perfil,
-          municipio_id: usuario.municipio_id,
+          municipio_id: municipioId,
           municipio_nome: municipioNome,
           brasao_gcm: brasaoGcm,
           modulos: [...MODULOS_CATALOGO],
@@ -144,12 +182,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const municipioId = Number(usuario.municipio_id);
-
-    if (
-      !Number.isSafeInteger(municipioId) ||
-      municipioId <= 0
-    ) {
+    if (!municipioId) {
       return responder(
         {
           ok: false,
@@ -159,10 +192,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const {
-      data: permissoes,
-      error: permissoesError,
-    } = await supabaseAdmin
+    const { data: permissoes, error: permissoesError } = await supabaseAdmin
       .from("permissoes_perfis")
       .select("modulo")
       .eq("municipio_id", municipioId)
@@ -170,20 +200,16 @@ export async function GET(request: NextRequest) {
       .eq("pode_ver", true);
 
     if (permissoesError) {
-      console.error(
-        "Erro ao carregar permissões do menu:",
-        {
-          message: permissoesError.message,
-          perfil,
-          municipio_id: municipioId,
-        }
-      );
+      console.error("Erro ao carregar permissões do menu:", {
+        message: permissoesError.message,
+        perfil,
+        municipio_id: municipioId,
+      });
 
       return responder(
         {
           ok: false,
-          erro:
-            "Não foi possível carregar as permissões do menu.",
+          erro: "Não foi possível carregar as permissões do menu.",
         },
         500
       );
@@ -213,10 +239,11 @@ export async function GET(request: NextRequest) {
       200
     );
   } catch (error) {
-    console.error(
-      "Erro inesperado ao carregar menu:",
-      error
-    );
+    console.error("Erro inesperado ao carregar menu:", {
+      message:
+        error instanceof Error ? error.message : "Erro desconhecido",
+      error,
+    });
 
     return responder(
       {

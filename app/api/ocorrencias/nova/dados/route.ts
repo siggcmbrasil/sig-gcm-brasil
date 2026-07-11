@@ -257,54 +257,79 @@ async function autenticarUsuario(
     );
 
     if (
-      Number.isSafeInteger(
+      !Number.isSafeInteger(
         municipioParametro
-      ) &&
-      municipioParametro > 0
+      ) ||
+      municipioParametro <= 0
     ) {
-      const {
-        data: municipioValido,
-        error: municipioError,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .eq("id", municipioParametro)
-        .maybeSingle();
-
-      if (municipioError) {
-        console.error(
-          "Erro ao validar município da nova ocorrência:",
-          municipioError
-        );
-      }
-
-      if (municipioValido) {
-        municipioId = municipioParametro;
-      }
+      return {
+        ok: false as const,
+        resposta: responder(
+          {
+            ok: false,
+            erro:
+              "Selecione o município que será administrado.",
+          },
+          422
+        ),
+      };
     }
 
-    if (!municipioId) {
-      const {
-        data: primeiroMunicipio,
-        error: municipioError,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .order("nome")
-        .limit(1)
-        .maybeSingle();
+    const {
+      data: municipioValido,
+      error: municipioError,
+    } = await supabaseAdmin
+      .from("municipios")
+      .select("id")
+      .eq("id", municipioParametro)
+      .eq("ativo", true)
+      .maybeSingle();
 
-      if (municipioError) {
-        console.error(
-          "Erro ao localizar município padrão:",
-          municipioError
-        );
-      }
-
-      municipioId = Number(
-        primeiroMunicipio?.id || 0
+    if (municipioError) {
+      console.error(
+        "Erro ao validar município da nova ocorrência:",
+        {
+          message:
+            municipioError.message,
+          details:
+            municipioError.details,
+          hint:
+            municipioError.hint,
+          code:
+            municipioError.code,
+          municipio_id:
+            municipioParametro,
+        }
       );
+
+      return {
+        ok: false as const,
+        resposta: responder(
+          {
+            ok: false,
+            erro:
+              "Não foi possível validar o município selecionado.",
+          },
+          500
+        ),
+      };
     }
+
+    if (!municipioValido) {
+      return {
+        ok: false as const,
+        resposta: responder(
+          {
+            ok: false,
+            erro:
+              "Município inexistente ou inativo.",
+          },
+          404
+        ),
+      };
+    }
+
+    municipioId = municipioParametro;
   }
 
   if (!municipioId) {

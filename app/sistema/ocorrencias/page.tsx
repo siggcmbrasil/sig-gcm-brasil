@@ -21,6 +21,9 @@ import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { registrarAuditoria } from "@/lib/auditoria";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import {
+  montarUrlComMunicipioContexto,
+} from "@/lib/contextoMunicipio";
 
 type UsuarioLogado = {
   id: string;
@@ -155,13 +158,46 @@ export default function Ocorrencias() {
     try {
       const accessToken = await obterAccessToken();
 
-      const resposta = await fetch("/api/ocorrencias", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      });
+      let usuarioCache:
+        | UsuarioLogado
+        | null = null;
+
+      try {
+        const salvo =
+          localStorage.getItem(
+            "usuarioLogado"
+          );
+
+        usuarioCache =
+          salvo
+            ? (JSON.parse(
+                salvo
+              ) as UsuarioLogado)
+            : null;
+      } catch {
+        usuarioCache = null;
+      }
+
+      const url =
+        montarUrlComMunicipioContexto({
+          url:
+            "/api/ocorrencias",
+          perfil:
+            usuarioCache?.perfil,
+          municipioIdUsuario:
+            usuarioCache
+              ?.municipio_id,
+        });
+
+      const resposta =
+        await fetch(url, {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        });
 
       const dados = (await resposta
         .json()

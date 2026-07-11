@@ -169,6 +169,7 @@ export async function GET(
       } = await supabaseAdmin
         .from("municipios")
         .select("id,nome,estado")
+        .eq("ativo", true)
         .order("nome");
 
       if (municipiosError) {
@@ -202,37 +203,41 @@ export async function GET(
       );
 
       if (
-        Number.isInteger(municipioParametro) &&
-        municipioParametro > 0 &&
-        municipios.some(
-          (item) =>
-            item.id === municipioParametro
-        )
+        !Number.isSafeInteger(
+          municipioParametro
+        ) ||
+        municipioParametro <= 0
       ) {
-        municipioId = municipioParametro;
-      } else if (
-        usuario.municipio_id &&
-        municipios.some(
-          (item) =>
-            item.id === usuario.municipio_id
-        )
-      ) {
-        municipioId = usuario.municipio_id;
-      } else {
-        municipioId =
-          municipios[0]?.id || 0;
-      }
-
-      if (!municipioId) {
         return responder(
           {
             ok: false,
             erro:
-              "Nenhum município disponível.",
+              "Selecione o município que será administrado.",
           },
           422
         );
       }
+
+      const municipioValido =
+        municipios.some(
+          (item) =>
+            Number(item.id) ===
+            municipioParametro
+        );
+
+      if (!municipioValido) {
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Município inexistente ou inativo.",
+          },
+          404
+        );
+      }
+
+      municipioId =
+        municipioParametro;
     } else {
       if (!usuario.municipio_id) {
         return responder(

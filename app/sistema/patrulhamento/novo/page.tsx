@@ -28,6 +28,7 @@ import { useRouter } from "next/navigation";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { supabase } from "@/lib/supabase";
 import { iniciarGPSPatrulhamento } from "@/lib/patrulhamento/iniciarGPS";
+import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
 
 type Contexto = {
   usuario_id: number;
@@ -206,6 +207,42 @@ function obterLocalizacaoInicial(): Promise<Coordenadas> {
   });
 }
 
+
+function montarUrlPatrulhamento(
+  url: string
+) {
+  let usuario:
+    | Record<string, unknown>
+    | null = null;
+
+  try {
+    const salvo =
+      localStorage.getItem(
+        "usuarioLogado"
+      );
+
+    usuario =
+      salvo
+        ? (JSON.parse(
+            salvo
+          ) as Record<
+            string,
+            unknown
+          >)
+        : null;
+  } catch {
+    usuario = null;
+  }
+
+  return montarUrlComMunicipioContexto({
+    url,
+    perfil:
+      usuario?.perfil,
+    municipioIdUsuario:
+      usuario?.municipio_id,
+  });
+}
+
 export default function NovoPatrulhamentoPage() {
   const router = useRouter();
 
@@ -290,13 +327,18 @@ export default function NovoPatrulhamentoPage() {
     const accessToken =
       await obterAccessToken();
 
-    const url =
+    const urlBase =
       method === "GET" &&
       dataReferencia
         ? `/api/patrulhamento/novo?data_referencia=${encodeURIComponent(
             dataReferencia
           )}`
         : "/api/patrulhamento/novo";
+
+    const url =
+      montarUrlPatrulhamento(
+        urlBase
+      );
 
     const resposta = await fetch(url, {
       method,

@@ -29,6 +29,7 @@ import {
 
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { supabase } from "@/lib/supabase";
+import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
 
 const MapContainer = dynamic(
   () =>
@@ -521,6 +522,42 @@ function limparMonitoramentoLocal(
   );
 }
 
+
+function montarUrlPatrulhamento(
+  url: string
+) {
+  let usuario:
+    | Record<string, unknown>
+    | null = null;
+
+  try {
+    const salvo =
+      localStorage.getItem(
+        "usuarioLogado"
+      );
+
+    usuario =
+      salvo
+        ? (JSON.parse(
+            salvo
+          ) as Record<
+            string,
+            unknown
+          >)
+        : null;
+  } catch {
+    usuario = null;
+  }
+
+  return montarUrlComMunicipioContexto({
+    url,
+    perfil:
+      usuario?.perfil,
+    municipioIdUsuario:
+      usuario?.municipio_id,
+  });
+}
+
 export default function RotasPatrulhamentoPage() {
   const router = useRouter();
 
@@ -618,11 +655,16 @@ export default function RotasPatrulhamentoPage() {
     const accessToken =
       await obterAccessToken();
 
-    const url = id
+    const urlBase = id
       ? `/api/patrulhamento/rotas?id=${encodeURIComponent(
           String(id)
         )}`
       : "/api/patrulhamento/rotas";
+
+    const url =
+      montarUrlPatrulhamento(
+        urlBase
+      );
 
     const resposta = await fetch(
       url,
@@ -680,8 +722,13 @@ export default function RotasPatrulhamentoPage() {
     const accessToken =
       await obterAccessToken();
 
+    const url =
+      montarUrlPatrulhamento(
+        "/api/patrulhamento"
+      );
+
     const resposta = await fetch(
-      "/api/patrulhamento",
+      url,
       {
         method: "PATCH",
         headers: {

@@ -439,16 +439,69 @@ export async function GET(
       );
 
       if (
-        Number.isInteger(
+        !Number.isSafeInteger(
           municipioParametro
-        ) &&
-        municipioParametro > 0
+        ) ||
+        municipioParametro <= 0
       ) {
-        query = query.eq(
-          "municipio_id",
-          municipioParametro
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Selecione um município para visualizar a Central SOS.",
+          },
+          400
         );
       }
+
+      const {
+        data: municipio,
+        error: municipioError,
+      } = await supabaseAdmin
+        .from("municipios")
+        .select("id")
+        .eq("id", municipioParametro)
+        .eq("ativo", true)
+        .maybeSingle();
+
+      if (municipioError) {
+        console.error(
+          "Erro ao validar município da Central SOS:",
+          {
+            message: municipioError.message,
+            details: municipioError.details,
+            hint: municipioError.hint,
+            code: municipioError.code,
+            municipio_id:
+              municipioParametro,
+          }
+        );
+
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Não foi possível validar o município selecionado.",
+          },
+          500
+        );
+      }
+
+      if (!municipio) {
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Município inexistente ou inativo.",
+          },
+          404
+        );
+      }
+
+      query = query.eq(
+        "municipio_id",
+        municipioParametro
+      );
     }
 
     const {
@@ -624,6 +677,33 @@ export async function PATCH(
       );
     }
 
+    let municipioIdContexto =
+      Number(usuario.municipio_id || 0);
+
+    if (perfil === "DESENVOLVEDOR") {
+      municipioIdContexto = Number(
+        request.nextUrl.searchParams.get(
+          "municipio_id"
+        )
+      );
+
+      if (
+        !Number.isSafeInteger(
+          municipioIdContexto
+        ) ||
+        municipioIdContexto <= 0
+      ) {
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Selecione um município antes de alterar o SOS.",
+          },
+          400
+        );
+      }
+    }
+
     let buscaAlerta = supabaseAdmin
       .from("alertas_sos")
       .select(
@@ -642,14 +722,11 @@ export async function PATCH(
           atendido_em
         `
       )
-      .eq("id", id);
-
-    if (perfil !== "DESENVOLVEDOR") {
-      buscaAlerta = buscaAlerta.eq(
+      .eq("id", id)
+      .eq(
         "municipio_id",
-        usuario.municipio_id
+        municipioIdContexto
       );
-    }
 
     const {
       data: alerta,

@@ -634,12 +634,8 @@ export default function Sidebar({
             }`}
           >
             <img
-              src={brasaoMunicipio}
-              onError={(event) => {
-                event.currentTarget.src =
-                  "/brasoes/sig-gcm-logo.png";
-              }}
-              alt="Brasão GCM"
+              src="/brasoes/sig-gcm-logo.png"
+              alt="SIG-GCM Brasil"
               className="h-12 w-12 object-contain"
             />
 

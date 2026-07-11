@@ -11,6 +11,9 @@ import {
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
+import { supabase } from "@/lib/supabase";
+import { obterMunicipioIdEfetivo } from "@/lib/contextoMunicipio";
+
 type OcorrenciaMapa = {
   id: number;
   protocolo?: string;
@@ -74,6 +77,18 @@ type AlertaSOSMapa = {
   precisao?: string | number | null;
   status: string;
   criado_em: string;
+};
+
+
+type MunicipioMapa = {
+  id: number;
+  nome: string | null;
+  estado: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  zoom_mapa: number | string | null;
+  latitude_base: number | string | null;
+  longitude_base: number | string | null;
 };
 
 const iconBase = L.divIcon({
@@ -199,6 +214,44 @@ function CentralizarMapa({
   return null;
 }
 
+function coordenadaValida(
+  latitude: unknown,
+  longitude: unknown
+) {
+  const lat = Number(latitude);
+  const lng = Number(longitude);
+
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+function obterUsuarioCache() {
+  if (
+    typeof window === "undefined"
+  ) {
+    return null;
+  }
+
+  try {
+    const salvo =
+      localStorage.getItem(
+        "usuarioLogado"
+      );
+
+    return salvo
+      ? JSON.parse(salvo)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function MapaOperacional({
   ocorrencias,
   viaturas = [],
@@ -220,8 +273,98 @@ export default function MapaOperacional({
   const [ultimoSOS, setUltimoSOS] = useState(0);
   const [latitudeAtual, setLatitudeAtual] = useState<number | null>(null);
   const [longitudeAtual, setLongitudeAtual] = useState<number | null>(null);
+  const [municipioMapa, setMunicipioMapa] =
+    useState<MunicipioMapa | null>(null);
 
-  const mapaKey = useMemo(() => `mapa-operacional-${Date.now()}`, []);
+  useEffect(() => {
+    let ativo = true;
+
+    async function carregarMunicipio() {
+      const usuario =
+        obterUsuarioCache();
+
+      const municipioId =
+        obterMunicipioIdEfetivo({
+          perfil:
+            usuario?.perfil,
+          municipioIdUsuario:
+            usuario?.municipio_id,
+        });
+
+      if (!municipioId) {
+        if (ativo) {
+          setMunicipioMapa(null);
+        }
+        return;
+      }
+
+      const {
+        data,
+        error,
+      } = await supabase
+        .from("municipios")
+        .select(
+          `
+            id,
+            nome,
+            estado,
+            latitude,
+            longitude,
+            zoom_mapa,
+            latitude_base,
+            longitude_base
+          `
+        )
+        .eq("id", municipioId)
+        .maybeSingle<MunicipioMapa>();
+
+      if (error) {
+        console.error(
+          "Erro ao carregar posição do município no mapa:",
+          {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code,
+            municipio_id:
+              municipioId,
+          }
+        );
+
+        if (ativo) {
+          setMunicipioMapa(null);
+        }
+
+        return;
+      }
+
+      if (ativo) {
+        setMunicipioMapa(
+          data || null
+        );
+      }
+    }
+
+    void carregarMunicipio();
+
+    const aoTrocarMunicipio = () => {
+      void carregarMunicipio();
+    };
+
+    window.addEventListener(
+      "sig:municipio-contexto-alterado",
+      aoTrocarMunicipio
+    );
+
+    return () => {
+      ativo = false;
+
+      window.removeEventListener(
+        "sig:municipio-contexto-alterado",
+        aoTrocarMunicipio
+      );
+    };
+  }, []);
 
   const ocorrenciasComCoordenadas = (ocorrencias || []).map((o) => {
     const localRelacionado = Array.isArray(o.locais) ? o.locais[0] : o.locais;
@@ -330,6 +473,127 @@ export default function MapaOperacional({
     return `${distancia.toFixed(2)} km`;
   }
 
+  const pontosMapa: Array<
+    [number, number]
+  > = [];
+
+  ocorrenciasComCoordenadas.forEach(
+    (ocorrencia) => {
+      const latitude = Number(
+        ocorrencia.localRelacionado
+          ?.latitude
+      );
+
+      const longitude = Number(
+        ocorrencia.localRelacionado
+          ?.longitude
+      );
+
+      if (
+        coordenadaValida(
+          latitude,
+          longitude
+        )
+      ) {
+        pontosMapa.push([
+          latitude,
+          longitude,
+        ]);
+      }
+    }
+  );
+
+  [
+    ...viaturasComCoordenadas,
+    ...localizacoesComCoordenadas,
+    ...blitzesComCoordenadas,
+    ...barreirasComCoordenadas,
+    ...operacoesComCoordenadas,
+    ...alertasSOSComCoordenadas,
+  ].forEach((item) => {
+    const latitude =
+      Number(item.latitude);
+
+    const longitude =
+      Number(item.longitude);
+
+    if (
+      coordenadaValida(
+        latitude,
+        longitude
+      )
+    ) {
+      pontosMapa.push([
+        latitude,
+        longitude,
+      ]);
+    }
+  });
+
+  const possuiCentroMunicipio =
+    coordenadaValida(
+      municipioMapa?.latitude,
+      municipioMapa?.longitude
+    );
+
+  const centroCalculado:
+    [number, number] =
+      possuiCentroMunicipio
+        ? [
+            Number(
+              municipioMapa?.latitude
+            ),
+            Number(
+              municipioMapa?.longitude
+            ),
+          ]
+        : pontosMapa.length > 0
+        ? [
+            pontosMapa.reduce(
+              (total, ponto) =>
+                total + ponto[0],
+              0
+            ) / pontosMapa.length,
+            pontosMapa.reduce(
+              (total, ponto) =>
+                total + ponto[1],
+              0
+            ) / pontosMapa.length,
+          ]
+        : [-14.235, -51.9253];
+
+  const zoomConfigurado =
+    Number(
+      municipioMapa?.zoom_mapa
+    );
+
+  const zoomCalculado =
+    Number.isFinite(
+      zoomConfigurado
+    ) &&
+    zoomConfigurado >= 3 &&
+    zoomConfigurado <= 20
+      ? zoomConfigurado
+      : possuiCentroMunicipio ||
+        pontosMapa.length > 0
+      ? 15
+      : 4;
+
+  const possuiBaseMunicipio =
+    coordenadaValida(
+      municipioMapa?.latitude_base,
+      municipioMapa?.longitude_base
+    );
+
+  const mapaKey =
+    [
+      "mapa-operacional",
+      municipioMapa?.id || "sem-municipio",
+      centroCalculado[0],
+      centroCalculado[1],
+      zoomCalculado,
+    ].join("-");
+
   if (!pronto) {
     return (
       <div className="h-full w-full rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400">
@@ -343,8 +607,8 @@ export default function MapaOperacional({
   return (
     <MapContainer
       key={mapaKey}
-      center={[-11.621296322631357, -38.80684199142887]}
-      zoom={15}
+      center={centroCalculado}
+      zoom={zoomCalculado}
       scrollWheelZoom={true}
       style={{ width: "100%", height: "100%", minHeight: "100%" }}
       className="rounded-2xl z-0"
@@ -361,12 +625,27 @@ export default function MapaOperacional({
         attribution="OpenStreetMap"
       />
 
-      <Marker
-        position={[-11.620667881728922, -38.8051351858178]}
-        icon={iconBase}
-      >
-        <Popup>Base GCM Biritinga</Popup>
-      </Marker>
+      {possuiBaseMunicipio && (
+        <Marker
+          position={[
+            Number(
+              municipioMapa
+                ?.latitude_base
+            ),
+            Number(
+              municipioMapa
+                ?.longitude_base
+            ),
+          ]}
+          icon={iconBase}
+        >
+          <Popup>
+            Base GCM{" "}
+            {municipioMapa?.nome ||
+              "Municipal"}
+          </Popup>
+        </Marker>
+      )}
 
       {ocorrenciasComCoordenadas.map((o) => {
         if (!o.localRelacionado) return null;

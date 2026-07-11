@@ -36,6 +36,7 @@ import {
 
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
 
 type ContextoPatrulhamento = {
   usuario_id: number;
@@ -233,6 +234,42 @@ function obterLocalizacaoFinal(): Promise<Coordenadas> {
   });
 }
 
+
+function montarUrlPatrulhamento(
+  url: string
+) {
+  let usuario:
+    | Record<string, unknown>
+    | null = null;
+
+  try {
+    const salvo =
+      localStorage.getItem(
+        "usuarioLogado"
+      );
+
+    usuario =
+      salvo
+        ? (JSON.parse(
+            salvo
+          ) as Record<
+            string,
+            unknown
+          >)
+        : null;
+  } catch {
+    usuario = null;
+  }
+
+  return montarUrlComMunicipioContexto({
+    url,
+    perfil:
+      usuario?.perfil,
+    municipioIdUsuario:
+      usuario?.municipio_id,
+  });
+}
+
 export default function PatrulhamentoPage() {
   const router = useRouter();
 
@@ -286,7 +323,12 @@ export default function PatrulhamentoPage() {
   ) {
     const accessToken = await obterAccessToken();
 
-    const resposta = await fetch("/api/patrulhamento", {
+    const url =
+      montarUrlPatrulhamento(
+        "/api/patrulhamento"
+      );
+
+    const resposta = await fetch(url, {
       method,
       headers: {
         Authorization: `Bearer ${accessToken}`,

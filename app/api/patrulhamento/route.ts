@@ -244,88 +244,59 @@ async function resolverMunicipio({
   usuario: UsuarioSistema;
   perfil: string;
 }) {
-  let municipioId = Number(
-    usuario.municipio_id || 0
-  );
-
   if (
-    perfil === "DESENVOLVEDOR"
+    perfil !==
+    "DESENVOLVEDOR"
   ) {
-    const municipioParametro =
-      Number(
-        request.nextUrl
-          .searchParams
-          .get("municipio_id")
-      );
-
-    if (
-      Number.isSafeInteger(
-        municipioParametro
-      ) &&
-      municipioParametro > 0
-    ) {
-      const {
-        data: municipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .eq(
-          "id",
-          municipioParametro
-        )
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao validar município do patrulhamento:",
-          {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          }
-        );
-      }
-
-      if (municipio) {
-        municipioId =
-          municipioParametro;
-      }
-    }
-
-    if (!municipioId) {
-      const {
-        data: primeiroMunicipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .order("id", {
-          ascending: true,
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao localizar município padrão do patrulhamento:",
-          {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          }
-        );
-      }
-
-      municipioId = Number(
-        primeiroMunicipio?.id || 0
-      );
-    }
+    return numeroId(
+      usuario.municipio_id
+    ) || 0;
   }
 
-  return municipioId;
+  const municipioId =
+    numeroId(
+      request.nextUrl
+        .searchParams
+        .get("municipio_id")
+    );
+
+  if (!municipioId) {
+    return 0;
+  }
+
+  const {
+    data: municipio,
+    error,
+  } = await supabaseAdmin
+    .from("municipios")
+    .select("id")
+    .eq("id", municipioId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "Erro ao validar município de contexto do patrulhamento:",
+      {
+        message:
+          error.message,
+        details:
+          error.details,
+        hint:
+          error.hint,
+        code:
+          error.code,
+        municipio_id:
+          municipioId,
+      }
+    );
+
+    return 0;
+  }
+
+  return municipio
+    ? municipioId
+    : 0;
 }
 
 async function autenticar(

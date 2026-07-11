@@ -312,96 +312,71 @@ async function resolverMunicipio({
   usuario: UsuarioSistema;
   perfil: string;
 }) {
-  let municipioId = Number(
-    usuario.municipio_id || 0
-  );
-
   if (
-    perfil === "DESENVOLVEDOR"
+    perfil !== "DESENVOLVEDOR"
   ) {
-    const municipioParametro =
-      Number(
-        request.nextUrl
-          .searchParams
-          .get("municipio_id")
-      );
+    const municipioId = Number(
+      usuario.municipio_id || 0
+    );
 
-    if (
+    return (
       Number.isSafeInteger(
-        municipioParametro
+        municipioId
       ) &&
-      municipioParametro > 0
-    ) {
-      const {
-        data: municipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .eq(
-          "id",
-          municipioParametro
-        )
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao validar município dos chamados:",
-          {
-            message:
-              error.message,
-            details:
-              error.details,
-            hint:
-              error.hint,
-            code:
-              error.code,
-          }
-        );
-      }
-
-      if (municipio) {
-        municipioId =
-          municipioParametro;
-      }
-    }
-
-    if (!municipioId) {
-      const {
-        data: primeiroMunicipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .order("id", {
-          ascending: true,
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao localizar município padrão para chamados:",
-          {
-            message:
-              error.message,
-            details:
-              error.details,
-            hint:
-              error.hint,
-            code:
-              error.code,
-          }
-        );
-      }
-
-      municipioId = Number(
-        primeiroMunicipio?.id || 0
-      );
-    }
+      municipioId > 0
+        ? municipioId
+        : 0
+    );
   }
 
-  return municipioId;
+  const municipioParametro =
+    Number(
+      request.nextUrl
+        .searchParams
+        .get("municipio_id")
+    );
+
+  if (
+    !Number.isSafeInteger(
+      municipioParametro
+    ) ||
+    municipioParametro <= 0
+  ) {
+    return 0;
+  }
+
+  const {
+    data: municipio,
+    error,
+  } = await supabaseAdmin
+    .from("municipios")
+    .select("id")
+    .eq(
+      "id",
+      municipioParametro
+    )
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "Erro ao validar município dos chamados:",
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        municipio_id:
+          municipioParametro,
+      }
+    );
+
+    return 0;
+  }
+
+  return municipio
+    ? municipioParametro
+    : 0;
 }
 
 async function autenticar(

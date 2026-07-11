@@ -19,6 +19,7 @@ import {
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { supabase } from "@/lib/supabase";
+import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
 
 type AlertaSOS = {
   id: number;
@@ -70,6 +71,31 @@ async function obterAccessToken() {
   }
 
   return session.access_token;
+}
+
+
+function obterUrlSOS() {
+  try {
+    const salvo =
+      localStorage.getItem("usuarioLogado");
+
+    const usuario =
+      salvo
+        ? (JSON.parse(salvo) as {
+            perfil?: string;
+            municipio_id?: number;
+          })
+        : null;
+
+    return montarUrlComMunicipioContexto({
+      url: "/api/sos",
+      perfil: usuario?.perfil,
+      municipioIdUsuario:
+        usuario?.municipio_id,
+    });
+  } catch {
+    return "/api/sos";
+  }
 }
 
 async function lerResposta<T>(resposta: Response): Promise<T> {
@@ -143,7 +169,7 @@ export default function CentralSOSPage() {
       try {
         const accessToken = await obterAccessToken();
 
-        const resposta = await fetch("/api/sos", {
+        const resposta = await fetch(obterUrlSOS(), {
           method: "GET",
           headers: {
             Authorization: `Bearer ${accessToken}`,
@@ -266,7 +292,7 @@ export default function CentralSOSPage() {
     try {
       const accessToken = await obterAccessToken();
 
-      const resposta = await fetch("/api/sos", {
+      const resposta = await fetch(obterUrlSOS(), {
         method: "PATCH",
         headers: {
           Authorization: `Bearer ${accessToken}`,

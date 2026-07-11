@@ -282,76 +282,59 @@ async function resolverMunicipio({
   usuario: UsuarioSistema;
   perfil: string;
 }) {
-  let municipioId = Number(
-    usuario.municipio_id || 0
-  );
-
-  if (perfil === "DESENVOLVEDOR") {
-    const parametro = numeroId(
-      request.nextUrl.searchParams.get(
-        "municipio_id"
-      )
-    );
-
-    if (parametro) {
-      const {
-        data: municipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .eq("id", parametro)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao validar município do novo patrulhamento:",
-          {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          }
-        );
-      }
-
-      if (municipio) {
-        municipioId = parametro;
-      }
-    }
-
-    if (!municipioId) {
-      const {
-        data: primeiroMunicipio,
-        error,
-      } = await supabaseAdmin
-        .from("municipios")
-        .select("id")
-        .order("id", {
-          ascending: true,
-        })
-        .limit(1)
-        .maybeSingle();
-
-      if (error) {
-        console.error(
-          "Erro ao localizar município padrão:",
-          {
-            message: error.message,
-            details: error.details,
-            hint: error.hint,
-            code: error.code,
-          }
-        );
-      }
-
-      municipioId = Number(
-        primeiroMunicipio?.id || 0
-      );
-    }
+  if (
+    perfil !==
+    "DESENVOLVEDOR"
+  ) {
+    return numeroId(
+      usuario.municipio_id
+    ) || 0;
   }
 
-  return municipioId;
+  const municipioId =
+    numeroId(
+      request.nextUrl
+        .searchParams
+        .get("municipio_id")
+    );
+
+  if (!municipioId) {
+    return 0;
+  }
+
+  const {
+    data: municipio,
+    error,
+  } = await supabaseAdmin
+    .from("municipios")
+    .select("id")
+    .eq("id", municipioId)
+    .eq("ativo", true)
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "Erro ao validar município de contexto do patrulhamento:",
+      {
+        message:
+          error.message,
+        details:
+          error.details,
+        hint:
+          error.hint,
+        code:
+          error.code,
+        municipio_id:
+          municipioId,
+      }
+    );
+
+    return 0;
+  }
+
+  return municipio
+    ? municipioId
+    : 0;
 }
 
 async function autenticar(
@@ -960,6 +943,10 @@ export async function GET(
         .select(
           "guarnicao_id,guarda_id"
         )
+        .eq(
+          "municipio_id",
+          autenticacao.municipioId
+        )
         .in(
           "guarnicao_id",
           guarnicaoIds
@@ -990,6 +977,14 @@ export async function GET(
         (data || []) as MembroGuarnicao[];
     }
 
+    const guardaIdsPermitidos =
+      new Set(
+        guardas.map(
+          (guarda) =>
+            Number(guarda.id)
+        )
+      );
+
     const guarnicoesCompletas =
       guarnicoes.map(
         (guarnicao) => ({
@@ -1009,6 +1004,12 @@ export async function GET(
                 (membro) =>
                   Number(
                     membro.guarda_id
+                  )
+              )
+              .filter(
+                (guardaId) =>
+                  guardaIdsPermitidos.has(
+                    guardaId
                   )
               ),
         })

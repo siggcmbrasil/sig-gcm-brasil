@@ -20,6 +20,7 @@ import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import SigButton from "@/components/sig/SigButton";
+import { obterMunicipioIdEfetivo } from "@/lib/contextoMunicipio";
 
 const MapaOperacional = dynamic(
   () => import("@/components/MapaOperacional"),
@@ -56,7 +57,48 @@ export default function MapaOperacionalPage() {
   });
 
   function pegarUsuario() {
-    return JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
+    if (
+      typeof window === "undefined"
+    ) {
+      return null;
+    }
+
+    try {
+      const salvo =
+        localStorage.getItem(
+          "usuarioLogado"
+        );
+
+      if (!salvo) {
+        return null;
+      }
+
+      const usuario =
+        JSON.parse(salvo);
+
+      const municipioId =
+        obterMunicipioIdEfetivo({
+          perfil:
+            usuario?.perfil,
+          municipioIdUsuario:
+            usuario?.municipio_id,
+        });
+
+      if (
+        !usuario?.id ||
+        !municipioId
+      ) {
+        return null;
+      }
+
+      return {
+        ...usuario,
+        municipio_id:
+          municipioId,
+      };
+    } catch {
+      return null;
+    }
   }
 
   function filtrarPorData(lista: any[], campos: string[]) {
@@ -304,17 +346,36 @@ async function carregarAlertasSOSMapa(
       .channel(`mapa-operacional-${usuario.municipio_id}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "ocorrencias" },
+        {
+          event: "*",
+          schema: "public",
+          table: "ocorrencias",
+          filter:
+            `municipio_id=eq.${usuario.municipio_id}`,
+        },
         carregarDados
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "localizacoes_tempo_real" },
+        {
+          event: "*",
+          schema: "public",
+          table:
+            "localizacoes_tempo_real",
+          filter:
+            `municipio_id=eq.${usuario.municipio_id}`,
+        },
         carregarDados
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "viaturas" },
+        {
+          event: "*",
+          schema: "public",
+          table: "viaturas",
+          filter:
+            `municipio_id=eq.${usuario.municipio_id}`,
+        },
         carregarDados
       )
       .subscribe();

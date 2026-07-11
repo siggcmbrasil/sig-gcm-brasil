@@ -19,6 +19,9 @@ import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
 import { SITUACOES_VEICULO } from "@/lib/modelosOcorrencia";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
+  montarUrlComMunicipioContexto,
+} from "@/lib/contextoMunicipio";
+import {
   formatarCPF,
   formatarTelefone,
   formatarCEP,
@@ -811,9 +814,36 @@ async function carregarSistema() {
     }
 
     const consulta = parametros.toString();
-    const url = consulta
+    const urlBase = consulta
       ? `/api/ocorrencias/nova/dados?${consulta}`
       : "/api/ocorrencias/nova/dados";
+
+    let usuarioCache: {
+      perfil?: string;
+      municipio_id?: number;
+    } | null = null;
+
+    try {
+      const salvo =
+        localStorage.getItem(
+          "usuarioLogado"
+        );
+
+      usuarioCache = salvo
+        ? JSON.parse(salvo)
+        : null;
+    } catch {
+      usuarioCache = null;
+    }
+
+    const url =
+      montarUrlComMunicipioContexto({
+        url: urlBase,
+        perfil:
+          usuarioCache?.perfil,
+        municipioIdUsuario:
+          usuarioCache?.municipio_id,
+      });
 
     const resposta = await fetch(url, {
       method: "GET",
