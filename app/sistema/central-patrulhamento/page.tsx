@@ -21,11 +21,11 @@ const cards = [
     icone: Route,
   },
   {
-    titulo: "Histórico de Patrulhamentos",
-    descricao: "Consulte patrulhamentos realizados, horários, equipes e status.",
-    href: "/sistema/patrulhamento/historico",
-    icone: History,
-  },
+  titulo: "Histórico de Patrulhamentos",
+  descricao: "Consulte patrulhamentos realizados, horários, equipes e status.",
+  href: "/sistema/patrulhamento",
+  icone: History,
+},
   {
     titulo: "Mapa de Patrulhamento",
     descricao: "Visualização geográfica das equipes, rotas e pontos registrados.",

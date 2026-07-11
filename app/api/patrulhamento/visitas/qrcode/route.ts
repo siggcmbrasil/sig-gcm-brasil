@@ -668,16 +668,15 @@ export async function GET(
       supabaseAdmin
         .from("municipios")
         .select(
-          `
-            id,
-            nome,
-            brasao_gcm,
-            emblema_url,
-            escudo_gcm,
-            brasao,
-            brasao_url
-          `
-        )
+  `
+    id,
+    nome,
+    brasao_gcm,
+    emblema_url,
+    escudo_gcm,
+    brasao
+  `
+)
         .eq(
           "id",
           autenticacao.municipioId
@@ -826,10 +825,8 @@ export async function GET(
       municipio?.brasao ||
       "";
 
-    const brasaoMunicipio =
-      municipio?.brasao_url ||
-      municipio?.brasao ||
-      "";
+const brasaoMunicipio =
+  municipio?.brasao || "";
 
     await auditar({
       request,

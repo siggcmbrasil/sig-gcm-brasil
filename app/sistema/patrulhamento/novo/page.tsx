@@ -365,6 +365,12 @@ export default function NovoPatrulhamentoPage() {
         guarnicao.guarda_ids
       )
         ? guarnicao.guarda_ids
+            .map((id) => Number(id))
+            .filter(
+              (id) =>
+                Number.isSafeInteger(id) &&
+                id > 0
+            )
         : []
     );
 
@@ -509,6 +515,37 @@ export default function NovoPatrulhamentoPage() {
 
   const guardasFiltrados =
     useMemo(() => {
+      const selecionada =
+        guarnicoes.find(
+          (guarnicao) =>
+            String(guarnicao.id) ===
+            guarnicaoId
+        ) || null;
+
+      const idsDaGuarnicao =
+        selecionada &&
+        Array.isArray(
+          selecionada.guarda_ids
+        )
+          ? selecionada.guarda_ids
+              .map((id) => Number(id))
+              .filter(
+                (id) =>
+                  Number.isSafeInteger(id) &&
+                  id > 0
+              )
+          : null;
+
+      const listaBase =
+        idsDaGuarnicao === null
+          ? guardas
+          : guardas.filter(
+              (guarda) =>
+                idsDaGuarnicao.includes(
+                  Number(guarda.id)
+                )
+            );
+
       const termo = texto(
         buscaGuarda
       ).toLocaleLowerCase(
@@ -516,10 +553,10 @@ export default function NovoPatrulhamentoPage() {
       );
 
       if (!termo) {
-        return guardas;
+        return listaBase;
       }
 
-      return guardas.filter(
+      return listaBase.filter(
         (guarda) =>
           [
             guarda.nome,
@@ -532,7 +569,12 @@ export default function NovoPatrulhamentoPage() {
             )
             .includes(termo)
       );
-    }, [guardas, buscaGuarda]);
+    }, [
+      guardas,
+      guarnicoes,
+      guarnicaoId,
+      buscaGuarda,
+    ]);
 
   const guardasSelecionados =
     useMemo(
@@ -542,7 +584,8 @@ export default function NovoPatrulhamentoPage() {
             (id) =>
               guardas.find(
                 (guarda) =>
-                  guarda.id === id
+                  Number(guarda.id) ===
+                  Number(id)
               )
           )
           .filter(
@@ -716,7 +759,7 @@ export default function NovoPatrulhamentoPage() {
     <ProtecaoModulo modulo="patrulhamento">
       <main className="min-h-screen bg-slate-950 pb-24 text-white">
         <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_40%),linear-gradient(180deg,#07111f_0%,#020617_100%)]">
-          <div className="mx-auto max-w-6xl px-4 py-6 md:px-6 md:py-8">
+          <div className="w-full max-w-none px-4 py-6 md:px-6 md:py-8">
             <Link
               href="/sistema/patrulhamento"
               className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-cyan-300"
@@ -771,7 +814,7 @@ export default function NovoPatrulhamentoPage() {
           </div>
         </section>
 
-        <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 md:px-6">
+        <div className="w-full max-w-none space-y-5 px-4 py-5 md:px-6">
           {erro && (
             <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
               <h2 className="font-bold text-red-100">

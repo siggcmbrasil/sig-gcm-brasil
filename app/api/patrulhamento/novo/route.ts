@@ -906,12 +906,19 @@ export async function GET(
 
     const guardas = (
       guardasResultado.data || []
-    ).filter(
-      (guarda) =>
+    ).filter((guarda) => {
+      const status =
         normalizar(
           guarda.status
-        ) === "ATIVO"
-    ) as Guarda[];
+        );
+
+      return ![
+        "INATIVO",
+        "BLOQUEADO",
+        "EXONERADO",
+        "DESLIGADO",
+      ].includes(status);
+    }) as Guarda[];
 
     const viaturas = (
       viaturasResultado.data || []
@@ -1364,20 +1371,27 @@ export async function POST(
       );
     }
 
-    const guardaInativo =
-      guardas.find(
-        (guarda) =>
+    const guardaBloqueado =
+      guardas.find((guarda) => {
+        const status =
           normalizar(
             guarda.status
-          ) !== "ATIVO"
-      );
+          );
 
-    if (guardaInativo) {
+        return [
+          "INATIVO",
+          "BLOQUEADO",
+          "EXONERADO",
+          "DESLIGADO",
+        ].includes(status);
+      });
+
+    if (guardaBloqueado) {
       return responder(
         {
           ok: false,
           erro:
-            `O guarda ${guardaInativo.nome || guardaInativo.id} não está ATIVO.`,
+            `O guarda ${guardaBloqueado.nome || guardaBloqueado.id} está com status ${normalizar(guardaBloqueado.status) || "INVÁLIDO"}.`,
         },
         400
       );
