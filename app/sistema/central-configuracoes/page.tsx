@@ -10,6 +10,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const itens = [
   {
@@ -26,7 +27,7 @@ const itens = [
   },
   {
     titulo: "Permissões",
-    href: "/sistema/permissoes",
+    href: "/sistema/usuarios/permissoes",
     descricao: "Controle de acesso por perfis e módulos.",
     icone: Shield,
   },
@@ -40,7 +41,8 @@ const itens = [
 
 export default function ConfiguracoesCentralPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="configuracoes">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Configurações"
         descricao="Parâmetros gerais, permissões e configurações institucionais do SIG-GCM Brasil."
@@ -58,6 +60,7 @@ export default function ConfiguracoesCentralPage() {
           />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

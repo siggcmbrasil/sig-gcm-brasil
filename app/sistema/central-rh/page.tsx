@@ -15,6 +15,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -94,7 +95,8 @@ const cards = [
 
 export default function CentralRHPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="guardas">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Recursos Humanos"
         descricao="Gestão funcional, escalas, frequência, histórico e vida profissional dos servidores."
@@ -112,6 +114,7 @@ export default function CentralRHPage() {
           />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

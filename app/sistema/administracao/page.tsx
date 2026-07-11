@@ -74,7 +74,7 @@ const grupos = [
       {
         titulo: "Permissões",
         icone: ShieldCheck,
-        href: "/sistema/permissoes",
+        href: "/sistema/usuarios/permissoes",
         descricao: "Controle de acesso por perfil aos módulos.",
         perfis: ["ADMIN"],
       },

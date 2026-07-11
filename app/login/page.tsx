@@ -11,118 +11,117 @@ export default function Login() {
   const [senha, setSenha] = useState("");
   const [carregando, setCarregando] = useState(false);
   
-const [municipioLogin, setMunicipioLogin] = useState<any>(null);
+type MunicipioLogin = {
+  nome: string;
+  estado: string | null;
+  bandeira_municipio: string | null;
+  bandeira_estado: string | null;
+};
+
+const [municipioLogin, setMunicipioLogin] =
+  useState<MunicipioLogin | null>(null);
 
 
 useEffect(() => {
-  async function carregarMunicipioLogin() {
-    const { data: config } = await supabase
-      .from("configuracoes_sistema")
-      .select("municipio_padrao_id")
-      .limit(1)
-      .single();
+  let paginaAtiva = true;
 
-    let municipio = null;
+  async function iniciarLogin() {
+    try {
 
-if (config?.municipio_padrao_id) {
-  const { data } = await supabase
-    .from("municipios")
-    .select("nome, estado, bandeira_municipio, bandeira_estado")
-    .eq("id", config.municipio_padrao_id)
-    .single();
 
-  municipio = data;
-}
+      const { data, error } = await supabase
+        .rpc("obter_identidade_login")
+        .maybeSingle<MunicipioLogin>();
 
-    setMunicipioLogin(municipio);
+      if (error) {
+        console.error("Erro ao carregar identidade do login:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        });
+
+        return;
+      }
+
+      if (paginaAtiva) {
+        setMunicipioLogin(data);
+      }
+    } catch (error) {
+      console.error("Erro inesperado ao iniciar login:", error);
+    }
   }
 
-  carregarMunicipioLogin();
+  void iniciarLogin();
+
+  return () => {
+    paginaAtiva = false;
+  };
 }, []);
 
+async function encerrarLoginInvalido(mensagem: string) {
+  await supabase.auth.signOut();
+  localStorage.removeItem("usuarioLogado");
+  setSenha("");
+  alert(mensagem);
+}
+
   async function entrar() {
-  if (!email || !senha) {
-    alert("Digite email e senha.");
+  const emailNormalizado = email.trim().toLowerCase();
+
+  if (!emailNormalizado || !senha) {
+    alert("Digite e-mail e senha.");
+    return;
+  }
+
+  if (carregando) {
     return;
   }
 
   setCarregando(true);
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-  email: email.trim().toLowerCase(),
-password: senha,
-});
+  try {
+    localStorage.removeItem("usuarioLogado");
 
-setCarregando(false);
+    const {
+      data: autenticacao,
+      error: autenticacaoError,
+    } = await supabase.auth.signInWithPassword({
+      email: emailNormalizado,
+      password: senha,
+    });
 
-if (error || !data.user) {
-  const { data: tentativa } =
-    await supabase
-      .from("usuarios")
-      .select(
-        "id,tentativas_login"
-      )
-      .eq(
-        "email",
-        email
-          .trim()
-          .toLowerCase()
-      )
-      .single();
+    if (
+      autenticacaoError ||
+      !autenticacao.user ||
+      !autenticacao.session
+    ) {
+      console.warn("Tentativa de login recusada:", {
+        message: autenticacaoError?.message,
+      });
 
-  if (tentativa) {
-    const tentativas =
-      (tentativa.tentativas_login ||
-        0) + 1;
-
-    if (tentativas >= 5) {
-      await supabase
-        .from("usuarios")
-        .update({
-          tentativas_login:
-            tentativas,
-          status:
-            "BLOQUEADO",
-        })
-        .eq(
-          "id",
-          tentativa.id
-        );
-
-      alert(
-        "Usuário bloqueado após 5 tentativas."
-      );
-    } else {
-      await supabase
-        .from("usuarios")
-        .update({
-          tentativas_login:
-            tentativas,
-        })
-        .eq(
-          "id",
-          tentativa.id
-        );
-
-      alert(
-        `Usuário ou senha inválidos. Tentativa ${tentativas}/5`
-      );
+      /*
+       * Não consultar a tabela usuarios pelo e-mail aqui.
+       * Não atualizar tentativas_login pelo navegador.
+       *
+       * Esse controle será feito na API segura, evitando que
+       * terceiros bloqueiem contas conhecendo apenas o e-mail.
+       */
+      alert("E-mail ou senha inválidos.");
+      return;
     }
-  } else {
-    alert(
-      "Usuário ou senha inválidos."
-    );
-  }
 
-  return;
-}
+    const authUser = autenticacao.user;
+    const accessToken = autenticacao.session.access_token;
 
-const { data: usuario, error: usuarioError } =
-  await supabase
-    .from("usuarios")
-    .select(
-      `
+    const {
+      data: usuario,
+      error: usuarioError,
+    } = await supabase
+      .from("usuarios")
+      .select(`
         id,
+        auth_id,
         nome,
         matricula,
         email,
@@ -130,162 +129,163 @@ const { data: usuario, error: usuarioError } =
         status,
         municipio_id,
         foto_url
-      `
-    )
-    .eq("auth_id", data.user.id)
-    .single();
+      `)
+      .eq("auth_id", authUser.id)
+      .maybeSingle();
 
-if (usuarioError || !usuario) {
-  alert(
-    "Usuário não encontrado no sistema. Aguarde cadastro/aprovação."
-  );
+    if (usuarioError) {
+      throw new Error(
+        usuarioError.message ||
+          "Erro ao consultar o cadastro institucional."
+      );
+    }
 
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
+    if (!usuario) {
+      await encerrarLoginInvalido(
+        "Usuário não encontrado no sistema. Aguarde o cadastro e a aprovação."
+      );
 
-const authUser = data.user;
+      return;
+    }
 
-const status = String(usuario.status || "").toUpperCase();
+    const status = String(usuario.status || "").toUpperCase();
+    const perfil = String(usuario.perfil || "").toUpperCase();
 
-if (status === "PENDENTE") {
-  alert("Seu cadastro ainda está aguardando aprovação.");
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
+    if (status !== "ATIVO") {
+      const mensagens: Record<string, string> = {
+        PENDENTE:
+          "Seu cadastro ainda está aguardando aprovação.",
+        BLOQUEADO:
+          "Seu usuário está bloqueado. Procure o administrador.",
+        INATIVO:
+          "Seu usuário está inativo. Procure o administrador.",
+      };
 
-if (status === "BLOQUEADO") {
-  alert("Seu usuário está bloqueado.");
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
+      await encerrarLoginInvalido(
+        mensagens[status] ||
+          "Seu usuário não possui situação válida para acessar o sistema."
+      );
 
-if (status === "INATIVO") {
-  alert("Seu usuário está inativo.");
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
+      return;
+    }
 
-const { data: municipioUsuario } =
-  await supabase
-    .from("municipios")
-    .select("nome")
-    .eq("id", usuario.municipio_id)
-    .single();
+    if (
+      perfil !== "DESENVOLVEDOR" &&
+      !usuario.municipio_id
+    ) {
+      await encerrarLoginInvalido(
+        "Seu usuário ainda não possui município vinculado."
+      );
 
-if (
-  usuario.perfil?.toUpperCase() ===
-  "DESENVOLVEDOR"
-) {
-  const dadosUsuario = {
-  id: usuario.id,
-  auth_id: authUser.id,
-  nome: usuario.nome || authUser.email,
-  matricula: usuario.matricula || "",
-  email: authUser.email || usuario.email,
-  perfil: (usuario.perfil || "GUARDA").toUpperCase(),
-  status: String(usuario.status || "ATIVO").toUpperCase(),
-  municipio_id: usuario.municipio_id ?? null,
-  municipio_nome: municipioUsuario?.nome || "",
-  foto_url: usuario.foto_url || "",
-};
+      return;
+    }
 
-  localStorage.setItem(
-    "usuarioLogado",
-    JSON.stringify(dadosUsuario)
-  );
+    let municipioNome = "";
 
-await fetch("/api/auth/registrar-login", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    usuario_id: usuario.id,
-    municipio_id: usuario.municipio_id,
-    email: authUser.email || usuario.email,
-  }),
-});
+    if (usuario.municipio_id) {
+      const {
+        data: municipio,
+        error: municipioError,
+      } = await supabase
+        .from("municipios")
+        .select("nome")
+        .eq("id", usuario.municipio_id)
+        .maybeSingle();
 
-await supabase
-  .from("usuarios")
-  .update({
-    tentativas_login: 0,
-  })
-  .eq("id", usuario.id);
+      if (municipioError) {
+        console.error("Erro ao carregar município do usuário:", {
+          message: municipioError.message,
+          details: municipioError.details,
+          hint: municipioError.hint,
+          code: municipioError.code,
+        });
+      }
 
-  router.push("/sistema");
-  return;
-}
+      municipioNome = municipio?.nome || "";
+    }
 
-if (
-  usuario.perfil?.toUpperCase() !==
-    "DESENVOLVEDOR" &&
-  !usuario.municipio_id
-) {
-  alert(
-    "Seu usuário ainda não possui município vinculado."
-  );
+    /*
+     * Este objeto é somente cache visual.
+     * As páginas protegidas devem conferir a sessão real e o banco.
+     */
+    const dadosUsuario = {
+      id: usuario.id,
+      auth_id: authUser.id,
+      nome:
+        usuario.nome ||
+        authUser.email ||
+        "Usuário",
+      matricula: usuario.matricula || "",
+      email:
+        authUser.email ||
+        usuario.email ||
+        "",
+      perfil,
+      status,
+      municipio_id:
+        usuario.municipio_id ?? null,
+      municipio_nome: municipioNome,
+      foto_url: usuario.foto_url || "",
+    };
 
-  await supabase.auth.signOut();
-  localStorage.removeItem("usuarioLogado");
-  return;
-}
+    localStorage.setItem(
+      "usuarioLogado",
+      JSON.stringify(dadosUsuario)
+    );
 
-const dadosUsuario = {
-  id: usuario.id,
-  auth_id: authUser.id,
-  nome:
-    usuario.nome ||
-    authUser.email,
-  matricula:
-    usuario.matricula || "",
-  email:
-    authUser.email ||
-    usuario.email,
-  perfil: (
-    usuario.perfil ||
-    "GUARDA"
-  ).toUpperCase(),
-  status: String(usuario.status || "ATIVO").toUpperCase(),
-  municipio_id:
-    usuario.municipio_id ?? null,
-  municipio_nome:
-    municipioUsuario?.nome || "",
-  foto_url:
-    usuario.foto_url || "",
-};
+    const respostaAuditoria = await fetch(
+      "/api/auth/registrar-login",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          /*
+           * Mantido temporariamente por compatibilidade.
+           * A API será corrigida para ignorar estes valores
+           * e obter tudo pelo token autenticado.
+           */
+          usuario_id: usuario.id,
+          municipio_id: usuario.municipio_id,
+          email:
+            authUser.email ||
+            usuario.email ||
+            "",
+        }),
+      }
+    );
 
-localStorage.setItem(
-  "usuarioLogado",
-  JSON.stringify(dadosUsuario)
-);
+    if (!respostaAuditoria.ok) {
+      const texto = await respostaAuditoria.text();
 
-await fetch("/api/auth/registrar-login", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify({
-    usuario_id: usuario.id,
-    municipio_id: usuario.municipio_id,
-    email: authUser.email || usuario.email,
-  }),
-});
+      console.error("Erro ao registrar login na auditoria:", {
+        status: respostaAuditoria.status,
+        resposta: texto,
+      });
+    }
 
-await supabase
-  .from("usuarios")
-  .update({
-    tentativas_login: 0,
-  })
-  .eq("id", usuario.id);
+    router.replace("/sistema");
+    router.refresh();
+  } catch (error) {
+    console.error("Erro ao realizar login:", {
+      message:
+        error instanceof Error
+          ? error.message
+          : "Erro desconhecido",
+      error,
+    });
 
-router.push("/sistema");
-router.refresh();
+    await supabase.auth.signOut();
+    localStorage.removeItem("usuarioLogado");
+
+    alert(
+      "Não foi possível concluir o acesso. Tente novamente."
+    );
+  } finally {
+    setCarregando(false);
+  }
 }
 
   return (
@@ -361,7 +361,13 @@ router.refresh();
 </p>
               </div>
 
-              <div className="space-y-5">
+              <form
+  className="space-y-5"
+  onSubmit={(event) => {
+    event.preventDefault();
+    void entrar();
+  }}
+>
                 <div>
                   <label className="label">Email</label>
 
@@ -370,7 +376,11 @@ router.refresh();
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Digite seu email"
+                    placeholder="Digite seu e-mail"
+                    autoComplete="email"
+                    inputMode="email"
+                    required
+                    disabled={carregando}
                   />
                 </div>
 
@@ -383,12 +393,14 @@ router.refresh();
                     value={senha}
                     onChange={(e) => setSenha(e.target.value)}
                     placeholder="Digite sua senha"
+                    autoComplete="current-password"
+                    required
+                    disabled={carregando}
                   />
                 </div>
 
                 <button
-                  type="button"
-                  onClick={entrar}
+                  type="submit"
                   disabled={carregando}
                   className="sig-btn-gold w-full disabled:opacity-50"
                 >
@@ -414,7 +426,7 @@ router.refresh();
   Esqueci minha senha
 </button>
 </div>
-              </div>
+              </form>
 
               <div className="mt-10 rounded-3xl border border-yellow-500/30 bg-slate-950/60 p-8 backdrop-blur-md animar-card">
   <div className="text-center">

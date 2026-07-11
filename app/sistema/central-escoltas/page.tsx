@@ -4,6 +4,7 @@ import { CarFront, FileText, PlusCircle } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -28,7 +29,8 @@ const cards = [
 
 export default function CentralEscoltasPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="operacoes">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Escoltas"
         descricao="Controle de escoltas, deslocamentos oficiais e apoios com viaturas."
@@ -46,6 +48,7 @@ export default function CentralEscoltasPage() {
 />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

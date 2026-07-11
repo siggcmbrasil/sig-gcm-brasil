@@ -17,12 +17,7 @@ import EnvolvidosOcorrencia from "@/components/ocorrencias/EnvolvidosOcorrencia"
 import DadosOcorrencia from "@/components/ocorrencias/DadosOcorrencia";
 import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
 import { SITUACOES_VEICULO } from "@/lib/modelosOcorrencia";
-import { registrarAuditoria } from "@/lib/auditoria";
-import {
-  buscarPessoaPorDocumento,
-  buscarVeiculoPorPlaca,
-  buscarVeiculoPorRenavam,
-} from "@/lib/consultas";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import {
   formatarCPF,
   formatarTelefone,
@@ -168,38 +163,148 @@ type UsuarioLogado = {
   municipio_id: number;
 };
 
-const PERFIS_AUTORIZADOS = [
-  "DESENVOLVEDOR",
-  "ADMIN",
-  "COMANDANTE",
-  "DIRETOR",
-  "CMT_GUARNICAO",
-  "PLANTONISTA",
-  "GUARDA",
-];
+type ContextoNovaOcorrencia = {
+  usuario_id: number;
+  usuario_nome: string | null;
+  perfil: string;
+  municipio_id: number;
+  pode_criar: boolean;
+};
 
-function obterUsuarioLogado(): UsuarioLogado | null {
-  try {
-    const salvo = localStorage.getItem("usuarioLogado");
+type GuarnicaoSugerida = {
+  guarnicao_id: number;
+  comandante_id: number | null;
+  viatura_id: number | null;
+  viatura_prefixo: string | null;
+  membros_nomes: string[];
+};
 
-    if (!salvo) return null;
+type ChamadoOrigem = {
+  id: number | string;
+  municipio_id: number;
+  protocolo: string | null;
+  tipo: string | null;
+  local: string | null;
+  bairro: string | null;
+  numero: string | null;
+  referencia: string | null;
+  prioridade: string | null;
+  observacao: string | null;
+  solicitante: string | null;
+  telefone: string | null;
+};
 
-    const usuario = JSON.parse(salvo);
+type RespostaDadosNovaOcorrencia = {
+  ok?: boolean;
+  erro?: string;
+  contexto?: ContextoNovaOcorrencia;
+  guardas?: Array<{
+    id: number;
+    matricula: string | null;
+    nome: string;
+    cargo: string | null;
+    status: string | null;
+  }>;
+  viaturas?: Array<{
+    id: number;
+    prefixo: string;
+    modelo: string | null;
+    placa: string | null;
+    status: string | null;
+  }>;
+  locais?: Array<{
+    id: number;
+    nome: string;
+    tipo: string | null;
+  }>;
+  guarnicoes?: GuarnicaoCompleta[];
+  guarnicao_sugerida?: GuarnicaoSugerida | null;
+  chamado?: ChamadoOrigem | null;
+};
 
-    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
-      return null;
-    }
 
-    return {
-      id: String(usuario.id),
-      nome: usuario.nome,
-      perfil: usuario.perfil,
-      municipio_id: Number(usuario.municipio_id),
-    };
-  } catch {
-    return null;
-  }
-}
+type RespostaCriarOcorrencia = {
+  ok?: boolean;
+  erro?: string;
+  mensagem?: string;
+  criado?: boolean;
+  ocorrencia?: {
+    id: number;
+    protocolo: string;
+    municipio_id: number;
+  };
+  avisos?: string[];
+};
+
+
+type RegistroHistoricoOcorrencia = {
+  id: number;
+  protocolo: string | null;
+  data: string | null;
+  status: string | null;
+};
+
+type RespostaHistoricoOcorrencia = {
+  ok?: boolean;
+  erro?: string;
+  registros?: RegistroHistoricoOcorrencia[];
+};
+
+
+type PessoaConsultaOperacional = {
+  id: number;
+  nome: string | null;
+  tipo_documento: string | null;
+  documento: string | null;
+  telefone: string | null;
+  endereco: string | null;
+  observacao: string | null;
+};
+
+type VeiculoConsultaOperacional = {
+  id: number;
+  placa: string | null;
+  tipo_especie: string | null;
+  marca: string | null;
+  modelo: string | null;
+  ano: string | null;
+  cor: string | null;
+  renavam: string | null;
+  chassi: string | null;
+  proprietario: string | null;
+  cpf_proprietario: string | null;
+  telefone_proprietario: string | null;
+  condutor: string | null;
+  tipo_documento_condutor: string | null;
+  documento_condutor: string | null;
+  situacao: string | null;
+  observacao: string | null;
+};
+
+type RespostaConsultaOperacional<T> = {
+  ok?: boolean;
+  erro?: string;
+  encontrado?: boolean;
+  registro?: T | null;
+};
+
+
+type UploadFotoPreparado = {
+  indice: number;
+  nome_original: string;
+  path: string;
+  token: string;
+  public_url: string;
+  content_type: string;
+  tamanho: number;
+};
+
+type RespostaPrepararFotos = {
+  ok?: boolean;
+  erro?: string;
+  bucket?: string;
+  uploads?: UploadFotoPreparado[];
+};
 
 export default function NovaOcorrencia() {
   const router = useRouter();
@@ -219,6 +324,8 @@ export default function NovaOcorrencia() {
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [carregandoInicial, setCarregandoInicial] = useState(true);
+  const [erroInicial, setErroInicial] = useState("");
   const [municipioId, setMunicipioId] = useState<number | null>(null);
   const [usuarioAtual, setUsuarioAtual] = useState<UsuarioLogado | null>(null);
   const [locais, setLocais] = useState<LocalCadastrado[]>([]);
@@ -296,84 +403,6 @@ cep_proprietario: "",
     situacao_consulta: "",
   },
 ]);
-  async function carregarLocais(municipio: number) {
-  const { data, error } = await supabase
-  .from("locais")
-  .select("id,nome,tipo")
-  .eq("municipio_id", municipio)
-  .eq("ativo", true)
-  .order("nome");
-
-  if (error) {
-    console.error("ERRO COMPLETO AO SALVAR NOVA OCORRÊNCIA:", {
-  message: error.message,
-  details: error.details,
-  hint: error.hint,
-  code: error.code,
-  error,
-});
-
-alert(
-  `Erro ao salvar ocorrência.\n\nCódigo: ${error.code || "sem código"}\nMensagem: ${
-    error.message || "sem mensagem"
-  }\nDetalhes: ${error.details || "sem detalhes"}`
-);
-    return;
-  }
-
-  setLocais(data || []);
-}
-
-  async function carregarGuardas(municipio: number) {
-    const { data, error } = await supabase
-  .from("guardas")
-  .select("id, matricula, nome, cargo, status")
-  .eq("municipio_id", municipio)
-  .order("nome", { ascending: true });
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar guardas.");
-      return;
-    }
-
-    setGuardas(data || []);
-  }
-
-  async function carregarGuarnicoes(municipio: number) {
-  const { data, error } = await supabase
-    .from("guarnicoes")
-    .select("id, nome, comandante_id, viatura_id")
-    .eq("municipio_id", municipio)
-    .eq("ativa", true)
-    .order("nome");
-
-  if (error) {
-    console.error(error);
-    alert("Erro ao carregar guarnições.");
-    return;
-  }
-
-  setGuarnicoes(data || []);
-}
-
-  async function carregarViaturas(municipio: number) {
-  const { data, error } = await supabase
-    .from("viaturas")
-    .select("id, prefixo, modelo, placa, status")
-    .eq("municipio_id", municipio)
-    .in("status", ["Operacional", "Reserva"])
-    .order("prefixo", { ascending: true });
-
-  if (error) {
-    console.error(error);
-    alert("Erro ao carregar viaturas.");
-    return;
-  }
-
-  setViaturas(data || []);
-}
-
   function selecionarGuarda(nome: string) {
     if (guardasSelecionados.includes(nome)) {
       setGuardasSelecionados(
@@ -420,602 +449,544 @@ alert(
   }
 
   async function salvarOcorrencia(
-  statusPersonalizado?: string
-) {
-    if (!tipo || !localId || !descricao) {
-  alert("Preencha tipo, local e descrição.");
-  return;
-}
+    statusPersonalizado?: string
+  ) {
+    if (salvando) {
+      return;
+    }
 
-if (!municipioId) {
-  alert("Município não identificado.");
-  return;
-}
+    if (
+      !tipo.trim() ||
+      !localId ||
+      !descricao.trim()
+    ) {
+      alert(
+        "Preencha tipo, local e descrição."
+      );
+      return;
+    }
 
-if (!usuarioAtual) {
-  alert("Sessão inválida. Faça login novamente.");
-  return;
-}
-
-if (!PERFIS_AUTORIZADOS.includes(usuarioAtual.perfil)) {
-  alert("Você não possui permissão para registrar ocorrência.");
-  return;
-}
+    if (!municipioId || !usuarioAtual) {
+      alert(
+        "Sessão ou município inválido. Entre novamente."
+      );
+      return;
+    }
 
     setSalvando(true);
 
-   const agora = new Date();
-const protocolo = "OC-" + Date.now();
+    try {
+      const accessToken =
+        await obterAccessToken();
 
-const data = agora.toLocaleDateString("en-CA", {
-  timeZone: "America/Bahia",
-});
+      const fotosUrls: string[] = [];
 
-const hora = agora.toLocaleTimeString("pt-BR", {
-  timeZone: "America/Bahia",
-  hour12: false,
-});
+      if (fotos.length > 0) {
+        if (fotos.length > 10) {
+          throw new Error(
+            "Envie no máximo 10 imagens."
+          );
+        }
 
-    const fotosUrls: string[] = [];
+        const formatosPermitidos =
+          new Set([
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+          ]);
 
-    if (fotos.length > 0) {
-      for (const foto of fotos) {
-        const nomeSeguro = foto.name
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .replace(/[^a-zA-Z0-9.-]/g, "_");
+        for (const foto of fotos) {
+          if (
+            foto.size <= 0 ||
+            foto.size >
+              5 * 1024 * 1024
+          ) {
+            throw new Error(
+              `A imagem "${foto.name}" deve ter no máximo 5MB.`
+            );
+          }
 
-const nomeArquivo = `${municipioId}/${protocolo}/${Date.now()}-${nomeSeguro}`;
+          if (
+            !formatosPermitidos.has(
+              foto.type
+            )
+          ) {
+            throw new Error(
+              `A imagem "${foto.name}" possui formato inválido. Use JPG, PNG ou WEBP.`
+            );
+          }
+        }
 
-if (foto.size > 5 * 1024 * 1024) {
-  alert("Cada foto deve ter no máximo 5MB.");
-  setSalvando(false);
-  return;
-}
+        const respostaPreparacao =
+          await fetch(
+            "/api/ocorrencias/nova/fotos",
+            {
+              method: "POST",
+              headers: {
+                Authorization:
+                  `Bearer ${accessToken}`,
+                "Content-Type":
+                  "application/json",
+              },
+              cache: "no-store",
+              body: JSON.stringify({
+                municipio_id:
+                  municipioId,
+                arquivos: fotos.map(
+                  (foto) => ({
+                    nome: foto.name,
+                    tamanho:
+                      foto.size,
+                    tipo: foto.type,
+                  })
+                ),
+              }),
+            }
+          );
 
-if (!foto.type.startsWith("image/")) {
-  alert("Arquivo inválido. Envie apenas imagens.");
-  setSalvando(false);
-  return;
-}
+        const dadosPreparacao =
+          (await respostaPreparacao
+            .json()
+            .catch(
+              () => null
+            )) as RespostaPrepararFotos | null;
 
-        const { error: uploadError } = await supabase.storage
-          .from("fotos-ocorrencias")
-          .upload(nomeArquivo, foto);
-
-        if (uploadError) {
-          console.error(uploadError);
-          alert("Erro ao enviar uma das fotos.");
-          setSalvando(false);
+        if (
+          respostaPreparacao.status ===
+          401
+        ) {
+          localStorage.removeItem(
+            "usuarioLogado"
+          );
+          router.replace("/login");
           return;
         }
 
-        const { data: urlData } = supabase.storage
-          .from("fotos-ocorrencias")
-          .getPublicUrl(nomeArquivo);
+        if (
+          !respostaPreparacao.ok ||
+          !dadosPreparacao?.ok ||
+          !dadosPreparacao.bucket ||
+          !Array.isArray(
+            dadosPreparacao.uploads
+          )
+        ) {
+          throw new Error(
+            dadosPreparacao?.erro ||
+              "Não foi possível preparar o envio das fotos."
+          );
+        }
 
-        fotosUrls.push(urlData.publicUrl);
+        if (
+          dadosPreparacao.uploads.length !==
+          fotos.length
+        ) {
+          throw new Error(
+            "A preparação das fotos retornou uma quantidade inválida."
+          );
+        }
+
+        const uploadsOrdenados = [
+          ...dadosPreparacao.uploads,
+        ].sort(
+          (a, b) =>
+            a.indice - b.indice
+        );
+
+        for (const upload of uploadsOrdenados) {
+          const foto =
+            fotos[upload.indice];
+
+          if (!foto) {
+            throw new Error(
+              "Uma das fotos preparadas não foi encontrada."
+            );
+          }
+
+          const {
+            error: uploadError,
+          } = await supabase.storage
+            .from(
+              dadosPreparacao.bucket
+            )
+            .uploadToSignedUrl(
+              upload.path,
+              upload.token,
+              foto,
+              {
+                cacheControl:
+                  "3600",
+                contentType:
+                  foto.type,
+              }
+            );
+
+          if (uploadError) {
+            console.error(
+              "Erro no upload assinado da foto:",
+              {
+                mensagem:
+                  uploadError.message,
+                arquivo:
+                  foto.name,
+                path:
+                  upload.path,
+              }
+            );
+
+            throw new Error(
+              `Não foi possível enviar a imagem "${foto.name}".`
+            );
+          }
+
+          if (
+            upload.public_url
+          ) {
+            fotosUrls.push(
+              upload.public_url
+            );
+          }
+        }
       }
+
+      const envolvidosValidos =
+        envolvidos.filter(
+          (pessoa) =>
+            pessoa.nome ||
+            pessoa.documento ||
+            pessoa.telefone ||
+            pessoa.endereco ||
+            pessoa.observacao
+        );
+
+      const equipeEmpenhada =
+        guardasSelecionados.join(
+          "\n"
+        );
+
+      const resposta = await fetch(
+        "/api/ocorrencias/nova",
+        {
+          method: "POST",
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+            "Content-Type":
+              "application/json",
+          },
+          cache: "no-store",
+          body: JSON.stringify({
+            municipio_id:
+              municipioId,
+            guarnicao_id:
+              guarnicaoId ||
+              null,
+            viatura_id:
+              viaturaId ||
+              null,
+            guarda_responsavel_id:
+              guardaResponsavelId ||
+              null,
+            tipo: tipo.trim(),
+            status:
+              statusPersonalizado ||
+              status,
+            prioridade,
+            bairro:
+              bairro.trim(),
+            local:
+              local.trim(),
+            local_id:
+              localId,
+            numero:
+              numero.trim(),
+            envolvidos:
+              envolvidosValidos,
+            veiculos_envolvidos:
+              veiculosEnvolvidos,
+            armas_objetos:
+              itensOcorrencia,
+            descricao:
+              descricao.trim(),
+            fotos_urls:
+              fotosUrls,
+            viatura_empenhada:
+              viaturaEmpenhada,
+            equipe_empenhada:
+              equipeEmpenhada,
+          }),
+        }
+      );
+
+      const dados = (await resposta
+        .json()
+        .catch(
+          () => null
+        )) as RespostaCriarOcorrencia | null;
+
+      if (
+        resposta.status === 401
+      ) {
+        localStorage.removeItem(
+          "usuarioLogado"
+        );
+        router.replace("/login");
+        return;
+      }
+
+      if (
+        !resposta.ok ||
+        !dados?.ok ||
+        !dados.ocorrencia
+      ) {
+        throw new Error(
+          dados?.erro ||
+            "Não foi possível registrar a ocorrência."
+        );
+      }
+
+      const avisos = Array.isArray(
+        dados.avisos
+      )
+        ? dados.avisos
+        : [];
+
+      alert(
+        avisos.length > 0
+          ? `Ocorrência salva com sucesso.\n\nAvisos: ${avisos.join(
+              "; "
+            )}`
+          : dados.mensagem ||
+              "Ocorrência salva com sucesso."
+      );
+
+      router.push(
+        `/sistema/ocorrencias/${dados.ocorrencia.id}`
+      );
+      router.refresh();
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao salvar ocorrência.";
+
+      console.error(
+        "Erro ao salvar nova ocorrência:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      alert(mensagem);
+    } finally {
+      setSalvando(false);
     }
+  }
 
-    const envolvidosValidos = envolvidos.filter(
-      (pessoa) =>
-        pessoa.nome ||
-        pessoa.documento ||
-        pessoa.telefone ||
-        pessoa.endereco ||
-        pessoa.observacao
+async function obterAccessToken() {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error || !session?.access_token) {
+    throw new Error(
+      "Sua sessão expirou. Entre novamente no sistema."
     );
-
-    const equipeEmpenhada = guardasSelecionados.join("\n");
-
-const { data: ocorrenciaCriada, error } = await supabase
-  .from("ocorrencias")
-  .insert([
-    {
-      municipio_id: municipioId,
-      criado_por: usuarioAtual.id,
-      criado_em: new Date().toISOString(),
-      atualizado_em: new Date().toISOString(),
-      guarnicao_id: guarnicaoId ? Number(guarnicaoId) : null,
-      viatura_id: viaturaId ? Number(viaturaId) : null,
-      guarda_responsavel_id: guardaResponsavelId
-        ? Number(guardaResponsavelId)
-        : null,
-      protocolo,
-      tipo,
-      status: statusPersonalizado || status,
-      prioridade,
-      data,
-      hora,
-      bairro,
-      local,
-      local_id: localId ? Number(localId) : null,
-      numero,
-      envolvidos: JSON.stringify(envolvidosValidos),
-      veiculos_envolvidos: veiculosEnvolvidos,
-      armas_objetos: itensOcorrencia,
-      descricao: descricao.trim(),
-      foto_url: fotosUrls[0] || "",
-      fotos_urls: JSON.stringify(fotosUrls),
-      viatura_empenhada: viaturaEmpenhada,
-      equipe_empenhada: equipeEmpenhada,
-    },
-  ])
-  .select("id, protocolo, municipio_id")
-  .single();
-
-    setSalvando(false);
-
-if (error) {
-  console.error(
-  "ERRO AO INSERIR OCORRÊNCIA:",
-  error,
-  JSON.stringify(error, null, 2)
-);
-
-alert(`
-Código: ${error?.code}
-Mensagem: ${error?.message}
-Detalhes: ${error?.details}
-Hint: ${error?.hint}
-`);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao registrar ocorrência.",
-    tabela: "ocorrencias",
-    detalhes: {
-      erro: error.message,
-      municipio_id: municipioId,
-      usuario_id: usuarioAtual?.id,
-      protocolo,
-    },
-  });
-
-  alert("Erro ao salvar ocorrência.");
-  return;
-}
-await registrarAuditoria({
-  modulo: "Ocorrências",
-  acao: "CRIAR",
-  descricao: `Registrou a ocorrência ${protocolo}.`,
-  tabela: "ocorrencias",
-  registro_id: ocorrenciaCriada?.id,
-  detalhes: {
-    protocolo,
-    tipo,
-    status: statusPersonalizado || status,
-    prioridade,
-    municipio_id: municipioId,
-    criado_por: usuarioAtual.id,
-    guarnicao_id: guarnicaoId || null,
-    viatura_id: viaturaId || null,
-    guarda_responsavel_id: guardaResponsavelId || null,
-    total_envolvidos: envolvidosValidos.length,
-    total_veiculos: veiculosEnvolvidos.filter(
-      (v) => v.placa || v.renavam
-    ).length,
-    total_itens: itensOcorrencia.filter(
-      (i) => i.categoria || i.descricao
-    ).length,
-    total_fotos: fotosUrls.length,
-  },
-});
-
-for (const veiculo of veiculosEnvolvidos) {
-
-  if (!veiculo.placa && !veiculo.renavam) continue;
-
-let consultaVeiculo = supabase
-  .from("veiculos_abordados")
-  .select("id")
-  .eq("municipio_id", municipioId);
-
-if (veiculo.placa) {
-  consultaVeiculo = consultaVeiculo.eq(
-    "placa",
-    veiculo.placa
-  );
-}
-
-if (veiculo.renavam && !veiculo.placa) {
-  consultaVeiculo = consultaVeiculo.eq(
-    "renavam",
-    veiculo.renavam
-  );
-}
-
-const { data: existente, error: erroConsultaVeiculo } =
-  await consultaVeiculo.maybeSingle();
-
-if (erroConsultaVeiculo) {
-  console.error(erroConsultaVeiculo);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao consultar veículo abordado.",
-    tabela: "veiculos_abordados",
-    detalhes: {
-      erro: erroConsultaVeiculo.message,
-      placa: veiculo.placa,
-      renavam: veiculo.renavam,
-      municipio_id: municipioId,
-    },
-  });
-
-  continue;
-}
-
-  if (existente) {
-const { error: erroAtualizarVeiculo } = await supabase
-  .from("veiculos_abordados")
-  .update({
-    placa: veiculo.placa,
-    tipo_especie: veiculo.tipo_especie,
-    marca: veiculo.marca,
-    modelo: veiculo.modelo,
-    ano: veiculo.ano,
-    cor: veiculo.cor,
-    renavam: veiculo.renavam,
-    chassi: veiculo.chassi,
-    proprietario: veiculo.proprietario,
-    cpf_proprietario: veiculo.cpf_proprietario,
-    telefone_proprietario: veiculo.telefone_proprietario,
-    email_proprietario: veiculo.email_proprietario,
-    endereco_proprietario: veiculo.endereco_proprietario,
-    cidade_proprietario: veiculo.cidade_proprietario,
-    uf_proprietario: veiculo.uf_proprietario,
-    cep_proprietario: veiculo.cep_proprietario,
-    situacao: veiculo.situacao,
-    observacao: veiculo.observacao,
-  })
-  .eq("id", existente.id)
-  .eq("municipio_id", municipioId);
-
-if (erroAtualizarVeiculo) {
-  console.error(erroAtualizarVeiculo);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao atualizar veículo abordado.",
-    tabela: "veiculos_abordados",
-    registro_id: existente.id,
-    detalhes: {
-      erro: erroAtualizarVeiculo.message,
-      placa: veiculo.placa,
-      renavam: veiculo.renavam,
-      municipio_id: municipioId,
-    },
-  });
-}
-  } else {
-    const { error: erroInserirVeiculo } = await supabase
-  .from("veiculos_abordados")
-  .insert({
-    municipio_id: municipioId,
-    criado_por: usuarioAtual.id,
-    criado_em: new Date().toISOString(),
-    atualizado_em: new Date().toISOString(),
-    placa: veiculo.placa,
-    tipo_especie: veiculo.tipo_especie,
-    marca: veiculo.marca,
-    modelo: veiculo.modelo,
-    ano: veiculo.ano,
-    cor: veiculo.cor,
-    renavam: veiculo.renavam,
-    chassi: veiculo.chassi,
-    proprietario: veiculo.proprietario,
-    cpf_proprietario: veiculo.cpf_proprietario,
-    telefone_proprietario: veiculo.telefone_proprietario,
-    email_proprietario: veiculo.email_proprietario,
-    endereco_proprietario: veiculo.endereco_proprietario,
-    cidade_proprietario: veiculo.cidade_proprietario,
-    uf_proprietario: veiculo.uf_proprietario,
-    cep_proprietario: veiculo.cep_proprietario,
-    situacao: veiculo.situacao,
-    observacao: veiculo.observacao,
-  });
-
-if (erroInserirVeiculo) {
-  console.error(erroInserirVeiculo);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao inserir veículo abordado.",
-    tabela: "veiculos_abordados",
-    detalhes: {
-      erro: erroInserirVeiculo.message,
-      placa: veiculo.placa,
-      renavam: veiculo.renavam,
-      municipio_id: municipioId,
-    },
-  });
-}
-  }
-}
-
-for (const pessoa of envolvidosValidos) {
-  if (!pessoa.documento) continue;
-
-  const { data: existente } = await supabase
-    .from("pessoas_abordadas")
-    .select("id")
-    .eq("municipio_id", municipioId)
-    .eq("documento", pessoa.documento)
-    .maybeSingle();
-
-  if (existente) {
-const { error: erroAtualizarPessoa } = await supabase
-  .from("pessoas_abordadas")
-  .update({
-    nome: pessoa.nome,
-    tipo_documento: pessoa.tipo_documento,
-    documento: pessoa.documento,
-    telefone: pessoa.telefone,
-    endereco: pessoa.endereco,
-    observacao: pessoa.observacao,
-    atualizado_em: new Date().toISOString(),
-  })
-  .eq("id", existente.id)
-  .eq("municipio_id", municipioId);
-
-if (erroAtualizarPessoa) {
-  console.error(erroAtualizarPessoa);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao atualizar pessoa abordada.",
-    tabela: "pessoas_abordadas",
-    registro_id: existente.id,
-    detalhes: {
-      erro: erroAtualizarPessoa.message,
-      documento: pessoa.documento,
-      municipio_id: municipioId,
-    },
-  });
-}
-
-  } else {
-const { error: erroInserirPessoa } = await supabase
-  .from("pessoas_abordadas")
-  .insert({
-    municipio_id: municipioId,
-    usuario_id: Number(usuarioAtual.id),
-    criado_em: new Date().toISOString(),
-    atualizado_em: new Date().toISOString(),
-    nome: pessoa.nome,
-    tipo_documento: pessoa.tipo_documento,
-    documento: pessoa.documento,
-    telefone: pessoa.telefone,
-    endereco: pessoa.endereco,
-    local,
-    data,
-    hora,
-    guarda: equipeEmpenhada,
-    observacao: pessoa.observacao,
-  });
-
-if (erroInserirPessoa) {
-  console.error(erroInserirPessoa);
-
-  await registrarAuditoria({
-    modulo: "Ocorrências",
-    acao: "ERRO",
-    descricao: "Falha ao inserir pessoa abordada.",
-    tabela: "pessoas_abordadas",
-    detalhes: {
-      erro: erroInserirPessoa.message,
-      documento: pessoa.documento,
-      municipio_id: municipioId,
-    },
-  });
-}
-  }
-}
-
-    alert("Ocorrência salva com sucesso!");
-    router.push("/sistema/ocorrencias");
   }
 
-async function carregarMembrosGuarnicao(
-  guarnicaoId: number
-) {
-  if (!municipioId) {
-    return;
-  }
-
-  const { data: membros } = await supabase
-    .from("guarnicao_membros")
-    .select("guarda_id")
-    .eq("guarnicao_id", guarnicaoId);
-
-  if (!membros) return;
-
-  const ids = membros.map(
-    (m: MembroGuarnicao) => m.guarda_id
-  );
-
-  const { data: guardasData } = await supabase
-    .from("guardas")
-    .select("id,nome")
-    .eq("municipio_id", municipioId)
-    .in("id", ids);
-
-  if (!guardasData) return;
-
-  setGuardasSelecionados(
-    guardasData.map((g) => g.nome)
-  );
-}
-async function carregarChamadoOrigem(id: string) {
-  if (!usuarioAtual?.municipio_id) return;
-
-  const { data, error } = await supabase
-    .from("chamados")
-    .select(
-      "id, municipio_id, protocolo, tipo, local, bairro, numero, referencia, prioridade, observacao, solicitante, telefone"
-    )
-    .eq("id", id)
-    .eq("municipio_id", usuarioAtual.municipio_id)
-    .single();
-
-  if (error || !data) {
-    console.error(error);
-    return;
-  }
-
-  setTipo(data.tipo || "");
-setLocal(data.local || "");
-setBairro(data.bairro || "");
-setNumero(data.numero || "");
-
-setDescricao(
-  `Ocorrência gerada a partir do chamado ${data.protocolo}.
-
-Solicitante: ${data.solicitante || "-"}
-Telefone: ${data.telefone || "-"}
-Local: ${data.local || "-"}
-Bairro: ${data.bairro || "-"}
-Número: ${data.numero || "S/N"}
-Referência: ${data.referencia || "-"}
-Prioridade: ${data.prioridade || "-"}
-Observação: ${data.observacao || "-"}`
-);
-
-setEnvolvidos([
-  {
-    nome: data.solicitante || "",
-    tipo_documento: "CPF",
-    documento: "",
-    telefone: data.telefone || "",
-    endereco: data.local || "",
-    tipo: "Solicitante",
-    observacao: data.observacao || "",
-  },
-]);
+  return session.access_token;
 }
 
 async function carregarSistema() {
-  
-const usuarioLogado = obterUsuarioLogado();
+  setCarregandoInicial(true);
+  setErroInicial("");
 
-if (!usuarioLogado) {
-  alert("Sessão inválida. Faça login novamente.");
-  router.push("/login");
-  return;
-}
+  try {
+    const accessToken = await obterAccessToken();
+    const parametros = new URLSearchParams();
 
-if (!PERFIS_AUTORIZADOS.includes(usuarioLogado.perfil)) {
-  alert("Você não possui permissão para acessar este módulo.");
-  router.push("/sistema");
-  return;
-}
-
-const id = usuarioLogado.municipio_id;
-setUsuarioAtual(usuarioLogado);
-
-if (!id) {
-  alert("Município não identificado.");
-  return;
-}
-
-  const { data: configEscala } = await supabase
-  .from("escala_operacional_config")
-  .select("id, data_base, guarnicao_base_id, ordem_guarnicoes")
-  .eq("municipio_id", id)
-  .eq("ativo", true)
-  .single();
-
-const { data: guarnicoesData } = await supabase
-  .from("guarnicoes")
-  .select("id,nome,comandante_id,viatura_id")
-  .eq("municipio_id", id)
-  .eq("ativa", true);
-
-if (
-  configEscala &&
-  guarnicoesData &&
-  configEscala.ordem_guarnicoes?.length
-) {
-  const dataBase = new Date(
-    `${configEscala.data_base}T07:00:00`
-  );
-
-  const agora = new Date();
-
-  const diasPassados = Math.floor(
-    (agora.getTime() - dataBase.getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-
-  const ordem = configEscala.ordem_guarnicoes;
-
-  const indiceBase = ordem.findIndex(
-    (g: number) =>
-      g === configEscala.guarnicao_base_id
-  );
-
-  const indiceAtual =
-    ((indiceBase + diasPassados) %
-      ordem.length +
-      ordem.length) %
-    ordem.length;
-
-  const guarnicaoAtual =
-    guarnicoesData.find(
-      (g: any) =>
-        g.id === ordem[indiceAtual]
-    );
-
-  if (guarnicaoAtual) {
-  setGuarnicaoId(String(guarnicaoAtual.id));
-
-  if (guarnicaoAtual.viatura_id) {
-    const { data: viaturaAtual } = await supabase
-      .from("viaturas")
-      .select("prefixo")
-      .eq("id", guarnicaoAtual.viatura_id)
-      .single();
-
-    if (viaturaAtual) {
-      setViaturaEmpenhada(viaturaAtual.prefixo);
+    if (chamadoId) {
+      parametros.set("chamado", chamadoId);
     }
 
-    setViaturaId(String(guarnicaoAtual.viatura_id));
-  }
+    const consulta = parametros.toString();
+    const url = consulta
+      ? `/api/ocorrencias/nova/dados?${consulta}`
+      : "/api/ocorrencias/nova/dados";
 
-  await carregarMembrosGuarnicao(
-    guarnicaoAtual.id
-  );
+    const resposta = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
 
-  if (guarnicaoAtual.comandante_id) {
-    setGuardaResponsavelId(
-      String(guarnicaoAtual.comandante_id)
+    const dados = (await resposta
+      .json()
+      .catch(() => null)) as RespostaDadosNovaOcorrencia | null;
+
+    if (!resposta.ok || !dados?.ok || !dados.contexto) {
+      if (resposta.status === 401) {
+        localStorage.removeItem("usuarioLogado");
+        router.replace("/login");
+        return;
+      }
+
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível preparar a nova ocorrência."
+      );
+    }
+
+    const contexto = dados.contexto;
+
+    const guardasNormalizados: Guarda[] = (
+      dados.guardas || []
+    ).map((guarda) => ({
+      id: guarda.id,
+      matricula: guarda.matricula || "",
+      nome: guarda.nome,
+      cargo: guarda.cargo || "",
+      status: guarda.status || "",
+    }));
+
+    const viaturasNormalizadas: Viatura[] = (
+      dados.viaturas || []
+    ).map((viatura) => ({
+      id: viatura.id,
+      prefixo: viatura.prefixo,
+      modelo: viatura.modelo || "",
+      placa: viatura.placa || "",
+      status: viatura.status || "",
+    }));
+
+    const locaisNormalizados: LocalCadastrado[] = (
+      dados.locais || []
+    ).map((item) => ({
+      id: item.id,
+      nome: item.nome,
+      tipo: item.tipo || "",
+    }));
+
+    setUsuarioAtual({
+      id: String(contexto.usuario_id),
+      nome: contexto.usuario_nome || undefined,
+      perfil: contexto.perfil,
+      municipio_id: contexto.municipio_id,
+    });
+
+    setMunicipioId(contexto.municipio_id);
+    setGuardas(guardasNormalizados);
+    setViaturas(viaturasNormalizadas);
+    setLocais(locaisNormalizados);
+    setGuarnicoes(dados.guarnicoes || []);
+
+    const sugestao = dados.guarnicao_sugerida;
+
+    if (sugestao) {
+      setGuarnicaoId(String(sugestao.guarnicao_id));
+      setGuardasSelecionados(
+        Array.isArray(sugestao.membros_nomes)
+          ? sugestao.membros_nomes
+          : []
+      );
+
+      if (sugestao.comandante_id) {
+        setGuardaResponsavelId(
+          String(sugestao.comandante_id)
+        );
+      }
+
+      if (sugestao.viatura_id) {
+        setViaturaId(
+          String(sugestao.viatura_id)
+        );
+      }
+
+      setViaturaEmpenhada(
+        sugestao.viatura_prefixo || ""
+      );
+    }
+
+    const chamado = dados.chamado;
+
+    if (chamado) {
+      setTipo(chamado.tipo || "");
+      setLocal(chamado.local || "");
+      setBairro(chamado.bairro || "");
+      setNumero(chamado.numero || "");
+
+      if (chamado.prioridade) {
+        setPrioridade(chamado.prioridade);
+      }
+
+      const localCorrespondente =
+        locaisNormalizados.find(
+          (item) =>
+            item.nome.trim().toLowerCase() ===
+            String(chamado.local || "")
+              .trim()
+              .toLowerCase()
+        );
+
+      if (localCorrespondente) {
+        setLocalId(
+          String(localCorrespondente.id)
+        );
+      }
+
+      setDescricao(
+        `Ocorrência gerada a partir do chamado ${
+          chamado.protocolo || chamado.id
+        }.
+
+Solicitante: ${chamado.solicitante || "-"}
+Telefone: ${chamado.telefone || "-"}
+Local: ${chamado.local || "-"}
+Bairro: ${chamado.bairro || "-"}
+Número: ${chamado.numero || "S/N"}
+Referência: ${chamado.referencia || "-"}
+Prioridade: ${chamado.prioridade || "-"}
+Observação: ${chamado.observacao || "-"}`
+      );
+
+      setEnvolvidos([
+        {
+          nome: chamado.solicitante || "",
+          tipo_documento: "CPF",
+          documento: "",
+          telefone: chamado.telefone || "",
+          endereco: chamado.local || "",
+          tipo: "Solicitante",
+          observacao:
+            chamado.observacao || "",
+        },
+      ]);
+    }
+  } catch (error) {
+    const mensagem =
+      error instanceof Error
+        ? error.message
+        : "Erro ao preparar a nova ocorrência.";
+
+    console.error(
+      "Erro ao carregar dados da nova ocorrência:",
+      {
+        mensagem,
+        error,
+      }
     );
+
+    setErroInicial(mensagem);
+  } finally {
+    setCarregandoInicial(false);
   }
 }
-}
 
-  setMunicipioId(id);
-
-  await carregarGuardas(id);
-await carregarGuarnicoes(id);
-await carregarViaturas(id);
-await carregarLocais(id);
-}
-
-  useEffect(() => {
+useEffect(() => {
   void carregarSistema();
-
-  if (chamadoId) {
-    void carregarChamadoOrigem(chamadoId);
-  }
 }, [chamadoId]);
 
 function adicionarVeiculo() {
@@ -1115,100 +1086,208 @@ function atualizarItem(
 } 
 async function gerarNarrativaIA() {
   if (!tipo) {
-    alert("Selecione o tipo da ocorrência antes de gerar a narrativa.");
+    alert(
+      "Selecione o tipo da ocorrência antes de gerar a narrativa."
+    );
     return;
   }
 
   setGerandoNarrativa(true);
 
   try {
-    const resposta = `
-Durante o serviço de patrulhamento, a equipe da Guarda Civil Municipal foi acionada para atendimento de ocorrência do tipo ${tipo}.
+    const localCompleto = [
+      local || "o local informado",
+      bairro ? `bairro ${bairro}` : "",
+      numero ? `nº ${numero}` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
 
-A ocorrência foi registrada no local ${local || "não informado"}, bairro ${bairro || "não informado"}, número ${numero || "S/N"}.
+    const frases: string[] = [
+      `Durante patrulhamento, a equipe da Guarda Civil Municipal recebeu uma solicitação relacionada a ${tipo.toLocaleLowerCase(
+        "pt-BR"
+      )}.`,
+      `A guarnição deslocou-se até ${localCompleto}${
+        viaturaEmpenhada
+          ? ` com a viatura ${viaturaEmpenhada}`
+          : ""
+      }.`,
+    ];
 
-A guarnição empenhada foi ${guarnicaoId ? "a guarnição selecionada" : "não informada"}, com apoio da viatura ${viaturaEmpenhada || "não informada"}.
+    const envolvidosInformados = envolvidos.filter(
+      (pessoa) =>
+        pessoa.nome ||
+        pessoa.documento ||
+        pessoa.telefone ||
+        pessoa.observacao
+    );
 
-No local, a equipe realizou a verificação da situação, identificou os envolvidos relacionados ao fato e adotou as providências cabíveis, conforme os dados registrados nesta ocorrência.
+    if (envolvidosInformados.length > 0) {
+      const identificacoes =
+        envolvidosInformados
+          .map((pessoa) => {
+            const nome =
+              pessoa.nome ||
+              "pessoa não identificada";
 
-Após a averiguação, a situação foi registrada no sistema SIG-GCM Brasil para acompanhamento, controle operacional e emissão do relatório oficial.
-`;
+            return pessoa.tipo
+              ? `${pessoa.tipo.toLocaleLowerCase(
+                  "pt-BR"
+                )} ${nome}`
+              : nome;
+          })
+          .join(", ");
 
-    setDescricao(resposta.trim());
+      frases.push(
+        `No local, foram identificados os seguintes envolvidos: ${identificacoes}.`
+      );
+    }
+
+    frases.push(
+      "A equipe realizou as verificações necessárias e adotou as providências cabíveis de acordo com a situação encontrada."
+    );
+
+    frases.push(
+      "O atendimento foi registrado para acompanhamento."
+    );
+
+    setDescricao(frases.join("\n\n"));
   } catch (error) {
-    console.error(error);
+    console.error(
+      "Erro ao gerar narrativa:",
+      error
+    );
+
     alert("Erro ao gerar narrativa.");
   } finally {
     setGerandoNarrativa(false);
   }
 }
 
-async function consultarHistoricoVeiculo(placa: string) {
-  if (!placa || placa.length < 7) {
+async function consultarHistorico(
+  tipoConsulta: "VEICULO" | "PESSOA",
+  valor: string
+) {
+  if (!municipioId) {
+    return [] as RegistroHistoricoOcorrencia[];
+  }
+
+  const accessToken =
+    await obterAccessToken();
+
+  const parametros =
+    new URLSearchParams({
+      tipo: tipoConsulta,
+      valor,
+      municipio_id:
+        String(municipioId),
+    });
+
+  const resposta = await fetch(
+    `/api/ocorrencias/historico?${parametros.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    }
+  );
+
+  const dados = (await resposta
+    .json()
+    .catch(
+      () => null
+    )) as RespostaHistoricoOcorrencia | null;
+
+  if (resposta.status === 401) {
+    localStorage.removeItem(
+      "usuarioLogado"
+    );
+    router.replace("/login");
+
+    return [];
+  }
+
+  if (!resposta.ok || !dados?.ok) {
+    throw new Error(
+      dados?.erro ||
+        "Não foi possível consultar o histórico."
+    );
+  }
+
+  return Array.isArray(
+    dados.registros
+  )
+    ? dados.registros
+    : [];
+}
+
+async function consultarHistoricoVeiculo(
+  placa: string
+) {
+  const placaNormalizada =
+    placa
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+  if (
+    placaNormalizada.length < 7
+  ) {
     setHistoricoVeiculo([]);
     return;
   }
 
-  const { data, error } = await supabase
-.from("ocorrencias")
-.select("id, protocolo, data, status, veiculos_envolvidos")
-.eq("municipio_id", municipioId)
-.order("data", { ascending: false })
-.limit(100);
-
-  if (error || !data) return;
-
-  const resultados = data.filter((oc) => {
-    try {
-      const veiculos = JSON.parse(
-        oc.veiculos_envolvidos || "[]"
+  try {
+    const registros =
+      await consultarHistorico(
+        "VEICULO",
+        placaNormalizada
       );
 
-      return veiculos.some(
-        (v: any) =>
-          v.placa?.toUpperCase() === placa.toUpperCase()
-      );
-    } catch {
-      return false;
-    }
-  });
+    setHistoricoVeiculo(
+      registros
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao consultar histórico do veículo:",
+      error
+    );
 
-  setHistoricoVeiculo(resultados);
+    setHistoricoVeiculo([]);
+  }
 }
 
-async function consultarHistoricoEnvolvido(valor: string) {
-  if (!valor || valor.length < 3) {
+async function consultarHistoricoEnvolvido(
+  valor: string
+) {
+  const busca = valor.trim();
+
+  if (busca.length < 3) {
     setHistoricoEnvolvido([]);
     return;
   }
 
-  const busca = valor.toUpperCase();
+  try {
+    const registros =
+      await consultarHistorico(
+        "PESSOA",
+        busca
+      );
 
-  const { data, error } = await supabase
-.from("ocorrencias")
-.select("id, protocolo, data, status, envolvidos")
-.eq("municipio_id", municipioId)
-.order("data", { ascending: false })
-.limit(100);
+    setHistoricoEnvolvido(
+      registros
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao consultar histórico do envolvido:",
+      error
+    );
 
-  if (error || !data) return;
-
-  const resultados = data.filter((oc) => {
-    try {
-      const pessoas = JSON.parse(oc.envolvidos || "[]");
-
-      return pessoas.some((p: any) => {
-        const nome = String(p.nome || "").toUpperCase();
-        const documento = String(p.documento || "").toUpperCase();
-
-        return nome.includes(busca) || documento.includes(busca);
-      });
-    } catch {
-      return false;
-    }
-  });
-
-  setHistoricoEnvolvido(resultados);
+    setHistoricoEnvolvido([]);
+  }
 }
 
 function gerarNarrativaAutomatica() {
@@ -1256,38 +1335,149 @@ function removerFoto(index: number) {
   );
 }
 
-async function preencherPessoa(index: number, documento: string) {
-  if (!municipioId) return;
+async function consultarCadastroOperacional<T>(
+  tipoConsulta: "PESSOA" | "PLACA" | "RENAVAM",
+  valor: string
+): Promise<T | null> {
+  if (!municipioId || !valor.trim()) {
+    return null;
+  }
 
-  const pessoa = await buscarPessoaPorDocumento(
-    municipioId,
-    documento
+  const accessToken =
+    await obterAccessToken();
+
+  const parametros =
+    new URLSearchParams({
+      tipo: tipoConsulta,
+      valor,
+      municipio_id:
+        String(municipioId),
+    });
+
+  const resposta = await fetch(
+    `/api/ocorrencias/consultas?${parametros.toString()}`,
+    {
+      method: "GET",
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    }
   );
 
-  if (!pessoa) return;
+  const dados = (await resposta
+    .json()
+    .catch(
+      () => null
+    )) as RespostaConsultaOperacional<T> | null;
 
-  atualizarEnvolvido(index, "nome", pessoa.nome || "");
-  atualizarEnvolvido(index, "telefone", pessoa.telefone || "");
-  atualizarEnvolvido(index, "endereco", pessoa.endereco || "");
+  if (resposta.status === 401) {
+    localStorage.removeItem(
+      "usuarioLogado"
+    );
+    router.replace("/login");
+    return null;
+  }
+
+  if (!resposta.ok || !dados?.ok) {
+    throw new Error(
+      dados?.erro ||
+        "Não foi possível realizar a consulta."
+    );
+  }
+
+  if (
+    !dados.encontrado ||
+    !dados.registro
+  ) {
+    return null;
+  }
+
+  return dados.registro;
 }
 
-async function preencherVeiculo(index: number, placa: string) {
-  if (!municipioId) return;
+async function preencherPessoa(
+  index: number,
+  documento: string
+) {
+  const documentoNormalizado =
+    documento.trim();
 
-  const veiculo = await buscarVeiculoPorPlaca(
-    municipioId,
-    placa
+  if (
+    !municipioId ||
+    documentoNormalizado.length < 5
+  ) {
+    return;
+  }
+
+  try {
+    const pessoa =
+      await consultarCadastroOperacional<
+        PessoaConsultaOperacional
+      >(
+        "PESSOA",
+        documentoNormalizado
+      );
+
+    if (!pessoa) {
+      return;
+    }
+
+    atualizarEnvolvido(
+      index,
+      "nome",
+      pessoa.nome || ""
+    );
+    atualizarEnvolvido(
+      index,
+      "tipo_documento",
+      pessoa.tipo_documento || ""
+    );
+    atualizarEnvolvido(
+      index,
+      "telefone",
+      pessoa.telefone || ""
+    );
+    atualizarEnvolvido(
+      index,
+      "endereco",
+      pessoa.endereco || ""
+    );
+    atualizarEnvolvido(
+      index,
+      "observacao",
+      pessoa.observacao || ""
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao preencher pessoa consultada:",
+      error
+    );
+  }
+}
+
+function aplicarVeiculoConsultado(
+  index: number,
+  veiculo: VeiculoConsultaOperacional
+) {
+  atualizarVeiculo(index, "placa", veiculo.placa || "");
+  atualizarVeiculo(
+    index,
+    "tipo_especie",
+    veiculo.tipo_especie || ""
   );
-
-  if (!veiculo) return;
-
   atualizarVeiculo(index, "marca", veiculo.marca || "");
   atualizarVeiculo(index, "modelo", veiculo.modelo || "");
   atualizarVeiculo(index, "ano", veiculo.ano || "");
   atualizarVeiculo(index, "cor", veiculo.cor || "");
   atualizarVeiculo(index, "renavam", veiculo.renavam || "");
   atualizarVeiculo(index, "chassi", veiculo.chassi || "");
-  atualizarVeiculo(index, "proprietario", veiculo.proprietario || "");
+  atualizarVeiculo(
+    index,
+    "proprietario",
+    veiculo.proprietario || ""
+  );
   atualizarVeiculo(
     index,
     "cpf_proprietario",
@@ -1298,9 +1488,142 @@ async function preencherVeiculo(index: number, placa: string) {
     "telefone_proprietario",
     veiculo.telefone_proprietario || ""
   );
+  atualizarVeiculo(
+    index,
+    "condutor",
+    veiculo.condutor || ""
+  );
+  atualizarVeiculo(
+    index,
+    "tipo_documento_condutor",
+    veiculo.tipo_documento_condutor || ""
+  );
+  atualizarVeiculo(
+    index,
+    "documento_condutor",
+    veiculo.documento_condutor || ""
+  );
+  atualizarVeiculo(
+    index,
+    "situacao",
+    veiculo.situacao || ""
+  );
+  atualizarVeiculo(
+    index,
+    "observacao",
+    veiculo.observacao || ""
+  );
 }
 
+async function preencherVeiculo(
+  index: number,
+  placa: string
+) {
+  const placaNormalizada =
+    placa
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+  if (
+    !municipioId ||
+    placaNormalizada.length !== 7
+  ) {
+    return;
+  }
+
+  try {
+    const veiculo =
+      await consultarCadastroOperacional<
+        VeiculoConsultaOperacional
+      >(
+        "PLACA",
+        placaNormalizada
+      );
+
+    if (veiculo) {
+      aplicarVeiculoConsultado(
+        index,
+        veiculo
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Erro ao preencher veículo pela placa:",
+      error
+    );
+  }
+}
+
+async function preencherVeiculoPorRenavam(
+  index: number,
+  renavam: string
+) {
+  const renavamNormalizado =
+    renavam.replace(/\D/g, "");
+
+  if (
+    !municipioId ||
+    renavamNormalizado.length !== 11
+  ) {
+    return;
+  }
+
+  try {
+    const veiculo =
+      await consultarCadastroOperacional<
+        VeiculoConsultaOperacional
+      >(
+        "RENAVAM",
+        renavamNormalizado
+      );
+
+    if (veiculo) {
+      aplicarVeiculoConsultado(
+        index,
+        veiculo
+      );
+    }
+  } catch (error) {
+    console.error(
+      "Erro ao preencher veículo pelo Renavam:",
+      error
+    );
+  }
+}
+
+  if (carregandoInicial) {
+    return (
+      <ProtecaoModulo modulo="ocorrencias">
+        <div className="p-6 text-slate-400">
+          Carregando dados da nova ocorrência...
+        </div>
+      </ProtecaoModulo>
+    );
+  }
+
+  if (erroInicial) {
+    return (
+      <ProtecaoModulo modulo="ocorrencias">
+        <div className="p-6">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200">
+            {erroInicial}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void carregarSistema()}
+            className="mt-4 rounded-xl bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-700"
+          >
+            Tentar novamente
+          </button>
+        </div>
+      </ProtecaoModulo>
+    );
+  }
+
   return (
+  <ProtecaoModulo modulo="ocorrencias">
   <>
     <div className="hidden md:block min-h-screen bg-[#07152E] p-6 md:p-8">
 <header className="mb-8 border-b border-[#d6a93b] pb-6">
@@ -1659,24 +1982,11 @@ async function preencherVeiculo(index: number, placa: string) {
 
   atualizarVeiculo(index, "renavam", renavam);
 
-  if (renavam.length === 11 && municipioId) {
-    const veiculo = await buscarVeiculoPorRenavam(
-      municipioId,
+  if (renavam.length === 11) {
+    await preencherVeiculoPorRenavam(
+      index,
       renavam
     );
-
-    if (veiculo) {
-      atualizarVeiculo(index, "placa", veiculo.placa || "");
-      atualizarVeiculo(index, "tipo_especie", veiculo.tipo_especie || "");
-      atualizarVeiculo(index, "marca", veiculo.marca || "");
-      atualizarVeiculo(index, "modelo", veiculo.modelo || "");
-      atualizarVeiculo(index, "ano", veiculo.ano || "");
-      atualizarVeiculo(index, "cor", veiculo.cor || "");
-      atualizarVeiculo(index, "chassi", veiculo.chassi || "");
-      atualizarVeiculo(index, "proprietario", veiculo.proprietario || "");
-      atualizarVeiculo(index, "cpf_proprietario", veiculo.cpf_proprietario || "");
-      atualizarVeiculo(index, "telefone_proprietario", veiculo.telefone_proprietario || "");
-    }
   }
 }}
 />
@@ -3059,24 +3369,11 @@ let valor = formatarTelefone(e.target.value);
           const renavam = formatarRenavam(e.target.value);
           atualizarVeiculo(index, "renavam", renavam);
 
-          if (renavam.length === 11 && municipioId) {
-            const encontrado = await buscarVeiculoPorRenavam(
-              municipioId,
+          if (renavam.length === 11) {
+            await preencherVeiculoPorRenavam(
+              index,
               renavam
             );
-
-            if (encontrado) {
-              atualizarVeiculo(index, "placa", encontrado.placa || "");
-              atualizarVeiculo(index, "tipo_especie", encontrado.tipo_especie || "");
-              atualizarVeiculo(index, "marca", encontrado.marca || "");
-              atualizarVeiculo(index, "modelo", encontrado.modelo || "");
-              atualizarVeiculo(index, "ano", encontrado.ano || "");
-              atualizarVeiculo(index, "cor", encontrado.cor || "");
-              atualizarVeiculo(index, "chassi", encontrado.chassi || "");
-              atualizarVeiculo(index, "proprietario", encontrado.proprietario || "");
-              atualizarVeiculo(index, "cpf_proprietario", encontrado.cpf_proprietario || "");
-              atualizarVeiculo(index, "telefone_proprietario", encontrado.telefone_proprietario || "");
-            }
           }
         }}
         className="w-full rounded-2xl bg-slate-900 border border-slate-800 px-4 py-3 outline-none text-white"
@@ -3795,6 +4092,7 @@ let valor = formatarTelefone(e.target.value);
   </main>
 </div>
   </>
+  </ProtecaoModulo>
 );
 }
 

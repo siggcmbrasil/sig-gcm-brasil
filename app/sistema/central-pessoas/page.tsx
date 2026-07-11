@@ -8,6 +8,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -32,7 +33,8 @@ const cards = [
 
 export default function CentralPessoasPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="pessoas_abordadas">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Pessoas"
         descricao="Lista, cadastro, pesquisa e relatório de pessoas abordadas."
@@ -50,6 +52,7 @@ export default function CentralPessoasPage() {
           />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

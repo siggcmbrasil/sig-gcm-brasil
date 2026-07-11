@@ -15,6 +15,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCard from "@/components/sig/SigCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -63,7 +64,8 @@ const cards = [
 
 export default function CentralLegislacaoPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="legislacao">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Legislação"
         descricao="Biblioteca jurídica, notícias, atualizações e apoio jurídico para a Guarda Municipal."
@@ -148,6 +150,7 @@ export default function CentralLegislacaoPage() {
           </p>
         </SigCard>
       </section>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

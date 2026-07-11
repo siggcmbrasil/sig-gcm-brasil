@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import {
   Activity,
-  Scale,
-  Newspaper,
   Boxes,
   Brain,
   Building2,
@@ -21,12 +22,14 @@ import {
   Menu,
   MessageCircle,
   PhoneCall,
+  Scale,
   Shield,
   ShieldCheck,
   Users,
 } from "lucide-react";
-
 import type { LucideIcon } from "lucide-react";
+
+import { supabase } from "@/lib/supabase";
 
 type Perfil =
   | "DESENVOLVEDOR"
@@ -38,52 +41,417 @@ type Perfil =
   | "GUARDA"
   | "CONSULTA";
 
+type UsuarioSidebar = {
+  id: string;
+  nome: string;
+  matricula?: string;
+  email: string;
+  perfil: Perfil;
+  municipio_id?: number;
+  foto_url?: string;
+};
+
+type ItemMenuConfig = {
+  href: string;
+  icone: LucideIcon;
+  titulo: string;
+  modulos: string[];
+  rotasAtivas: string[];
+};
+
+type GrupoMenuConfig = {
+  titulo: string;
+  itens: ItemMenuConfig[];
+};
+
+const GRUPOS_MENU: GrupoMenuConfig[] = [
+  {
+    titulo: "Principal",
+    itens: [
+      {
+        href: "/sistema",
+        icone: LayoutDashboard,
+        titulo: "Centro de Comando",
+        modulos: ["dashboard"],
+        rotasAtivas: ["/sistema"],
+      },
+    ],
+  },
+  {
+    titulo: "Operacional",
+    itens: [
+      {
+        href: "/sistema/central-ocorrencias",
+        icone: Activity,
+        titulo: "Ocorrências",
+        modulos: ["ocorrencias"],
+        rotasAtivas: [
+          "/sistema/central-ocorrencias",
+          "/sistema/ocorrencias",
+        ],
+      },
+      {
+        href: "/sistema/chamados",
+        icone: PhoneCall,
+        titulo: "Chamados",
+        modulos: ["chamados"],
+        rotasAtivas: ["/sistema/chamados"],
+      },
+      {
+        href: "/sistema/operacional",
+        icone: Shield,
+        titulo: "Centro Operacional",
+        modulos: ["operacional"],
+        rotasAtivas: [
+          "/sistema/operacional",
+          "/sistema/patrulhamento",
+          "/sistema/abordagens",
+          "/sistema/operacoes",
+          "/sistema/apoios",
+          "/sistema/eventos-operacionais",
+          "/sistema/barreiras",
+        ],
+      },
+      {
+        href: "/sistema/central-inteligencia",
+        icone: Brain,
+        titulo: "Inteligência",
+        modulos: ["estatisticas"],
+        rotasAtivas: [
+          "/sistema/central-inteligencia",
+          "/sistema/inteligencia",
+          "/sistema/estatisticas",
+          "/sistema/sigia",
+          "/sistema/ia-",
+        ],
+      },
+    ],
+  },
+  {
+    titulo: "Gestão da Guarda",
+    itens: [
+      {
+        href: "/sistema/central-rh",
+        icone: Users,
+        titulo: "RH",
+        modulos: ["guardas"],
+        rotasAtivas: [
+          "/sistema/central-rh",
+          "/sistema/rh",
+          "/sistema/guardas",
+          "/sistema/escalas",
+          "/sistema/advertencias",
+          "/sistema/ferias-licencas",
+          "/sistema/banco-horas",
+        ],
+      },
+      {
+        href: "/sistema/central-frota",
+        icone: CarFront,
+        titulo: "Frota",
+        modulos: ["frota"],
+        rotasAtivas: [
+          "/sistema/central-frota",
+          "/sistema/frota",
+          "/sistema/viaturas",
+          "/sistema/abastecimentos",
+        ],
+      },
+      {
+        href: "/sistema/armamentos",
+        icone: ShieldCheck,
+        titulo: "Armamento",
+        modulos: ["armamentos"],
+        rotasAtivas: [
+          "/sistema/armamentos",
+          "/sistema/gestao-armamento",
+        ],
+      },
+      {
+        href: "/sistema/central-patrimonio",
+        icone: Boxes,
+        titulo: "Patrimônio",
+        modulos: ["patrimonio"],
+        rotasAtivas: [
+          "/sistema/central-patrimonio",
+          "/sistema/patrimonio",
+          "/sistema/almoxarifado",
+        ],
+      },
+    ],
+  },
+  {
+    titulo: "Jurídico e Documentos",
+    itens: [
+      {
+        href: "/sistema/central-legislacao",
+        icone: Scale,
+        titulo: "Central de Legislação",
+        modulos: ["legislacao"],
+        rotasAtivas: [
+          "/sistema/central-legislacao",
+          "/sistema/legislacao",
+          "/sistema/ia-juridica",
+        ],
+      },
+      {
+        href: "/sistema/central-relatorios",
+        icone: FileText,
+        titulo: "Relatórios",
+        modulos: ["relatorios"],
+        rotasAtivas: [
+          "/sistema/central-relatorios",
+          "/sistema/relatorios",
+        ],
+      },
+    ],
+  },
+  {
+    titulo: "Comunicação e Cidadão",
+    itens: [
+      {
+        href: "/sistema/portal-cidadao",
+        icone: Landmark,
+        titulo: "Portal Cidadão",
+        modulos: ["portal_cidadao"],
+        rotasAtivas: [
+          "/sistema/portal-cidadao",
+          "/sistema/central-cidadao",
+        ],
+      },
+      {
+        href: "/sistema/comunicacao",
+        icone: MessageCircle,
+        titulo: "Comunicação",
+        modulos: ["avisos"],
+        rotasAtivas: [
+          "/sistema/comunicacao",
+          "/sistema/central-comunicacao",
+          "/sistema/chat",
+          "/sistema/avisos",
+          "/sistema/notificacoes",
+          "/sistema/blog-operacional",
+          "/sistema/agenda-institucional",
+          "/sistema/feed-sig",
+        ],
+      },
+    ],
+  },
+  {
+    titulo: "Administração",
+    itens: [
+      {
+        href: "/sistema/central-administrativa",
+        icone: Building2,
+        titulo: "Central Administrativa",
+        modulos: ["central_administrativa"],
+        rotasAtivas: [
+          "/sistema/central-administrativa",
+          "/sistema/oficios",
+          "/sistema/exportador-dados",
+        ],
+      },
+      {
+        href: "/sistema/administracao",
+        icone: ShieldCheck,
+        titulo: "Administração",
+        modulos: ["administracao"],
+        rotasAtivas: ["/sistema/administracao"],
+      },
+      {
+        href: "/sistema/configuracoes",
+        icone: Cog,
+        titulo: "Configurações",
+        modulos: ["configuracoes"],
+        rotasAtivas: ["/sistema/configuracoes"],
+      },
+      {
+        href: "/sistema/desenvolvedor",
+        icone: Code2,
+        titulo: "Desenvolvedor",
+        modulos: ["desenvolvedor"],
+        rotasAtivas: ["/sistema/desenvolvedor"],
+      },
+    ],
+  },
+];
+
+function rotaAtiva(
+  pathname: string,
+  item: ItemMenuConfig
+) {
+  if (item.href === "/sistema") {
+    return pathname === "/sistema";
+  }
+
+  return item.rotasAtivas.some((rota) =>
+    pathname.startsWith(rota)
+  );
+}
+
 export default function Sidebar({
   usuario,
 }: {
-  usuario: {
-    id: string;
-    nome: string;
-    matricula?: string;
-    email: string;
-    perfil: Perfil;
-    municipio_id?: number;
-    foto_url?: string;
-  } | null;
+  usuario: UsuarioSidebar | null;
 }) {
   const pathname = usePathname();
+
   const [aberto, setAberto] = useState(false);
-  const [menuCompacto, setMenuCompacto] = useState(false);
-  const [brasaoMunicipio, setBrasaoMunicipio] = useState("");
+  const [menuCompacto, setMenuCompacto] =
+    useState(false);
+  const [carregandoMenu, setCarregandoMenu] =
+    useState(true);
+  const [erroMenu, setErroMenu] = useState("");
+  const [modulosPermitidos, setModulosPermitidos] =
+    useState<Set<string>>(new Set());
+  const [perfilServidor, setPerfilServidor] =
+    useState("");
+  const [municipioNome, setMunicipioNome] =
+    useState("");
+  const [brasaoMunicipio, setBrasaoMunicipio] =
+    useState("/brasoes/sig-gcm-logo.png");
 
   useEffect(() => {
-    if (!usuario) return;
-    carregarBrasaoMunicipio(usuario.municipio_id);
-  }, [usuario]);
+    let ativo = true;
+    const controller = new AbortController();
 
-  async function carregarBrasaoMunicipio(municipioId?: number) {
-    if (!municipioId) {
-      setBrasaoMunicipio("/brasoes/sig-gcm-logo.png");
-      return;
+    async function carregarMenu() {
+      setCarregandoMenu(true);
+      setErroMenu("");
+
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
+        const token = session?.access_token;
+
+        if (!token) {
+          localStorage.removeItem("usuarioLogado");
+          window.location.replace("/login");
+          return;
+        }
+
+        const resposta = await fetch(
+          "/api/permissoes/menu",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            cache: "no-store",
+            signal: controller.signal,
+          }
+        );
+
+        const retorno = await resposta
+          .json()
+          .catch(() => null);
+
+        if (!ativo) {
+          return;
+        }
+
+        if (!resposta.ok) {
+          if (resposta.status === 401) {
+            localStorage.removeItem(
+              "usuarioLogado"
+            );
+            window.location.replace("/login");
+            return;
+          }
+
+          setErroMenu(
+            retorno?.erro ||
+              "Não foi possível carregar o menu."
+          );
+          setModulosPermitidos(new Set());
+          return;
+        }
+
+        setPerfilServidor(
+          String(retorno?.perfil || "")
+        );
+
+        setMunicipioNome(
+          String(
+            retorno?.municipio_nome ||
+              "Município"
+          )
+        );
+
+        setBrasaoMunicipio(
+          String(retorno?.brasao_gcm || "").trim() ||
+            "/brasoes/sig-gcm-logo.png"
+        );
+
+        setModulosPermitidos(
+          new Set(
+            Array.isArray(retorno?.modulos)
+              ? retorno.modulos.map((modulo: unknown) =>
+                  String(modulo)
+                    .trim()
+                    .toLowerCase()
+                )
+              : []
+          )
+        );
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "Erro ao carregar permissões do menu:",
+          error
+        );
+
+        if (ativo) {
+          setErroMenu(
+            "Não foi possível carregar o menu."
+          );
+          setModulosPermitidos(new Set());
+        }
+      } finally {
+        if (ativo) {
+          setCarregandoMenu(false);
+        }
+      }
     }
 
-    const { data, error } = await supabase
-      .from("municipios")
-      .select("brasao_gcm")
-      .eq("id", municipioId)
-      .single();
+    void carregarMenu();
 
-    if (error) {
-      console.error("Erro ao carregar brasão:", error);
-      setBrasaoMunicipio("/brasoes/sig-gcm-logo.png");
-      return;
-    }
+    return () => {
+      ativo = false;
+      controller.abort();
+    };
+  }, [usuario?.id]);
 
-    setBrasaoMunicipio(data?.brasao_gcm || "/brasoes/sig-gcm-logo.png");
-  }
+  const gruposVisiveis = useMemo(() => {
+    const desenvolvedor =
+      perfilServidor === "DESENVOLVEDOR";
+
+    return GRUPOS_MENU.map((grupo) => ({
+      ...grupo,
+      itens: grupo.itens.filter(
+        (item) =>
+          desenvolvedor ||
+          item.modulos.some((modulo) =>
+            modulosPermitidos.has(modulo)
+          )
+      ),
+    })).filter((grupo) => grupo.itens.length > 0);
+  }, [modulosPermitidos, perfilServidor]);
 
   async function sair() {
-    if (!confirm("Deseja realmente sair do sistema?")) return;
+    if (
+      !confirm("Deseja realmente sair do sistema?")
+    ) {
+      return;
+    }
 
     try {
       await supabase.auth.signOut();
@@ -91,7 +459,7 @@ export default function Sidebar({
       console.error("Erro ao sair:", error);
     }
 
-    localStorage.clear();
+    localStorage.removeItem("usuarioLogado");
     sessionStorage.clear();
     window.location.replace("/login");
   }
@@ -100,26 +468,30 @@ export default function Sidebar({
     setAberto(false);
   }
 
+  const perfilExibido =
+    perfilServidor || usuario?.perfil || "";
+
   return (
     <>
-      <div className="md:hidden bg-[#020b1c] border-b border-slate-800 p-4 flex items-center justify-between">
+      <div className="flex items-center justify-between border-b border-slate-800 bg-[#020b1c] p-4 md:hidden">
         <div className="flex items-center gap-3">
           <img
-            src={brasaoMunicipio || "/brasoes/sig-gcm-logo.png"}
-            onError={(e) => {
-              (e.currentTarget as HTMLImageElement).src =
+            src={brasaoMunicipio}
+            onError={(event) => {
+              event.currentTarget.src =
                 "/brasoes/sig-gcm-logo.png";
             }}
             alt="Brasão GCM"
-            className="w-16 h-16 object-contain"
+            className="h-16 w-16 object-contain"
           />
 
           <div>
-            <h1 className="font-bold text-white">SIG-GCM</h1>
+            <h1 className="font-bold text-white">
+              SIG-GCM
+            </h1>
+
             <p className="text-xs text-slate-400">
-              {usuario?.municipio_id
-                ? `Município ID: ${usuario.municipio_id}`
-                : "Município"}
+              {municipioNome || "Município"}
             </p>
           </div>
         </div>
@@ -127,312 +499,174 @@ export default function Sidebar({
         <button
           type="button"
           onClick={() => setAberto(!aberto)}
-          className="bg-blue-700 px-4 py-3 rounded-xl text-white font-bold"
+          className="rounded-xl bg-blue-700 px-4 py-3 font-bold text-white"
         >
           ☰ Menu
         </button>
       </div>
 
-      {aberto && (
+      {aberto ? (
         <div
-          className="md:hidden fixed inset-0 bg-black/60 z-40"
+          className="fixed inset-0 z-40 bg-black/60 md:hidden"
           onClick={fecharMenu}
         />
-      )}
+      ) : null}
 
       <aside
         className={`
-          bg-slate-950/80 backdrop-blur-xl border-r border-blue-900/40
-          shadow-[0_0_30px_rgba(0,80,255,0.15)]
-          text-white flex flex-col z-50
-          fixed md:sticky top-0 left-0 h-screen
-          w-80 ${menuCompacto ? "md:w-20" : "md:w-72"}
-          transition-all duration-300
-          ${aberto ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+          fixed left-0 top-0 z-50 flex h-screen w-80 flex-col
+          border-r border-blue-900/40 bg-slate-950/80 text-white
+          shadow-[0_0_30px_rgba(0,80,255,0.15)] backdrop-blur-xl
+          transition-all duration-300 md:sticky
+          ${menuCompacto ? "md:w-20" : "md:w-72"}
+          ${
+            aberto
+              ? "translate-x-0"
+              : "-translate-x-full md:translate-x-0"
+          }
         `}
       >
-        <div className="hidden md:flex justify-end p-2 border-b border-slate-800">
+        <div className="hidden justify-end border-b border-slate-800 p-2 md:flex">
           <button
             type="button"
-            onClick={() => setMenuCompacto(!menuCompacto)}
-            className="text-white text-xl hover:text-blue-400"
+            onClick={() =>
+              setMenuCompacto(!menuCompacto)
+            }
+            className="text-xl text-white hover:text-blue-400"
+            title={
+              menuCompacto
+                ? "Expandir menu"
+                : "Recolher menu"
+            }
           >
-            <Menu className="w-6 h-6" />
+            <Menu className="h-6 w-6" />
           </button>
         </div>
 
-        {usuario && (
+        {usuario ? (
           <div
-            className={`p-5 border-b border-slate-800 bg-slate-950/40 ${
+            className={`border-b border-slate-800 bg-slate-950/40 p-5 ${
               menuCompacto ? "text-center" : ""
             }`}
           >
             <div className="flex flex-col items-center">
               <img
-                src={brasaoMunicipio || "/brasoes/sig-gcm-logo.png"}
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).src =
+                src={brasaoMunicipio}
+                onError={(event) => {
+                  event.currentTarget.src =
                     "/brasoes/sig-gcm-logo.png";
                 }}
                 alt="Brasão GCM"
                 className={
                   menuCompacto
-                    ? "w-12 h-12 object-contain"
-                    : "w-40 h-40 object-contain mb-4"
+                    ? "h-12 w-12 object-contain"
+                    : "mb-4 h-40 w-40 object-contain"
                 }
               />
 
-              {!menuCompacto && (
+              {!menuCompacto ? (
                 <>
-                  <p className="font-black text-lg text-center">
+                  <p className="text-center text-lg font-black">
                     {usuario.nome}
                   </p>
 
-                  <p className="text-xs text-slate-400 mt-1">
-                    Matrícula: {usuario.matricula || "-"}
+                  <p className="mt-1 text-xs text-slate-400">
+                    Matrícula:{" "}
+                    {usuario.matricula || "-"}
                   </p>
 
-                  <p className="text-xs text-blue-400 font-bold">
-                    Perfil: {usuario.perfil}
+                  <p className="text-xs font-bold text-blue-400">
+                    Perfil: {perfilExibido}
                   </p>
                 </>
-              )}
+              ) : null}
             </div>
           </div>
-        )}
+        ) : null}
 
-        <nav className="p-0 space-y-0 flex-1 overflow-y-auto min-h-0">
-         <GrupoMenu titulo="Principal" compacto={menuCompacto} />
+        <nav className="min-h-0 flex-1 overflow-y-auto p-0">
+          {carregandoMenu ? (
+            <div className="p-5 text-center text-sm text-slate-400">
+              Carregando menu...
+            </div>
+          ) : erroMenu ? (
+            <div className="m-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+              {erroMenu}
+            </div>
+          ) : gruposVisiveis.length === 0 ? (
+            <div className="p-5 text-center text-sm text-slate-400">
+              Nenhum módulo disponível para este
+              perfil.
+            </div>
+          ) : (
+            gruposVisiveis.map((grupo) => (
+              <div key={grupo.titulo}>
+                <GrupoMenu
+                  titulo={grupo.titulo}
+                  compacto={menuCompacto}
+                />
 
-<ItemMenu
-  href="/sistema"
-  icone={LayoutDashboard}
-  titulo="Centro de Comando"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname === "/sistema"}
-/>
-
-<GrupoMenu titulo="Operacional" compacto={menuCompacto} />
-
-<ItemMenu
-  href="/sistema/central-ocorrencias"
-  icone={Activity}
-  titulo="Ocorrências"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/central-ocorrencias") ||
-    pathname.startsWith("/sistema/ocorrencias")
-  }
-/>
-
-<ItemMenu
-  href="/sistema/chamados"
-  icone={PhoneCall}
-  titulo="Chamados"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/chamados")}
-/>
-
-<ItemMenu
-  href="/sistema/operacional"
-  icone={Shield}
-  titulo="Centro Operacional"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/operacional") ||
-    pathname.startsWith("/sistema/patrulhamento") ||
-    pathname.startsWith("/sistema/abordagens") ||
-    pathname.startsWith("/sistema/operacoes")
-  }
-/>
-
-<ItemMenu
-  href="/sistema/central-inteligencia"
-  icone={Brain}
-  titulo="Inteligência"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/central-inteligencia") ||
-    pathname.startsWith("/sistema/inteligencia") ||
-    pathname.startsWith("/sistema/estatisticas")
-  }
-/>
-
-<GrupoMenu titulo="Gestão da Guarda" compacto={menuCompacto} />
-
-<ItemMenu
-  href="/sistema/central-rh"
-  icone={Users}
-  titulo="RH"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/rh")}
-/>
-
-<ItemMenu
-  href="/sistema/central-frota"
-  icone={CarFront}
-  titulo="Frota"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/frota")}
-/>
-
-<ItemMenu
-  href="/sistema/armamentos"
-  icone={ShieldCheck}
-  titulo="Armamento"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/armamentos")}
-/>
-
-<ItemMenu
-  href="/sistema/central-patrimonio"
-  icone={Boxes}
-  titulo="Patrimônio"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/central-patrimonio")}
-/>
-
-<GrupoMenu titulo="Jurídico e Documentos" compacto={menuCompacto} />
-
-<ItemMenu
-  href="/sistema/central-legislacao"
-  icone={Scale}
-  titulo="Central de Legislação"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/central-legislacao") ||
-    pathname.startsWith("/sistema/legislacao") ||
-    pathname.startsWith("/sistema/ia-juridica")
-  }
-/>
-
-<ItemMenu
-  href="/sistema/central-relatorios"
-  icone={FileText}
-  titulo="Relatórios"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/central-relatorios")}
-/>
-
-<GrupoMenu titulo="Comunicação e Cidadão" compacto={menuCompacto} />
-
-<ItemMenu
-  href="/sistema/portal-cidadao"
-  icone={Landmark}
-  titulo="Portal Cidadão"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/portal-cidadao") ||
-    pathname.startsWith("/sistema/central-cidadao")
-  }
-/>
-
-<ItemMenu
-  href="/sistema/comunicacao"
-  icone={MessageCircle}
-  titulo="Comunicação"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={
-    pathname.startsWith("/sistema/comunicacao") ||
-    pathname.startsWith("/sistema/central-comunicacao") ||
-    pathname.startsWith("/sistema/chat") ||
-    pathname.startsWith("/sistema/avisos") ||
-    pathname.startsWith("/sistema/notificacoes") ||
-    pathname.startsWith("/sistema/blog-operacional") ||
-    pathname.startsWith("/sistema/agenda-institucional")
-  }
-/>
-
-<GrupoMenu titulo="Administração" compacto={menuCompacto} />
-
-<ItemMenu
-  href="/sistema/central-administrativa"
-  icone={Building2}
-  titulo="Central Administrativa"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/central-administrativa")}
-/>
-
-{["DESENVOLVEDOR", "ADMIN", "COMANDANTE", "DIRETOR"].includes(
-  usuario?.perfil || ""
-) && (
-  <ItemMenu
-    href="/sistema/administracao"
-    icone={ShieldCheck}
-    titulo="Administração"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/administracao")}
-  />
-)}
-
-<ItemMenu
-  href="/sistema/configuracoes"
-  icone={Cog}
-  titulo="Configurações"
-  fecharMenu={fecharMenu}
-  compacto={menuCompacto}
-  ativo={pathname.startsWith("/sistema/configuracoes")}
-/>
-
-{usuario?.perfil === "DESENVOLVEDOR" && (
-  <ItemMenu
-    href="/sistema/desenvolvedor"
-    icone={Code2}
-    titulo="Desenvolvedor"
-    fecharMenu={fecharMenu}
-    compacto={menuCompacto}
-    ativo={pathname.startsWith("/sistema/desenvolvedor")}
-  />
-)}
+                {grupo.itens.map((item) => (
+                  <ItemMenu
+                    key={item.href}
+                    href={item.href}
+                    icone={item.icone}
+                    titulo={item.titulo}
+                    fecharMenu={fecharMenu}
+                    compacto={menuCompacto}
+                    ativo={rotaAtiva(
+                      pathname,
+                      item
+                    )}
+                  />
+                ))}
+              </div>
+            ))
+          )}
         </nav>
 
-        <div className="shrink-0 p-3 border-t border-slate-800 bg-slate-950">
+        <div className="shrink-0 border-t border-slate-800 bg-slate-950 p-3">
           <div
-            className={`flex gap-3 items-center mb-4 ${
-              menuCompacto ? "justify-center" : ""
+            className={`mb-4 flex items-center gap-3 ${
+              menuCompacto
+                ? "justify-center"
+                : ""
             }`}
           >
             <img
-              src={brasaoMunicipio || "/brasoes/sig-gcm-logo.png"}
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).src =
+              src={brasaoMunicipio}
+              onError={(event) => {
+                event.currentTarget.src =
                   "/brasoes/sig-gcm-logo.png";
               }}
               alt="Brasão GCM"
-              className="w-12 h-12 object-contain"
+              className="h-12 w-12 object-contain"
             />
 
-            {!menuCompacto && (
+            {!menuCompacto ? (
               <div>
-                <p className="font-semibold">SIG-GCM Brasil</p>
-                <p className="text-xs text-slate-400">{usuario?.nome}</p>
-                <p className="text-xs text-blue-400">{usuario?.perfil}</p>
+                <p className="font-semibold">
+                  SIG-GCM Brasil
+                </p>
+
+                <p className="text-xs text-slate-400">
+                  {usuario?.nome}
+                </p>
+
+                <p className="text-xs text-blue-400">
+                  {perfilExibido}
+                </p>
               </div>
-            )}
+            ) : null}
           </div>
 
           <button
             type="button"
             onClick={sair}
-            className="w-full bg-red-700 hover:bg-red-800 px-3 py-3 rounded-lg text-base font-semibold"
+            className="w-full rounded-lg bg-red-700 px-3 py-3 text-base font-semibold hover:bg-red-800"
           >
             {menuCompacto ? (
-              <LogOut className="w-5 h-5 mx-auto" />
+              <LogOut className="mx-auto h-5 w-5" />
             ) : (
               "Sair do Sistema"
             )}
@@ -451,12 +685,14 @@ function GrupoMenu({
   compacto: boolean;
 }) {
   if (compacto) {
-    return <div className="h-3 border-b border-slate-800" />;
+    return (
+      <div className="h-3 border-b border-slate-800" />
+    );
   }
 
   return (
-    <div className="px-5 py-3 border-b border-slate-800 bg-slate-900/60">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-[#C9A227]">
+    <div className="border-b border-slate-800 bg-slate-900/60 px-5 py-3">
+      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-400">
         {titulo}
       </p>
     </div>
@@ -483,14 +719,11 @@ function ItemMenu({
       onClick={fecharMenu}
       href={href}
       className={`
-        w-full flex items-center gap-4
-        px-5 py-5
-        text-lg font-bold
-        border-b border-slate-800
-        transition-all duration-200
+        flex w-full items-center gap-4 border-b border-slate-800
+        px-5 py-5 text-lg font-bold transition-all duration-200
         ${
           ativo
-            ? "bg-blue-700/40 text-white border-l-4 border-l-cyan-400"
+            ? "border-l-4 border-l-cyan-400 bg-blue-700/40 text-white"
             : "text-slate-200 hover:bg-blue-700/40 hover:text-white"
         }
         ${compacto ? "justify-center px-0" : ""}
@@ -498,12 +731,14 @@ function ItemMenu({
       title={titulo}
     >
       <Icone
-  className={`w-9 h-9 shrink-0 ${
-          ativo ? "text-cyan-300" : "text-blue-400"
+        className={`h-9 w-9 shrink-0 ${
+          ativo
+            ? "text-cyan-300"
+            : "text-blue-400"
         }`}
       />
 
-      {!compacto && <span>{titulo}</span>}
+      {!compacto ? <span>{titulo}</span> : null}
     </Link>
   );
 }

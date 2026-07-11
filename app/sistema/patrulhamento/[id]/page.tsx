@@ -1,46 +1,90 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, MapPin, RefreshCw, Route, Timer } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
+import {
+  useParams,
+  useRouter,
+} from "next/navigation";
 import "leaflet/dist/leaflet.css";
 
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Clock3,
+  Crosshair,
+  Gauge,
+  Loader2,
+  MapPin,
+  Navigation,
+  RefreshCw,
+  Route,
+  ShieldCheck,
+  Timer,
+} from "lucide-react";
+
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { supabase } from "@/lib/supabase";
-import { registrarAuditoria } from "@/lib/auditoria";
-import { finalizarPatrulhamentoV2 } from "@/lib/patrulhamento/finalizarPatrulhamento";
 
 const MapContainer = dynamic(
-  () => import("react-leaflet").then((m) => m.MapContainer),
+  () =>
+    import("react-leaflet").then(
+      (modulo) => modulo.MapContainer
+    ),
   { ssr: false }
 );
 
 const TileLayer = dynamic(
-  () => import("react-leaflet").then((m) => m.TileLayer),
+  () =>
+    import("react-leaflet").then(
+      (modulo) => modulo.TileLayer
+    ),
   { ssr: false }
 );
 
 const Marker = dynamic(
-  () => import("react-leaflet").then((m) => m.Marker),
+  () =>
+    import("react-leaflet").then(
+      (modulo) => modulo.Marker
+    ),
   { ssr: false }
 );
 
 const Popup = dynamic(
-  () => import("react-leaflet").then((m) => m.Popup),
+  () =>
+    import("react-leaflet").then(
+      (modulo) => modulo.Popup
+    ),
   { ssr: false }
 );
 
 const Polyline = dynamic(
-  () => import("react-leaflet").then((m) => m.Polyline),
+  () =>
+    import("react-leaflet").then(
+      (modulo) => modulo.Polyline
+    ),
   { ssr: false }
 );
 
-type UsuarioLogado = {
-  id: string;
+type Contexto = {
+  usuario_id: number;
+  usuario_nome: string | null;
   perfil: string;
   municipio_id: number;
-  nome?: string;
+};
+
+type Permissoes = {
+  pode_ver: boolean;
+  pode_criar: boolean;
+  pode_editar: boolean;
+  pode_excluir: boolean;
 };
 
 type Patrulhamento = {
@@ -52,474 +96,1466 @@ type Patrulhamento = {
   guarda: string | null;
   equipe: string | null;
   viatura: string | null;
-  latitude: string | null;
-  longitude: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
   observacao: string | null;
   status: string | null;
-  criado_em?: string | null;
-  finalizado_em?: string | null;
+  criado_em: string | null;
+  finalizado_em: string | null;
 };
 
-type PontoGPS = {
-  id: string;
+type PontoGps = {
+  id: string | number;
   municipio_id: number;
   patrulhamento_id: number;
-  latitude: number;
-  longitude: number;
-  velocidade: number | null;
-  precisao: number | null;
+  latitude: number | string;
+  longitude: number | string;
+  velocidade: number | string | null;
+  precisao: number | string | null;
   criado_em: string;
   tipo: string | null;
   observacao: string | null;
 };
 
-function obterUsuarioLogado(): UsuarioLogado | null {
-  try {
-    if (typeof window === "undefined") return null;
+type RespostaDetalhe = {
+  ok?: boolean;
+  erro?: string;
+  contexto?: Contexto;
+  permissoes?: Permissoes;
+  patrulhamento?: Patrulhamento;
+  pontos?: PontoGps[];
+  pontos_truncados?: boolean;
+  limite_pontos?: number;
+};
 
-    const salvo = localStorage.getItem("usuarioLogado");
-    if (!salvo) return null;
+type RespostaFinalizacao = {
+  ok?: boolean;
+  erro?: string;
+  mensagem?: string;
+  gps_final_registrado?: boolean;
+};
 
-    const usuario = JSON.parse(salvo);
+type Coordenadas = {
+  latitude: number;
+  longitude: number;
+  precisao: number | null;
+  velocidade: number | null;
+};
 
-    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
-      return null;
-    }
+const CENTRO_PADRAO: [number, number] = [
+  -11.621296322631357,
+  -38.80684199142887,
+];
 
-    return {
-      id: String(usuario.id),
-      perfil: String(usuario.perfil).toUpperCase(),
-      municipio_id: Number(usuario.municipio_id),
-      nome: usuario.nome || "",
-    };
-  } catch {
-    return null;
-  }
+const CHAVE_WATCH =
+  "patrulhamento_v2_watch_id";
+
+const CHAVE_ATIVO =
+  "patrulhamentoAtivoId";
+
+const CHAVE_ULTIMO =
+  "patrulhamento_v2_ultimo_ponto";
+
+function texto(valor: unknown) {
+  return String(valor ?? "").trim();
 }
 
-function distanciaMetros(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const r = 6371000;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+function normalizar(valor: unknown) {
+  return texto(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
 
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
+function estaFinalizado(valor: unknown) {
+  return normalizar(valor) === "FINALIZADO";
+}
 
-  return r * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+function formatarData(valor?: string | null) {
+  if (!valor) {
+    return "Não informada";
+  }
+
+  const data = new Date(`${valor}T12:00:00`);
+
+  if (Number.isNaN(data.getTime())) {
+    return valor;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR").format(data);
 }
 
 function formatarDataHora(valor?: string | null) {
-  if (!valor) return "-";
+  if (!valor) {
+    return "Não informado";
+  }
 
-  try {
-    return new Date(valor).toLocaleString("pt-BR");
-  } catch {
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
     return valor;
   }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+  }).format(data);
+}
+
+function calcularDistanciaMetros(
+  pontos: PontoGps[]
+) {
+  let total = 0;
+
+  for (
+    let indice = 1;
+    indice < pontos.length;
+    indice += 1
+  ) {
+    const anterior = pontos[indice - 1];
+    const atual = pontos[indice];
+
+    const latitudeAnterior =
+      Number(anterior.latitude);
+
+    const longitudeAnterior =
+      Number(anterior.longitude);
+
+    const latitudeAtual =
+      Number(atual.latitude);
+
+    const longitudeAtual =
+      Number(atual.longitude);
+
+    const raioTerra = 6371000;
+
+    const deltaLatitude =
+      ((latitudeAtual -
+        latitudeAnterior) *
+        Math.PI) /
+      180;
+
+    const deltaLongitude =
+      ((longitudeAtual -
+        longitudeAnterior) *
+        Math.PI) /
+      180;
+
+    const calculo =
+      Math.sin(deltaLatitude / 2) ** 2 +
+      Math.cos(
+        (latitudeAnterior *
+          Math.PI) /
+          180
+      ) *
+        Math.cos(
+          (latitudeAtual *
+            Math.PI) /
+            180
+        ) *
+        Math.sin(
+          deltaLongitude / 2
+        ) **
+          2;
+
+    total +=
+      raioTerra *
+      (2 *
+        Math.atan2(
+          Math.sqrt(calculo),
+          Math.sqrt(1 - calculo)
+        ));
+  }
+
+  return total;
 }
 
 function formatarDistancia(metros: number) {
-  if (metros >= 1000) return `${(metros / 1000).toFixed(2)} km`;
+  if (metros >= 1000) {
+    return `${(metros / 1000).toFixed(2)} km`;
+  }
+
   return `${Math.round(metros)} m`;
+}
+
+function criarIcone(tipo: string | null) {
+  if (typeof window === "undefined") {
+    return undefined;
+  }
+
+  const Leaflet = require("leaflet");
+  const tipoNormalizado = normalizar(tipo);
+
+  const configuracao =
+    tipoNormalizado === "INICIAL"
+      ? {
+          simbolo: "🚩",
+          cor: "#16a34a",
+        }
+      : tipoNormalizado === "FINAL"
+        ? {
+            simbolo: "🏁",
+            cor: "#dc2626",
+          }
+        : tipoNormalizado === "MANUAL"
+          ? {
+              simbolo: "📍",
+              cor: "#d97706",
+            }
+          : {
+              simbolo: "●",
+              cor: "#0284c7",
+            };
+
+  return Leaflet.divIcon({
+    className: "sig-ponto-gps",
+    html: `
+      <div
+        style="
+          width:30px;
+          height:30px;
+          border-radius:999px;
+          background:${configuracao.cor};
+          border:3px solid white;
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          color:white;
+          font-size:14px;
+          font-weight:900;
+          box-shadow:0 8px 22px rgba(0,0,0,.35);
+        "
+      >
+        ${configuracao.simbolo}
+      </div>
+    `,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+}
+
+function MapController({
+  posicoes,
+}: {
+  posicoes: [number, number][];
+}) {
+  const { useMap } =
+    require("react-leaflet");
+
+  const mapa = useMap();
+
+  useEffect(() => {
+    const temporizador = window.setTimeout(() => {
+      mapa.invalidateSize();
+
+      if (posicoes.length > 1) {
+        mapa.fitBounds(posicoes, {
+          padding: [50, 50],
+        });
+        return;
+      }
+
+      if (posicoes.length === 1) {
+        mapa.setView(posicoes[0], 17);
+      }
+    }, 250);
+
+    return () =>
+      window.clearTimeout(temporizador);
+  }, [mapa, posicoes]);
+
+  return null;
+}
+
+function obterLocalizacaoFinal(): Promise<Coordenadas> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(
+        new Error(
+          "GPS não disponível neste dispositivo."
+        )
+      );
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude:
+            position.coords.latitude,
+          longitude:
+            position.coords.longitude,
+          precisao:
+            Number.isFinite(
+              position.coords.accuracy
+            )
+              ? position.coords.accuracy
+              : null,
+          velocidade:
+            typeof position.coords.speed ===
+              "number" &&
+            Number.isFinite(
+              position.coords.speed
+            )
+              ? position.coords.speed
+              : null,
+        });
+      },
+      (error) => {
+        const mensagem =
+          error.code ===
+          error.PERMISSION_DENIED
+            ? "A permissão de localização foi negada."
+            : error.code ===
+                error.TIMEOUT
+              ? "O GPS demorou demais para responder."
+              : "Não foi possível capturar o ponto GPS final.";
+
+        reject(new Error(mensagem));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
+
+function limparMonitoramentoLocal(
+  patrulhamentoId: number
+) {
+  const ativo = Number(
+    localStorage.getItem(CHAVE_ATIVO) || 0
+  );
+
+  if (ativo !== patrulhamentoId) {
+    return;
+  }
+
+  if (navigator.geolocation) {
+    const watchId =
+      localStorage.getItem(CHAVE_WATCH);
+
+    if (watchId) {
+      navigator.geolocation.clearWatch(
+        Number(watchId)
+      );
+    }
+  }
+
+  localStorage.removeItem(CHAVE_WATCH);
+  localStorage.removeItem(CHAVE_ATIVO);
+  localStorage.removeItem(CHAVE_ULTIMO);
 }
 
 export default function DetalhePatrulhamentoPage() {
   const params = useParams();
   const router = useRouter();
-  const id = Number(params.id || 0);
 
-  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
-  const [patrulhamento, setPatrulhamento] = useState<Patrulhamento | null>(null);
-  const [pontos, setPontos] = useState<PontoGPS[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [finalizando, setFinalizando] = useState(false);
+  const parametroId = Array.isArray(
+    params.id
+  )
+    ? params.id[0]
+    : params.id;
 
-  const podeFinalizar = useMemo(() => {
-    if (!usuario) return false;
+  const id = Number(parametroId || 0);
 
-    return [
-      "DESENVOLVEDOR",
-      "ADMIN",
-      "COMANDANTE",
-      "DIRETOR",
-      "PLANTONISTA",
-      "CMT_GUARNICAO",
-      "GUARDA",
-    ].includes(usuario.perfil);
-  }, [usuario]);
+  const requisicaoEmAndamento = useRef(false);
 
-  const pontosValidos = useMemo(() => {
-    return pontos.filter((p) => {
-      const lat = Number(p.latitude);
-      const lng = Number(p.longitude);
+  const [contexto, setContexto] =
+    useState<Contexto | null>(null);
 
-      return Number.isFinite(lat) && Number.isFinite(lng) && lat !== 0 && lng !== 0;
-    });
-  }, [pontos]);
+  const [permissoes, setPermissoes] =
+    useState<Permissoes | null>(null);
 
-  const posicoes = useMemo(() => {
-    return pontosValidos.map((p) => [Number(p.latitude), Number(p.longitude)] as [number, number]);
-  }, [pontosValidos]);
+  const [
+    patrulhamento,
+    setPatrulhamento,
+  ] = useState<Patrulhamento | null>(
+    null
+  );
 
-  const centro = useMemo<[number, number]>(() => {
-    if (posicoes.length > 0) return posicoes[posicoes.length - 1];
+  const [pontos, setPontos] =
+    useState<PontoGps[]>([]);
 
-    if (patrulhamento?.latitude && patrulhamento?.longitude) {
-      return [Number(patrulhamento.latitude), Number(patrulhamento.longitude)];
+  const [carregando, setCarregando] =
+    useState(true);
+
+  const [atualizando, setAtualizando] =
+    useState(false);
+
+  const [finalizando, setFinalizando] =
+    useState(false);
+
+  const [erro, setErro] =
+    useState("");
+
+  const [
+    pontosTruncados,
+    setPontosTruncados,
+  ] = useState(false);
+
+  useEffect(() => {
+    if (!id || Number.isNaN(id)) {
+      setErro(
+        "Identificador do patrulhamento inválido."
+      );
+      setCarregando(false);
+      return;
     }
 
-    return [-11.621296322631357, -38.80684199142887];
-  }, [posicoes, patrulhamento]);
+    void carregarDados(false);
 
-  const distanciaTotal = useMemo(() => {
-    if (posicoes.length < 2) return 0;
+    const intervalo = window.setInterval(() => {
+      void carregarDados(true);
+    }, 15000);
 
-    let total = 0;
+    return () =>
+      window.clearInterval(intervalo);
+  }, [id]);
 
-    for (let i = 1; i < posicoes.length; i++) {
-      total += distanciaMetros(
-        posicoes[i - 1][0],
-        posicoes[i - 1][1],
-        posicoes[i][0],
-        posicoes[i][1]
+  async function obterAccessToken() {
+    const {
+      data: { session },
+      error,
+    } =
+      await supabase.auth.getSession();
+
+    if (
+      error ||
+      !session?.access_token
+    ) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente no sistema."
       );
     }
 
-    return total;
-  }, [posicoes]);
+    return session.access_token;
+  }
 
-  async function carregarDados() {
-    const usuarioAtual = obterUsuarioLogado();
-    setUsuario(usuarioAtual);
+  async function chamarApiDetalhe(
+    silencioso: boolean
+  ) {
+    const accessToken =
+      await obterAccessToken();
 
-    if (!usuarioAtual) {
+    const url = silencioso
+      ? `/api/patrulhamento/${id}?silencioso=1`
+      : `/api/patrulhamento/${id}`;
+
+    const resposta = await fetch(url, {
+      method: "GET",
+      headers: {
+        Authorization:
+          `Bearer ${accessToken}`,
+      },
+      cache: "no-store",
+    });
+
+    const dados = (await resposta
+      .json()
+      .catch(
+        () => null
+      )) as RespostaDetalhe | null;
+
+    if (resposta.status === 401) {
+      localStorage.removeItem(
+        "usuarioLogado"
+      );
       router.replace("/login");
+
+      throw new Error(
+        "Sessão expirada."
+      );
+    }
+
+    if (
+      !resposta.ok ||
+      !dados?.ok
+    ) {
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível carregar o patrulhamento."
+      );
+    }
+
+    return dados;
+  }
+
+  async function chamarApiFinalizacao(
+    corpo: Record<string, unknown>
+  ) {
+    const accessToken =
+      await obterAccessToken();
+
+    const resposta = await fetch(
+      "/api/patrulhamento",
+      {
+        method: "PATCH",
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+          "Content-Type":
+            "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify(corpo),
+      }
+    );
+
+    const dados = (await resposta
+      .json()
+      .catch(
+        () => null
+      )) as RespostaFinalizacao | null;
+
+    if (resposta.status === 401) {
+      localStorage.removeItem(
+        "usuarioLogado"
+      );
+      router.replace("/login");
+
+      throw new Error(
+        "Sessão expirada."
+      );
+    }
+
+    if (
+      !resposta.ok ||
+      !dados?.ok
+    ) {
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível finalizar o patrulhamento."
+      );
+    }
+
+    return dados;
+  }
+
+  async function carregarDados(
+    silencioso: boolean
+  ) {
+    if (
+      requisicaoEmAndamento.current
+    ) {
       return;
     }
 
-    if (!id || Number.isNaN(id)) {
-      setPatrulhamento(null);
-      setPontos([]);
-      setCarregando(false);
-      return;
-    }
+    requisicaoEmAndamento.current =
+      true;
 
-    setCarregando(true);
-
-    const { data: patrulhamentoData, error: erroPatrulhamento } = await supabase
-      .from("patrulhamentos")
-      .select(
-        "id, municipio_id, data, hora, local, guarda, equipe, viatura, latitude, longitude, observacao, status, criado_em, finalizado_em"
-      )
-      .eq("id", id)
-      .eq("municipio_id", usuarioAtual.municipio_id)
-      .single();
-
-    if (erroPatrulhamento || !patrulhamentoData) {
-      console.error("Erro patrulhamento:", erroPatrulhamento);
-      setPatrulhamento(null);
-      setPontos([]);
-      setCarregando(false);
-      return;
-    }
-
-    const { data: pontosData, error: erroPontos } = await supabase
-      .from("gps_patrulhamento")
-      .select("id, municipio_id, patrulhamento_id, latitude, longitude, velocidade, precisao, criado_em, tipo, observacao")
-      .eq("patrulhamento_id", id)
-      .eq("municipio_id", usuarioAtual.municipio_id)
-      .order("criado_em", { ascending: true })
-      .limit(5000);
-
-    if (erroPontos) {
-      console.error("Erro pontos GPS:", erroPontos);
-      alert("Erro ao carregar pontos GPS.");
-      setPontos([]);
+    if (silencioso) {
+      setAtualizando(true);
     } else {
-      setPontos((pontosData || []) as PontoGPS[]);
+      setCarregando(true);
+      setErro("");
     }
 
-    setPatrulhamento(patrulhamentoData as Patrulhamento);
-    setCarregando(false);
+    try {
+      const dados =
+        await chamarApiDetalhe(
+          silencioso
+        );
+
+      setContexto(
+        dados.contexto || null
+      );
+
+      setPermissoes(
+        dados.permissoes || null
+      );
+
+      setPatrulhamento(
+        dados.patrulhamento ||
+          null
+      );
+
+      setPontos(
+        dados.pontos || []
+      );
+
+      setPontosTruncados(
+        Boolean(
+          dados.pontos_truncados
+        )
+      );
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar o patrulhamento.";
+
+      console.error(
+        "Erro no acompanhamento do patrulhamento:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      if (!silencioso) {
+        setErro(mensagem);
+        setPatrulhamento(null);
+        setPontos([]);
+      }
+    } finally {
+      requisicaoEmAndamento.current =
+        false;
+
+      setCarregando(false);
+      setAtualizando(false);
+    }
   }
 
   async function finalizar() {
-    if (!usuario || !patrulhamento) return;
-
-    if (!podeFinalizar) {
-      alert("Você não possui permissão para finalizar patrulhamento.");
+    if (
+      !patrulhamento ||
+      !permissoes?.pode_editar
+    ) {
+      alert(
+        "Você não possui permissão para finalizar patrulhamentos."
+      );
       return;
     }
 
-    if (patrulhamento.status === "FINALIZADO") {
-      alert("Este patrulhamento já foi finalizado.");
+    if (
+      estaFinalizado(
+        patrulhamento.status
+      )
+    ) {
+      alert(
+        "Este patrulhamento já foi finalizado."
+      );
       return;
     }
 
-    const confirmar = confirm("Deseja finalizar este patrulhamento agora?");
-    if (!confirmar) return;
+    const confirmar =
+      window.confirm(
+        `Finalizar o patrulhamento ${patrulhamento.id}?\n\nO sistema tentará registrar o ponto GPS final.`
+      );
+
+    if (!confirmar) {
+      return;
+    }
 
     setFinalizando(true);
 
     try {
-      await finalizarPatrulhamentoV2({
-        municipio_id: usuario.municipio_id,
-        patrulhamento_id: patrulhamento.id,
-      });
+      let coordenadas:
+        Coordenadas | null = null;
 
-      await registrarAuditoria({
-        modulo: "Patrulhamento",
-        acao: "FINALIZAR",
-        descricao: `Finalizou o patrulhamento ${patrulhamento.id}.`,
-        tabela: "patrulhamentos",
-        registro_id: patrulhamento.id,
-        detalhes: {
-          municipio_id: usuario.municipio_id,
-          usuario_id: usuario.id,
-        },
-      });
+      try {
+        coordenadas =
+          await obterLocalizacaoFinal();
+      } catch (gpsError) {
+        const mensagem =
+          gpsError instanceof Error
+            ? gpsError.message
+            : "Não foi possível capturar o GPS.";
 
-      alert("Patrulhamento finalizado com sucesso.");
-      await carregarDados();
-    } catch (error: any) {
-      console.error("Erro ao finalizar patrulhamento:", error);
-      alert(error?.message || "Erro ao finalizar patrulhamento.");
+        const continuar =
+          window.confirm(
+            `${mensagem}\n\nDeseja finalizar mesmo sem o ponto GPS final?`
+          );
+
+        if (!continuar) {
+          return;
+        }
+      }
+
+      const dados =
+        await chamarApiFinalizacao({
+          id: patrulhamento.id,
+          latitude:
+            coordenadas?.latitude ??
+            null,
+          longitude:
+            coordenadas?.longitude ??
+            null,
+          precisao:
+            coordenadas?.precisao ??
+            null,
+          velocidade:
+            coordenadas?.velocidade ??
+            null,
+        });
+
+      limparMonitoramentoLocal(
+        patrulhamento.id
+      );
+
+      alert(
+        dados.gps_final_registrado
+          ? "Patrulhamento finalizado com ponto GPS registrado."
+          : dados.mensagem ||
+              "Patrulhamento finalizado."
+      );
+
+      await carregarDados(true);
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao finalizar patrulhamento.";
+
+      console.error(
+        "Erro ao finalizar patrulhamento:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      alert(mensagem);
     } finally {
       setFinalizando(false);
     }
   }
 
-  useEffect(() => {
-    void carregarDados();
-  }, [id]);
+  const pontosValidos = useMemo(
+    () =>
+      pontos
+        .map((ponto) => ({
+          ...ponto,
+          latitude: Number(
+            ponto.latitude
+          ),
+          longitude: Number(
+            ponto.longitude
+          ),
+          precisao:
+            ponto.precisao === null
+              ? null
+              : Number(
+                  ponto.precisao
+                ),
+          velocidade:
+            ponto.velocidade === null
+              ? null
+              : Number(
+                  ponto.velocidade
+                ),
+        }))
+        .filter(
+          (ponto) =>
+            Number.isFinite(
+              ponto.latitude
+            ) &&
+            Number.isFinite(
+              ponto.longitude
+            ) &&
+            ponto.latitude >= -90 &&
+            ponto.latitude <= 90 &&
+            ponto.longitude >= -180 &&
+            ponto.longitude <= 180 &&
+            !(
+              ponto.latitude === 0 &&
+              ponto.longitude === 0
+            )
+        ),
+    [pontos]
+  );
 
-  useEffect(() => {
-    if (!usuario || !id) return;
+  const posicoes = useMemo(
+    () =>
+      pontosValidos.map(
+        (ponto) =>
+          [
+            Number(
+              ponto.latitude
+            ),
+            Number(
+              ponto.longitude
+            ),
+          ] as [number, number]
+      ),
+    [pontosValidos]
+  );
 
-    const canal = supabase
-      .channel(`gps_patrulhamento_${id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "gps_patrulhamento",
-          filter: `patrulhamento_id=eq.${id}`,
-        },
-        (payload) => {
-          const novo = payload.new as PontoGPS;
+  const centro = useMemo<
+    [number, number]
+  >(() => {
+    if (posicoes.length > 0) {
+      return posicoes[
+        posicoes.length - 1
+      ];
+    }
 
-          if (Number(novo.municipio_id) !== Number(usuario.municipio_id)) return;
+    const latitude = Number(
+      patrulhamento?.latitude
+    );
 
-          setPontos((atuais) => {
-            if (atuais.some((p) => p.id === novo.id)) return atuais;
-            return [...atuais, novo];
-          });
-        }
-      )
-      .subscribe();
+    const longitude = Number(
+      patrulhamento?.longitude
+    );
 
-    const intervalo = window.setInterval(() => {
-      void carregarDados();
-    }, 15000);
+    if (
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude !== 0 &&
+      longitude !== 0
+    ) {
+      return [
+        latitude,
+        longitude,
+      ];
+    }
 
-    return () => {
-      supabase.removeChannel(canal);
-      window.clearInterval(intervalo);
-    };
-  }, [usuario?.municipio_id, id]);
+    return CENTRO_PADRAO;
+  }, [
+    posicoes,
+    patrulhamento,
+  ]);
+
+  const distanciaTotal = useMemo(
+    () =>
+      calcularDistanciaMetros(
+        pontosValidos
+      ),
+    [pontosValidos]
+  );
+
+  const ultimoPonto =
+    pontosValidos[
+      pontosValidos.length - 1
+    ];
+
+  const automaticos =
+    pontosValidos.filter(
+      (ponto) =>
+        normalizar(
+          ponto.tipo
+        ) === "AUTOMATICO"
+    ).length;
+
+  const manuais =
+    pontosValidos.filter(
+      (ponto) =>
+        normalizar(
+          ponto.tipo
+        ) === "MANUAL"
+    ).length;
+
+  const precisaoMedia =
+    pontosValidos.length > 0
+      ? Math.round(
+          pontosValidos.reduce(
+            (
+              acumulado,
+              ponto
+            ) =>
+              acumulado +
+              Number(
+                ponto.precisao ||
+                  0
+              ),
+            0
+          ) /
+            pontosValidos.length
+        )
+      : 0;
 
   if (carregando) {
     return (
-      <div className="p-6 text-slate-400">
-        Carregando patrulhamento...
-      </div>
-    );
-  }
-
-  if (!patrulhamento) {
-    return (
-      <div className="p-6 space-y-4">
-        <p className="text-slate-400">Patrulhamento não encontrado.</p>
-        <Link href="/sistema/patrulhamento" className="text-blue-400 font-bold">
-          Voltar
-        </Link>
-      </div>
+      <ProtecaoModulo modulo="patrulhamento">
+        <div className="grid min-h-[70vh] place-items-center bg-slate-950 p-6 text-white">
+          <div className="flex items-center gap-3 text-slate-300">
+            <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+            Carregando patrulhamento...
+          </div>
+        </div>
+      </ProtecaoModulo>
     );
   }
 
   return (
-    <div className="p-3 md:p-6 pb-24 space-y-5">
-      <header className="border-b border-slate-800 pb-5 space-y-3">
-        <Link
-          href="/sistema/patrulhamento"
-          className="inline-flex items-center gap-2 text-blue-400 font-bold hover:text-blue-300"
-        >
-          <ArrowLeft size={18} />
-          Voltar para Patrulhamentos
-        </Link>
-
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl md:text-5xl font-black tracking-tight">
-              Patrulhamento #{patrulhamento.id}
-            </h1>
-            <p className="text-slate-400 text-base md:text-lg mt-1">
-              Rota GPS, pontos registrados e dados da equipe.
-            </p>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => carregarDados()}
-              className="btn-secondary inline-flex items-center gap-2"
+    <ProtecaoModulo modulo="patrulhamento">
+      <main className="min-h-screen bg-slate-950 pb-24 text-white">
+        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_40%),linear-gradient(180deg,#07111f_0%,#020617_100%)]">
+          <div className="mx-auto max-w-[1600px] px-4 py-6 md:px-6 md:py-8">
+            <Link
+              href="/sistema/patrulhamento"
+              className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-cyan-300"
             >
-              <RefreshCw size={16} />
-              Atualizar
-            </button>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar à Central de Patrulhamento
+            </Link>
 
-            {podeFinalizar && patrulhamento.status !== "FINALIZADO" && (
-              <button
-                type="button"
-                onClick={finalizar}
-                disabled={finalizando}
-                className="bg-green-700 hover:bg-green-800 disabled:opacity-60 text-white px-4 py-3 rounded-xl font-bold inline-flex items-center gap-2"
-              >
-                <CheckCircle2 size={18} />
-                {finalizando ? "Finalizando..." : "Finalizar"}
-              </button>
-            )}
-          </div>
-        </div>
-      </header>
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10">
+                  <Navigation className="h-7 w-7 text-cyan-300" />
+                </div>
 
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="card">
-          <div className="flex items-center gap-2 text-blue-400 font-bold">
-            <MapPin size={18} />
-            Pontos GPS
-          </div>
-          <p className="text-3xl font-black mt-2">{pontosValidos.length}</p>
-        </div>
+                <div>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
+                      Acompanhamento operacional
+                    </span>
 
-        <div className="card">
-          <div className="flex items-center gap-2 text-cyan-400 font-bold">
-            <Route size={18} />
-            Distância
-          </div>
-          <p className="text-3xl font-black mt-2">{formatarDistancia(distanciaTotal)}</p>
-        </div>
+                    {contexto?.usuario_nome && (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400">
+                        {contexto.usuario_nome}
+                      </span>
+                    )}
 
-        <div className="card">
-          <div className="flex items-center gap-2 text-yellow-400 font-bold">
-            <Timer size={18} />
-            Status
-          </div>
-          <p className="text-xl font-black mt-3">
-            {patrulhamento.status || "EM_ANDAMENTO"}
-          </p>
-        </div>
+                    {atualizando && (
+                      <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Atualizando
+                      </span>
+                    )}
+                  </div>
 
-        <div className="card">
-          <div className="flex items-center gap-2 text-green-400 font-bold">
-            <CheckCircle2 size={18} />
-            Último ponto
-          </div>
-          <p className="text-sm text-slate-300 mt-3">
-            {pontosValidos.length
-              ? formatarDataHora(pontosValidos[pontosValidos.length - 1].criado_em)
-              : "Nenhum"}
-          </p>
-        </div>
-      </section>
+                  <h1 className="text-2xl font-black tracking-tight md:text-4xl">
+                    Patrulhamento #{id}
+                  </h1>
 
-      <section className="grid grid-cols-1 xl:grid-cols-4 gap-4">
-        <div className="card xl:col-span-1 space-y-3">
-          <h2 className="text-xl font-bold">Dados</h2>
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+                    Acompanhe a rota, os pontos GPS e a situação da equipe em campo.
+                  </p>
+                </div>
+              </div>
 
-          <p><span className="text-slate-500">Data: </span>{patrulhamento.data || "-"}</p>
-          <p><span className="text-slate-500">Hora: </span>{patrulhamento.hora || "-"}</p>
-          <p><span className="text-slate-500">Local: </span>{patrulhamento.local || "-"}</p>
-          <p><span className="text-slate-500">Viatura: </span>{patrulhamento.viatura || "-"}</p>
-          <p><span className="text-slate-500">Guarda: </span>{patrulhamento.guarda || "-"}</p>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href={`/sistema/patrulhamento/rotas?id=${id}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                >
+                  <Route className="h-4 w-4" />
+                  Abrir rota completa
+                </Link>
 
-          {patrulhamento.equipe && (
-            <div>
-              <p className="text-slate-500">Equipe:</p>
-              <pre className="font-sans whitespace-pre-wrap text-slate-300 text-sm">
-                {patrulhamento.equipe}
-              </pre>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void carregarDados(true)
+                  }
+                  disabled={atualizando}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+                >
+                  {atualizando ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Atualizar
+                </button>
+
+                {patrulhamento &&
+                  !estaFinalizado(
+                    patrulhamento.status
+                  ) &&
+                  permissoes?.pode_editar && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void finalizar()
+                      }
+                      disabled={finalizando}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-5 py-3 font-black text-slate-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                    >
+                      {finalizando ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="h-5 w-5" />
+                      )}
+                      Finalizar
+                    </button>
+                  )}
+              </div>
             </div>
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-[1600px] space-y-5 px-4 py-5 md:px-6">
+          {erro && (
+            <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
+              <h2 className="font-bold text-red-100">
+                Não foi possível carregar o patrulhamento
+              </h2>
+
+              <p className="mt-2 text-sm text-red-100/75">
+                {erro}
+              </p>
+
+              <Link
+                href="/sistema/patrulhamento"
+                className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-400/25 px-4 py-2.5 text-sm font-bold text-red-100 transition hover:bg-red-500/15"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </Link>
+            </section>
           )}
 
-          {patrulhamento.observacao && (
-            <p className="text-slate-400 text-sm border-t border-slate-800 pt-3">
-              {patrulhamento.observacao}
-            </p>
+          {pontosTruncados && (
+            <section className="rounded-3xl border border-amber-500/30 bg-amber-500/10 p-5 text-sm text-amber-100">
+              A rota atingiu o limite técnico de pontos exibidos.
+            </section>
           )}
-        </div>
 
-        <div className="card xl:col-span-3">
-          <h2 className="text-xl font-bold mb-4">Mapa da Rota</h2>
-
-          {pontosValidos.length === 0 ? (
-            <div className="rounded-2xl border border-slate-800 bg-slate-950/50 p-6 text-slate-400">
-              Nenhum ponto GPS registrado para este patrulhamento.
-            </div>
-          ) : (
-            <div className="h-[70vh] rounded-2xl overflow-hidden border border-slate-800">
-              <MapContainer
-                center={centro}
-                zoom={16}
-                style={{ height: "100%", width: "100%" }}
-              >
-                <TileLayer
-                  attribution="&copy; OpenStreetMap"
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          {patrulhamento && (
+            <>
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                <StatCard
+                  titulo="Pontos GPS"
+                  valor={String(
+                    pontosValidos.length
+                  )}
+                  subtitulo="Total registrado"
+                  icone={
+                    <MapPin className="h-5 w-5" />
+                  }
                 />
 
-                {posicoes.length > 1 && (
-                  <Polyline
-                    positions={posicoes}
-                    pathOptions={{ color: "#2563eb", weight: 6 }}
-                  />
-                )}
+                <StatCard
+                  titulo="Distância"
+                  valor={formatarDistancia(
+                    distanciaTotal
+                  )}
+                  subtitulo="Trajeto calculado"
+                  icone={
+                    <Route className="h-5 w-5" />
+                  }
+                />
 
-                {pontosValidos.map((ponto, index) => (
-                  <Marker
-                    key={ponto.id}
-                    position={[Number(ponto.latitude), Number(ponto.longitude)]}
-                  >
-                    <Popup>
-                      <strong>{ponto.tipo || "GPS"}</strong>
-                      <br />
-                      Ordem: {index + 1}
-                      <br />
-                      Horário: {formatarDataHora(ponto.criado_em)}
-                      {ponto.precisao && (
-                        <>
-                          <br />
-                          Precisão: {Math.round(ponto.precisao)}m
-                        </>
+                <StatCard
+                  titulo="Status"
+                  valor={
+                    patrulhamento.status ||
+                    "Não informado"
+                  }
+                  subtitulo="Situação atual"
+                  icone={
+                    <Timer className="h-5 w-5" />
+                  }
+                />
+
+                <StatCard
+                  titulo="Precisão média"
+                  valor={
+                    precisaoMedia
+                      ? `${precisaoMedia} m`
+                      : "Não informada"
+                  }
+                  subtitulo="Quanto menor, melhor"
+                  icone={
+                    <Gauge className="h-5 w-5" />
+                  }
+                />
+
+                <StatCard
+                  titulo="Último ponto"
+                  valor={
+                    ultimoPonto
+                      ? formatarDataHora(
+                          ultimoPonto.criado_em
+                        )
+                      : "Não registrado"
+                  }
+                  subtitulo="Atualização GPS"
+                  icone={
+                    <Clock3 className="h-5 w-5" />
+                  }
+                />
+              </section>
+
+              <section className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+                <aside className="space-y-5">
+                  <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-black/10">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-cyan-300">
+                          Patrulhamento #{patrulhamento.id}
+                        </p>
+
+                        <h2 className="mt-1 text-xl font-black">
+                          {patrulhamento.local || "Sem local informado"}
+                        </h2>
+                      </div>
+
+                      <span
+                        className={`rounded-full border px-3 py-1 text-xs font-bold ${
+                          estaFinalizado(
+                            patrulhamento.status
+                          )
+                            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                            : "border-cyan-500/30 bg-cyan-500/10 text-cyan-200"
+                        }`}
+                      >
+                        {patrulhamento.status || "EM_ANDAMENTO"}
+                      </span>
+                    </div>
+
+                    <div className="mt-5 space-y-3">
+                      <InfoLinha
+                        titulo="Data"
+                        valor={formatarData(
+                          patrulhamento.data
+                        )}
+                      />
+
+                      <InfoLinha
+                        titulo="Hora"
+                        valor={
+                          patrulhamento.hora ||
+                          "Não informada"
+                        }
+                      />
+
+                      <InfoLinha
+                        titulo="Guarda"
+                        valor={
+                          patrulhamento.guarda ||
+                          "Não informado"
+                        }
+                      />
+
+                      <InfoLinha
+                        titulo="Viatura"
+                        valor={
+                          patrulhamento.viatura ||
+                          "Sem viatura"
+                        }
+                      />
+
+                      <InfoLinha
+                        titulo="Iniciado em"
+                        valor={formatarDataHora(
+                          patrulhamento.criado_em
+                        )}
+                      />
+
+                      <InfoLinha
+                        titulo="Finalizado em"
+                        valor={
+                          patrulhamento.finalizado_em
+                            ? formatarDataHora(
+                                patrulhamento.finalizado_em
+                              )
+                            : "Em andamento"
+                        }
+                      />
+                    </div>
+
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        Equipe
+                      </div>
+
+                      <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-6 text-slate-300">
+                        {patrulhamento.equipe || "Não informada"}
+                      </pre>
+                    </div>
+
+                    {patrulhamento.observacao && (
+                      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                          Observação
+                        </div>
+
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                          {patrulhamento.observacao}
+                        </p>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
+                    <h2 className="font-black">
+                      Estatísticas
+                    </h2>
+
+                    <div className="mt-4 space-y-3">
+                      <InfoLinha
+                        titulo="Distância total"
+                        valor={formatarDistancia(
+                          distanciaTotal
+                        )}
+                      />
+
+                      <InfoLinha
+                        titulo="Pontos automáticos"
+                        valor={String(
+                          automaticos
+                        )}
+                      />
+
+                      <InfoLinha
+                        titulo="Pontos manuais"
+                        valor={String(
+                          manuais
+                        )}
+                      />
+
+                      <InfoLinha
+                        titulo="Pontos registrados"
+                        valor={String(
+                          pontosValidos.length
+                        )}
+                      />
+                    </div>
+                  </section>
+                </aside>
+
+                <div className="space-y-5">
+                  <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-4 shadow-xl shadow-black/20">
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                        <Navigation className="h-5 w-5" />
+                      </div>
+
+                      <div>
+                        <h2 className="font-black">
+                          Mapa da rota
+                        </h2>
+
+                        <p className="text-sm text-slate-500">
+                          Atualização automática a cada 15 segundos.
+                        </p>
+                      </div>
+                    </div>
+
+                    {pontosValidos.length ===
+                    0 ? (
+                      <div className="grid h-[65vh] min-h-[420px] place-items-center rounded-2xl border border-dashed border-white/10 bg-slate-950/50 p-6 text-center">
+                        <div>
+                          <Crosshair className="mx-auto h-10 w-10 text-slate-600" />
+
+                          <h3 className="mt-4 font-black">
+                            Nenhum ponto GPS registrado
+                          </h3>
+
+                          <p className="mt-2 text-sm text-slate-500">
+                            O mapa será atualizado quando novos pontos forem sincronizados.
+                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-[65vh] min-h-[420px] overflow-hidden rounded-2xl border border-white/10 bg-slate-950">
+                        <MapContainer
+                          center={centro}
+                          zoom={16}
+                          style={{
+                            width: "100%",
+                            height: "100%",
+                          }}
+                        >
+                          <TileLayer
+                            attribution="&copy; OpenStreetMap contributors"
+                            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                          />
+
+                          <MapController
+                            posicoes={
+                              posicoes
+                            }
+                          />
+
+                          {posicoes.length >
+                            1 && (
+                            <Polyline
+                              positions={
+                                posicoes
+                              }
+                              pathOptions={{
+                                color:
+                                  "#0284c7",
+                                weight: 6,
+                                opacity:
+                                  0.88,
+                              }}
+                            />
+                          )}
+
+                          {pontosValidos.map(
+                            (
+                              ponto,
+                              indice
+                            ) => (
+                              <Marker
+                                key={
+                                  ponto.id
+                                }
+                                position={[
+                                  Number(
+                                    ponto.latitude
+                                  ),
+                                  Number(
+                                    ponto.longitude
+                                  ),
+                                ]}
+                                icon={criarIcone(
+                                  ponto.tipo
+                                )}
+                              >
+                                <Popup>
+                                  <strong>
+                                    {ponto.tipo || "GPS"}
+                                  </strong>
+                                  <br />
+                                  Ordem:{" "}
+                                  {indice + 1}
+                                  <br />
+                                  Horário:{" "}
+                                  {formatarDataHora(
+                                    ponto.criado_em
+                                  )}
+                                  <br />
+                                  Precisão:{" "}
+                                  {ponto.precisao
+                                    ? `${Math.round(
+                                        Number(
+                                          ponto.precisao
+                                        )
+                                      )} m`
+                                    : "Não informada"}
+                                  {ponto.observacao && (
+                                    <>
+                                      <br />
+                                      {ponto.observacao}
+                                    </>
+                                  )}
+                                </Popup>
+                              </Marker>
+                            )
+                          )}
+                        </MapContainer>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                        <Clock3 className="h-5 w-5" />
+                      </div>
+
+                      <div>
+                        <h2 className="font-black">
+                          Últimos pontos
+                        </h2>
+
+                        <p className="text-sm text-slate-500">
+                          Registros GPS mais recentes do patrulhamento.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 max-h-[420px] space-y-2 overflow-y-auto pr-1">
+                      {[...pontosValidos]
+                        .reverse()
+                        .slice(0, 100)
+                        .map(
+                          (
+                            ponto,
+                            indice
+                          ) => (
+                            <article
+                              key={
+                                ponto.id
+                              }
+                              className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-slate-950/50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div>
+                                <div className="font-black">
+                                  {ponto.tipo || "GPS"}
+                                </div>
+
+                                <p className="mt-1 text-sm text-slate-500">
+                                  {ponto.observacao || "Ponto GPS do patrulhamento"}
+                                </p>
+                              </div>
+
+                              <div className="text-sm sm:text-right">
+                                <p className="font-semibold text-slate-300">
+                                  {formatarDataHora(
+                                    ponto.criado_em
+                                  )}
+                                </p>
+
+                                <p className="mt-1 text-slate-500">
+                                  Registro recente{" "}
+                                  {indice + 1}
+                                </p>
+                              </div>
+                            </article>
+                          )
+                        )}
+
+                      {pontosValidos.length ===
+                        0 && (
+                        <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">
+                          Nenhum ponto disponível.
+                        </div>
                       )}
-                      {ponto.observacao && (
-                        <>
-                          <br />
-                          {ponto.observacao}
-                        </>
-                      )}
-                    </Popup>
-                  </Marker>
-                ))}
-              </MapContainer>
-            </div>
+                    </div>
+                  </section>
+                </div>
+              </section>
+            </>
           )}
         </div>
-      </section>
+      </main>
+    </ProtecaoModulo>
+  );
+}
+
+function StatCard({
+  titulo,
+  valor,
+  subtitulo,
+  icone,
+}: {
+  titulo: string;
+  valor: string;
+  subtitulo: string;
+  icone: ReactNode;
+}) {
+  return (
+    <article className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-lg shadow-black/10">
+      <div className="flex items-center justify-between gap-3">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+          {icone}
+        </div>
+
+        <ShieldCheck className="h-4 w-4 text-slate-700" />
+      </div>
+
+      <div className="mt-3 break-words text-xl font-black">
+        {valor}
+      </div>
+
+      <div className="mt-1 text-sm font-semibold text-slate-400">
+        {titulo}
+      </div>
+
+      <div className="mt-1 text-xs text-slate-600">
+        {subtitulo}
+      </div>
+    </article>
+  );
+}
+
+function InfoLinha({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <span className="text-sm text-slate-500">
+        {titulo}
+      </span>
+
+      <span className="text-right text-sm font-bold text-slate-200">
+        {valor}
+      </span>
     </div>
   );
 }

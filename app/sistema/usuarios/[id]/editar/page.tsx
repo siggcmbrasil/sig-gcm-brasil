@@ -1,210 +1,396 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  ChangeEvent,
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ArrowLeft, Save, UserCog } from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { supabase } from "@/lib/supabase";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
+
+const PERFIS = [
+  "DESENVOLVEDOR",
+  "ADMIN",
+  "COMANDANTE",
+  "DIRETOR",
+  "CMT_GUARNICAO",
+  "PLANTONISTA",
+  "GUARDA",
+  "CONSULTA",
+] as const;
+
+type Perfil = (typeof PERFIS)[number];
+type StatusUsuario = "ATIVO" | "PENDENTE" | "BLOQUEADO" | "INATIVO";
+
+type Municipio = {
+  id: number;
+  nome: string;
+  estado: string;
+};
+
+type UsuarioEdicao = {
+  id: number;
+  nome: string;
+  matricula: string;
+  telefone: string;
+  cpf: string;
+  cargo: string;
+  email: string;
+  perfil: Perfil;
+  status: StatusUsuario;
+  observacao: string;
+  municipio_id: number | null;
+  foto_url: string | null;
+};
+
+type RespostaApi = {
+  ok?: boolean;
+  erro?: string;
+  usuario?: UsuarioEdicao;
+  perfis_permitidos?: Perfil[];
+  municipios?: Municipio[];
+};
+
+const TIPOS_FOTO = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+];
+
+const LIMITE_FOTO = 5 * 1024 * 1024;
+
+function somenteNumeros(valor: string) {
+  return valor.replace(/\D/g, "");
+}
+
+function formatarCpf(valor: string) {
+  return somenteNumeros(valor)
+    .slice(0, 11)
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
+function formatarTelefone(valor: string) {
+  return somenteNumeros(valor)
+    .slice(0, 11)
+    .replace(/^(\d{2})(\d)/, "($1) $2")
+    .replace(/(\d{5})(\d{1,4})$/, "$1-$2");
+}
+
+function mensagemErro(error: unknown) {
+  return error instanceof Error
+    ? error.message
+    : "Erro desconhecido.";
+}
+
+async function obterAccessToken() {
+  const {
+    data: { session },
+    error,
+  } = await supabase.auth.getSession();
+
+  if (error || !session?.access_token) {
+    throw new Error("Sessão inválida ou expirada.");
+  }
+
+  return session.access_token;
+}
 
 export default function EditarUsuarioPage() {
-  const { id } = useParams();
+  const params = useParams<{ id: string }>();
   const router = useRouter();
 
-  const [usuario, setUsuario] = useState<any>(null);
-  const [municipios, setMunicipios] = useState<any[]>([]);
+  const id = useMemo(() => Number(params.id), [params.id]);
+
+  const [usuario, setUsuario] = useState<UsuarioEdicao | null>(null);
+  const [perfisPermitidos, setPerfisPermitidos] = useState<Perfil[]>([]);
+  const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [foto, setFoto] = useState<File | null>(null);
+  const [previewFoto, setPreviewFoto] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [carregando, setCarregando] = useState(true);
 
-  const usuarioLogado =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
-
-  useEffect(() => {
-    carregar();
-  }, []);
-
-  async function carregar() {
-    setCarregando(true);
-
-    const { data: usuarioData, error } = await supabase
-      .from("usuarios")
-      .select("*")
-      .eq("id", Number(id))
-      .single();
-
-    if (error || !usuarioData) {
-      alert("Usuário não encontrado.");
-      router.push("/sistema/usuarios");
+  const carregar = useCallback(async () => {
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      alert("Identificador do usuário inválido.");
+      router.replace("/sistema/usuarios");
       return;
     }
 
-    setUsuario(usuarioData);
+    setCarregando(true);
 
-    const { data: municipiosData } = await supabase
-      .from("municipios")
-      .select("id, nome, estado")
-      .order("nome");
+    try {
+      const accessToken = await obterAccessToken();
 
-    setMunicipios(municipiosData || []);
-    setCarregando(false);
-  }
+      const resposta = await fetch(`/api/usuarios/${id}`, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      });
 
-  function alterar(campo: string, valor: any) {
-    setUsuario((atual: any) => ({
-      ...atual,
-      [campo]: valor,
-    }));
-  }
+      const dados = (await resposta.json()) as RespostaApi;
 
-  function formatarCpf(valor: string) {
-    return valor
-      .replace(/\D/g, "")
-      .slice(0, 11)
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d)/, "$1.$2")
-      .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-  }
+      if (!resposta.ok || !dados.usuario) {
+        throw new Error(
+          dados.erro || "Não foi possível carregar o usuário."
+        );
+      }
 
-  function formatarTelefone(valor: string) {
-    return valor
-      .replace(/\D/g, "")
-      .slice(0, 11)
-      .replace(/^(\d{2})(\d)/g, "($1) $2")
-      .replace(/(\d)(\d{4})$/, "$1-$2");
-  }
+      setUsuario(dados.usuario);
+      setPerfisPermitidos(dados.perfis_permitidos || []);
+      setMunicipios(dados.municipios || []);
+    } catch (error) {
+      console.error("Erro ao carregar usuário para edição:", {
+        message: mensagemErro(error),
+        error,
+      });
 
-  async function enviarFoto() {
-    if (!foto) return null;
+      alert(mensagemErro(error));
+      router.replace("/sistema/usuarios");
+    } finally {
+      setCarregando(false);
+    }
+  }, [id, router]);
 
-    const nomeSeguro = foto.name
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[^a-zA-Z0-9.-]/g, "_")
-      .toLowerCase();
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
 
-    const caminho = `${usuario.municipio_id || "sem-municipio"}/${usuario.id}-${Date.now()}-${nomeSeguro}`;
-
-    const { error } = await supabase.storage
-      .from("usuarios-fotos")
-      .upload(caminho, foto);
-
-    if (error) {
-      console.error(error);
-      throw new Error("Erro ao enviar foto.");
+  useEffect(() => {
+    if (!foto) {
+      setPreviewFoto(null);
+      return;
     }
 
-    const { data } = supabase.storage
-      .from("usuarios-fotos")
-      .getPublicUrl(caminho);
+    const url = URL.createObjectURL(foto);
+    setPreviewFoto(url);
 
-    return data.publicUrl;
+    return () => {
+      URL.revokeObjectURL(url);
+    };
+  }, [foto]);
+
+  function alterar<K extends keyof UsuarioEdicao>(
+    campo: K,
+    valor: UsuarioEdicao[K]
+  ) {
+    setUsuario((atual) =>
+      atual
+        ? {
+            ...atual,
+            [campo]: valor,
+          }
+        : atual
+    );
   }
 
-  async function salvar() {
-    if (!usuario) return;
-    if (salvando) return;
+  function selecionarFoto(event: ChangeEvent<HTMLInputElement>) {
+    const arquivo = event.target.files?.[0] || null;
 
-    if (!usuario.nome || !usuario.email || !usuario.perfil) {
-      alert("Nome, email e perfil são obrigatórios.");
+    if (!arquivo) {
+      setFoto(null);
+      return;
+    }
+
+    if (!TIPOS_FOTO.includes(arquivo.type)) {
+      alert("Use uma imagem JPG, PNG ou WEBP.");
+      event.target.value = "";
+      setFoto(null);
+      return;
+    }
+
+    if (arquivo.size > LIMITE_FOTO) {
+      alert("A foto deve ter no máximo 5 MB.");
+      event.target.value = "";
+      setFoto(null);
+      return;
+    }
+
+    setFoto(arquivo);
+  }
+
+  async function salvar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!usuario || salvando) return;
+
+    const nome = usuario.nome.trim().replace(/\s+/g, " ");
+    const email = usuario.email.trim().toLowerCase();
+    const cpf = somenteNumeros(usuario.cpf);
+    const telefone = somenteNumeros(usuario.telefone);
+
+    if (nome.length < 3) {
+      alert("Informe o nome completo.");
+      return;
+    }
+
+    if (!email) {
+      alert("Informe o e-mail.");
+      return;
+    }
+
+    if (cpf.length !== 11) {
+      alert("Informe um CPF válido.");
+      return;
+    }
+
+    if (
+      telefone &&
+      telefone.length !== 10 &&
+      telefone.length !== 11
+    ) {
+      alert("Informe um telefone válido com DDD.");
+      return;
+    }
+
+    if (!perfisPermitidos.includes(usuario.perfil)) {
+      alert("O perfil escolhido não é permitido para sua conta.");
+      return;
+    }
+
+    if (
+      usuario.perfil !== "DESENVOLVEDOR" &&
+      !usuario.municipio_id
+    ) {
+      alert("Selecione o município do usuário.");
       return;
     }
 
     setSalvando(true);
 
     try {
-      const novaFotoUrl = await enviarFoto();
+      const accessToken = await obterAccessToken();
+      const formulario = new FormData();
 
-      let query = supabase
-        .from("usuarios")
-        .update({
-          nome: usuario.nome,
-          matricula: usuario.matricula,
-          telefone: usuario.telefone,
-          cpf: usuario.cpf,
-          cargo: usuario.cargo,
-          email: usuario.email,
-          perfil: usuario.perfil,
-          status: usuario.status,
-          observacao: usuario.observacao,
-          municipio_id:
-            usuarioLogado.perfil === "DESENVOLVEDOR"
-              ? usuario.municipio_id
-              : usuarioLogado.municipio_id,
-          ...(novaFotoUrl ? { foto_url: novaFotoUrl } : {}),
-        })
-        .eq("id", usuario.id);
+      formulario.set("nome", nome);
+      formulario.set("matricula", usuario.matricula.trim());
+      formulario.set("telefone", telefone);
+      formulario.set("cpf", cpf);
+      formulario.set("cargo", usuario.cargo.trim());
+      formulario.set("email", email);
+      formulario.set("perfil", usuario.perfil);
+      formulario.set(
+        "municipio_id",
+        usuario.municipio_id
+          ? String(usuario.municipio_id)
+          : ""
+      );
+      formulario.set(
+        "observacao",
+        usuario.observacao.trim()
+      );
 
-      if (usuarioLogado.perfil !== "DESENVOLVEDOR") {
-        query = query.eq("municipio_id", usuarioLogado.municipio_id);
+      if (foto) {
+        formulario.set("foto", foto);
       }
 
-      const { error } = await query;
-
-      if (error) {
-        console.error(error);
-        alert(error.message);
-        setSalvando(false);
-        return;
-      }
-
-      await registrarAuditoria({
-        modulo: "Usuários",
-        acao: "EDITAR",
-        descricao: `Atualizou o usuário ${usuario.nome}.`,
+      const resposta = await fetch(`/api/usuarios/${usuario.id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: formulario,
       });
+
+      const dados = (await resposta.json()) as RespostaApi;
+
+      if (!resposta.ok || !dados.usuario) {
+        throw new Error(
+          dados.erro || "Não foi possível atualizar o usuário."
+        );
+      }
+
+      try {
+        await registrarAuditoria({
+          modulo: "Usuários",
+          acao: "EDITAR",
+          descricao: `Atualizou os dados do usuário ${dados.usuario.nome}.`,
+        });
+      } catch (auditoriaError) {
+        console.error("Auditoria complementar não registrada:", {
+          message: mensagemErro(auditoriaError),
+          auditoriaError,
+        });
+      }
+
+      setUsuario(dados.usuario);
+      setFoto(null);
 
       alert("Usuário atualizado com sucesso.");
       router.push(`/sistema/usuarios/${usuario.id}`);
-    } catch (error: any) {
-      console.error(error);
-      alert(error.message || "Erro ao atualizar usuário.");
+    } catch (error) {
+      console.error("Erro ao atualizar usuário:", {
+        message: mensagemErro(error),
+        error,
+      });
+
+      alert(mensagemErro(error));
     } finally {
       setSalvando(false);
     }
   }
 
   if (carregando) {
-    return <div className="p-6 text-white">Carregando usuário...</div>;
+    return (
+      <div className="p-6 text-white">
+        Carregando usuário...
+      </div>
+    );
   }
 
   if (!usuario) return null;
 
-  return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
+  const imagemAtual = previewFoto || usuario.foto_url;
+
+return (
+  <ProtecaoModulo modulo="usuarios">
+    <div className="space-y-6 p-4 pb-24 md:p-6">
       <button
         type="button"
-        onClick={() => router.push(`/sistema/usuarios/${id}`)}
-        className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-2"
+        onClick={() =>
+          router.push(`/sistema/usuarios/${usuario.id}`)
+        }
+        className="flex items-center gap-2 font-bold text-cyan-400 hover:text-cyan-300"
       >
         <ArrowLeft size={18} />
         Voltar ao Dossiê
       </button>
 
       <div className="painel-premium p-6">
-        <h1 className="text-3xl md:text-4xl font-black text-white flex items-center gap-3">
+        <h1 className="flex items-center gap-3 text-3xl font-black text-white md:text-4xl">
           <UserCog className="text-cyan-400" />
           Editar Usuário
         </h1>
 
-        <p className="text-slate-400 mt-2">
-          Atualize os dados, perfil, status e foto do usuário.
+        <p className="mt-2 text-slate-400">
+          Atualize os dados institucionais, o perfil e a foto.
         </p>
       </div>
 
-      <div className="painel-premium p-6 space-y-5 max-w-5xl">
-        <div className="flex flex-col md:flex-row gap-6 md:items-center">
-          {usuario.foto_url ? (
+      <form
+        onSubmit={salvar}
+        className="painel-premium max-w-5xl space-y-5 p-6"
+      >
+        <div className="flex flex-col gap-6 md:flex-row md:items-center">
+          {imagemAtual ? (
             <img
-              src={usuario.foto_url}
+              src={imagemAtual}
               alt={usuario.nome}
-              className="w-28 h-28 rounded-full object-cover border-4 border-cyan-500"
+              className="h-28 w-28 rounded-full border-4 border-cyan-500 object-cover"
             />
           ) : (
-            <div className="w-28 h-28 rounded-full bg-slate-800 border-4 border-slate-700 flex items-center justify-center text-4xl font-black text-slate-400">
-              {usuario.nome?.charAt(0) || "U"}
+            <div className="flex h-28 w-28 items-center justify-center rounded-full border-4 border-slate-700 bg-slate-800 text-4xl font-black text-slate-400">
+              {usuario.nome.charAt(0) || "U"}
             </div>
           )}
 
@@ -212,128 +398,168 @@ export default function EditarUsuarioPage() {
             <label className="label">Alterar foto</label>
             <input
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp"
               className="input"
-              onChange={(e) => setFoto(e.target.files?.[0] || null)}
+              onChange={selecionarFoto}
             />
+
+            <p className="mt-2 text-xs text-slate-500">
+              JPG, PNG ou WEBP, com no máximo 5 MB.
+            </p>
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <Campo
             label="Nome completo"
-            valor={usuario.nome || ""}
-            onChange={(v) => alterar("nome", v)}
+            valor={usuario.nome}
+            onChange={(valor) => alterar("nome", valor)}
+            maxLength={120}
+            autoComplete="name"
+            required
           />
 
           <Campo
             label="Matrícula"
-            valor={usuario.matricula || ""}
-            onChange={(v) => alterar("matricula", v.toUpperCase())}
+            valor={usuario.matricula}
+            onChange={(valor) =>
+              alterar("matricula", valor.toUpperCase())
+            }
+            maxLength={40}
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <Campo
             label="CPF"
-            valor={usuario.cpf || ""}
-            onChange={(v) => alterar("cpf", formatarCpf(v))}
+            valor={formatarCpf(usuario.cpf)}
+            onChange={(valor) =>
+              alterar("cpf", somenteNumeros(valor))
+            }
+            maxLength={14}
+            inputMode="numeric"
+            required
           />
 
           <Campo
             label="Telefone"
-            valor={usuario.telefone || ""}
-            onChange={(v) => alterar("telefone", formatarTelefone(v))}
+            valor={formatarTelefone(usuario.telefone)}
+            onChange={(valor) =>
+              alterar("telefone", somenteNumeros(valor))
+            }
+            maxLength={15}
+            inputMode="tel"
+            autoComplete="tel"
           />
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <Campo
             label="Cargo/Função"
-            valor={usuario.cargo || ""}
-            onChange={(v) => alterar("cargo", v)}
+            valor={usuario.cargo}
+            onChange={(valor) => alterar("cargo", valor)}
+            maxLength={80}
+            autoComplete="organization-title"
           />
 
           <Campo
             label="E-mail"
-            valor={usuario.email || ""}
-            onChange={(v) => alterar("email", v.toLowerCase())}
+            type="email"
+            valor={usuario.email}
+            onChange={(valor) =>
+              alterar("email", valor.toLowerCase())
+            }
+            maxLength={160}
+            autoComplete="email"
+            required
           />
         </div>
 
-        {usuarioLogado.perfil === "DESENVOLVEDOR" && (
-          <div>
-            <label className="label">Município</label>
-            <select
-              className="input"
-              value={usuario.municipio_id || ""}
-              onChange={(e) => alterar("municipio_id", Number(e.target.value))}
-            >
-              <option value="">Sem município</option>
+        <div>
+          <label className="label">Município</label>
 
-              {municipios.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome} - {m.estado}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+          <select
+            className="input"
+            value={usuario.municipio_id || ""}
+            onChange={(event) =>
+              alterar(
+                "municipio_id",
+                event.target.value
+                  ? Number(event.target.value)
+                  : null
+              )
+            }
+          >
+            {usuario.perfil === "DESENVOLVEDOR" && (
+              <option value="">Sem município fixo</option>
+            )}
 
-        <div className="grid md:grid-cols-2 gap-4">
+            {municipios.map((municipio) => (
+              <option key={municipio.id} value={municipio.id}>
+                {municipio.nome} - {municipio.estado}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="label">Perfil</label>
+
             <select
               className="input"
-              value={usuario.perfil || "GUARDA"}
-              onChange={(e) => alterar("perfil", e.target.value)}
+              value={usuario.perfil}
+              onChange={(event) =>
+                alterar("perfil", event.target.value as Perfil)
+              }
             >
-              <option>DESENVOLVEDOR</option>
-              <option>ADMIN</option>
-              <option>COMANDANTE</option>
-              <option>DIRETOR</option>
-              <option>CMT_GUARNICAO</option>
-              <option>PLANTONISTA</option>
-              <option>GUARDA</option>
-              <option>CONSULTA</option>
+              {perfisPermitidos.map((perfil) => (
+                <option key={perfil} value={perfil}>
+                  {perfil}
+                </option>
+              ))}
             </select>
           </div>
 
           <div>
             <label className="label">Status</label>
-            <select
-              className="input"
-              value={usuario.status || "PENDENTE"}
-              onChange={(e) => alterar("status", e.target.value)}
-            >
-              <option>PENDENTE</option>
-              <option>ATIVO</option>
-              <option>INATIVO</option>
-              <option>BLOQUEADO</option>
-            </select>
+
+            <input
+              className="input cursor-not-allowed opacity-70"
+              value={usuario.status}
+              readOnly
+            />
+
+            <p className="mt-2 text-xs text-slate-500">
+              Altere o status na página de gerenciamento de usuários.
+            </p>
           </div>
         </div>
 
         <div>
           <label className="label">Observação</label>
+
           <textarea
             className="input h-28 resize-none"
-            value={usuario.observacao || ""}
-            onChange={(e) => alterar("observacao", e.target.value)}
+            value={usuario.observacao}
+            maxLength={1000}
+            onChange={(event) =>
+              alterar("observacao", event.target.value)
+            }
           />
         </div>
 
         <button
-          type="button"
-          onClick={salvar}
+          type="submit"
           disabled={salvando}
-          className="btn-primary w-full text-lg flex items-center justify-center gap-2 disabled:opacity-60"
+          className="btn-primary flex w-full items-center justify-center gap-2 text-lg disabled:cursor-not-allowed disabled:opacity-60"
         >
           <Save size={20} />
           {salvando ? "Salvando..." : "Salvar Alterações"}
         </button>
-      </div>
-    </div>
+      </form>
+        </div>
+  </ProtecaoModulo>
   );
 }
 
@@ -341,10 +567,28 @@ function Campo({
   label,
   valor,
   onChange,
+  type = "text",
+  maxLength,
+  inputMode,
+  autoComplete,
+  required = false,
 }: {
   label: string;
   valor: string;
   onChange: (valor: string) => void;
+  type?: string;
+  maxLength?: number;
+  inputMode?:
+    | "none"
+    | "text"
+    | "tel"
+    | "url"
+    | "email"
+    | "numeric"
+    | "decimal"
+    | "search";
+  autoComplete?: string;
+  required?: boolean;
 }) {
   return (
     <div>
@@ -352,8 +596,13 @@ function Campo({
 
       <input
         className="input"
+        type={type}
         value={valor}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(event) => onChange(event.target.value)}
+        maxLength={maxLength}
+        inputMode={inputMode}
+        autoComplete={autoComplete}
+        required={required}
       />
     </div>
   );

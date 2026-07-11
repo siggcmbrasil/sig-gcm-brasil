@@ -36,7 +36,7 @@ const cards = [
       {
         titulo: "Permissões Globais",
         icone: Shield,
-        href: "/sistema/permissoes",
+        href: "/sistema/usuarios/permissoes",
         descricao:
           "Controlar perfis, permissões e acessos aos módulos do sistema.",
       },

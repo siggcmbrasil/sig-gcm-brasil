@@ -12,6 +12,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const modulos = [
   {
@@ -60,7 +61,8 @@ const modulos = [
 
 export default function CentralCidadaoPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="portal_cidadao">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central do Cidadão"
         descricao="Todos os serviços públicos disponíveis para o cidadão."
@@ -78,6 +80,7 @@ export default function CentralCidadaoPage() {
           />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

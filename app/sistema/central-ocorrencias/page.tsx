@@ -10,6 +10,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -34,7 +35,8 @@ const cards = [
 
 export default function CentralOcorrenciasPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="ocorrencias">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Ocorrências"
         descricao="Registro, consulta, envolvidos, relatórios e análise das ocorrências operacionais."
@@ -52,6 +54,7 @@ export default function CentralOcorrenciasPage() {
           />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

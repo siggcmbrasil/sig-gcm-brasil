@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 
 import { registrarAuditoria } from "@/lib/auditoria";
+import { supabase } from "@/lib/supabase";
 
 type UsuarioLogado = {
   id?: number | string;
@@ -44,10 +45,10 @@ export default function IaJuridicaPage() {
       return;
     }
 
-    setUsuario(usuarioAtual);
-    carregarCreditos(usuarioAtual);
+setUsuario(usuarioAtual);
+void carregarCreditos();
 
-    registrarAuditoria({
+    void registrarAuditoria({
       modulo: "IA Jurídica",
       acao: "ACESSO",
       tabela: "ia_creditos_municipio",
@@ -58,46 +59,84 @@ export default function IaJuridicaPage() {
     });
   }, []);
 
-  async function carregarCreditos(usuarioAtual: UsuarioLogado) {
-    try {
-      setCarregandoCreditos(true);
+  async function carregarCreditos() {
+  setCarregandoCreditos(true);
 
-      const res = await fetch("/api/ia-creditos", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          municipio_id: usuarioAtual.municipio_id,
-        }),
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError) {
+      throw sessionError;
+    }
+
+    if (!session?.access_token) {
+      throw new Error("Sessão do Supabase não encontrada.");
+    }
+
+    const res = await fetch("/api/ia-creditos", {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      cache: "no-store",
+    });
+
+    const texto = await res.text();
+
+    let data: {
+      saldo?: number;
+      creditos?: number;
+      erro?: string;
+      detalhes?: string;
+      codigo?: string;
+    } = {};
+
+    if (texto) {
+      try {
+        data = JSON.parse(texto);
+      } catch {
+        throw new Error(
+          `A API retornou uma resposta inválida: ${texto}`
+        );
+      }
+    }
+
+    if (!res.ok) {
+      console.error("Erro em /api/ia-creditos:", {
+        status: res.status,
+        statusText: res.statusText,
+        erro: data.erro,
+        detalhes: data.detalhes,
+        codigo: data.codigo,
       });
 
-      const textoResposta = await res.text();
-
-      let data: any = {};
-
-      try {
-        data = JSON.parse(textoResposta);
-      } catch {
-        console.error("Resposta inválida de /api/ia-creditos:", textoResposta);
-        setCreditos(0);
-        return;
-      }
-
-      if (!res.ok) {
-        console.error("Erro em /api/ia-creditos:", data);
-        setCreditos(0);
-        return;
-      }
-
-      setCreditos(Number(data.saldo ?? 0));
-    } catch (error) {
-      console.error("Erro ao carregar créditos:", error);
-      setCreditos(0);
-    } finally {
-      setCarregandoCreditos(false);
+      throw new Error(
+        data.erro ||
+          data.detalhes ||
+          `Erro HTTP ${res.status} ao consultar créditos.`
+      );
     }
+
+    const saldoRecebido = data.saldo ?? data.creditos ?? 0;
+
+    setCreditos(Number(saldoRecebido));
+  } catch (error) {
+    console.error("Erro ao carregar créditos da IA Jurídica:", {
+      message:
+        error instanceof Error
+          ? error.message
+          : "Erro desconhecido",
+      error,
+    });
+
+    setCreditos(0);
+  } finally {
+    setCarregandoCreditos(false);
   }
+}
 
   function montarPerguntaJuridica() {
     return `
@@ -192,7 +231,7 @@ ${pergunta.trim()}
       if (data.creditos_restantes !== undefined) {
         setCreditos(Number(data.creditos_restantes));
       } else {
-        await carregarCreditos(usuario);
+        await carregarCreditos();
       }
     } catch (error: any) {
       console.error("Erro ao consultar IA Jurídica:", error);

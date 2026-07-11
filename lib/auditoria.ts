@@ -7,8 +7,39 @@ type AuditoriaProps = {
   registro_id?: string | number | null;
   tabela?: string | null;
   status?: "SUCESSO" | "ERRO" | "ALERTA";
-  detalhes?: any;
+  detalhes?: unknown;
+  municipio_id?: number | null;
 };
+
+function municipioContexto(
+  municipioInformado?: number | null
+) {
+  if (
+    Number.isSafeInteger(Number(municipioInformado)) &&
+    Number(municipioInformado) > 0
+  ) {
+    return Number(municipioInformado);
+  }
+
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const cache = JSON.parse(
+      localStorage.getItem("usuarioLogado") || "{}"
+    );
+
+    const municipioId = Number(cache?.municipio_id);
+
+    return Number.isSafeInteger(municipioId) &&
+      municipioId > 0
+      ? municipioId
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function registrarAuditoria({
   modulo,
@@ -18,36 +49,58 @@ export async function registrarAuditoria({
   tabela = null,
   status = "SUCESSO",
   detalhes = null,
+  municipio_id = null,
 }: AuditoriaProps) {
   try {
-    const usuario = JSON.parse(
-      localStorage.getItem("usuarioLogado") || "{}"
-    );
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
 
-    if (!usuario?.municipio_id) return;
+    const token = session?.access_token;
 
-    const { error } = await supabase.from("auditoria").insert({
-      municipio_id: usuario.municipio_id,
-      guarda_id: usuario.id || null,
-      usuario_nome: usuario.nome || "Usuário não informado",
-      usuario_email: usuario.email || null,
-      perfil: usuario.perfil || null,
-      modulo,
-      acao,
-      descricao,
-      registro_id: registro_id ? String(registro_id) : null,
-      tabela,
-      status,
-      dispositivo:
-        typeof navigator !== "undefined" ? navigator.userAgent : null,
-      detalhes,
-      criado_em: new Date().toISOString(),
+    if (!token) {
+      return;
+    }
+
+    const resposta = await fetch("/api/auditoria", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      cache: "no-store",
+      body: JSON.stringify({
+        modulo,
+        acao,
+        descricao,
+        registro_id:
+          registro_id !== null &&
+          registro_id !== undefined
+            ? String(registro_id)
+            : null,
+        tabela,
+        status,
+        detalhes,
+        municipio_id:
+          municipioContexto(municipio_id),
+      }),
     });
 
-    if (error) {
-      console.error("Erro ao registrar auditoria:", error);
+    if (!resposta.ok) {
+      const retorno = await resposta
+        .json()
+        .catch(() => null);
+
+      console.error(
+        "Erro ao registrar auditoria:",
+        retorno?.erro ||
+          `HTTP ${resposta.status}`
+      );
     }
   } catch (error) {
-    console.error("Erro ao registrar auditoria:", error);
+    console.error(
+      "Erro ao registrar auditoria:",
+      error
+    );
   }
 }

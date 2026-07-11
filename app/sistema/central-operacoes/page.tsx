@@ -5,12 +5,11 @@ import {
   PlusCircle,
   ClipboardList,
   Users,
-  FileText,
-  BarChart3,
 } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -41,7 +40,8 @@ const cards = [
 
 export default function CentralOperacoesPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="operacoes">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Operações"
         descricao="Planejamento, execução e controle das operações especiais."
@@ -53,6 +53,7 @@ export default function CentralOperacoesPage() {
           <SigCentralCard key={card.href} {...card} />
         ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

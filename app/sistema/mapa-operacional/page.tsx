@@ -84,6 +84,74 @@ export default function MapaOperacionalPage() {
     });
   }
 
+async function carregarAlertasSOSMapa(
+  municipioId: number
+) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  const accessToken = session?.access_token;
+
+  if (sessionError || !accessToken) {
+    return {
+      data: [],
+      error: new Error(
+        "Sua sessão expirou. Entre novamente no sistema."
+      ),
+    };
+  }
+
+  try {
+    const parametros = new URLSearchParams({
+      municipio_id: String(municipioId),
+    });
+
+    const resposta = await fetch(
+      `/api/sos/mapa?${parametros.toString()}`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const corpo = await resposta
+      .json()
+      .catch(() => null);
+
+    if (!resposta.ok || !corpo?.ok) {
+      return {
+        data: [],
+        error: new Error(
+          corpo?.erro ||
+            "Não foi possível carregar os alertas SOS."
+        ),
+      };
+    }
+
+    return {
+      data: Array.isArray(corpo.alertas)
+        ? corpo.alertas
+        : [],
+      error: null,
+    };
+  } catch (error) {
+    return {
+      data: [],
+      error:
+        error instanceof Error
+          ? error
+          : new Error(
+              "Erro ao carregar os alertas SOS."
+            ),
+    };
+  }
+}
+
   async function carregarDados() {
     const usuario = pegarUsuario();
 
@@ -158,12 +226,7 @@ export default function MapaOperacionalPage() {
           .not("longitude", "is", null)
           .order("created_at", { ascending: false }),
 
-        supabase
-          .from("alertas_sos")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .neq("status", "FINALIZADO")
-          .order("criado_em", { ascending: false }),
+        carregarAlertasSOSMapa(municipioId),
       ]);
 
       if (ocorrenciasRes.error) throw ocorrenciasRes.error;
@@ -254,14 +317,9 @@ export default function MapaOperacionalPage() {
         { event: "*", schema: "public", table: "viaturas" },
         carregarDados
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "alertas_sos" },
-        carregarDados
-      )
       .subscribe();
 
-    const intervalo = setInterval(carregarDados, 60000);
+    const intervalo = setInterval(carregarDados, 15000);
 
     return () => {
       clearInterval(intervalo);

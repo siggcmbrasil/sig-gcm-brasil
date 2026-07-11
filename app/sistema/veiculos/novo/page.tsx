@@ -44,6 +44,7 @@ export default function NovoVeiculoPage() {
   const [condutor, setCondutor] = useState("");
   const [documentoCondutor, setDocumentoCondutor] = useState("");
   const [situacao, setSituacao] = useState("ABORDADO");
+  const [localAbordagem, setLocalAbordagem] = useState("");
   const [observacoes, setObservacoes] = useState("");
   const [salvando, setSalvando] = useState(false);
 
@@ -53,6 +54,11 @@ export default function NovoVeiculoPage() {
       return;
     }
 
+    if (!localAbordagem.trim()) {
+  alert("Informe o local da abordagem.");
+  return;
+}
+
     const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
 
     if (!usuario?.municipio_id) {
@@ -61,6 +67,29 @@ export default function NovoVeiculoPage() {
     }
 
     setSalvando(true);
+
+    const agora = new Date();
+
+const dataAbordagem = new Intl.DateTimeFormat(
+  "en-CA",
+  {
+    timeZone: "America/Bahia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }
+).format(agora);
+
+const horaAbordagem = new Intl.DateTimeFormat(
+  "pt-BR",
+  {
+    timeZone: "America/Bahia",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }
+).format(agora);
 
     const { error } = await supabase.from("veiculos_abordados").insert({
       municipio_id: usuario.municipio_id,
@@ -75,9 +104,12 @@ export default function NovoVeiculoPage() {
       proprietario: proprietario.trim(),
       cpf_proprietario: cpfProprietario.trim(),
       condutor: condutor.trim(),
-      documento_condutor: documentoCondutor.trim(),
-      situacao,
-      observacoes: observacoes.trim(),
+documento_condutor: documentoCondutor.trim(),
+situacao,
+local: localAbordagem.trim(),
+data: dataAbordagem,
+hora: horaAbordagem,
+observacao: observacoes.trim(),
     });
 
     setSalvando(false);
@@ -295,6 +327,22 @@ export default function NovoVeiculoPage() {
               placeholder="CPF, RG ou CNH"
             />
           </div>
+
+          <div className="md:col-span-2">
+  <label className="label">
+    Local da abordagem *
+  </label>
+
+  <input
+    type="text"
+    className="input"
+    value={localAbordagem}
+    onChange={(e) =>
+      setLocalAbordagem(e.target.value)
+    }
+    placeholder="Ex.: Avenida Principal, Centro"
+  />
+</div>
 
           <div className="md:col-span-2">
             <label className="label">Observações</label>

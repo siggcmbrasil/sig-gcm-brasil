@@ -1,18 +1,45 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+import { useRouter } from "next/navigation";
 import { QRCodeCanvas } from "qrcode.react";
+
 import {
   ArrowLeft,
   Building2,
+  CheckCircle2,
+  Crosshair,
+  Loader2,
   MapPin,
   Printer,
   QrCode,
+  RefreshCw,
   Save,
   Search,
+  ShieldCheck,
 } from "lucide-react";
+
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { supabase } from "@/lib/supabase";
+
+type Contexto = {
+  usuario_id: number;
+  usuario_nome: string | null;
+  perfil: string;
+  municipio_id: number;
+};
+
+type Permissoes = {
+  pode_ver: boolean;
+  pode_criar: boolean;
+  pode_editar: boolean;
+  pode_excluir: boolean;
+};
 
 type LocalCadastrado = {
   id: number;
@@ -20,156 +47,503 @@ type LocalCadastrado = {
   tipo: string | null;
   endereco: string | null;
   referencia: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  raio_metros: number | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
+  raio_metros: number | string | null;
 };
 
-export default function QrCodeVisitaPage() {
-  const [nomeLocal, setNomeLocal] = useState("");
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [pontoId, setPontoId] = useState<number | null>(null);
-  const [salvando, setSalvando] = useState(false);
+type Municipio = {
+  id: number;
+  nome: string;
+  brasao_guarda: string;
+  brasao_municipio: string;
+};
 
-  const [locais, setLocais] = useState<LocalCadastrado[]>([]);
-  const [busca, setBusca] = useState("");
-  const [carregandoLocais, setCarregandoLocais] = useState(false);
-  const [brasaoGuarda, setBrasaoGuarda] = useState("");
-  const [brasaoMunicipio, setBrasaoMunicipio] = useState("");
+type PontoVisita = {
+  id: number;
+  municipio_id: number;
+  nome_local: string;
+  latitude: number | string;
+  longitude: number | string;
+  ordem: number | null;
+  obrigatorio: boolean | null;
+  plano_id: number | null;
+};
 
-  const usuario =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "null")
-      : null;
+type RespostaQrCode = {
+  ok?: boolean;
+  erro?: string;
+  mensagem?: string;
+  contexto?: Contexto;
+  permissoes?: Permissoes;
+  locais?: LocalCadastrado[];
+  municipio?: Municipio;
+  ponto?: PontoVisita | null;
+  url_checkin?: string;
+};
 
-  const url = pontoId
-    ? `https://siggcmbrasil.com.br/sistema/patrulhamento/visitas/checkin?ponto=${pontoId}`
-    : "";
-
-  const locaisFiltrados = useMemo(() => {
-    const termo = busca.trim().toLowerCase();
-
-    if (!termo) return locais.slice(0, 20);
-
-    return locais
-      .filter((local) => {
-        const texto = [
-          local.nome,
-          local.tipo,
-          local.endereco,
-          local.referencia,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        return texto.includes(termo);
-      })
-      .slice(0, 30);
-  }, [busca, locais]);
-
-  async function carregarLocais() {
-    if (!usuario?.municipio_id) return;
-
-    setCarregandoLocais(true);
-
-    const { data, error } = await supabase
-      .from("locais")
-      .select(
-        "id, nome, tipo, endereco, referencia, latitude, longitude, raio_metros"
-      )
-      .eq("municipio_id", Number(usuario.municipio_id))
-      .eq("ativo", true)
-      .order("nome", { ascending: true });
-
-    setCarregandoLocais(false);
-
-    if (error) {
-      console.error("Erro ao carregar locais:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-      alert("Erro ao carregar locais cadastrados.");
-      return;
-    }
-
-    setLocais((data || []) as LocalCadastrado[]);
-  }
-
-  async function carregarBrasaoGuarda() {
-  if (!usuario?.municipio_id) return;
-
-  const { data, error } = await supabase
-    .from("municipios")
-    .select("brasao_gcm, emblema_url, escudo_gcm, brasao")
-    .eq("id", Number(usuario.municipio_id))
-    .single();
-
-  if (error) {
-    console.error("Erro ao carregar brasão da Guarda:", error);
-    return;
-  }
-
-  setBrasaoGuarda(
-    data?.brasao_gcm ||
-      data?.emblema_url ||
-      data?.escudo_gcm ||
-      data?.brasao ||
-      ""
-  );
+function texto(valor: unknown) {
+  return String(valor ?? "").trim();
 }
 
- useEffect(() => {
-  void carregarLocais();
-  void carregarBrasaoGuarda();
-}, []);
+function normalizar(valor: unknown) {
+  return texto(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function numeroValido(valor: unknown) {
+  if (
+    valor === null ||
+    valor === undefined ||
+    valor === ""
+  ) {
+    return null;
+  }
+
+  const numero = Number(valor);
+
+  return Number.isFinite(numero)
+    ? numero
+    : null;
+}
+
+function escaparHtml(valor: unknown) {
+  return texto(valor)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function validarUrlImagem(valor: unknown) {
+  const url = texto(valor);
+
+  if (!url) {
+    return "";
+  }
+
+  try {
+    const analisada = new URL(
+      url,
+      window.location.origin
+    );
+
+    if (
+      analisada.protocol !== "http:" &&
+      analisada.protocol !== "https:"
+    ) {
+      return "";
+    }
+
+    return analisada.toString();
+  } catch {
+    return "";
+  }
+}
+
+export default function QrCodeVisitaPage() {
+  const router = useRouter();
+
+  const [contexto, setContexto] =
+    useState<Contexto | null>(null);
+
+  const [permissoes, setPermissoes] =
+    useState<Permissoes | null>(null);
+
+  const [municipio, setMunicipio] =
+    useState<Municipio | null>(null);
+
+  const [locais, setLocais] =
+    useState<LocalCadastrado[]>([]);
+
+  const [localId, setLocalId] =
+    useState<number | null>(null);
+
+  const [nomeLocal, setNomeLocal] =
+    useState("");
+
+  const [latitude, setLatitude] =
+    useState("");
+
+  const [longitude, setLongitude] =
+    useState("");
+
+  const [ordem, setOrdem] =
+    useState("1");
+
+  const [obrigatorio, setObrigatorio] =
+    useState(true);
+
+  const [pontoId, setPontoId] =
+    useState<number | null>(null);
+
+  const [urlCheckin, setUrlCheckin] =
+    useState("");
+
+  const [busca, setBusca] =
+    useState("");
+
+  const [carregando, setCarregando] =
+    useState(true);
+
+  const [atualizando, setAtualizando] =
+    useState(false);
+
+  const [capturando, setCapturando] =
+    useState(false);
+
+  const [salvando, setSalvando] =
+    useState(false);
+
+  const [erro, setErro] =
+    useState("");
 
   useEffect(() => {
-  async function carregarBrasao() {
-    if (!usuario?.municipio_id) return;
+    const parametro =
+      new URLSearchParams(
+        window.location.search
+      ).get("ponto");
 
-    const { data } = await supabase
-      .from("municipios")
-      .select("brasao_url")
-      .eq("id", usuario.municipio_id)
-      .single();
+    const id = Number(
+      parametro || 0
+    );
 
-    if (data?.brasao_url) {
-      setBrasaoMunicipio(data.brasao_url);
+    void carregarDados(
+      id > 0 ? id : undefined,
+      false
+    );
+  }, []);
+
+  async function obterAccessToken() {
+    const {
+      data: { session },
+      error,
+    } =
+      await supabase.auth.getSession();
+
+    if (
+      error ||
+      !session?.access_token
+    ) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente no sistema."
+      );
+    }
+
+    return session.access_token;
+  }
+
+  async function chamarApiGet(
+    id?: number
+  ) {
+    const accessToken =
+      await obterAccessToken();
+
+    const url = id
+      ? `/api/patrulhamento/visitas/qrcode?ponto=${encodeURIComponent(
+          String(id)
+        )}`
+      : "/api/patrulhamento/visitas/qrcode";
+
+    const resposta = await fetch(
+      url,
+      {
+        method: "GET",
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const dados = (await resposta
+      .json()
+      .catch(
+        () => null
+      )) as RespostaQrCode | null;
+
+    if (resposta.status === 401) {
+      localStorage.removeItem(
+        "usuarioLogado"
+      );
+
+      router.replace("/login");
+
+      throw new Error(
+        "Sessão expirada."
+      );
+    }
+
+    if (
+      !resposta.ok ||
+      !dados?.ok
+    ) {
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível carregar o gerador de QR Code."
+      );
+    }
+
+    return dados;
+  }
+
+  async function chamarApiPost(
+    corpo: Record<string, unknown>
+  ) {
+    const accessToken =
+      await obterAccessToken();
+
+    const resposta = await fetch(
+      "/api/patrulhamento/visitas/qrcode",
+      {
+        method: "POST",
+        headers: {
+          Authorization:
+            `Bearer ${accessToken}`,
+          "Content-Type":
+            "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify(corpo),
+      }
+    );
+
+    const dados = (await resposta
+      .json()
+      .catch(
+        () => null
+      )) as RespostaQrCode | null;
+
+    if (resposta.status === 401) {
+      localStorage.removeItem(
+        "usuarioLogado"
+      );
+
+      router.replace("/login");
+
+      throw new Error(
+        "Sessão expirada."
+      );
+    }
+
+    if (
+      !resposta.ok ||
+      !dados?.ok
+    ) {
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível salvar o ponto de visita."
+      );
+    }
+
+    return dados;
+  }
+
+  async function carregarDados(
+    id?: number,
+    somenteAtualizar = false
+  ) {
+    if (somenteAtualizar) {
+      setAtualizando(true);
+    } else {
+      setCarregando(true);
+      setErro("");
+    }
+
+    try {
+      const dados =
+        await chamarApiGet(id);
+
+      setContexto(
+        dados.contexto || null
+      );
+
+      setPermissoes(
+        dados.permissoes || null
+      );
+
+      setMunicipio(
+        dados.municipio || null
+      );
+
+      setLocais(
+        dados.locais || []
+      );
+
+      if (dados.ponto) {
+        setPontoId(
+          Number(
+            dados.ponto.id
+          )
+        );
+
+        setNomeLocal(
+          dados.ponto.nome_local ||
+            ""
+        );
+
+        setLatitude(
+          String(
+            dados.ponto.latitude ??
+              ""
+          )
+        );
+
+        setLongitude(
+          String(
+            dados.ponto.longitude ??
+              ""
+          )
+        );
+
+        setOrdem(
+          String(
+            dados.ponto.ordem ||
+              1
+          )
+        );
+
+        setObrigatorio(
+          Boolean(
+            dados.ponto
+              .obrigatorio
+          )
+        );
+
+        setUrlCheckin(
+          dados.url_checkin ||
+            ""
+        );
+      }
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar o gerador.";
+
+      console.error(
+        "Erro ao carregar QR Code de visita:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      if (!somenteAtualizar) {
+        setErro(mensagem);
+      }
+    } finally {
+      setCarregando(false);
+      setAtualizando(false);
     }
   }
 
-  void carregarBrasao();
-}, []);
+  function usarLocal(
+    local: LocalCadastrado
+  ) {
+    setLocalId(local.id);
+    setNomeLocal(
+      local.nome || ""
+    );
 
-  function usarLocal(local: LocalCadastrado) {
-    setNomeLocal(local.nome || "");
-    setLatitude(local.latitude ? String(local.latitude) : "");
-    setLongitude(local.longitude ? String(local.longitude) : "");
+    setLatitude(
+      local.latitude !== null &&
+        local.latitude !== undefined
+        ? String(local.latitude)
+        : ""
+    );
+
+    setLongitude(
+      local.longitude !== null &&
+        local.longitude !== undefined
+        ? String(local.longitude)
+        : ""
+    );
+
     setPontoId(null);
+    setUrlCheckin("");
 
-    if (!local.latitude || !local.longitude) {
+    const lat =
+      numeroValido(
+        local.latitude
+      );
+
+    const lon =
+      numeroValido(
+        local.longitude
+      );
+
+    if (
+      lat === null ||
+      lon === null
+    ) {
       alert(
-        "Este local não possui latitude/longitude cadastrada. Capture a localização antes de gerar o QR Code."
+        "Este local não possui coordenadas válidas. Capture a localização antes de gerar o QR Code."
       );
     }
   }
 
+  function limparFormulario() {
+    setLocalId(null);
+    setNomeLocal("");
+    setLatitude("");
+    setLongitude("");
+    setOrdem("1");
+    setObrigatorio(true);
+    setPontoId(null);
+    setUrlCheckin("");
+
+    router.replace(
+      "/sistema/patrulhamento/visitas/qrcode"
+    );
+  }
+
   function pegarLocalizacao() {
     if (!navigator.geolocation) {
-      alert("Geolocalização não disponível neste dispositivo.");
+      alert(
+        "Geolocalização não disponível neste dispositivo."
+      );
       return;
     }
 
+    setCapturando(true);
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setLatitude(String(pos.coords.latitude));
-        setLongitude(String(pos.coords.longitude));
+      (posicao) => {
+        setLatitude(
+          String(
+            posicao.coords
+              .latitude
+          )
+        );
+
+        setLongitude(
+          String(
+            posicao.coords
+              .longitude
+          )
+        );
+
+        setCapturando(false);
       },
-      () => alert("Não foi possível obter a localização."),
+      (error) => {
+        setCapturando(false);
+
+        const mensagem =
+          error.code ===
+          error.PERMISSION_DENIED
+            ? "A permissão de localização foi negada."
+            : error.code ===
+                error.TIMEOUT
+              ? "O GPS demorou demais para responder."
+              : "Não foi possível obter a localização.";
+
+        alert(mensagem);
+      },
       {
         enableHighAccuracy: true,
         timeout: 15000,
@@ -179,416 +553,908 @@ export default function QrCodeVisitaPage() {
   }
 
   async function salvarPonto() {
-    if (!usuario?.municipio_id) {
-      alert("Município não identificado.");
+    if (
+      !permissoes?.pode_criar
+    ) {
+      alert(
+        "Você não possui permissão para cadastrar pontos de visita."
+      );
       return;
     }
 
-    if (!nomeLocal || !latitude || !longitude) {
-      alert("Informe o nome do local e a localização.");
+    const latitudeNumero =
+      numeroValido(latitude);
+
+    const longitudeNumero =
+      numeroValido(longitude);
+
+    const ordemNumero =
+      Number(ordem);
+
+    if (
+      nomeLocal.trim().length < 2
+    ) {
+      alert(
+        "Informe o nome do local."
+      );
+      return;
+    }
+
+    if (
+      latitudeNumero === null ||
+      latitudeNumero < -90 ||
+      latitudeNumero > 90
+    ) {
+      alert(
+        "Informe uma latitude válida."
+      );
+      return;
+    }
+
+    if (
+      longitudeNumero === null ||
+      longitudeNumero < -180 ||
+      longitudeNumero > 180
+    ) {
+      alert(
+        "Informe uma longitude válida."
+      );
+      return;
+    }
+
+    if (
+      !Number.isSafeInteger(
+        ordemNumero
+      ) ||
+      ordemNumero < 1
+    ) {
+      alert(
+        "Informe uma ordem válida."
+      );
       return;
     }
 
     setSalvando(true);
 
-    const { data, error } = await supabase
-      .from("pontos_ronda")
-      .insert({
-        municipio_id: Number(usuario.municipio_id),
-        nome_local: nomeLocal,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
-        obrigatorio: true,
-        ordem: 1,
-        plano_id: null,
-      })
-      .select("id")
-      .single();
+    try {
+      const dados =
+        await chamarApiPost({
+          local_id:
+            localId || null,
+          nome_local:
+            nomeLocal.trim(),
+          latitude:
+            latitudeNumero,
+          longitude:
+            longitudeNumero,
+          ordem:
+            ordemNumero,
+          obrigatorio,
+        });
 
-    setSalvando(false);
+      const ponto =
+        dados.ponto;
 
-    if (error) {
-      console.error("Erro ao salvar ponto:", {
-        code: error.code,
-        message: error.message,
-        details: error.details,
-        hint: error.hint,
-      });
-      alert(error.message);
-      return;
+      if (!ponto?.id) {
+        throw new Error(
+          "A API não retornou o ponto cadastrado."
+        );
+      }
+
+      const novoId =
+        Number(ponto.id);
+
+      setPontoId(novoId);
+
+      setUrlCheckin(
+        dados.url_checkin ||
+          `${window.location.origin}/sistema/patrulhamento/visitas/checkin?ponto=${novoId}`
+      );
+
+      router.replace(
+        `/sistema/patrulhamento/visitas/qrcode?ponto=${novoId}`
+      );
+
+      alert(
+        dados.mensagem ||
+          "Ponto salvo. QR Code gerado."
+      );
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao salvar o ponto.";
+
+      console.error(
+        "Erro ao salvar ponto de visita:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      alert(mensagem);
+    } finally {
+      setSalvando(false);
     }
-
-    setPontoId(data.id);
-    alert("Ponto salvo. QR Code gerado.");
   }
 
   function imprimirQrCode() {
-  const canvas = document.querySelector(".qr-preview canvas") as HTMLCanvasElement | null;
+    const canvas =
+      document.querySelector(
+        ".qr-preview canvas"
+      ) as HTMLCanvasElement | null;
 
-  if (!canvas || !pontoId) {
-    alert("Gere o QR Code antes de imprimir.");
-    return;
-  }
+    if (
+      !canvas ||
+      !pontoId ||
+      !urlCheckin
+    ) {
+      alert(
+        "Gere o QR Code antes de imprimir."
+      );
+      return;
+    }
 
-  const qrImagem = canvas.toDataURL("image/png");
+    const qrImagem =
+      canvas.toDataURL(
+        "image/png"
+      );
 
-  const janela = window.open("", "_blank", "width=900,height=1200");
+    const janela =
+      window.open(
+        "",
+        "_blank",
+        "width=900,height=1200"
+      );
 
-  if (!janela) {
-    alert("Permita pop-ups para imprimir o QR Code.");
-    return;
-  }
+    if (!janela) {
+      alert(
+        "Permita pop-ups para imprimir o QR Code."
+      );
+      return;
+    }
 
-  janela.document.write(`
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <title>QR Code SIG-GCM Brasil</title>
-        <style>
-          @page {
-            size: A4 portrait;
-            margin: 0;
-          }
+    const origem =
+      window.location.origin;
 
-          html, body {
-            margin: 0;
-            padding: 0;
-            width: 210mm;
-            height: 297mm;
-            overflow: hidden;
-            background: white;
-            font-family: Arial, sans-serif;
-          }
+    const logoSig =
+      `${origem}/brasoes/sig-gcm-logo.png`;
 
-          .pagina {
-            width: 210mm;
-            height: 297mm;
-            box-sizing: border-box;
-            padding: 18mm;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-          }
+    const brasaoGuarda =
+      validarUrlImagem(
+        municipio
+          ?.brasao_guarda
+      );
 
-          .marca {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            opacity: 0.05;
-            z-index: 0;
-          }
+    const brasaoMunicipio =
+      validarUrlImagem(
+        municipio
+          ?.brasao_municipio
+      );
 
-          .marca img {
-            width: 115mm;
-            height: 115mm;
-            object-fit: contain;
-          }
+    const imagensTopo = [
+      logoSig,
+      brasaoMunicipio,
+      brasaoGuarda,
+    ]
+      .filter(Boolean)
+      .map(
+        (imagem) =>
+          `<img src="${escaparHtml(
+            imagem
+          )}" alt="" />`
+      )
+      .join("");
 
-          .conteudo {
-            position: relative;
-            z-index: 2;
-          }
+    janela.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+        <head>
+          <meta charset="utf-8" />
+          <title>QR Code SIG-GCM Brasil</title>
 
-          .topo {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 18px;
-            margin-bottom: 8mm;
-          }
+          <style>
+            @page {
+              size: A4 portrait;
+              margin: 0;
+            }
 
-          .topo img {
-            width: 24mm;
-            height: 24mm;
-            object-fit: contain;
-          }
+            * {
+              box-sizing: border-box;
+            }
 
-          h1 {
-            font-size: 22px;
-            margin: 0;
-            font-weight: 900;
-          }
+            html,
+            body {
+              margin: 0;
+              padding: 0;
+              width: 210mm;
+              min-height: 297mm;
+              background: white;
+              color: #0f172a;
+              font-family: Arial, sans-serif;
+            }
 
-          h2 {
-            font-size: 14px;
-            margin: 3mm 0 8mm;
-            font-weight: 700;
-          }
+            .pagina {
+              position: relative;
+              display: flex;
+              width: 210mm;
+              min-height: 297mm;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+              padding: 18mm;
+              text-align: center;
+            }
 
-          .qr {
-            width: 95mm;
-            height: 95mm;
-            object-fit: contain;
-          }
+            .marca {
+              position: absolute;
+              inset: 0;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              opacity: 0.045;
+            }
 
-          .local {
-            margin-top: 8mm;
-            font-size: 15px;
-            font-weight: 700;
-          }
+            .marca img {
+              width: 118mm;
+              height: 118mm;
+              object-fit: contain;
+            }
 
-          .url {
-            margin-top: 2mm;
-            font-size: 8px;
-            max-width: 170mm;
-            word-break: break-all;
-          }
-        </style>
-      </head>
+            .conteudo {
+              position: relative;
+              z-index: 2;
+              width: 100%;
+            }
 
-      <body>
-        <div class="pagina">
-          <div class="marca">
-            <img src="/brasoes/sig-gcm-logo.png" />
-          </div>
+            .topo {
+              display: flex;
+              min-height: 28mm;
+              align-items: center;
+              justify-content: center;
+              gap: 18px;
+              margin-bottom: 8mm;
+            }
 
-          <div class="conteudo">
-            <div class="topo">
-              <img src="/brasoes/sig-gcm-logo.png" />
-              ${brasaoGuarda ? `<img src="${brasaoGuarda}" />` : ""}
+            .topo img {
+              width: 24mm;
+              height: 24mm;
+              object-fit: contain;
+            }
+
+            h1 {
+              margin: 0;
+              font-size: 24px;
+              font-weight: 900;
+            }
+
+            h2 {
+              margin: 3mm 0 8mm;
+              font-size: 15px;
+            }
+
+            .qr {
+              width: 95mm;
+              height: 95mm;
+              object-fit: contain;
+            }
+
+            .local {
+              margin-top: 8mm;
+              font-size: 18px;
+              font-weight: 900;
+            }
+
+            .municipio {
+              margin-top: 2mm;
+              font-size: 12px;
+              font-weight: 700;
+              color: #334155;
+            }
+
+            .url {
+              max-width: 170mm;
+              margin: 4mm auto 0;
+              word-break: break-all;
+              font-size: 8px;
+              color: #475569;
+            }
+
+            .rodape {
+              position: absolute;
+              bottom: 12mm;
+              left: 18mm;
+              right: 18mm;
+              border-top: 1px solid #cbd5e1;
+              padding-top: 4mm;
+              font-size: 9px;
+              color: #64748b;
+            }
+          </style>
+        </head>
+
+        <body>
+          <div class="pagina">
+            <div class="marca">
+              <img
+                src="${escaparHtml(
+                  logoSig
+                )}"
+                alt=""
+              />
             </div>
 
-            <h1>SIG-GCM Brasil</h1>
-            <h2>QR Code de Check-in de Visita</h2>
+            <div class="conteudo">
+              <div class="topo">
+                ${imagensTopo}
+              </div>
 
-            <img class="qr" src="${qrImagem}" />
+              <h1>SIG-GCM Brasil</h1>
+              <h2>QR Code de Check-in de Visita</h2>
 
-            <div class="local">${nomeLocal}</div>
-            <div class="url">${url}</div>
+              <img
+                class="qr"
+                src="${escaparHtml(
+                  qrImagem
+                )}"
+                alt="QR Code"
+              />
+
+              <div class="local">
+                ${escaparHtml(
+                  nomeLocal
+                )}
+              </div>
+
+              <div class="municipio">
+                ${escaparHtml(
+                  municipio?.nome ||
+                    ""
+                )}
+              </div>
+
+              <div class="url">
+                ${escaparHtml(
+                  urlCheckin
+                )}
+              </div>
+            </div>
+
+            <div class="rodape">
+              Documento institucional gerado pelo SIG-GCM Brasil.
+            </div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              setTimeout(function () {
+                window.print();
+              }, 400);
+            };
+          </script>
+        </body>
+      </html>
+    `);
+
+    janela.document.close();
+  }
+
+  const locaisFiltrados =
+    useMemo(() => {
+      const termo =
+        normalizar(busca);
+
+      if (!termo) {
+        return locais.slice(
+          0,
+          30
+        );
+      }
+
+      return locais
+        .filter((local) =>
+          normalizar(
+            [
+              local.nome,
+              local.tipo,
+              local.endereco,
+              local.referencia,
+            ].join(" ")
+          ).includes(termo)
+        )
+        .slice(0, 50);
+    }, [
+      busca,
+      locais,
+    ]);
+
+  if (carregando) {
+    return (
+      <ProtecaoModulo modulo="patrulhamento">
+        <div className="grid min-h-[70vh] place-items-center bg-slate-950 p-6 text-white">
+          <div className="flex items-center gap-3 text-slate-300">
+            <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+            Carregando gerador de QR Code...
           </div>
         </div>
-
-        <script>
-          window.onload = function() {
-            setTimeout(function() {
-              window.print();
-            }, 300);
-          };
-        </script>
-      </body>
-    </html>
-  `);
-
-  janela.document.close();
-}
+      </ProtecaoModulo>
+    );
+  }
 
   return (
-    <main className="print-page min-h-screen bg-[#07152E] p-4 md:p-8 text-white">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <Link
-          href="/sistema/patrulhamento/visitas"
-          className="inline-flex items-center gap-2 text-sm text-slate-300 hover:text-white"
-        >
-          <ArrowLeft size={18} />
-          Voltar para Visitas
-        </Link>
+    <ProtecaoModulo modulo="patrulhamento">
+      <main className="min-h-screen bg-slate-950 pb-24 text-white">
+        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.18),transparent_40%),linear-gradient(180deg,#07111f_0%,#020617_100%)]">
+          <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-8">
+            <Link
+              href="/sistema/patrulhamento/visitas"
+              className="mb-5 inline-flex items-center gap-2 text-sm font-semibold text-slate-400 transition hover:text-cyan-300"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para Visitas
+            </Link>
 
-        <section className="rounded-2xl border border-[#C9A227]/40 bg-[#0D1B34] p-6">
-          <h1 className="flex items-center gap-3 text-3xl font-black">
-            <QrCode className="text-[#C9A227]" />
-            Cadastrar Ponto e Gerar QR Code
-          </h1>
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10">
+                  <QrCode className="h-7 w-7 text-cyan-300" />
+                </div>
 
-          <p className="mt-2 text-slate-300">
-            Pesquise um local cadastrado, use os dados dele e gere o QR Code de
-            check-in da visita.
-          </p>
-        </section>
+                <div>
+                  <div className="mb-2 flex flex-wrap gap-2">
+                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.16em] text-cyan-300">
+                      Identificação operacional
+                    </span>
 
-        <section className="grid gap-6 lg:grid-cols-2">
-          <div className="space-y-5">
-            <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
-              <h2 className="mb-4 text-xl font-black">
-                Locais cadastrados
-              </h2>
+                    {contexto?.usuario_nome && (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400">
+                        {contexto.usuario_nome}
+                      </span>
+                    )}
+                  </div>
 
-              <div className="relative mb-4">
-                <Search
-                  size={18}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
-                />
+                  <h1 className="text-2xl font-black tracking-tight md:text-4xl">
+                    Cadastrar ponto e gerar QR Code
+                  </h1>
 
-                <input
-                  className="w-full rounded-xl border border-[#C9A227]/40 bg-slate-950 py-3 pl-11 pr-4 text-white outline-none placeholder:text-slate-500 focus:border-[#C9A227]"
-                  placeholder="Pesquisar escola, órgão, povoado, comércio..."
-                  value={busca}
-                  onChange={(e) => setBusca(e.target.value)}
-                />
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+                    Selecione um local, confirme as coordenadas e gere a identificação para check-in de visita.
+                  </p>
+                </div>
               </div>
 
-              {carregandoLocais ? (
-                <p className="text-slate-300">Carregando locais...</p>
-              ) : locaisFiltrados.length === 0 ? (
-                <p className="text-slate-400">
-                  Nenhum local encontrado.
-                </p>
-              ) : (
-                <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
-                  {locaisFiltrados.map((local) => (
-                    <button
-                      key={local.id}
-                      type="button"
-                      onClick={() => usarLocal(local)}
-                      className="w-full rounded-2xl border border-white/10 bg-slate-950 p-4 text-left transition hover:border-[#C9A227] hover:bg-[#0D1B34]"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="rounded-xl bg-[#C9A227]/15 p-2 text-[#C9A227]">
-                          <Building2 size={22} />
-                        </div>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="font-black text-white">
-                            {local.nome}
-                          </p>
-
-                          <p className="mt-1 text-xs text-slate-400">
-                            {local.tipo || "Tipo não informado"}
-                          </p>
-
-                          <p className="mt-1 text-sm text-slate-300">
-                            {local.endereco || local.referencia || "Sem endereço"}
-                          </p>
-
-                          <p className="mt-2 text-xs text-slate-500">
-                            Lat: {local.latitude || "-"} • Long:{" "}
-                            {local.longitude || "-"} • Raio:{" "}
-                            {local.raio_metros || 200}m
-                          </p>
-
-                          <p className="mt-2 text-xs font-bold text-[#C9A227]">
-                            Usar este local
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
+              <button
+                type="button"
+                onClick={() =>
+                  void carregarDados(
+                    pontoId ||
+                      undefined,
+                    true
+                  )
+                }
+                disabled={atualizando}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10 disabled:opacity-50"
+              >
+                {atualizando ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Atualizar
+              </button>
             </div>
           </div>
+        </section>
 
-          <div className="space-y-5">
-            <div className="space-y-4 rounded-2xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-xl font-black">
-                Dados do ponto de visita
+        <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-6">
+          {erro && (
+            <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
+              <h2 className="font-bold text-red-100">
+                Não foi possível carregar o gerador
               </h2>
 
-              <div>
-                <label className="text-sm font-bold">Nome do local</label>
-                <input
-                  className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-[#C9A227]"
-                  placeholder="Ex: Escola Municipal João Paulo"
-                  value={nomeLocal}
-                  onChange={(e) => setNomeLocal(e.target.value)}
-                />
-              </div>
+              <p className="mt-2 text-sm text-red-100/75">
+                {erro}
+              </p>
+            </section>
+          )}
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div>
-                  <label className="text-sm font-bold">Latitude</label>
+          <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(380px,0.9fr)]">
+            <div className="space-y-5">
+              <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-black/20">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                    <Building2 className="h-5 w-5" />
+                  </div>
+
+                  <div>
+                    <h2 className="font-black">
+                      Locais cadastrados
+                    </h2>
+
+                    <p className="text-sm text-slate-500">
+                      Use um local já existente no município.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="relative mb-4">
+                  <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+
                   <input
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-[#C9A227]"
-                    value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
+                    type="search"
+                    value={busca}
+                    onChange={(event) =>
+                      setBusca(
+                        event.target.value
+                      )
+                    }
+                    placeholder="Pesquisar escola, órgão, povoado ou comércio..."
+                    className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3.5 pl-12 pr-4 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
                   />
                 </div>
 
-                <div>
-                  <label className="text-sm font-bold">Longitude</label>
-                  <input
-                    className="mt-1 w-full rounded-xl border border-white/10 bg-slate-950 px-4 py-3 outline-none focus:border-[#C9A227]"
-                    value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
-                  />
+                <div className="max-h-[560px] space-y-3 overflow-y-auto pr-1">
+                  {locaisFiltrados.map(
+                    (local) => {
+                      const selecionado =
+                        local.id ===
+                        localId;
+
+                      return (
+                        <button
+                          key={local.id}
+                          type="button"
+                          onClick={() =>
+                            usarLocal(
+                              local
+                            )
+                          }
+                          className={`w-full rounded-2xl border p-4 text-left transition ${
+                            selecionado
+                              ? "border-cyan-400/60 bg-cyan-400/10"
+                              : "border-white/10 bg-slate-950/60 hover:border-cyan-400/30 hover:bg-cyan-400/5"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+                              <Building2 className="h-5 w-5" />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-start justify-between gap-3">
+                                <p className="font-black text-white">
+                                  {local.nome}
+                                </p>
+
+                                {selecionado && (
+                                  <CheckCircle2 className="h-5 w-5 shrink-0 text-cyan-300" />
+                                )}
+                              </div>
+
+                              <p className="mt-1 text-xs text-slate-500">
+                                {local.tipo ||
+                                  "Tipo não informado"}
+                              </p>
+
+                              <p className="mt-2 text-sm text-slate-300">
+                                {local.endereco ||
+                                  local.referencia ||
+                                  "Sem endereço"}
+                              </p>
+
+                              <p className="mt-2 text-xs text-slate-500">
+                                Raio informado:{" "}
+                                {numeroValido(
+                                  local.raio_metros
+                                ) || 200}
+                                m
+                              </p>
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    }
+                  )}
+
+                  {locaisFiltrados.length ===
+                    0 && (
+                    <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center text-sm text-slate-500">
+                      Nenhum local encontrado.
+                    </div>
+                  )}
                 </div>
-              </div>
-
-              <button
-                type="button"
-                onClick={pegarLocalizacao}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-blue-400 px-4 py-3 font-bold text-blue-200 hover:bg-blue-500/10"
-              >
-                <MapPin size={18} />
-                Usar minha localização atual
-              </button>
-
-              <button
-                type="button"
-                onClick={salvarPonto}
-                disabled={salvando}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#C9A227] px-4 py-3 font-black text-black hover:bg-yellow-400 disabled:opacity-50"
-              >
-                <Save size={18} />
-                {salvando ? "Salvando..." : "Salvar ponto e gerar QR Code"}
-              </button>
+              </section>
             </div>
 
-            <div className="qr-preview relative overflow-hidden rounded-2xl border border-white/10 bg-white p-5 text-black">
-              {!pontoId ? (
-                <div className="flex min-h-[360px] flex-col items-center justify-center text-center text-slate-600">
-                  <QrCode size={70} />
-                  <p className="mt-4 font-bold">
-                    Salve um ponto para gerar o QR Code.
-                  </p>
+            <div className="space-y-5">
+              <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-5 shadow-xl shadow-black/20">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="font-black">
+                      Dados do ponto
+                    </h2>
+
+                    <p className="mt-1 text-sm text-slate-500">
+                      Confirme as informações antes de gerar o QR Code.
+                    </p>
+                  </div>
+
+                  {pontoId && (
+                    <span className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-200">
+                      Ponto #{pontoId}
+                    </span>
+                  )}
                 </div>
-              ) : (
-                <div className="flex flex-col items-center">
-                  <div className="flex items-center justify-center gap-6 mb-6">
-<img
-  src="/brasoes/sig-gcm-logo.png"
-  alt="SIG-GCM Brasil"
-  className="h-24 w-24 object-contain"
-/>
 
-{brasaoGuarda && (
-  <img
-    src={brasaoGuarda}
-    alt="Brasão da Guarda Municipal"
-    className="h-24 w-24 object-contain"
-  />
-)}
-</div>
-                  
-<div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.05]">
- <img
-  src="/brasoes/sig-gcm-logo.png"
-  alt=""
-  className="h-[260px] w-[260px] object-contain"
-/>
-</div>
-                  <h2 className="text-xl font-black">SIG-GCM Brasil</h2>
+                <div className="mt-5 space-y-4">
+                  <div>
+                    <label className="text-sm font-bold text-slate-300">
+                      Nome do local
+                    </label>
 
-                  <p className="mb-4 text-sm font-bold">
-                    QR Code de Check-in de Visita
-                  </p>
+                    <input
+                      value={nomeLocal}
+                      onChange={(event) => {
+                        setNomeLocal(
+                          event.target.value
+                        );
+                        setPontoId(null);
+                        setUrlCheckin("");
+                      }}
+                      placeholder="Ex.: Escola Municipal João Paulo"
+                      className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+                    />
+                  </div>
 
-                  <QRCodeCanvas value={url} size={220} level="H" includeMargin />
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-bold text-slate-300">
+                        Latitude
+                      </label>
 
-                  <p className="mt-4 text-center text-sm">{nomeLocal}</p>
+                      <input
+                        inputMode="decimal"
+                        value={latitude}
+                        onChange={(event) => {
+                          setLatitude(
+                            event.target.value
+                          );
+                          setPontoId(null);
+                          setUrlCheckin("");
+                        }}
+                        placeholder="-11.621296"
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+                      />
+                    </div>
 
-                  <p className="mt-2 break-all text-center text-xs">{url}</p>
+                    <div>
+                      <label className="text-sm font-bold text-slate-300">
+                        Longitude
+                      </label>
+
+                      <input
+                        inputMode="decimal"
+                        value={longitude}
+                        onChange={(event) => {
+                          setLongitude(
+                            event.target.value
+                          );
+                          setPontoId(null);
+                          setUrlCheckin("");
+                        }}
+                        placeholder="-38.806842"
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-sm font-bold text-slate-300">
+                        Ordem
+                      </label>
+
+                      <input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={ordem}
+                        onChange={(event) => {
+                          setOrdem(
+                            event.target.value
+                          );
+                          setPontoId(null);
+                          setUrlCheckin("");
+                        }}
+                        className="mt-2 w-full rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+                      />
+                    </div>
+
+                    <label className="mt-6 flex cursor-pointer items-center gap-3 rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5">
+                      <input
+                        type="checkbox"
+                        checked={obrigatorio}
+                        onChange={(event) => {
+                          setObrigatorio(
+                            event.target.checked
+                          );
+                          setPontoId(null);
+                          setUrlCheckin("");
+                        }}
+                        className="h-5 w-5 accent-cyan-400"
+                      />
+
+                      <span className="text-sm font-bold text-slate-300">
+                        Visita obrigatória
+                      </span>
+                    </label>
+                  </div>
 
                   <button
-  type="button"
-  onClick={imprimirQrCode}
-  className="mt-5 flex items-center gap-2 rounded-xl bg-black px-5 py-3 font-bold text-white"
->
-  <Printer size={18} />
-  Imprimir QR Code
-</button>
+                    type="button"
+                    onClick={pegarLocalizacao}
+                    disabled={capturando}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-cyan-400/30 bg-cyan-400/10 px-4 py-3.5 font-bold text-cyan-200 transition hover:bg-cyan-400/15 disabled:opacity-50"
+                  >
+                    {capturando ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
+                      <Crosshair className="h-5 w-5" />
+                    )}
+                    {capturando
+                      ? "Capturando localização..."
+                      : "Usar localização atual"}
+                  </button>
 
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <button
+                      type="button"
+                      onClick={limparFormulario}
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3.5 font-bold text-slate-300 transition hover:bg-white/10"
+                    >
+                      <RefreshCw className="h-5 w-5" />
+                      Limpar
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void salvarPonto()
+                      }
+                      disabled={
+                        salvando ||
+                        !permissoes?.pode_criar
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-400 px-4 py-3.5 font-black text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {salvando ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Save className="h-5 w-5" />
+                      )}
+                      {salvando
+                        ? "Salvando..."
+                        : "Salvar e gerar QR Code"}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </div>
-          </div>
-        </section>
-      </div>
+              </section>
 
-    </main>
+              <section className="qr-preview relative overflow-hidden rounded-3xl border border-white/10 bg-white p-6 text-slate-950 shadow-xl shadow-black/20">
+                {!pontoId ||
+                !urlCheckin ? (
+                  <div className="grid min-h-[430px] place-items-center text-center">
+                    <div>
+                      <QrCode className="mx-auto h-16 w-16 text-slate-300" />
+
+                      <h2 className="mt-5 text-xl font-black">
+                        QR Code ainda não gerado
+                      </h2>
+
+                      <p className="mt-2 max-w-sm text-sm text-slate-500">
+                        Preencha os dados e salve o ponto para gerar a identificação.
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative flex min-h-[430px] flex-col items-center justify-center text-center">
+                    <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-[0.04]">
+                      <img
+                        src="/brasoes/sig-gcm-logo.png"
+                        alt=""
+                        className="h-[280px] w-[280px] object-contain"
+                      />
+                    </div>
+
+                    <div className="relative z-10 flex flex-col items-center">
+                      <div className="mb-5 flex flex-wrap items-center justify-center gap-4">
+                        <img
+                          src="/brasoes/sig-gcm-logo.png"
+                          alt="SIG-GCM Brasil"
+                          className="h-20 w-20 object-contain"
+                        />
+
+                        {municipio?.brasao_municipio && (
+                          <img
+                            src={municipio.brasao_municipio}
+                            alt="Brasão do município"
+                            className="h-20 w-20 object-contain"
+                          />
+                        )}
+
+                        {municipio?.brasao_guarda && (
+                          <img
+                            src={municipio.brasao_guarda}
+                            alt="Brasão da Guarda Municipal"
+                            className="h-20 w-20 object-contain"
+                          />
+                        )}
+                      </div>
+
+                      <h2 className="text-xl font-black">
+                        SIG-GCM Brasil
+                      </h2>
+
+                      <p className="mb-4 mt-1 text-sm font-bold">
+                        QR Code de Check-in de Visita
+                      </p>
+
+                      <QRCodeCanvas
+                        value={urlCheckin}
+                        size={220}
+                        level="H"
+                        includeMargin
+                      />
+
+                      <p className="mt-4 max-w-md break-words text-base font-black">
+                        {nomeLocal}
+                      </p>
+
+                      {municipio?.nome && (
+                        <p className="mt-1 text-sm font-semibold text-slate-500">
+                          {municipio.nome}
+                        </p>
+                      )}
+
+                      <p className="mt-3 max-w-md break-all text-xs text-slate-500">
+                        {urlCheckin}
+                      </p>
+
+                      <button
+                        type="button"
+                        onClick={imprimirQrCode}
+                        className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 font-bold text-white transition hover:bg-slate-800"
+                      >
+                        <Printer className="h-5 w-5" />
+                        Imprimir QR Code
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </section>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-cyan-400/20 bg-cyan-400/5 p-5">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
+
+              <div>
+                <h2 className="font-bold text-cyan-100">
+                  Geração segura
+                </h2>
+
+                <p className="mt-1 text-sm leading-6 text-slate-400">
+                  O município, as permissões e o vínculo do ponto são validados pelo servidor. O QR Code contém apenas a URL necessária para abrir o check-in.
+                </p>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </ProtecaoModulo>
   );
 }

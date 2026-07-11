@@ -11,6 +11,7 @@ import {
   Crosshair,
   ScrollText,
 } from "lucide-react";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const modulos = [
   {
@@ -65,7 +66,8 @@ const modulos = [
 
 export default function CentralArmamentosPage() {
   return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="armamentos">
+      <div className="p-4 md:p-6 pb-24 space-y-6">
       <div className="painel-premium p-6">
         <p className="text-sm text-slate-400 font-semibold">
           Controle Restrito
@@ -110,6 +112,7 @@ export default function CentralArmamentosPage() {
           );
         })}
       </div>
-    </div>
+          </div>
+    </ProtecaoModulo>
   );
 }

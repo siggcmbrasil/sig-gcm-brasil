@@ -8,6 +8,7 @@ import {
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -35,7 +36,8 @@ const cards = [
 
 export default function CentralBlitzesPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="operacoes">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Blitze e Barreiras"
         descricao="Fiscalizações, barreiras e operações preventivas."
@@ -53,6 +55,7 @@ export default function CentralBlitzesPage() {
     />
   ))}
 </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

@@ -88,7 +88,7 @@ export default function EditarVeiculoPage() {
     setCondutor(data.condutor || "");
     setDocumentoCondutor(data.documento_condutor || data.documento || "");
     setSituacao(data.situacao || "ABORDADO");
-    setObservacoes(data.observacoes || data.observacao || "");
+    setObservacoes(data.observacao || "");
   }
 
   async function salvar() {
@@ -122,7 +122,7 @@ export default function EditarVeiculoPage() {
         condutor: condutor.trim(),
         documento_condutor: documentoCondutor.trim(),
         situacao,
-        observacoes: observacoes.trim(),
+        observacao: observacoes.trim(),
       })
       .eq("id", id)
       .eq("municipio_id", usuario.municipio_id);

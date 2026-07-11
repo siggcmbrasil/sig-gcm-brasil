@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FileText,
   AlertTriangle,
@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { registrarAuditoria } from "@/lib/auditoria";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 type UsuarioLogado = {
   id: string;
@@ -68,22 +69,34 @@ type Guarda = {
   nome: string;
 };
 
-const PERFIS_OPERACIONAIS = [
-  "DESENVOLVEDOR",
-  "ADMIN",
-  "COMANDANTE",
-  "DIRETOR",
-  "CMT_GUARNICAO",
-  "PLANTONISTA",
-  "GUARDA",
-];
+type ContextoOcorrencias = {
+  usuario_id: number;
+  usuario_nome: string | null;
+  perfil: UsuarioLogado["perfil"];
+  municipio_id: number;
+  pode_criar: boolean;
+  pode_editar: boolean;
+  pode_excluir: boolean;
+};
 
-const PERFIS_CRITICOS = [
-  "DESENVOLVEDOR",
-  "ADMIN",
-  "COMANDANTE",
-  "DIRETOR",
-];
+type RespostaOcorrenciasApi = {
+  ok?: boolean;
+  erro?: string;
+  contexto?: ContextoOcorrencias;
+  ocorrencias?: Ocorrencia[];
+  guarnicoes?: Guarnicao[];
+  viaturas?: Viatura[];
+  guardas?: Guarda[];
+};
+
+type RespostaAcaoOcorrencia = {
+  ok?: boolean;
+  erro?: string;
+  mensagem?: string;
+  alterado?: boolean;
+  excluida?: boolean;
+  ocorrencia?: Ocorrencia;
+};
 
 const STATUS_VALIDOS = [
   "Aberta",
@@ -114,147 +127,108 @@ export default function Ocorrencias() {
   const [dataFinal, setDataFinal] = useState("");
   const [somenteMinhas, setSomenteMinhas] = useState(false);
 
-  const podeCriarEditar =
-    !!usuario && PERFIS_OPERACIONAIS.includes(usuario.perfil);
+  const [podeCriar, setPodeCriar] = useState(false);
+  const [podeEditar, setPodeEditar] = useState(false);
+  const [podeExcluir, setPodeExcluir] = useState(false);
 
-  const podeExcluir =
-    !!usuario && PERFIS_CRITICOS.includes(usuario.perfil);
+  const acessoRegistradoRef = useRef(false);
 
-  function obterUsuarioLogado(): UsuarioLogado | null {
-    try {
-      const salvo = localStorage.getItem("usuarioLogado");
+  async function obterAccessToken() {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
 
-      if (!salvo) return null;
-
-      const dados = JSON.parse(salvo);
-
-      if (!dados?.id || !dados?.perfil || !dados?.municipio_id) {
-        return null;
-      }
-
-      return {
-        id: String(dados.id),
-        nome: dados.nome,
-        perfil: dados.perfil,
-        municipio_id: Number(dados.municipio_id),
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  async function carregarOcorrencias(usuarioAtual: UsuarioLogado) {
-    setCarregando(true);
-    setErroTela("");
-
-    const { data, error } = await supabase
-      .from("ocorrencias")
-      .select(
-        "id, municipio_id, protocolo, tipo, local, bairro, data, hora, status, prioridade, guarnicao_id, viatura_id, guarda_responsavel_id, criado_por"
-      )
-      .eq("municipio_id", usuarioAtual.municipio_id)
-      .order("data", { ascending: false })
-      .order("hora", { ascending: false })
-      .limit(LIMITE_REGISTROS);
-
-    if (error) {
-      console.error(error);
-
-      await registrarAuditoria({
-        modulo: "Ocorrências",
-        acao: "ERRO",
-        descricao: "Erro ao carregar lista de ocorrências.",
-        tabela: "ocorrencias",
-        detalhes: {
-          erro: error.message,
-          municipio_id: usuarioAtual.municipio_id,
-        },
-      });
-
-      setErroTela("Erro ao carregar ocorrências.");
-      setCarregando(false);
-      return;
+    if (error || !session?.access_token) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente no sistema."
+      );
     }
 
-    setOcorrencias(data || []);
-    setCarregando(false);
-  }
-
-  async function carregarDadosApoio(usuarioAtual: UsuarioLogado) {
-    const [guarnicoesResp, viaturasResp, guardasResp] = await Promise.all([
-      supabase
-        .from("guarnicoes")
-        .select("id, nome")
-        .eq("municipio_id", usuarioAtual.municipio_id)
-        .order("nome")
-        .limit(100),
-
-      supabase
-        .from("viaturas")
-        .select("id, prefixo")
-        .eq("municipio_id", usuarioAtual.municipio_id)
-        .order("prefixo")
-        .limit(100),
-
-      supabase
-        .from("guardas")
-        .select("id, nome")
-        .eq("municipio_id", usuarioAtual.municipio_id)
-        .order("nome")
-        .limit(200),
-    ]);
-
-    if (guarnicoesResp.error || viaturasResp.error || guardasResp.error) {
-      await registrarAuditoria({
-        modulo: "Ocorrências",
-        acao: "ERRO",
-        descricao: "Erro ao carregar dados de apoio da Central de Ocorrências.",
-        tabela: "ocorrencias",
-        detalhes: {
-          guarnicoes: guarnicoesResp.error?.message,
-          viaturas: viaturasResp.error?.message,
-          guardas: guardasResp.error?.message,
-          municipio_id: usuarioAtual.municipio_id,
-        },
-      });
-    }
-
-    setGuarnicoes(guarnicoesResp.data || []);
-    setViaturas(viaturasResp.data || []);
-    setGuardas(guardasResp.data || []);
+    return session.access_token;
   }
 
   async function carregarSistema() {
-    const usuarioAtual = obterUsuarioLogado();
+    setCarregando(true);
+    setErroTela("");
 
-    if (!usuarioAtual) {
-      setErroTela("Sessão inválida. Faça login novamente.");
+    try {
+      const accessToken = await obterAccessToken();
+
+      const resposta = await fetch("/api/ocorrencias", {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      });
+
+      const dados = (await resposta
+        .json()
+        .catch(() => null)) as RespostaOcorrenciasApi | null;
+
+      if (!resposta.ok || !dados?.ok || !dados.contexto) {
+        if (resposta.status === 401) {
+          localStorage.removeItem("usuarioLogado");
+          window.location.replace("/login");
+          return;
+        }
+
+        throw new Error(
+          dados?.erro ||
+            "Não foi possível carregar as ocorrências."
+        );
+      }
+
+      const contexto = dados.contexto;
+
+      setUsuario({
+        id: String(contexto.usuario_id),
+        nome: contexto.usuario_nome || undefined,
+        perfil: contexto.perfil,
+        municipio_id: contexto.municipio_id,
+      });
+
+      setPodeCriar(Boolean(contexto.pode_criar));
+      setPodeEditar(Boolean(contexto.pode_editar));
+      setPodeExcluir(Boolean(contexto.pode_excluir));
+
+      setOcorrencias(dados.ocorrencias || []);
+      setGuarnicoes(dados.guarnicoes || []);
+      setViaturas(dados.viaturas || []);
+      setGuardas(dados.guardas || []);
+
+      if (!acessoRegistradoRef.current) {
+        acessoRegistradoRef.current = true;
+
+        await registrarAuditoria({
+          modulo: "Ocorrências",
+          acao: "ACESSO",
+          descricao: "Acessou a lista de ocorrências.",
+          tabela: "ocorrencias",
+          detalhes: {
+            municipio_id: contexto.municipio_id,
+            usuario_id: contexto.usuario_id,
+            perfil: contexto.perfil,
+          },
+        });
+      }
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar ocorrências.";
+
+      console.error("Erro ao carregar ocorrências:", {
+        mensagem,
+        error,
+      });
+
+      setErroTela(mensagem);
+      setOcorrencias([]);
+    } finally {
       setCarregando(false);
-      return;
     }
-
-    if (!usuarioAtual.municipio_id) {
-      setErroTela("Município não identificado.");
-      setCarregando(false);
-      return;
-    }
-
-    setUsuario(usuarioAtual);
-
-    await registrarAuditoria({
-      modulo: "Ocorrências",
-      acao: "ACESSO",
-      descricao: "Acessou a Central de Ocorrências.",
-      tabela: "ocorrencias",
-      detalhes: {
-        municipio_id: usuarioAtual.municipio_id,
-        usuario_id: usuarioAtual.id,
-        perfil: usuarioAtual.perfil,
-      },
-    });
-
-    await carregarDadosApoio(usuarioAtual);
-    await carregarOcorrencias(usuarioAtual);
   }
 
   useEffect(() => {
@@ -267,20 +241,15 @@ export default function Ocorrencias() {
       return;
     }
 
-    if (!PERFIS_CRITICOS.includes(usuario.perfil)) {
+    if (!podeExcluir) {
       alert("Você não possui permissão para excluir ocorrências.");
       return;
     }
 
-    const ocorrencia = ocorrencias.find((o) => o.id === id);
+    const ocorrencia = ocorrencias.find((item) => item.id === id);
 
     if (!ocorrencia) {
       alert("Ocorrência não encontrada.");
-      return;
-    }
-
-    if (ocorrencia.municipio_id !== usuario.municipio_id) {
-      alert("Acesso negado entre municípios.");
       return;
     }
 
@@ -289,60 +258,72 @@ export default function Ocorrencias() {
       return;
     }
 
-    const motivo = prompt("Informe o motivo da exclusão:");
+    const motivo = window.prompt("Informe o motivo da exclusão:")?.trim();
 
-    if (!motivo?.trim()) {
+    if (!motivo) {
       alert("Informe o motivo da exclusão.");
       return;
     }
 
-    const confirmar = confirm(
+    const confirmou = window.confirm(
       "Confirma a exclusão desta ocorrência? Esta ação será auditada."
     );
 
-    if (!confirmar) return;
+    if (!confirmou) return;
 
-    const { error } = await supabase
-      .from("ocorrencias")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+    try {
+      const accessToken = await obterAccessToken();
 
-    if (error) {
-      console.error(error);
-
-      await registrarAuditoria({
-        modulo: "Ocorrências",
-        acao: "ERRO",
-        descricao: "Erro ao excluir ocorrência.",
-        tabela: "ocorrencias",
-        registro_id: id,
-        detalhes: {
-          erro: error.message,
-          motivo,
-          municipio_id: usuario.municipio_id,
+      const resposta = await fetch(`/api/ocorrencias/${id}`, {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ motivo }),
       });
 
-      alert("Erro ao excluir ocorrência.");
-      return;
+      const dados = (await resposta
+        .json()
+        .catch(() => null)) as RespostaAcaoOcorrencia | null;
+
+      if (!resposta.ok || !dados?.ok) {
+        if (resposta.status === 401) {
+          localStorage.removeItem("usuarioLogado");
+          window.location.replace("/login");
+          return;
+        }
+
+        if (dados?.excluida === true) {
+          await carregarSistema();
+          alert(
+            dados.erro ||
+              "A ocorrência foi excluída, mas houve falha na auditoria."
+          );
+          return;
+        }
+
+        throw new Error(
+          dados?.erro || "Não foi possível excluir a ocorrência."
+        );
+      }
+
+      alert(dados.mensagem || "Ocorrência excluída com sucesso.");
+      await carregarSistema();
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao excluir ocorrência.";
+
+      console.error("Erro ao excluir ocorrência:", {
+        mensagem,
+        error,
+        ocorrencia_id: id,
+      });
+
+      alert(mensagem);
     }
-
-    await registrarAuditoria({
-      modulo: "Ocorrências",
-      acao: "EXCLUIR",
-      descricao: `Excluiu a ocorrência ${ocorrencia.protocolo}.`,
-      tabela: "ocorrencias",
-      registro_id: id,
-      detalhes: {
-        motivo,
-        ocorrencia,
-        municipio_id: usuario.municipio_id,
-      },
-    });
-
-    alert("Ocorrência excluída com sucesso.");
-    await carregarOcorrencias(usuario);
   }
 
   async function alterarStatus(id: number, novoStatus: string) {
@@ -351,8 +332,8 @@ export default function Ocorrencias() {
       return;
     }
 
-    if (!PERFIS_OPERACIONAIS.includes(usuario.perfil)) {
-      alert("Você não possui permissão.");
+    if (!podeEditar) {
+      alert("Você não possui permissão para alterar ocorrências.");
       return;
     }
 
@@ -361,67 +342,71 @@ export default function Ocorrencias() {
       return;
     }
 
-    const ocorrencia = ocorrencias.find((o) => o.id === id);
+    const ocorrencia = ocorrencias.find((item) => item.id === id);
 
     if (!ocorrencia) {
       alert("Ocorrência não encontrada.");
       return;
     }
 
-    if (ocorrencia.municipio_id !== usuario.municipio_id) {
-      alert("Acesso negado entre municípios.");
-      return;
-    }
-
     if (ocorrencia.status === "Finalizada") {
-      alert("Ocorrências finalizadas não podem ter status alterado.");
+      alert("Ocorrências finalizadas não podem ter o status alterado.");
       return;
     }
 
-    const { error } = await supabase
-      .from("ocorrencias")
-      .update({
-        status: novoStatus,
-        atualizado_em: new Date().toISOString(),
-      })
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
+    try {
+      const accessToken = await obterAccessToken();
 
-    if (error) {
-      console.error(error);
-
-      await registrarAuditoria({
-        modulo: "Ocorrências",
-        acao: "ERRO",
-        descricao: "Erro ao alterar status da ocorrência.",
-        tabela: "ocorrencias",
-        registro_id: id,
-        detalhes: {
-          erro: error.message,
-          status_anterior: ocorrencia.status,
-          status_novo: novoStatus,
-          municipio_id: usuario.municipio_id,
+      const resposta = await fetch(`/api/ocorrencias/${id}`, {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({ status: novoStatus }),
       });
 
-      alert("Erro ao atualizar status.");
-      return;
-    }
+      const dados = (await resposta
+        .json()
+        .catch(() => null)) as RespostaAcaoOcorrencia | null;
 
-    await registrarAuditoria({
-      modulo: "Ocorrências",
-      acao: "EDITAR",
-      descricao: `Alterou o status da ocorrência ${ocorrencia.protocolo} para ${novoStatus}.`,
-      tabela: "ocorrencias",
-      registro_id: id,
-      detalhes: {
-        status_anterior: ocorrencia.status,
+      if (!resposta.ok || !dados?.ok) {
+        if (resposta.status === 401) {
+          localStorage.removeItem("usuarioLogado");
+          window.location.replace("/login");
+          return;
+        }
+
+        if (dados?.alterado === true) {
+          await carregarSistema();
+          alert(
+            dados.erro ||
+              "A ocorrência foi atualizada, mas houve falha na auditoria."
+          );
+          return;
+        }
+
+        throw new Error(
+          dados?.erro || "Não foi possível atualizar a ocorrência."
+        );
+      }
+
+      await carregarSistema();
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao atualizar ocorrência.";
+
+      console.error("Erro ao alterar status da ocorrência:", {
+        mensagem,
+        error,
+        ocorrencia_id: id,
         status_novo: novoStatus,
-        municipio_id: usuario.municipio_id,
-      },
-    });
+      });
 
-    await carregarOcorrencias(usuario);
+      alert(mensagem);
+    }
   }
 
   function nomeGuarnicao(id: number | null) {
@@ -529,7 +514,8 @@ export default function Ocorrencias() {
     );
   });
 
-  return (
+return (
+  <ProtecaoModulo modulo="ocorrencias">
     <div className="p-3 md:p-6 pb-24 space-y-6">
       <header className="painel-premium p-6">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
@@ -550,7 +536,7 @@ export default function Ocorrencias() {
             )}
           </div>
 
-          {podeCriarEditar && (
+          {podeCriar && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:w-[760px]">
               <Link
                 href="/sistema/ocorrencias/nova"
@@ -882,7 +868,7 @@ export default function Ocorrencias() {
                       Ver
                     </Link>
 
-                    {podeCriarEditar && (
+                    {podeEditar && (
                       <Link
                         href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
                         onClick={(e) => {
@@ -988,7 +974,7 @@ export default function Ocorrencias() {
                             <Eye className="w-4 h-4" />
                           </Link>
 
-                          {podeCriarEditar && (
+                          {podeEditar && (
                             <Link
                               href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
                               onClick={(e) => {
@@ -1006,7 +992,7 @@ export default function Ocorrencias() {
                             </Link>
                           )}
 
-                          {podeCriarEditar &&
+                          {podeEditar &&
                             ocorrencia.status === "Aberta" && (
                               <button
                                 type="button"
@@ -1020,7 +1006,7 @@ export default function Ocorrencias() {
                               </button>
                             )}
 
-                          {podeCriarEditar &&
+                          {podeEditar &&
                             ocorrencia.status === "Em andamento" && (
                               <button
                                 type="button"
@@ -1055,6 +1041,7 @@ export default function Ocorrencias() {
         )}
       </section>
     </div>
+  </ProtecaoModulo>
   );
 }
 

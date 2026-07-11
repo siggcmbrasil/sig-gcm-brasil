@@ -1,430 +1,1113 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import CardIndicador from "@/components/CardIndicador";
-import { supabase } from "@/lib/supabase";
-import { registrarAuditoria } from "@/lib/auditoria";
-import { finalizarPatrulhamentoV2 } from "@/lib/patrulhamento/finalizarPatrulhamento";
-import { restaurarPatrulhamentoAtivo } from "@/lib/patrulhamento/restaurarPatrulhamento";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { useRouter } from "next/navigation";
 
-type Patrulhamento = {
-  id: number;
-  data: string;
-  hora: string;
-  local: string;
-  guarda: string;
-  equipe: string | null;
-  viatura: string | null;
-  latitude: string | null;
-  longitude: string | null;
-  observacao: string | null;
-  status: string | null;
+import {
+  Activity,
+  AlertTriangle,
+  CheckCircle2,
+  ChevronRight,
+  CircleAlert,
+  Clock3,
+  Eye,
+  Filter,
+  Flag,
+  Loader2,
+  Map,
+  MapPin,
+  Navigation,
+  Plus,
+  Radar,
+  RefreshCw,
+  Route,
+  Search,
+  ShieldCheck,
+  Trash2,
+  Users,
+  XCircle,
+} from "lucide-react";
+
+import { supabase } from "@/lib/supabase";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
+
+type ContextoPatrulhamento = {
+  usuario_id: number;
+  usuario_nome: string | null;
+  perfil: string;
   municipio_id: number;
 };
 
+type PermissoesPatrulhamento = {
+  pode_ver: boolean;
+  pode_criar: boolean;
+  pode_editar: boolean;
+  pode_excluir: boolean;
+};
+
+type Patrulhamento = {
+  id: number;
+  municipio_id: number;
+  data: string | null;
+  hora: string | null;
+  local: string | null;
+  guarda: string | null;
+  equipe: string | null;
+  viatura: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  observacao: string | null;
+  status: string | null;
+  finalizado_em?: string | null;
+};
+
+type RespostaPatrulhamento = {
+  ok?: boolean;
+  erro?: string;
+  mensagem?: string;
+  contexto?: ContextoPatrulhamento;
+  permissoes?: PermissoesPatrulhamento;
+  patrulhamentos?: Patrulhamento[];
+  patrulhamento?: Patrulhamento;
+  gps_final_registrado?: boolean;
+};
+
+type Coordenadas = {
+  latitude: number;
+  longitude: number;
+  precisao: number | null;
+  velocidade: number | null;
+};
+
+const CHAVE_WATCH = "patrulhamento_v2_watch_id";
+const CHAVE_ATIVO = "patrulhamentoAtivoId";
+const CHAVE_ULTIMO = "patrulhamento_v2_ultimo_ponto";
+
+function texto(valor: unknown) {
+  return String(valor ?? "").trim();
+}
+
+function normalizar(valor: unknown) {
+  return texto(valor)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase();
+}
+
+function statusFinalizado(valor: unknown) {
+  return normalizar(valor) === "FINALIZADO";
+}
+
+function statusAtivo(valor: unknown) {
+  const status = normalizar(valor);
+
+  return (
+    status === "ATIVO" ||
+    status === "EM ANDAMENTO" ||
+    status === "EM_ANDAMENTO" ||
+    status === "INICIADO"
+  );
+}
+
+function formatarData(valor?: string | null) {
+  if (!valor) {
+    return "Data não informada";
+  }
+
+  const data = new Date(`${valor}T12:00:00`);
+
+  if (Number.isNaN(data.getTime())) {
+    return valor;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR").format(data);
+}
+
+function formatarDataHora(valor?: string | null) {
+  if (!valor) {
+    return "Não informado";
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return valor;
+  }
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(data);
+}
+
+function classeStatus(valor: unknown) {
+  if (statusFinalizado(valor)) {
+    return "border-emerald-500/30 bg-emerald-500/10 text-emerald-200";
+  }
+
+  if (statusAtivo(valor)) {
+    return "border-cyan-500/30 bg-cyan-500/10 text-cyan-200";
+  }
+
+  return "border-amber-500/30 bg-amber-500/10 text-amber-200";
+}
+
+function rotuloStatus(valor: unknown) {
+  if (statusFinalizado(valor)) {
+    return "Finalizado";
+  }
+
+  if (statusAtivo(valor)) {
+    return "Em andamento";
+  }
+
+  return texto(valor) || "Pendente";
+}
+
+function limparMonitoramentoLocal() {
+  if (
+    typeof navigator !== "undefined" &&
+    navigator.geolocation
+  ) {
+    const watchId = localStorage.getItem(CHAVE_WATCH);
+
+    if (watchId) {
+      navigator.geolocation.clearWatch(Number(watchId));
+    }
+  }
+
+  localStorage.removeItem(CHAVE_WATCH);
+  localStorage.removeItem(CHAVE_ATIVO);
+  localStorage.removeItem(CHAVE_ULTIMO);
+}
+
+function obterLocalizacaoFinal(): Promise<Coordenadas> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(
+        new Error(
+          "GPS não disponível neste dispositivo."
+        )
+      );
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        resolve({
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+          precisao:
+            Number.isFinite(position.coords.accuracy)
+              ? position.coords.accuracy
+              : null,
+          velocidade:
+            typeof position.coords.speed === "number" &&
+            Number.isFinite(position.coords.speed)
+              ? position.coords.speed
+              : null,
+        });
+      },
+      (error) => {
+        const mensagem =
+          error.code === error.PERMISSION_DENIED
+            ? "A permissão de localização foi negada."
+            : error.code === error.TIMEOUT
+              ? "O GPS demorou demais para responder."
+              : "Não foi possível obter a localização atual.";
+
+        reject(new Error(mensagem));
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0,
+      }
+    );
+  });
+}
+
 export default function PatrulhamentoPage() {
-  const [patrulhamentos, setPatrulhamentos] = useState<Patrulhamento[]>([]);
+  const router = useRouter();
+
+  const [patrulhamentos, setPatrulhamentos] =
+    useState<Patrulhamento[]>([]);
+
+  const [contexto, setContexto] =
+    useState<ContextoPatrulhamento | null>(null);
+
+  const [permissoes, setPermissoes] =
+    useState<PermissoesPatrulhamento | null>(null);
+
   const [busca, setBusca] = useState("");
-  const [carregando, setCarregando] = useState(true);
-  const [finalizandoId, setFinalizandoId] = useState<number | null>(null);
-  const [patrulhamentoAtivoId, setPatrulhamentoAtivoId] = useState<number | null>(null);
+  const [filtroStatus, setFiltroStatus] =
+    useState("TODOS");
 
-  const usuarioLogado =
-    typeof window !== "undefined"
-      ? JSON.parse(localStorage.getItem("usuarioLogado") || "{}")
-      : {};
+  const [carregando, setCarregando] =
+    useState(true);
 
-  const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
-  const podeEditar = perfilUsuario !== "CONSULTA";
+  const [erro, setErro] = useState("");
+  const [processandoId, setProcessandoId] =
+    useState<number | null>(null);
 
-  if (!usuarioLogado?.municipio_id) {
-    return <div className="p-6 text-white">Município não identificado.</div>;
+  const [
+    patrulhamentoAtivoId,
+    setPatrulhamentoAtivoId,
+  ] = useState<number | null>(null);
+
+  useEffect(() => {
+    void carregarPatrulhamentos();
+  }, []);
+
+  async function obterAccessToken() {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error || !session?.access_token) {
+      throw new Error(
+        "Sua sessão expirou. Entre novamente no sistema."
+      );
+    }
+
+    return session.access_token;
+  }
+
+  async function chamarApi(
+    method: "GET" | "PATCH" | "DELETE",
+    body?: Record<string, unknown>
+  ) {
+    const accessToken = await obterAccessToken();
+
+    const resposta = await fetch("/api/patrulhamento", {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(body
+          ? {
+              "Content-Type": "application/json",
+            }
+          : {}),
+      },
+      cache: "no-store",
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    const dados = (await resposta
+      .json()
+      .catch(() => null)) as RespostaPatrulhamento | null;
+
+    if (resposta.status === 401) {
+      localStorage.removeItem("usuarioLogado");
+      router.replace("/login");
+      throw new Error("Sessão expirada.");
+    }
+
+    if (!resposta.ok || !dados?.ok) {
+      throw new Error(
+        dados?.erro ||
+          "Não foi possível concluir a operação."
+      );
+    }
+
+    return dados;
+  }
+
+  function sincronizarAtivo(lista: Patrulhamento[]) {
+    const idLocal = Number(
+      localStorage.getItem(CHAVE_ATIVO) || 0
+    );
+
+    const ativoLocal = lista.find(
+      (item) =>
+        item.id === idLocal &&
+        !statusFinalizado(item.status)
+    );
+
+    if (ativoLocal) {
+      setPatrulhamentoAtivoId(ativoLocal.id);
+      return;
+    }
+
+    if (idLocal) {
+      localStorage.removeItem(CHAVE_ATIVO);
+    }
+
+    const ativoServidor = lista.find((item) =>
+      statusAtivo(item.status)
+    );
+
+    setPatrulhamentoAtivoId(
+      ativoServidor?.id || null
+    );
   }
 
   async function carregarPatrulhamentos() {
     setCarregando(true);
-
-    const { data, error } = await supabase
-      .from("patrulhamentos")
-      .select(`
-        id,
-        municipio_id,
-        data,
-        hora,
-        local,
-        guarda,
-        equipe,
-        viatura,
-        latitude,
-        longitude,
-        observacao,
-        status
-      `)
-      .eq("municipio_id", Number(usuarioLogado.municipio_id))
-      .order("id", { ascending: false })
-      .limit(300);
-
-    if (error) {
-      console.error("Erro ao carregar patrulhamentos:", error);
-      alert("Erro ao carregar patrulhamentos.");
-      setCarregando(false);
-      return;
-    }
-
-    setPatrulhamentos(data || []);
-    setCarregando(false);
-  }
-
-  async function finalizar(id: number) {
-    if (!podeEditar) {
-      alert("Você não possui permissão para finalizar patrulhamento.");
-      return;
-    }
-
-    const confirmar = confirm("Deseja finalizar este patrulhamento?");
-    if (!confirmar) return;
-
-    setFinalizandoId(id);
+    setErro("");
 
     try {
-      await finalizarPatrulhamentoV2({
-        municipio_id: Number(usuarioLogado.municipio_id),
-        patrulhamento_id: Number(id),
-      });
+      const dados = await chamarApi("GET");
 
-      await registrarAuditoria({
-        modulo: "Patrulhamento",
-        acao: "FINALIZAR",
-        descricao: `Finalizou o patrulhamento ${id}.`,
-        tabela: "patrulhamentos",
-        registro_id: id,
-        detalhes: {
-          municipio_id: Number(usuarioLogado.municipio_id),
-          usuario_id: usuarioLogado.id,
-        },
-      });
+      const lista = Array.isArray(
+        dados.patrulhamentos
+      )
+        ? dados.patrulhamentos
+        : [];
 
-      setPatrulhamentoAtivoId(null);
-      alert("Patrulhamento finalizado com sucesso.");
-      await carregarPatrulhamentos();
-    } catch (error: any) {
-      console.error("Erro ao finalizar patrulhamento:", error);
-      alert(error?.message || "Erro ao finalizar patrulhamento.");
+      setPatrulhamentos(lista);
+      setContexto(dados.contexto || null);
+      setPermissoes(dados.permissoes || null);
+      sincronizarAtivo(lista);
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao carregar patrulhamentos.";
+
+      console.error(
+        "Erro ao carregar patrulhamentos:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      setErro(mensagem);
     } finally {
-      setFinalizandoId(null);
+      setCarregando(false);
     }
   }
 
-  async function excluirPatrulhamento(id: number) {
-    if (!podeEditar) {
-      alert("Você não possui permissão para excluir patrulhamentos.");
+  async function finalizarPatrulhamento(
+    patrulhamento: Patrulhamento
+  ) {
+    if (!permissoes?.pode_editar) {
+      alert(
+        "Você não possui permissão para finalizar patrulhamentos."
+      );
       return;
     }
 
-    const motivo = prompt("Informe o motivo da exclusão:");
-    if (!motivo?.trim()) {
-      alert("Informe o motivo.");
+    const confirmar = window.confirm(
+      `Finalizar o patrulhamento ${patrulhamento.id}?\n\nO sistema tentará registrar o ponto GPS final.`
+    );
+
+    if (!confirmar) {
       return;
     }
 
-    const confirmar = confirm("Deseja realmente excluir este patrulhamento?");
-    if (!confirmar) return;
+    setProcessandoId(patrulhamento.id);
 
-    const { error } = await supabase
-      .from("patrulhamentos")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", Number(usuarioLogado.municipio_id));
+    try {
+      let coordenadas: Coordenadas | null = null;
 
-    if (error) {
-      console.error("Erro ao excluir patrulhamento:", error);
-      alert("Erro ao excluir patrulhamento.");
-      return;
+      try {
+        coordenadas = await obterLocalizacaoFinal();
+      } catch (gpsError) {
+        const mensagemGps =
+          gpsError instanceof Error
+            ? gpsError.message
+            : "Não foi possível capturar o GPS.";
+
+        const finalizarSemGps = window.confirm(
+          `${mensagemGps}\n\nDeseja finalizar mesmo sem registrar o ponto GPS final?`
+        );
+
+        if (!finalizarSemGps) {
+          return;
+        }
+      }
+
+      const dados = await chamarApi("PATCH", {
+        id: patrulhamento.id,
+        latitude: coordenadas?.latitude ?? null,
+        longitude: coordenadas?.longitude ?? null,
+        precisao: coordenadas?.precisao ?? null,
+        velocidade: coordenadas?.velocidade ?? null,
+      });
+
+      limparMonitoramentoLocal();
+      setPatrulhamentoAtivoId(null);
+
+      alert(
+        dados.gps_final_registrado
+          ? "Patrulhamento finalizado com ponto GPS registrado."
+          : dados.mensagem ||
+              "Patrulhamento finalizado sem ponto GPS final."
+      );
+
+      await carregarPatrulhamentos();
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao finalizar patrulhamento.";
+
+      console.error(
+        "Erro ao finalizar patrulhamento:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      alert(mensagem);
+    } finally {
+      setProcessandoId(null);
     }
-
-    await registrarAuditoria({
-      modulo: "Patrulhamento",
-      acao: "EXCLUIR",
-      descricao: `Excluiu o patrulhamento ${id}.`,
-      tabela: "patrulhamentos",
-      registro_id: id,
-      detalhes: {
-        motivo,
-        municipio_id: Number(usuarioLogado.municipio_id),
-        usuario_id: usuarioLogado.id,
-      },
-    });
-
-    await carregarPatrulhamentos();
   }
 
-  useEffect(() => {
-    const ativo = restaurarPatrulhamentoAtivo({
-      municipio_id: Number(usuarioLogado.municipio_id),
-    });
-
-    if (ativo) {
-      setPatrulhamentoAtivoId(ativo);
+  async function excluirPatrulhamento(
+    patrulhamento: Patrulhamento
+  ) {
+    if (!permissoes?.pode_excluir) {
+      alert(
+        "Você não possui permissão para excluir patrulhamentos."
+      );
+      return;
     }
 
-    void carregarPatrulhamentos();
+    const motivo = window.prompt(
+      `Informe o motivo da exclusão do patrulhamento ${patrulhamento.id}:`
+    );
 
-    void registrarAuditoria({
-      modulo: "Patrulhamento",
-      acao: "ACESSO",
-      descricao: "Acessou a central de patrulhamento.",
-      tabela: "patrulhamentos",
-      detalhes: {
-        municipio_id: Number(usuarioLogado.municipio_id),
-        usuario_id: usuarioLogado.id,
-      },
+    if (motivo === null) {
+      return;
+    }
+
+    if (motivo.trim().length < 3) {
+      alert(
+        "Informe um motivo válido para a exclusão."
+      );
+      return;
+    }
+
+    const confirmar = window.confirm(
+      `Excluir definitivamente o patrulhamento ${patrulhamento.id}?\n\nEsta ação não poderá ser desfeita.`
+    );
+
+    if (!confirmar) {
+      return;
+    }
+
+    setProcessandoId(patrulhamento.id);
+
+    try {
+      const dados = await chamarApi("DELETE", {
+        id: patrulhamento.id,
+        motivo: motivo.trim(),
+      });
+
+      if (
+        patrulhamentoAtivoId ===
+        patrulhamento.id
+      ) {
+        limparMonitoramentoLocal();
+        setPatrulhamentoAtivoId(null);
+      }
+
+      alert(
+        dados.mensagem ||
+          "Patrulhamento excluído com sucesso."
+      );
+
+      await carregarPatrulhamentos();
+    } catch (error) {
+      const mensagem =
+        error instanceof Error
+          ? error.message
+          : "Erro ao excluir patrulhamento.";
+
+      console.error(
+        "Erro ao excluir patrulhamento:",
+        {
+          mensagem,
+          error,
+        }
+      );
+
+      alert(mensagem);
+    } finally {
+      setProcessandoId(null);
+    }
+  }
+
+  const filtrados = useMemo(() => {
+    const termo = normalizar(busca);
+
+    return patrulhamentos.filter((item) => {
+      const conteudo = normalizar(
+        [
+          item.id,
+          item.data,
+          item.hora,
+          item.local,
+          item.guarda,
+          item.equipe,
+          item.viatura,
+          item.observacao,
+          item.status,
+        ].join(" ")
+      );
+
+      const atendeBusca =
+        !termo || conteudo.includes(termo);
+
+      const atendeStatus =
+        filtroStatus === "TODOS" ||
+        (filtroStatus === "ATIVOS" &&
+          !statusFinalizado(item.status)) ||
+        (filtroStatus === "FINALIZADOS" &&
+          statusFinalizado(item.status));
+
+      return atendeBusca && atendeStatus;
     });
-  }, []);
+  }, [patrulhamentos, busca, filtroStatus]);
 
-  const patrulhamentosFiltrados = patrulhamentos.filter((item) => {
-    const texto = `
-      ${item.id}
-      ${item.data}
-      ${item.hora}
-      ${item.local}
-      ${item.guarda}
-      ${item.equipe || ""}
-      ${item.viatura || ""}
-      ${item.observacao || ""}
-      ${item.status || ""}
-    `.toLowerCase();
+  const resumo = useMemo(() => {
+    const finalizados = patrulhamentos.filter(
+      (item) => statusFinalizado(item.status)
+    ).length;
 
-    return texto.includes(busca.toLowerCase());
-  });
+    const ativos = patrulhamentos.length - finalizados;
 
-  const total = patrulhamentos.length;
-  const emAndamento = patrulhamentos.filter(
-    (p) => p.status !== "FINALIZADO"
-  ).length;
-  const finalizados = patrulhamentos.filter(
-    (p) => p.status === "FINALIZADO"
-  ).length;
-  const hoje = patrulhamentos.filter(
-    (p) => p.data === new Date().toISOString().split("T")[0]
-  ).length;
+    const equipes = new Set(
+      patrulhamentos
+        .map((item) => texto(item.equipe))
+        .filter(Boolean)
+    ).size;
 
-  return (
-    <div className="p-3 md:p-6 pb-24">
-      <header className="mb-6">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-5">
-          <div>
-            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-              Patrulhamento
-            </h1>
+    const viaturas = new Set(
+      patrulhamentos
+        .map((item) => texto(item.viatura))
+        .filter(Boolean)
+    ).size;
 
-            <p className="text-slate-400 text-base md:text-lg mt-1">
-              Controle de patrulhamentos, GPS, rotas e finalizações.
-            </p>
+    return {
+      total: patrulhamentos.length,
+      ativos,
+      finalizados,
+      equipes,
+      viaturas,
+    };
+  }, [patrulhamentos]);
 
-            {patrulhamentoAtivoId && (
-              <p className="mt-3 inline-flex rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-sm font-bold text-green-300">
-                GPS ativo no patrulhamento #{patrulhamentoAtivoId}
-              </p>
-            )}
-          </div>
-
-          {podeEditar && (
-            <Link
-              href="/sistema/patrulhamento/novo"
-              className="btn-primary text-center"
-            >
-              🚔 Novo Patrulhamento
-            </Link>
-          )}
-        </div>
-      </header>
-
-      <section className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <CardIndicador titulo="Total" valor={total} icone="🚔" cor="blue" />
-        <CardIndicador titulo="Em andamento" valor={emAndamento} icone="🟡" cor="yellow" />
-        <CardIndicador titulo="Finalizados" valor={finalizados} icone="✅" cor="green" />
-        <CardIndicador titulo="Hoje" valor={hoje} icone="📍" cor="purple" />
-      </section>
-
-      <section className="card">
-        <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-5">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold">
-              Patrulhamentos Registrados
-            </h2>
-            <p className="text-slate-400 text-sm mt-1">
-              Abra a rota para visualizar os pontos GPS registrados.
-            </p>
-          </div>
-
-          <div className="w-full md:w-96">
-            <label className="label">Buscar</label>
-            <input
-              className="input"
-              placeholder="Buscar por ID, data, local, equipe, viatura..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {carregando ? (
-          <p className="text-slate-400">Carregando patrulhamentos...</p>
-        ) : patrulhamentosFiltrados.length === 0 ? (
-          <p className="text-slate-400">Nenhum patrulhamento encontrado.</p>
-        ) : (
-          <>
-            <div className="md:hidden space-y-4">
-              {patrulhamentosFiltrados.map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-slate-950/40 border border-slate-700 rounded-xl p-4 space-y-3"
-                >
-                  <div className="flex justify-between gap-3">
-                    <div>
-                      <p className="text-blue-400 font-bold">
-                        #{item.id} • {item.data} às {item.hora}
-                      </p>
-                      <h3 className="text-xl font-black">{item.local}</h3>
-                    </div>
-
-                    <StatusPatrulhamento status={item.status} />
-                  </div>
-
-                  <div className="text-slate-300 space-y-1 text-sm">
-                    <p><span className="text-slate-500">Viatura:</span> {item.viatura || "-"}</p>
-                    <p><span className="text-slate-500">Guarda:</span> {item.guarda || "-"}</p>
-
-                    {item.equipe && (
-                      <div>
-                        <p className="text-slate-500">Equipe:</p>
-                        <pre className="whitespace-pre-wrap font-sans text-slate-300">
-                          {item.equipe}
-                        </pre>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2">
-                    <Link
-                      href={`/sistema/patrulhamento/${item.id}`}
-                      className="bg-blue-700 hover:bg-blue-800 text-white text-center px-4 py-3 rounded-xl font-semibold"
-                    >
-                      Ver Rota
-                    </Link>
-
-                    {podeEditar && item.status !== "FINALIZADO" && (
-                      <button
-                        type="button"
-                        onClick={() => finalizar(item.id)}
-                        disabled={finalizandoId === item.id}
-                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-3 rounded-xl font-semibold disabled:opacity-60"
-                      >
-                        {finalizandoId === item.id ? "Finalizando..." : "Finalizar"}
-                      </button>
-                    )}
-
-                    {podeEditar && (
-                      <button
-                        type="button"
-                        onClick={() => excluirPatrulhamento(item.id)}
-                        className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl font-semibold"
-                      >
-                        Excluir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-slate-400 border-b border-slate-700">
-                  <tr>
-                    <th className="text-left py-3">ID</th>
-                    <th className="text-left py-3">Data</th>
-                    <th className="text-left py-3">Hora</th>
-                    <th className="text-left py-3">Local</th>
-                    <th className="text-left py-3">Viatura</th>
-                    <th className="text-left py-3">Guarda</th>
-                    <th className="text-left py-3">Status</th>
-                    <th className="text-right py-3">Ações</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {patrulhamentosFiltrados.map((item) => (
-                    <tr key={item.id} className="border-b border-slate-800">
-                      <td className="py-4 text-blue-400 font-bold">
-                        #{item.id}
-                      </td>
-                      <td>{item.data}</td>
-                      <td>{item.hora}</td>
-                      <td className="text-slate-300 max-w-[280px] truncate">
-                        {item.local}
-                      </td>
-                      <td>{item.viatura || "-"}</td>
-                      <td>{item.guarda || "-"}</td>
-                      <td>
-                        <StatusPatrulhamento status={item.status} />
-                      </td>
-                      <td className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Link
-                            href={`/sistema/patrulhamento/${item.id}`}
-                            className="bg-blue-700 hover:bg-blue-800 text-white px-3 py-2 rounded-lg text-xs"
-                          >
-                            Ver Rota
-                          </Link>
-
-                          {podeEditar && item.status !== "FINALIZADO" && (
-                            <button
-                              type="button"
-                              onClick={() => finalizar(item.id)}
-                              disabled={finalizandoId === item.id}
-                              className="bg-green-700 hover:bg-green-800 text-white px-3 py-2 rounded-lg text-xs disabled:opacity-60"
-                            >
-                              {finalizandoId === item.id ? "..." : "Finalizar"}
-                            </button>
-                          )}
-
-                          {podeEditar && (
-                            <button
-                              type="button"
-                              onClick={() => excluirPatrulhamento(item.id)}
-                              className="bg-red-700 hover:bg-red-800 text-white px-3 py-2 rounded-lg text-xs"
-                            >
-                              Excluir
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function StatusPatrulhamento({ status }: { status: string | null }) {
-  if (status === "FINALIZADO") {
+  if (carregando) {
     return (
-      <span className="bg-green-700 text-green-100 px-3 py-2 rounded text-xs inline-block">
-        Finalizado
-      </span>
+      <ProtecaoModulo modulo="patrulhamento">
+        <div className="grid min-h-[70vh] place-items-center p-6">
+          <div className="flex items-center gap-3 text-slate-300">
+            <Loader2 className="h-5 w-5 animate-spin text-cyan-400" />
+            Carregando Central de Patrulhamento...
+          </div>
+        </div>
+      </ProtecaoModulo>
     );
   }
 
   return (
-    <span className="bg-yellow-600 text-yellow-100 px-3 py-2 rounded text-xs inline-block">
-      Em andamento
-    </span>
+    <ProtecaoModulo modulo="patrulhamento">
+      <main className="min-h-screen bg-slate-950 pb-24 text-white">
+        <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.17),transparent_38%),linear-gradient(180deg,#07111f_0%,#020617_100%)]">
+          <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-9">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+              <div className="flex items-start gap-4">
+                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10 shadow-[0_0_35px_rgba(34,211,238,0.12)]">
+                  <Radar className="h-7 w-7 text-cyan-300" />
+                </div>
+
+                <div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="rounded-full border border-cyan-400/25 bg-cyan-400/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] text-cyan-300">
+                      Central Operacional
+                    </span>
+
+                    {contexto?.usuario_nome && (
+                      <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-slate-400">
+                        {contexto.usuario_nome}
+                      </span>
+                    )}
+                  </div>
+
+                  <h1 className="text-2xl font-black tracking-tight md:text-4xl">
+                    Central de Patrulhamento
+                  </h1>
+
+                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+                    Acompanhe deslocamentos operacionais, rotas GPS, equipes, viaturas e pontos visitados.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() =>
+                    void carregarPatrulhamentos()
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 font-semibold text-slate-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/10"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Atualizar
+                </button>
+
+                {permissoes?.pode_criar && (
+                  <Link
+                    href="/sistema/patrulhamento/novo"
+                    className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 font-black text-slate-950 transition hover:bg-cyan-400"
+                  >
+                    <Plus className="h-5 w-5" />
+                    Novo patrulhamento
+                  </Link>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-6">
+          {erro && (
+            <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
+              <div className="flex items-start gap-3">
+                <CircleAlert className="mt-0.5 h-5 w-5 shrink-0 text-red-300" />
+
+                <div className="flex-1">
+                  <h2 className="font-bold text-red-100">
+                    Não foi possível carregar os patrulhamentos
+                  </h2>
+
+                  <p className="mt-1 text-sm leading-6 text-red-100/75">
+                    {erro}
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    void carregarPatrulhamentos()
+                  }
+                  className="rounded-xl border border-red-400/25 px-3 py-2 text-sm font-semibold text-red-100 transition hover:bg-red-500/15"
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            </section>
+          )}
+
+          {patrulhamentoAtivoId && (
+            <section className="rounded-3xl border border-cyan-400/30 bg-cyan-400/[0.08] p-5 shadow-[0_0_35px_rgba(34,211,238,0.08)]">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <Activity className="mt-0.5 h-6 w-6 animate-pulse text-cyan-300" />
+
+                  <div>
+                    <h2 className="font-black text-cyan-100">
+                      Patrulhamento em andamento
+                    </h2>
+
+                    <p className="mt-1 text-sm text-cyan-100/70">
+                      O patrulhamento #{patrulhamentoAtivoId} está ativo neste dispositivo.
+                    </p>
+                  </div>
+                </div>
+
+                <Link
+                  href={`/sistema/patrulhamento/${patrulhamentoAtivoId}`}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-5 py-3 font-black text-slate-950 transition hover:bg-cyan-400"
+                >
+                  Continuar acompanhamento
+                  <ChevronRight className="h-4 w-4" />
+                </Link>
+              </div>
+            </section>
+          )}
+
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <ResumoCard
+              titulo="Total"
+              valor={resumo.total}
+              icone={<Route className="h-5 w-5" />}
+            />
+
+            <ResumoCard
+              titulo="Em andamento"
+              valor={resumo.ativos}
+              icone={<Navigation className="h-5 w-5" />}
+            />
+
+            <ResumoCard
+              titulo="Finalizados"
+              valor={resumo.finalizados}
+              icone={<CheckCircle2 className="h-5 w-5" />}
+            />
+
+            <ResumoCard
+              titulo="Equipes"
+              valor={resumo.equipes}
+              icone={<Users className="h-5 w-5" />}
+            />
+
+            <ResumoCard
+              titulo="Viaturas"
+              valor={resumo.viaturas}
+              icone={<ShieldCheck className="h-5 w-5" />}
+            />
+          </section>
+
+          <section className="grid gap-3 md:grid-cols-3">
+            <Atalho
+              href="/sistema/patrulhamento/rotas"
+              titulo="Rotas GPS"
+              texto="Visualize trajetos e pontos registrados."
+              icone={<Map className="h-6 w-6" />}
+            />
+
+            <Atalho
+              href="/sistema/patrulhamento/visitas"
+              titulo="Visitas e pontos"
+              texto="Acompanhe os locais visitados durante o percurso."
+              icone={<MapPin className="h-6 w-6" />}
+            />
+
+            <Atalho
+              href="/sistema/patrulhamento/visitas/qrcode"
+              titulo="QR Code"
+              texto="Cadastre e utilize pontos de presença."
+              icone={<Flag className="h-6 w-6" />}
+            />
+          </section>
+
+          <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl shadow-black/20 md:p-5">
+            <div className="mb-4 flex items-center gap-3">
+              <Filter className="h-5 w-5 text-cyan-300" />
+
+              <div>
+                <h2 className="font-bold">
+                  Filtros
+                </h2>
+
+                <p className="text-sm text-slate-500">
+                  Pesquise por data, local, guarda, equipe, viatura ou status.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_230px]">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
+
+                <input
+                  type="search"
+                  value={busca}
+                  onChange={(event) =>
+                    setBusca(event.target.value)
+                  }
+                  placeholder="Buscar patrulhamentos..."
+                  className="w-full rounded-2xl border border-white/10 bg-slate-950/70 py-3.5 pl-12 pr-4 text-white outline-none transition placeholder:text-slate-600 focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+                />
+              </div>
+
+              <select
+                value={filtroStatus}
+                onChange={(event) =>
+                  setFiltroStatus(event.target.value)
+                }
+                className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-3.5 text-white outline-none transition focus:border-cyan-400/60 focus:ring-4 focus:ring-cyan-400/10"
+              >
+                <option value="TODOS">
+                  Todos os status
+                </option>
+                <option value="ATIVOS">
+                  Em andamento
+                </option>
+                <option value="FINALIZADOS">
+                  Finalizados
+                </option>
+              </select>
+            </div>
+
+            <div className="mt-3 text-sm text-slate-500">
+              {filtrados.length} de {patrulhamentos.length} registro(s)
+            </div>
+          </section>
+
+          {filtrados.length === 0 ? (
+            <section className="rounded-3xl border border-dashed border-white/10 bg-slate-900/40 p-10 text-center">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-white/5">
+                <Route className="h-8 w-8 text-slate-500" />
+              </div>
+
+              <h2 className="mt-5 text-lg font-bold">
+                Nenhum patrulhamento encontrado
+              </h2>
+
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-500">
+                Não existem patrulhamentos cadastrados com os filtros selecionados.
+              </p>
+            </section>
+          ) : (
+            <section className="grid gap-4 lg:grid-cols-2">
+              {filtrados.map((item) => {
+                const finalizado =
+                  statusFinalizado(item.status);
+
+                const processando =
+                  processandoId === item.id;
+
+                return (
+                  <article
+                    key={item.id}
+                    className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/10 transition hover:-translate-y-0.5 hover:border-cyan-400/25"
+                  >
+                    <div className="border-b border-white/10 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-bold ${classeStatus(
+                                item.status
+                              )}`}
+                            >
+                              {rotuloStatus(item.status)}
+                            </span>
+
+                            {patrulhamentoAtivoId ===
+                              item.id && (
+                              <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-200">
+                                Ativo neste aparelho
+                              </span>
+                            )}
+                          </div>
+
+                          <h2 className="mt-3 truncate text-lg font-black">
+                            {item.local ||
+                              `Patrulhamento #${item.id}`}
+                          </h2>
+
+                          <p className="mt-1 text-sm font-semibold text-cyan-300">
+                            Patrulhamento #{item.id}
+                          </p>
+                        </div>
+
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/5 text-cyan-300">
+                          <Navigation className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid gap-3 p-5 sm:grid-cols-2">
+                      <Info
+                        titulo="Data e hora"
+                        valor={`${formatarData(
+                          item.data
+                        )}${item.hora ? ` às ${item.hora}` : ""}`}
+                      />
+
+                      <Info
+                        titulo="Guarda responsável"
+                        valor={
+                          item.guarda || "Não informado"
+                        }
+                      />
+
+                      <Info
+                        titulo="Equipe"
+                        valor={
+                          item.equipe || "Não informada"
+                        }
+                      />
+
+                      <Info
+                        titulo="Viatura"
+                        valor={
+                          item.viatura || "Não informada"
+                        }
+                      />
+
+                      {finalizado && (
+                        <Info
+                          titulo="Finalizado em"
+                          valor={formatarDataHora(
+                            item.finalizado_em
+                          )}
+                        />
+                      )}
+
+                      <Info
+                        titulo="GPS inicial"
+                        valor={
+                          item.latitude !== null &&
+                          item.longitude !== null
+                            ? `${Number(
+                                item.latitude
+                              ).toFixed(6)}, ${Number(
+                                item.longitude
+                              ).toFixed(6)}`
+                            : "Não registrado"
+                        }
+                      />
+                    </div>
+
+                    {item.observacao && (
+                      <div className="mx-5 mb-5 rounded-2xl border border-white/10 bg-slate-950/50 p-4">
+                        <div className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                          Observação
+                        </div>
+
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">
+                          {item.observacao}
+                        </p>
+                      </div>
+                    )}
+
+                    <div className="flex flex-wrap gap-2 border-t border-white/10 p-4">
+                      <Link
+                        href={`/sistema/patrulhamento/${item.id}`}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm font-semibold text-slate-300 transition hover:bg-white/10"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Abrir
+                      </Link>
+
+                      {!finalizado &&
+                        permissoes?.pode_editar && (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void finalizarPatrulhamento(
+                                item
+                              )
+                            }
+                            disabled={processando}
+                            className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2.5 text-sm font-semibold text-emerald-200 transition hover:bg-emerald-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {processando ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="h-4 w-4" />
+                            )}
+                            Finalizar
+                          </button>
+                        )}
+
+                      {permissoes?.pode_excluir && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void excluirPatrulhamento(
+                              item
+                            )
+                          }
+                          disabled={processando}
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/10 px-3 py-2.5 text-sm font-semibold text-red-200 transition hover:bg-red-400/20 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {processando ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                          Excluir
+                        </button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </main>
+    </ProtecaoModulo>
+  );
+}
+
+function ResumoCard({
+  titulo,
+  valor,
+  icone,
+}: {
+  titulo: string;
+  valor: number;
+  icone: ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-lg shadow-black/10">
+      <div className="flex items-center justify-between">
+        <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
+          {icone}
+        </div>
+
+        <span className="text-2xl font-black">
+          {valor}
+        </span>
+      </div>
+
+      <div className="mt-3 text-sm text-slate-500">
+        {titulo}
+      </div>
+    </div>
+  );
+}
+
+function Atalho({
+  href,
+  titulo,
+  texto: descricao,
+  icone,
+}: {
+  href: string;
+  titulo: string;
+  texto: string;
+  icone: ReactNode;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-3xl border border-white/10 bg-slate-900/70 p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-400/[0.05]"
+    >
+      <div className="flex items-start justify-between gap-4">
+        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-cyan-400/10 text-cyan-300">
+          {icone}
+        </div>
+
+        <ChevronRight className="h-5 w-5 text-slate-600 transition group-hover:translate-x-1 group-hover:text-cyan-300" />
+      </div>
+
+      <h2 className="mt-4 font-black">
+        {titulo}
+      </h2>
+
+      <p className="mt-2 text-sm leading-6 text-slate-500">
+        {descricao}
+      </p>
+    </Link>
+  );
+}
+
+function Info({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
+      <div className="text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+        {titulo}
+      </div>
+
+      <div className="mt-1 break-words text-sm font-semibold text-slate-200">
+        {valor}
+      </div>
+    </div>
   );
 }

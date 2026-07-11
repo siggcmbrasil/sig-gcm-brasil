@@ -4,6 +4,7 @@ import { Globe, Newspaper, Radio } from "lucide-react";
 
 import SigCentralHeader from "@/components/sig/SigCentralHeader";
 import SigCentralCard from "@/components/sig/SigCentralCard";
+import ProtecaoModulo from "@/components/ProtecaoModulo";
 
 const cards = [
   {
@@ -28,7 +29,8 @@ const cards = [
 
 export default function CentralFeedsPage() {
   return (
-    <section className="p-4 md:p-6 pb-24 space-y-6">
+    <ProtecaoModulo modulo="feed_sig">
+      <section className="p-4 md:p-6 pb-24 space-y-6">
       <SigCentralHeader
         titulo="Central de Feeds"
         descricao="Comunicação, notícias, publicações e integração da rede SIG-GCM Brasil."
@@ -46,6 +48,7 @@ export default function CentralFeedsPage() {
   />
 ))}
       </div>
-    </section>
+          </section>
+    </ProtecaoModulo>
   );
 }

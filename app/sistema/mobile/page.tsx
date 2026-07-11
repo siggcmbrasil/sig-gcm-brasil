@@ -313,61 +313,99 @@ export default function AppPage() {
         maximumAge: 0,
       });
 
-      if (position.coords.accuracy > 100) {
-        alert(
-          `GPS com baixa precisão (${Math.round(
-            position.coords.accuracy
-          )} metros). Vá para área aberta e tente novamente.`
-        );
-        setEnviandoSOS(false);
-        return;
-      }
+const modoTesteLocal =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
 
-      const { error } = await supabase.from("alertas_sos").insert([
-        {
-          municipio_id: usuario.municipio_id,
-          usuario_id: usuario.id,
-          nome_usuario: usuario.nome || "Usuário não identificado",
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-          precisao: position.coords.accuracy,
-          status: "ABERTO",
-        },
-      ]);
+if (
+  position.coords.accuracy > 100 &&
+  !modoTesteLocal
+) {
+  alert(
+    `GPS com baixa precisão (${Math.round(
+      position.coords.accuracy
+    )} metros). Vá para área aberta e tente novamente.`
+  );
 
-      if (error) {
-        await registrarAuditoria({
-          modulo: "SOS",
-          acao: "ERRO",
-          descricao: `Erro ao acionar SOS: ${error.message}`,
-          registro_id: String(usuario.id),
-        });
+  setEnviandoSOS(false);
+  return;
+}
 
-        alert("Erro ao enviar SOS.");
-        return;
-      }
+const {
+  data: { session },
+  error: sessionError,
+} = await supabase.auth.getSession();
 
-      await supabase.from("notificacoes").insert([
-        {
-          municipio_id: usuario.municipio_id,
-          titulo: "🚨 ALERTA SOS",
-          mensagem: `${usuario.nome || "Um guarda"} acionou o botão SOS.`,
-          tipo: "SOS",
-          link: "/sistema/central-sos",
-          lida: false,
-        },
-      ]);
+const accessToken = session?.access_token;
 
-      await registrarAuditoria({
-        modulo: "SOS",
-        acao: "ACIONAR",
-        descricao: `Alerta SOS acionado por ${usuario.nome || "usuário"}.`,
-        registro_id: String(usuario.id),
-      });
+if (sessionError || !accessToken) {
+  alert("Sua sessão expirou. Entre novamente no sistema.");
+  localStorage.removeItem("usuarioLogado");
+  window.location.replace("/login");
+  return;
+}
 
-      navigator.vibrate?.([500, 200, 500]);
+const resposta = await fetch("/api/sos/acionar", {
+  method: "POST",
+  headers: {
+    Authorization: `Bearer ${accessToken}`,
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify({
+  latitude: position.coords.latitude,
+  longitude: position.coords.longitude,
+  precisao: position.coords.accuracy,
+  modo_teste: modoTesteLocal,
+}),
+});
 
-      alert("SOS enviado com sucesso. Sua localização foi compartilhada.");
+const corpo = await resposta
+  .json()
+  .catch(() => null);
+
+if (!resposta.ok) {
+  /*
+   * O SOS pode ter sido enviado, mas a
+   * auditoria pode ter falhado no servidor.
+   */
+  if (corpo?.enviado === true) {
+    navigator.vibrate?.([500, 200, 500]);
+
+    alert(
+      corpo?.erro ||
+        "O SOS foi enviado, mas ocorreu uma falha ao registrar a auditoria."
+    );
+
+    return;
+  }
+
+  const mensagem =
+    corpo?.erro ||
+    "Não foi possível enviar o SOS.";
+
+  await registrarAuditoria({
+    modulo: "SOS",
+    acao: "ERRO",
+    descricao: `Erro ao acionar SOS: ${mensagem}`,
+    registro_id: String(usuario.id),
+  });
+
+  if (resposta.status === 401) {
+    localStorage.removeItem("usuarioLogado");
+    window.location.replace("/login");
+    return;
+  }
+
+  alert(mensagem);
+  return;
+}
+
+navigator.vibrate?.([500, 200, 500]);
+
+alert(
+  corpo?.mensagem ||
+    "SOS enviado com sucesso. Sua localização foi compartilhada."
+);
     } catch (erro) {
       console.error(erro);
       alert("Erro inesperado ao acionar SOS.");
