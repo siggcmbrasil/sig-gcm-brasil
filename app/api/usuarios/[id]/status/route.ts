@@ -28,6 +28,17 @@ type UsuarioBanco = {
   status: string | null;
   municipio_id: number | null;
   tentativas_login: number | null;
+  cpf: string | null;
+  guarda_id: number | null;
+};
+
+type ResultadoVinculo = {
+  ok?: boolean;
+  status?: string;
+  usuario_id?: number;
+  guarda_id?: number;
+  municipio_id?: number;
+  erro?: string;
 };
 
 const NIVEL_PERFIL: Record<Perfil, number> = {
@@ -179,7 +190,7 @@ export async function PATCH(
     const { data: atorData, error: atorError } = await supabaseAdmin
       .from("usuarios")
       .select(
-        "id,auth_id,nome,email,perfil,status,municipio_id,tentativas_login"
+        "id,auth_id,nome,email,perfil,status,municipio_id,tentativas_login,cpf,guarda_id"
       )
       .eq("auth_id", authUser.id)
       .maybeSingle();
@@ -227,7 +238,7 @@ export async function PATCH(
     const { data: alvoData, error: alvoError } = await supabaseAdmin
       .from("usuarios")
       .select(
-        "id,auth_id,nome,email,perfil,status,municipio_id,tentativas_login"
+        "id,auth_id,nome,email,perfil,status,municipio_id,tentativas_login,cpf,guarda_id"
       )
       .eq("id", usuarioAlvoId)
       .maybeSingle();
@@ -275,6 +286,117 @@ export async function PATCH(
       );
     }
 
+    let guardaIdVinculado =
+      alvo.guarda_id
+        ? Number(alvo.guarda_id)
+        : null;
+
+    if (
+      novoStatus === "ATIVO" &&
+      perfilAlvo === "GUARDA" &&
+      !guardaIdVinculado
+    ) {
+      const cpfNormalizado =
+        String(alvo.cpf || "")
+          .replace(/\D/g, "");
+
+      if (cpfNormalizado.length !== 11) {
+        return responder(
+          {
+            ok: false,
+            erro:
+              "O usuário de perfil GUARDA precisa possuir CPF válido antes da aprovação.",
+          },
+          422
+        );
+      }
+
+      if (!alvo.municipio_id) {
+        return responder(
+          {
+            ok: false,
+            erro:
+              "O usuário de perfil GUARDA precisa possuir município antes da aprovação.",
+          },
+          422
+        );
+      }
+
+      const {
+        data: vinculoData,
+        error: vinculoError,
+      } = await supabaseAdmin.rpc(
+        "vincular_usuario_guarda_por_cpf",
+        {
+          p_usuario_id: alvo.id,
+          p_responsavel_usuario_id:
+            ator.id,
+        }
+      );
+
+      if (vinculoError) {
+        console.error(
+          "Erro ao vincular usuário ao guarda:",
+          {
+            message:
+              vinculoError.message,
+            details:
+              vinculoError.details,
+            hint:
+              vinculoError.hint,
+            code:
+              vinculoError.code,
+            usuario_alvo_id:
+              alvo.id,
+          }
+        );
+
+        return responder(
+          {
+            ok: false,
+            erro:
+              "Não foi possível vincular o usuário ao cadastro funcional do guarda.",
+          },
+          500
+        );
+      }
+
+      const resultadoVinculo =
+        (vinculoData || {}) as
+          ResultadoVinculo;
+
+      if (
+        resultadoVinculo.ok !==
+          true ||
+        !resultadoVinculo.guarda_id
+      ) {
+        const mensagem =
+          resultadoVinculo.erro ||
+          (
+            resultadoVinculo.status ===
+            "GUARDA_NAO_ENCONTRADO"
+              ? "Nenhum guarda com o mesmo CPF foi encontrado neste município."
+              : "O vínculo com o cadastro funcional não pôde ser concluído."
+          );
+
+        return responder(
+          {
+            ok: false,
+            erro: mensagem,
+            codigo:
+              resultadoVinculo.status ||
+              "VINCULO_NAO_REALIZADO",
+          },
+          409
+        );
+      }
+
+      guardaIdVinculado =
+        Number(
+          resultadoVinculo.guarda_id
+        );
+    }
+
     const atualizacao = {
       status: novoStatus as NovoStatus,
       aprovado_por: String(ator.id),
@@ -319,6 +441,83 @@ export async function PATCH(
       );
     }
 
+    const { error: auditoriaError } = await supabaseAdmin
+  .from("auditoria")
+  .insert({
+    municipio_id:
+      alvo.municipio_id ||
+      ator.municipio_id,
+    guarda_id:
+      ator.guarda_id ||
+      ator.id,
+    usuario_nome:
+      ator.nome ||
+      "Usuário",
+    usuario_email:
+      ator.email ||
+      authUser.email ||
+      "",
+    perfil:
+      perfilAtor,
+    modulo:
+      "Usuários",
+    acao:
+      novoStatus === "ATIVO" &&
+      String(alvo.status || "").toUpperCase() === "PENDENTE"
+        ? "APROVAR_USUARIO"
+        : `ALTERAR_STATUS_${novoStatus}`,
+    descricao:
+      `Alterou o status do usuário ${alvo.nome} de ${
+        alvo.status || "NÃO INFORMADO"
+      } para ${novoStatus}.`,
+    status:
+      "SUCESSO",
+    ip:
+      obterIp(request),
+    dispositivo:
+      obterDispositivo(request),
+    tabela:
+      "usuarios",
+    registro_id:
+      String(alvo.id),
+    detalhes: {
+      usuario_alvo_id:
+        alvo.id,
+      nome_usuario_alvo:
+        alvo.nome,
+      status_anterior:
+        alvo.status,
+      novo_status:
+        novoStatus,
+      perfil_usuario_alvo:
+        perfilAlvo,
+      municipio_usuario_alvo:
+        alvo.municipio_id,
+      guarda_id_vinculado:
+        guardaIdVinculado,
+      responsavel_usuario_id:
+        ator.id,
+    },
+  });
+
+if (auditoriaError) {
+  console.error(
+    "Status alterado, mas a auditoria falhou:",
+    {
+      message:
+        auditoriaError.message,
+      details:
+        auditoriaError.details,
+      hint:
+        auditoriaError.hint,
+      code:
+        auditoriaError.code,
+      usuario_alvo_id:
+        alvo.id,
+    }
+  );
+}
+
     const dispositivo = obterDispositivo(request);
 
     const { error: logError } = await supabaseAdmin
@@ -351,6 +550,8 @@ export async function PATCH(
         usuario: {
           id: alvo.id,
           status: novoStatus,
+          guarda_id:
+            guardaIdVinculado,
         },
       },
       200

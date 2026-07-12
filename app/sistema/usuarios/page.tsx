@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 
 import CardIndicador from "@/components/CardIndicador";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
-import { registrarAuditoria } from "@/lib/auditoria";
 import { supabase } from "@/lib/supabase";
 
 const PERFIS = [
@@ -49,6 +48,7 @@ type Usuario = {
   foto_url: string | null;
   ultimo_login: string | null;
   tentativas_login: number | null;
+  guarda_id: number | null;
 };
 
 type Municipio = {
@@ -63,6 +63,7 @@ type RespostaApi = {
   usuario?: {
     id: number;
     status: StatusUsuario;
+    guarda_id?: number | null;
   };
 };
 
@@ -187,7 +188,7 @@ export default function UsuariosPage() {
         supabase
           .from("usuarios")
           .select(
-            "id,auth_id,nome,matricula,telefone,email,cpf,cargo,perfil,status,observacao,municipio_id,foto_url,ultimo_login,tentativas_login"
+            "id,auth_id,nome,matricula,telefone,email,cpf,cargo,perfil,status,observacao,municipio_id,foto_url,ultimo_login,tentativas_login,guarda_id"
           )
           .order("id", { ascending: false })
           .limit(500),
@@ -225,6 +226,10 @@ export default function UsuariosPage() {
           foto_url: item.foto_url || null,
           ultimo_login: item.ultimo_login || null,
           tentativas_login: item.tentativas_login || 0,
+          guarda_id:
+            item.guarda_id
+              ? Number(item.guarda_id)
+              : null,
         })
       );
 
@@ -335,19 +340,6 @@ export default function UsuariosPage() {
         );
       }
 
-      await registrarAuditoria({
-        modulo: "Usuários",
-        acao: "ALTERAR_STATUS",
-        descricao: `Alterou o status do usuário ${usuario.nome} para ${novoStatus}.`,
-        tabela: "usuarios",
-        registro_id: usuario.id,
-        detalhes: {
-          usuario_alvo_id: usuario.id,
-          status_anterior: usuario.status,
-          novo_status: novoStatus,
-        },
-      });
-
       setUsuarios((lista) =>
         lista.map((item) =>
           item.id === usuario.id
@@ -358,6 +350,9 @@ export default function UsuariosPage() {
                   novoStatus === "ATIVO"
                     ? 0
                     : item.tentativas_login,
+                guarda_id:
+                  dados.usuario?.guarda_id ??
+                  item.guarda_id,
               }
             : item
         )
