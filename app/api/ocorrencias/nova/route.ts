@@ -240,6 +240,38 @@ function limparEnvolvido(
   };
 }
 
+function normalizarDocumentoPessoa(
+  valor: unknown
+) {
+  return String(
+    valor ?? ""
+  )
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      ""
+    )
+    .slice(0, 40);
+}
+
+function normalizarPlacaRede(
+  valor: unknown
+) {
+  const placa =
+    String(valor ?? "")
+      .trim()
+      .toUpperCase()
+      .replace(
+        /[^A-Z0-9]/g,
+        ""
+      );
+
+  return placa.length === 7
+    ? placa
+    : "";
+}
+
 function limparVeiculo(
   veiculo: VeiculoEnvolvido
 ) {
@@ -877,12 +909,183 @@ async function registrarAuditoria({
   return true;
 }
 
+async function existeAlertaVeiculoEmOutroMunicipio({
+  veiculos,
+  municipioId,
+}: {
+  veiculos: ReturnType<
+    typeof limparVeiculo
+  >[];
+  municipioId: number;
+}) {
+  const placas =
+    Array.from(
+      new Set(
+        veiculos
+          .map(
+            (veiculo) =>
+              normalizarPlacaRede(
+                veiculo.placa
+              )
+          )
+          .filter(Boolean)
+      )
+    );
+
+  if (
+    placas.length === 0
+  ) {
+    return false;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from(
+      "veiculos_abordados"
+    )
+    .select("id")
+    .in(
+      "placa",
+      placas
+    )
+    .eq(
+      "compartilhar_rede",
+      true
+    )
+    .neq(
+      "municipio_id",
+      municipioId
+    )
+    .limit(1);
+
+  if (error) {
+    throw new Error(
+      `Falha ao validar alerta de veículo: ${error.message}`
+    );
+  }
+
+  return Boolean(
+    data?.length
+  );
+}
+
+async function existeAlertaPessoaEmOutroMunicipio({
+  pessoas,
+  municipioId,
+}: {
+  pessoas: ReturnType<
+    typeof limparEnvolvido
+  >[];
+  municipioId: number;
+}) {
+  const chaves =
+    new Set(
+      pessoas
+        .map((pessoa) => {
+          const tipo =
+            String(
+              pessoa.tipo_documento ||
+              ""
+            )
+              .trim()
+              .toUpperCase();
+
+          const documento =
+            normalizarDocumentoPessoa(
+              pessoa.documento
+            );
+
+          return (
+            tipo &&
+            documento
+          )
+            ? `${tipo}:${documento}`
+            : "";
+        })
+        .filter(Boolean)
+    );
+
+  const documentos =
+    Array.from(
+      new Set(
+        pessoas
+          .map(
+            (pessoa) =>
+              normalizarDocumentoPessoa(
+                pessoa.documento
+              )
+          )
+          .filter(Boolean)
+      )
+    );
+
+  if (
+    documentos.length === 0
+  ) {
+    return false;
+  }
+
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from(
+      "pessoas_abordadas"
+    )
+    .select(
+      "id,tipo_documento,documento_normalizado"
+    )
+    .in(
+      "documento_normalizado",
+      documentos
+    )
+    .eq(
+      "compartilhar_rede",
+      true
+    )
+    .neq(
+      "municipio_id",
+      municipioId
+    )
+    .limit(100);
+
+  if (error) {
+    throw new Error(
+      `Falha ao validar alerta de pessoa: ${error.message}`
+    );
+  }
+
+  return (
+    (data || []).some(
+      (registro) =>
+        chaves.has(
+          `${String(
+            registro.tipo_documento ||
+            ""
+          )
+            .trim()
+            .toUpperCase()}:${String(
+            registro.documento_normalizado ||
+            ""
+          )
+            .trim()
+            .toUpperCase()}`
+        )
+    )
+  );
+}
+
 async function sincronizarVeiculos({
   contexto,
   veiculos,
   local,
   data,
   hora,
+  motivoAbordagem,
+  desfecho,
+  nivelAlerta,
 }: {
   contexto: ContextoAutenticado;
   veiculos: ReturnType<
@@ -891,6 +1094,9 @@ async function sincronizarVeiculos({
   local: string;
   data: string;
   hora: string;
+  motivoAbordagem: string;
+  desfecho: string;
+  nivelAlerta: string;
 }) {
   const falhas: string[] = [];
 
@@ -954,6 +1160,17 @@ async function sincronizarVeiculos({
       hora,
       observacao:
         veiculo.observacao || null,
+      motivo_abordagem:
+        motivoAbordagem ||
+        "OCORRÊNCIA REGISTRADA",
+      desfecho:
+        desfecho ||
+        "VINCULADO À OCORRÊNCIA",
+      nivel_alerta:
+        nivelAlerta ||
+        "INFORMATIVO",
+      compartilhar_rede:
+        true,
       atualizado_em:
         new Date().toISOString(),
     };
@@ -1013,6 +1230,9 @@ async function sincronizarPessoas({
   data,
   hora,
   equipeEmpenhada,
+  motivoAbordagem,
+  desfecho,
+  nivelAlerta,
 }: {
   contexto: ContextoAutenticado;
   pessoas: ReturnType<
@@ -1022,11 +1242,30 @@ async function sincronizarPessoas({
   data: string;
   hora: string;
   equipeEmpenhada: string;
+  motivoAbordagem: string;
+  desfecho: string;
+  nivelAlerta: string;
 }) {
   const falhas: string[] = [];
 
   for (const pessoa of pessoas) {
-    if (!pessoa.documento) {
+    const documentoNormalizado =
+      normalizarDocumentoPessoa(
+        pessoa.documento
+      );
+
+    const tipoDocumento =
+      String(
+        pessoa.tipo_documento ||
+        ""
+      )
+        .trim()
+        .toUpperCase();
+
+    if (
+      !documentoNormalizado ||
+      !tipoDocumento
+    ) {
       continue;
     }
 
@@ -1041,31 +1280,55 @@ async function sincronizarPessoas({
         contexto.municipioId
       )
       .eq(
-        "documento",
-        pessoa.documento
+        "tipo_documento",
+        tipoDocumento
+      )
+      .eq(
+        "documento_normalizado",
+        documentoNormalizado
       )
       .maybeSingle();
 
     if (consultaError) {
       falhas.push(
-        `Consulta da pessoa ${pessoa.documento}`
+        `Consulta da pessoa ${tipoDocumento}`
       );
       continue;
     }
 
     const dados = {
-      nome: pessoa.nome || null,
+      nome:
+        pessoa.nome || null,
       tipo_documento:
-        pessoa.tipo_documento ||
-        null,
+        tipoDocumento,
       documento:
         pessoa.documento,
+      documento_normalizado:
+        documentoNormalizado,
       telefone:
         pessoa.telefone || null,
       endereco:
         pessoa.endereco || null,
       observacao:
         pessoa.observacao || null,
+      local,
+      data,
+      hora,
+      guarda:
+        equipeEmpenhada ||
+        contexto.usuario.nome ||
+        null,
+      motivo_abordagem:
+        motivoAbordagem ||
+        "OCORRÊNCIA REGISTRADA",
+      desfecho:
+        desfecho ||
+        "VINCULADO À OCORRÊNCIA",
+      nivel_alerta:
+        nivelAlerta ||
+        "INFORMATIVO",
+      compartilhar_rede:
+        true,
       atualizado_em:
         new Date().toISOString(),
     };
@@ -1073,9 +1336,14 @@ async function sincronizarPessoas({
     if (existente) {
       const { error } =
         await supabaseAdmin
-          .from("pessoas_abordadas")
+          .from(
+            "pessoas_abordadas"
+          )
           .update(dados)
-          .eq("id", existente.id)
+          .eq(
+            "id",
+            existente.id
+          )
           .eq(
             "municipio_id",
             contexto.municipioId
@@ -1083,31 +1351,33 @@ async function sincronizarPessoas({
 
       if (error) {
         falhas.push(
-          `Atualização da pessoa ${pessoa.documento}`
+          `Atualização da pessoa ${tipoDocumento}`
         );
       }
     } else {
       const { error } =
         await supabaseAdmin
-          .from("pessoas_abordadas")
+          .from(
+            "pessoas_abordadas"
+          )
           .insert({
             municipio_id:
               contexto.municipioId,
             usuario_id:
               contexto.usuario.id,
+            criado_por:
+              String(
+                contexto.usuario.id
+              ),
             criado_em:
-              new Date().toISOString(),
-            local,
-            data,
-            hora,
-            guarda:
-              equipeEmpenhada,
+              new Date()
+                .toISOString(),
             ...dados,
           });
 
       if (error) {
         falhas.push(
-          `Cadastro da pessoa ${pessoa.documento}`
+          `Cadastro da pessoa ${tipoDocumento}`
         );
       }
     }
@@ -1391,6 +1661,61 @@ export async function POST(
           item.numeracao
       );
 
+    const [
+      alertaVeiculoExiste,
+      alertaPessoaExiste,
+    ] = await Promise.all([
+      existeAlertaVeiculoEmOutroMunicipio({
+        veiculos,
+        municipioId:
+          contexto.municipioId,
+      }),
+      existeAlertaPessoaEmOutroMunicipio({
+        pessoas:
+          envolvidos,
+        municipioId:
+          contexto.municipioId,
+      }),
+    ]);
+
+    if (
+      alertaVeiculoExiste &&
+      corpo.ciencia_alertas_veiculos !==
+        true
+    ) {
+      return responder(
+        {
+          ok: false,
+          exige_confirmacao:
+            true,
+          tipo_alerta:
+            "VEICULO",
+          erro:
+            "Confirme que tomou ciência do alerta intermunicipal do veículo.",
+        },
+        409
+      );
+    }
+
+    if (
+      alertaPessoaExiste &&
+      corpo.ciencia_alertas_pessoas !==
+        true
+    ) {
+      return responder(
+        {
+          ok: false,
+          exige_confirmacao:
+            true,
+          tipo_alerta:
+            "PESSOA",
+          erro:
+            "Confirme que tomou ciência do alerta intermunicipal da pessoa.",
+        },
+        409
+      );
+    }
+
     const fotosValidadas =
       await validarFotosDaOcorrencia({
         corpo,
@@ -1540,6 +1865,20 @@ export async function POST(
         local,
         data,
         hora,
+        motivoAbordagem:
+          tipo ||
+          "OCORRÊNCIA REGISTRADA",
+        desfecho:
+          status ||
+          "VINCULADO À OCORRÊNCIA",
+        nivelAlerta:
+          prioridade ===
+          "URGENTE"
+            ? "ALTO_RISCO"
+            : prioridade ===
+                "ALTA"
+              ? "ATENCAO"
+              : "INFORMATIVO",
       }),
       sincronizarPessoas({
         contexto,
@@ -1548,6 +1887,17 @@ export async function POST(
         data,
         hora,
         equipeEmpenhada,
+        motivoAbordagem:
+          tipo ||
+          "OCORRÊNCIA REGISTRADA",
+        desfecho:
+          status ||
+          "VINCULADO À OCORRÊNCIA",
+        nivelAlerta:
+          prioridade ===
+          "ALTA"
+            ? "ATENCAO"
+            : "INFORMATIVO",
       }),
     ]);
 
@@ -1572,8 +1922,14 @@ export async function POST(
             guardaResponsavelId,
           total_envolvidos:
             envolvidos.length,
+          ciencia_alertas_pessoas:
+            corpo.ciencia_alertas_pessoas ===
+            true,
           total_veiculos:
             veiculos.length,
+          ciencia_alertas_veiculos:
+            corpo.ciencia_alertas_veiculos ===
+            true,
           total_itens:
             itens.length,
           total_fotos:

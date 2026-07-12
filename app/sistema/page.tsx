@@ -671,7 +671,7 @@ setMostrarPerfil={setMostrarPerfil}
       </Link>
 
       <Link
-        href="/sistema/viatura"
+        href="/sistema/central-frota/viaturas"
         className="block"
       >
         <CardComando

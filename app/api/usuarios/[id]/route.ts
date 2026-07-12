@@ -318,7 +318,10 @@ async function autenticarGestor(
     };
   }
 
-  if (ator.id === alvo.id) {
+  if (
+    ator.id === alvo.id &&
+    perfilAtor !== "DESENVOLVEDOR"
+  ) {
     return {
       ok: false,
       resposta: responder(
@@ -564,9 +567,12 @@ export async function GET(
       {
         ok: true,
         usuario: usuarioResposta(permissao.alvo),
-        perfis_permitidos: perfisPermitidos(
-          permissao.perfilAtor
-        ),
+        perfis_permitidos:
+          permissao.ator.id === permissao.alvo.id
+            ? ["DESENVOLVEDOR"]
+            : perfisPermitidos(
+                permissao.perfilAtor
+              ),
         municipios,
       },
       200
@@ -686,11 +692,30 @@ export async function PATCH(
       );
     }
 
-    if (!cpfValido(cpf)) {
+    if (
+      perfil !== "DESENVOLVEDOR" &&
+      !cpfValido(cpf)
+    ) {
       return responder(
         {
           ok: false,
-          erro: "Informe um CPF válido.",
+          erro:
+            "Informe um CPF válido para o usuário operacional.",
+        },
+        422
+      );
+    }
+
+    if (
+      perfil === "DESENVOLVEDOR" &&
+      cpf &&
+      !cpfValido(cpf)
+    ) {
+      return responder(
+        {
+          ok: false,
+          erro:
+            "O CPF do DESENVOLVEDOR deve ser válido ou ficar vazio.",
         },
         422
       );
@@ -721,6 +746,20 @@ export async function PATCH(
           erro: "Um dos campos ultrapassou o limite permitido.",
         },
         422
+      );
+    }
+
+    if (
+      permissao.ator.id === permissao.alvo.id &&
+      perfil !== "DESENVOLVEDOR"
+    ) {
+      return responder(
+        {
+          ok: false,
+          erro:
+            "A conta DESENVOLVEDOR não pode alterar o próprio perfil.",
+        },
+        403
       );
     }
 
@@ -808,40 +847,82 @@ export async function PATCH(
       }
     }
 
-    const { data: duplicado, error: duplicadoError } =
-      await supabaseAdmin
-        .from("usuarios")
-        .select("id")
-        .neq("id", permissao.alvo.id)
-        .or(`email.eq.${email},cpf.eq.${cpf}`)
-        .limit(1)
-        .maybeSingle();
+    const {
+      data: emailDuplicado,
+      error: emailDuplicadoError,
+    } = await supabaseAdmin
+      .from("usuarios")
+      .select("id")
+      .neq("id", permissao.alvo.id)
+      .eq("email", email)
+      .limit(1)
+      .maybeSingle();
 
-    if (duplicadoError) {
-      console.error("Erro ao verificar dados duplicados:", {
-        message: duplicadoError.message,
-        details: duplicadoError.details,
-        hint: duplicadoError.hint,
-        code: duplicadoError.code,
+    if (emailDuplicadoError) {
+      console.error("Erro ao verificar e-mail duplicado:", {
+        message: emailDuplicadoError.message,
+        details: emailDuplicadoError.details,
+        hint: emailDuplicadoError.hint,
+        code: emailDuplicadoError.code,
       });
 
       return responder(
         {
           ok: false,
-          erro: "Não foi possível validar e-mail e CPF.",
+          erro: "Não foi possível validar o e-mail.",
         },
         500
       );
     }
 
-    if (duplicado) {
+    if (emailDuplicado) {
       return responder(
         {
           ok: false,
-          erro: "Já existe outro usuário com este e-mail ou CPF.",
+          erro: "Já existe outro usuário com este e-mail.",
         },
         409
       );
+    }
+
+    if (cpf) {
+      const {
+        data: cpfDuplicado,
+        error: cpfDuplicadoError,
+      } = await supabaseAdmin
+        .from("usuarios")
+        .select("id")
+        .neq("id", permissao.alvo.id)
+        .eq("cpf", cpf)
+        .limit(1)
+        .maybeSingle();
+
+      if (cpfDuplicadoError) {
+        console.error("Erro ao verificar CPF duplicado:", {
+          message: cpfDuplicadoError.message,
+          details: cpfDuplicadoError.details,
+          hint: cpfDuplicadoError.hint,
+          code: cpfDuplicadoError.code,
+        });
+
+        return responder(
+          {
+            ok: false,
+            erro: "Não foi possível validar o CPF.",
+          },
+          500
+        );
+      }
+
+      if (cpfDuplicado) {
+        return responder(
+          {
+            ok: false,
+            erro: "Já existe outro usuário com este CPF.",
+          },
+          409
+        );
+      }
     }
 
     let fotoUrl = permissao.alvo.foto_url;
@@ -943,7 +1024,7 @@ export async function PATCH(
           nome,
           matricula: matricula || null,
           telefone: telefone || null,
-          cpf,
+          cpf: cpf || null,
           cargo: cargo || null,
           email,
           perfil,

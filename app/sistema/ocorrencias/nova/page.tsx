@@ -18,6 +18,12 @@ import DadosOcorrencia from "@/components/ocorrencias/DadosOcorrencia";
 import { VEICULOS_POR_TIPO } from "@/lib/bases/veiculosPorTipo";
 import { SITUACOES_VEICULO } from "@/lib/modelosOcorrencia";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import AlertaIntermunicipalVeiculo, {
+  type AlertaIntermunicipalVeiculoDados,
+} from "@/components/veiculos/AlertaIntermunicipalVeiculo";
+import AlertaIntermunicipalPessoa, {
+  type AlertaIntermunicipalPessoaDados,
+} from "@/components/pessoas/AlertaIntermunicipalPessoa";
 import {
   montarUrlComMunicipioContexto,
 } from "@/lib/contextoMunicipio";
@@ -309,6 +315,61 @@ type RespostaPrepararFotos = {
   uploads?: UploadFotoPreparado[];
 };
 
+function normalizarPlacaRedeFormulario(
+  valor: string
+) {
+  return valor
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      ""
+    );
+}
+
+function normalizarDocumentoAlerta(
+  valor: string
+) {
+  return valor
+    .trim()
+    .toUpperCase()
+    .replace(
+      /[^A-Z0-9]/g,
+      ""
+    );
+}
+
+function documentoPessoaValidoParaAlerta(
+  tipoDocumento: string,
+  documento: string
+) {
+  const tipo =
+    String(
+      tipoDocumento || ""
+    ).toUpperCase();
+
+  const normalizado =
+    normalizarDocumentoAlerta(
+      documento
+    );
+
+  if (
+    tipo === "CPF" ||
+    tipo === "CNH"
+  ) {
+    return normalizado.length ===
+      11;
+  }
+
+  if (tipo === "RG") {
+    return normalizado.length >=
+      5;
+  }
+
+  return normalizado.length >=
+    5;
+}
+
 export default function NovaOcorrencia() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -339,6 +400,40 @@ export default function NovaOcorrencia() {
   const [abrirVeiculos, setAbrirVeiculos] = useState(true);
   const [historicoVeiculo, setHistoricoVeiculo] = useState<any[]>([]);
   const [historicoEnvolvido, setHistoricoEnvolvido] = useState<any[]>([]);
+  const [
+    alertasIntermunicipais,
+    setAlertasIntermunicipais,
+  ] = useState<
+    Record<
+      number,
+      AlertaIntermunicipalVeiculoDados | null
+    >
+  >({});
+  const [
+    consultandoAlertasIntermunicipais,
+    setConsultandoAlertasIntermunicipais,
+  ] = useState<Record<number, boolean>>({});
+  const [
+    confirmacoesAlertasIntermunicipaisVeiculos,
+    setConfirmacoesAlertasIntermunicipaisVeiculos,
+  ] = useState<Record<number, boolean>>({});
+  const [
+    alertasIntermunicipaisPessoas,
+    setAlertasIntermunicipaisPessoas,
+  ] = useState<
+    Record<
+      number,
+      AlertaIntermunicipalPessoaDados | null
+    >
+  >({});
+  const [
+    consultandoAlertasIntermunicipaisPessoas,
+    setConsultandoAlertasIntermunicipaisPessoas,
+  ] = useState<Record<number, boolean>>({});
+  const [
+    confirmacoesAlertasIntermunicipaisPessoas,
+    setConfirmacoesAlertasIntermunicipaisPessoas,
+  ] = useState<Record<number, boolean>>({});
   const [abrirObjetos, setAbrirObjetos] = useState(true);
   const [etapaAtual, setEtapaAtual] = useState<number>(1);
   const [gerandoNarrativa, setGerandoNarrativa] = useState(false);
@@ -406,6 +501,64 @@ cep_proprietario: "",
     situacao_consulta: "",
   },
 ]);
+  useEffect(() => {
+    if (
+      !municipioId ||
+      !usuarioAtual?.perfil
+    ) {
+      return;
+    }
+
+    const timers =
+      envolvidos.map(
+        (
+          pessoa,
+          index
+        ) => {
+          if (
+            !documentoPessoaValidoParaAlerta(
+              pessoa.tipo_documento,
+              pessoa.documento
+            )
+          ) {
+            return null;
+          }
+
+          return window.setTimeout(
+            () => {
+              void consultarAlertaPessoaIntermunicipal(
+                index,
+                pessoa.tipo_documento,
+                pessoa.documento
+              );
+            },
+            700
+          );
+        }
+      );
+
+    return () => {
+      for (
+        const timer of timers
+      ) {
+        if (timer !== null) {
+          window.clearTimeout(
+            timer
+          );
+        }
+      }
+    };
+  }, [
+    municipioId,
+    usuarioAtual?.perfil,
+    envolvidos
+      .map(
+        (pessoa) =>
+          `${pessoa.tipo_documento}:${pessoa.documento}`
+      )
+      .join("|"),
+  ]);
+
   function selecionarGuarda(nome: string) {
     if (guardasSelecionados.includes(nome)) {
       setGuardasSelecionados(
@@ -425,6 +578,25 @@ cep_proprietario: "",
     const novaLista = [...envolvidos];
     novaLista[index][campo] = valor;
     setEnvolvidos(novaLista);
+
+    if (
+      campo === "documento" ||
+      campo === "tipo_documento"
+    ) {
+      setAlertasIntermunicipaisPessoas(
+        (atual) => ({
+          ...atual,
+          [index]: null,
+        })
+      );
+
+      setConfirmacoesAlertasIntermunicipaisPessoas(
+        (atual) => ({
+          ...atual,
+          [index]: false,
+        })
+      );
+    }
   }
 
   function adicionarEnvolvido() {
@@ -448,7 +620,16 @@ cep_proprietario: "",
       return;
     }
 
-    setEnvolvidos(envolvidos.filter((_, i) => i !== index));
+    setEnvolvidos(
+      envolvidos.filter(
+        (_, i) =>
+          i !== index
+      )
+    );
+
+    setAlertasIntermunicipaisPessoas({});
+    setConsultandoAlertasIntermunicipaisPessoas({});
+    setConfirmacoesAlertasIntermunicipaisPessoas({});
   }
 
   async function salvarOcorrencia(
@@ -472,6 +653,97 @@ cep_proprietario: "",
     if (!municipioId || !usuarioAtual) {
       alert(
         "Sessão ou município inválido. Entre novamente."
+      );
+      return;
+    }
+
+    const veiculoSemConsultaIntermunicipal =
+      veiculosEnvolvidos.some(
+        (
+          veiculo,
+          index
+        ) =>
+          normalizarPlacaRedeFormulario(
+            veiculo.placa
+          ).length === 7 &&
+          !alertasIntermunicipais[
+            index
+          ]
+      );
+
+    if (
+      veiculoSemConsultaIntermunicipal
+    ) {
+      alert(
+        "Aguarde a consulta intermunicipal dos veículos antes de salvar."
+      );
+      return;
+    }
+
+    const pessoaSemConsultaIntermunicipal =
+      envolvidos.some(
+        (
+          pessoa,
+          index
+        ) =>
+          documentoPessoaValidoParaAlerta(
+            pessoa.tipo_documento,
+            pessoa.documento
+          ) &&
+          !alertasIntermunicipaisPessoas[
+            index
+          ]
+      );
+
+    if (
+      pessoaSemConsultaIntermunicipal
+    ) {
+      alert(
+        "Aguarde a consulta intermunicipal das pessoas antes de salvar."
+      );
+      return;
+    }
+
+    const veiculoComAlertaPendente =
+      Object.entries(
+        alertasIntermunicipais
+      ).some(
+        ([indice, alerta]) =>
+          Boolean(
+            alerta?.alerta
+          ) &&
+          !confirmacoesAlertasIntermunicipaisVeiculos[
+            Number(indice)
+          ]
+      );
+
+    if (
+      veiculoComAlertaPendente
+    ) {
+      alert(
+        "Confirme a ciência dos alertas intermunicipais dos veículos."
+      );
+      return;
+    }
+
+    const pessoaComAlertaPendente =
+      Object.entries(
+        alertasIntermunicipaisPessoas
+      ).some(
+        ([indice, alerta]) =>
+          Boolean(
+            alerta?.alerta
+          ) &&
+          !confirmacoesAlertasIntermunicipaisPessoas[
+            Number(indice)
+          ]
+      );
+
+    if (
+      pessoaComAlertaPendente
+    ) {
+      alert(
+        "Confirme a ciência dos alertas intermunicipais das pessoas."
       );
       return;
     }
@@ -704,8 +976,48 @@ cep_proprietario: "",
               numero.trim(),
             envolvidos:
               envolvidosValidos,
+            ciencia_alertas_pessoas:
+              !Object.values(
+                alertasIntermunicipaisPessoas
+              ).some(
+                (alerta) =>
+                  Boolean(
+                    alerta?.alerta
+                  )
+              ) ||
+              Object.entries(
+                alertasIntermunicipaisPessoas
+              ).every(
+                ([indice, alerta]) =>
+                  !alerta?.alerta ||
+                  Boolean(
+                    confirmacoesAlertasIntermunicipaisPessoas[
+                      Number(indice)
+                    ]
+                  )
+              ),
             veiculos_envolvidos:
               veiculosEnvolvidos,
+            ciencia_alertas_veiculos:
+              !Object.values(
+                alertasIntermunicipais
+              ).some(
+                (alerta) =>
+                  Boolean(
+                    alerta?.alerta
+                  )
+              ) ||
+              Object.entries(
+                alertasIntermunicipais
+              ).every(
+                ([indice, alerta]) =>
+                  !alerta?.alerta ||
+                  Boolean(
+                    confirmacoesAlertasIntermunicipaisVeiculos[
+                      Number(indice)
+                    ]
+                  )
+              ),
             armas_objetos:
               itensOcorrencia,
             descricao:
@@ -1545,6 +1857,356 @@ function aplicarVeiculoConsultado(
   );
 }
 
+async function consultarAlertaPessoaIntermunicipal(
+  index: number,
+  tipoDocumento: string,
+  documento: string
+) {
+  const documentoNormalizado =
+    normalizarDocumentoAlerta(
+      documento
+    );
+
+  const tipoNormalizado =
+    String(
+      tipoDocumento || ""
+    )
+      .trim()
+      .toUpperCase();
+
+  if (
+    !municipioId ||
+    !documentoPessoaValidoParaAlerta(
+      tipoNormalizado,
+      documentoNormalizado
+    )
+  ) {
+    setAlertasIntermunicipaisPessoas(
+      (atual) => ({
+        ...atual,
+        [index]: null,
+      })
+    );
+
+    setConfirmacoesAlertasIntermunicipaisPessoas(
+      (atual) => ({
+        ...atual,
+        [index]: false,
+      })
+    );
+
+    return;
+  }
+
+  setConsultandoAlertasIntermunicipaisPessoas(
+    (atual) => ({
+      ...atual,
+      [index]: true,
+    })
+  );
+
+  setConfirmacoesAlertasIntermunicipaisPessoas(
+    (atual) => ({
+      ...atual,
+      [index]: false,
+    })
+  );
+
+  try {
+    const accessToken =
+      await obterAccessToken();
+
+    const parametros =
+      new URLSearchParams({
+        tipo_documento:
+          tipoNormalizado,
+        documento:
+          documentoNormalizado,
+      });
+
+    const url =
+      montarUrlComMunicipioContexto({
+        url:
+          `/api/pessoas/abordagens?${parametros.toString()}`,
+        perfil:
+          usuarioAtual?.perfil,
+        municipioIdUsuario:
+          municipioId,
+      });
+
+    const resposta =
+      await fetch(
+        url,
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+    const retorno =
+      (await resposta
+        .json()
+        .catch(() => ({}))) as {
+        ok?: boolean;
+        erro?: string;
+        alerta?: boolean;
+        tipo_documento?: string;
+        total_registros?: number;
+        total_municipios?: number;
+        ultimo_registro?: AlertaIntermunicipalPessoaDados["ultimo_registro"];
+        registros?: AlertaIntermunicipalPessoaDados["registros"];
+      };
+
+    if (
+      !resposta.ok ||
+      !retorno.ok
+    ) {
+      throw new Error(
+        retorno.erro ||
+        "Não foi possível consultar o alerta intermunicipal da pessoa."
+      );
+    }
+
+    setAlertasIntermunicipaisPessoas(
+      (atual) => ({
+        ...atual,
+        [index]: {
+          alerta:
+            Boolean(
+              retorno.alerta
+            ),
+          tipo_documento:
+            retorno.tipo_documento,
+          total_registros:
+            Number(
+              retorno.total_registros ||
+              0
+            ),
+          total_municipios:
+            Number(
+              retorno.total_municipios ||
+              0
+            ),
+          ultimo_registro:
+            retorno.ultimo_registro ||
+            null,
+          registros:
+            Array.isArray(
+              retorno.registros
+            )
+              ? retorno.registros
+              : [],
+        },
+      })
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao consultar alerta intermunicipal da pessoa:",
+      error
+    );
+
+    setAlertasIntermunicipaisPessoas(
+      (atual) => ({
+        ...atual,
+        [index]: null,
+      })
+    );
+  } finally {
+    setConsultandoAlertasIntermunicipaisPessoas(
+      (atual) => ({
+        ...atual,
+        [index]: false,
+      })
+    );
+  }
+}
+
+function placaBrasileiraValida(
+  valor: string
+) {
+  const placa =
+    valor
+      .trim()
+      .toUpperCase()
+      .replace(
+        /[^A-Z0-9]/g,
+        ""
+      );
+
+  return /^[A-Z]{3}[0-9][A-Z0-9][0-9]{2}$/.test(
+    placa
+  );
+}
+
+async function consultarAlertaIntermunicipal(
+  index: number,
+  placa: string
+) {
+  const placaNormalizada =
+    placa
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, "");
+
+
+  setConfirmacoesAlertasIntermunicipaisVeiculos(
+    (atual) => ({
+      ...atual,
+      [index]: false,
+    })
+  );
+
+  if (
+    !municipioId ||
+    !placaBrasileiraValida(
+      placaNormalizada
+    )
+  ) {
+    setAlertasIntermunicipais(
+      (atual) => ({
+        ...atual,
+        [index]: null,
+      })
+    );
+    return;
+  }
+
+  setConsultandoAlertasIntermunicipais(
+    (atual) => ({
+      ...atual,
+      [index]: true,
+    })
+  );
+
+  try {
+    const accessToken =
+      await obterAccessToken();
+
+    const parametros =
+      new URLSearchParams({
+        placa:
+          placaNormalizada,
+      });
+
+    const url =
+      montarUrlComMunicipioContexto({
+        url:
+          `/api/veiculos/abordagens?${parametros.toString()}`,
+        perfil:
+          usuarioAtual?.perfil,
+        municipioIdUsuario:
+          municipioId,
+      });
+
+    const resposta =
+      await fetch(
+        url,
+        {
+          method: "GET",
+          headers: {
+            Authorization:
+              `Bearer ${accessToken}`,
+          },
+          cache: "no-store",
+        }
+      );
+
+    const retorno =
+      (await resposta
+        .json()
+        .catch(() => ({}))) as {
+        ok?: boolean;
+        erro?: string;
+        alerta?: boolean;
+        placa?: string;
+        total_registros?: number;
+        total_municipios?: number;
+        ultimo_registro?: AlertaIntermunicipalVeiculoDados["ultimo_registro"];
+        registros?: AlertaIntermunicipalVeiculoDados["registros"];
+      };
+
+    if (
+      resposta.status === 422 &&
+      retorno.erro ===
+        "Informe uma placa válida."
+    ) {
+      setAlertasIntermunicipais(
+        (atual) => ({
+          ...atual,
+          [index]: null,
+        })
+      );
+      return;
+    }
+
+    if (
+      !resposta.ok ||
+      !retorno.ok
+    ) {
+      throw new Error(
+        retorno.erro ||
+        "Não foi possível consultar o alerta intermunicipal."
+      );
+    }
+
+    setAlertasIntermunicipais(
+      (atual) => ({
+        ...atual,
+        [index]: {
+          alerta:
+            Boolean(
+              retorno.alerta
+            ),
+          placa:
+            retorno.placa,
+          total_registros:
+            Number(
+              retorno.total_registros ||
+              0
+            ),
+          total_municipios:
+            Number(
+              retorno.total_municipios ||
+              0
+            ),
+          ultimo_registro:
+            retorno.ultimo_registro ||
+            null,
+          registros:
+            Array.isArray(
+              retorno.registros
+            )
+              ? retorno.registros
+              : [],
+        },
+      })
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao consultar alerta intermunicipal do veículo:",
+      error
+    );
+
+    setAlertasIntermunicipais(
+      (atual) => ({
+        ...atual,
+        [index]: null,
+      })
+    );
+  } finally {
+    setConsultandoAlertasIntermunicipais(
+      (atual) => ({
+        ...atual,
+        [index]: false,
+      })
+    );
+  }
+}
+
 async function preencherVeiculo(
   index: number,
   placa: string
@@ -1557,10 +2219,17 @@ async function preencherVeiculo(
 
   if (
     !municipioId ||
-    placaNormalizada.length !== 7
+    !placaBrasileiraValida(
+      placaNormalizada
+    )
   ) {
     return;
   }
+
+  void consultarAlertaIntermunicipal(
+    index,
+    placaNormalizada
+  );
 
   try {
     const veiculo =
@@ -1771,6 +2440,51 @@ async function preencherVeiculoPorRenavam(
     historicoEnvolvido={historicoEnvolvido}
   />
 
+  <div className="space-y-3">
+    {envolvidos.map(
+      (pessoa, index) => (
+        <AlertaIntermunicipalPessoa
+          key={`alerta-pessoa-${index}`}
+          alerta={
+            alertasIntermunicipaisPessoas[
+              index
+            ] || null
+          }
+          carregando={
+            Boolean(
+              consultandoAlertasIntermunicipaisPessoas[
+                index
+              ]
+            )
+          }
+          exigirConfirmacao={
+            Boolean(
+              alertasIntermunicipaisPessoas[
+                index
+              ]?.alerta
+            )
+          }
+          confirmado={
+            Boolean(
+              confirmacoesAlertasIntermunicipaisPessoas[
+                index
+              ]
+            )
+          }
+          onConfirmar={(valor) =>
+            setConfirmacoesAlertasIntermunicipaisPessoas(
+              (atual) => ({
+                ...atual,
+                [index]: valor,
+              })
+            )
+          }
+          compacto
+        />
+      )
+    )}
+  </div>
+
        {mostrarVeiculos && (
   <SecaoOcorrencia
     titulo="Veículos"
@@ -1857,6 +2571,46 @@ async function preencherVeiculoPorRenavam(
     </div>
   </div>
 )}
+
+<div className="md:col-span-12">
+  <AlertaIntermunicipalVeiculo
+    alerta={
+      alertasIntermunicipais[
+        index
+      ] || null
+    }
+    carregando={
+      Boolean(
+        consultandoAlertasIntermunicipais[
+          index
+        ]
+      )
+    }
+    exigirConfirmacao={
+      Boolean(
+        alertasIntermunicipais[
+          index
+        ]?.alerta
+      )
+    }
+    confirmado={
+      Boolean(
+        confirmacoesAlertasIntermunicipaisVeiculos[
+          index
+        ]
+      )
+    }
+    onConfirmar={(valor) =>
+      setConfirmacoesAlertasIntermunicipaisVeiculos(
+        (atual) => ({
+          ...atual,
+          [index]: valor,
+        })
+      )
+    }
+    compacto
+  />
+</div>
 
 <div className="md:col-span-3">
   <label className="label">Tipo / Espécie</label>
@@ -3215,6 +3969,43 @@ let valor = formatarTelefone(e.target.value);
           </p>
         </div>
       )}
+      <AlertaIntermunicipalPessoa
+        alerta={
+          alertasIntermunicipaisPessoas[
+            index
+          ] || null
+        }
+        carregando={
+          Boolean(
+            consultandoAlertasIntermunicipaisPessoas[
+              index
+            ]
+          )
+        }
+        exigirConfirmacao={
+          Boolean(
+            alertasIntermunicipaisPessoas[
+              index
+            ]?.alerta
+          )
+        }
+        confirmado={
+          Boolean(
+            confirmacoesAlertasIntermunicipaisPessoas[
+              index
+            ]
+          )
+        }
+        onConfirmar={(valor) =>
+          setConfirmacoesAlertasIntermunicipaisPessoas(
+            (atual) => ({
+              ...atual,
+              [index]: valor,
+            })
+          )
+        }
+        compacto
+      />
     </div>
   ))}
 </div>
@@ -3300,6 +4091,44 @@ let valor = formatarTelefone(e.target.value);
           </p>
         </div>
       )}
+
+      <AlertaIntermunicipalVeiculo
+        alerta={
+          alertasIntermunicipais[
+            index
+          ] || null
+        }
+        carregando={
+          Boolean(
+            consultandoAlertasIntermunicipais[
+              index
+            ]
+          )
+        }
+        exigirConfirmacao={
+          Boolean(
+            alertasIntermunicipais[
+              index
+            ]?.alerta
+          )
+        }
+        confirmado={
+          Boolean(
+            confirmacoesAlertasIntermunicipaisVeiculos[
+              index
+            ]
+          )
+        }
+        onConfirmar={(valor) =>
+          setConfirmacoesAlertasIntermunicipaisVeiculos(
+            (atual) => ({
+              ...atual,
+              [index]: valor,
+            })
+          )
+        }
+        compacto
+      />
 
       <select
         value={veiculo.tipo_especie}

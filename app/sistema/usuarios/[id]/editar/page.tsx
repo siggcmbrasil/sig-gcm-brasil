@@ -239,8 +239,24 @@ export default function EditarUsuarioPage() {
       return;
     }
 
-    if (cpf.length !== 11) {
-      alert("Informe um CPF válido.");
+    if (
+      usuario.perfil !== "DESENVOLVEDOR" &&
+      cpf.length !== 11
+    ) {
+      alert(
+        "Informe um CPF válido para o usuário operacional."
+      );
+      return;
+    }
+
+    if (
+      usuario.perfil === "DESENVOLVEDOR" &&
+      cpf.length !== 0 &&
+      cpf.length !== 11
+    ) {
+      alert(
+        "O CPF do DESENVOLVEDOR deve ter 11 números ou ficar vazio."
+      );
       return;
     }
 
@@ -431,14 +447,25 @@ return (
 
         <div className="grid gap-4 md:grid-cols-2">
           <Campo
-            label="CPF"
+            label={
+              usuario.perfil === "DESENVOLVEDOR"
+                ? "CPF (opcional)"
+                : "CPF"
+            }
             valor={formatarCpf(usuario.cpf)}
             onChange={(valor) =>
               alterar("cpf", somenteNumeros(valor))
             }
             maxLength={14}
             inputMode="numeric"
-            required
+            required={
+              usuario.perfil !== "DESENVOLVEDOR"
+            }
+            descricao={
+              usuario.perfil === "DESENVOLVEDOR"
+                ? "A conta administrativa pode permanecer sem CPF e sem vínculo funcional."
+                : "O CPF será usado para localizar e vincular o cadastro funcional do guarda."
+            }
           />
 
           <Campo
@@ -572,6 +599,7 @@ function Campo({
   inputMode,
   autoComplete,
   required = false,
+  descricao,
 }: {
   label: string;
   valor: string;
@@ -589,6 +617,7 @@ function Campo({
     | "search";
   autoComplete?: string;
   required?: boolean;
+  descricao?: string;
 }) {
   return (
     <div>
@@ -604,6 +633,12 @@ function Campo({
         autoComplete={autoComplete}
         required={required}
       />
+
+      {descricao ? (
+        <p className="mt-2 text-xs text-slate-500">
+          {descricao}
+        </p>
+      ) : null}
     </div>
   );
 }

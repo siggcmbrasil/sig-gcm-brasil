@@ -754,17 +754,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    authIdCriado = authData.user.id;
+    const authIdConfirmado = authData.user.id;
+    authIdCriado = authIdConfirmado;
 
     const { data: usuarioCriado, error: usuarioError } =
       await supabaseAdmin
         .from("usuarios")
         .select("id,auth_id,nome,email,perfil,status,municipio_id")
-        .eq("auth_id", authIdCriado)
+        .eq("auth_id", authIdConfirmado)
         .maybeSingle();
 
     if (usuarioError || !usuarioCriado) {
-      await reverterCriacao(authIdCriado, null);
+      await reverterCriacao(authIdConfirmado, null);
       authIdCriado = null;
 
       return responder(
@@ -798,7 +799,7 @@ export async function POST(request: NextRequest) {
           });
 
       if (uploadError) {
-        await reverterCriacao(authIdCriado, caminhoFoto);
+        await reverterCriacao(authIdConfirmado, caminhoFoto);
         authIdCriado = null;
         caminhoFoto = null;
 
@@ -842,7 +843,7 @@ export async function POST(request: NextRequest) {
         .single();
 
     if (updateError || !cadastroAtualizado) {
-      await reverterCriacao(authIdCriado, caminhoFoto);
+      await reverterCriacao(authIdConfirmado, caminhoFoto);
       authIdCriado = null;
       caminhoFoto = null;
 
@@ -879,7 +880,7 @@ export async function POST(request: NextRequest) {
       });
 
     if (logError) {
-      await reverterCriacao(authIdCriado, caminhoFoto);
+      await reverterCriacao(authIdConfirmado, caminhoFoto);
       authIdCriado = null;
       caminhoFoto = null;
 

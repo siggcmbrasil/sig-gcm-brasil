@@ -6,12 +6,17 @@ import ProtecaoPerfil from "@/components/ProtecaoPerfil";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { registrarAuditoria } from "@/lib/auditoria";
+import { obterMunicipioIdEfetivo } from "@/lib/contextoMunicipio";
 
 type Municipio = {
   id: number;
   nome: string;
   estado: string;
-  emblema_url: string | null;
+  nome_guarda: string | null;
+  comandante: string | null;
+  brasao: string | null;
+  brasao_gcm: string | null;
+  brasao_prefeitura: string | null;
 };
 
 type Guarnicao = {
@@ -46,7 +51,7 @@ export default function EscalaMensalPage() {
   const mesAtual = String(hoje.getMonth() + 1).padStart(2, "0");
   const anoAtual = String(hoje.getFullYear());
 
-  const [municipios, setMunicipios] = useState<Municipio[]>([]);
+  const [municipioSelecionado, setMunicipioSelecionado] = useState<Municipio | null>(null);
   const [municipioId, setMunicipioId] = useState("");
   const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
   const [registros, setRegistros] = useState<RegistroEscala[]>([]);
@@ -65,24 +70,26 @@ export default function EscalaMensalPage() {
 
   const [carregando, setCarregando] = useState(false);
 
-  async function carregarMunicipios() {
-    const { data, error } = await supabase
-      .from("municipios")
-      .select("id, nome, estado, emblema_url")
-      .eq("ativo", true)
-      .order("nome");
+  function identificarMunicipioAtual() {
+    try {
+      const usuario = JSON.parse(
+        localStorage.getItem("usuarioLogado") || "{}"
+      );
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar municípios.");
-      return;
-    }
+      const idEfetivo = obterMunicipioIdEfetivo({
+        perfil: usuario?.perfil,
+        municipioIdUsuario: usuario?.municipio_id,
+      });
 
-    setMunicipios(data || []);
+      if (!idEfetivo) {
+        alert("Município não identificado.");
+        return;
+      }
 
-    const usuario = JSON.parse(localStorage.getItem("usuarioLogado") || "{}");
-    if (usuario?.municipio_id) {
-      setMunicipioId(String(usuario.municipio_id));
+      setMunicipioId(String(idEfetivo));
+    } catch (error) {
+      console.error("Erro ao identificar município:", error);
+      alert("Não foi possível identificar o município atual.");
     }
   }
 
@@ -90,6 +97,25 @@ export default function EscalaMensalPage() {
     if (!municipioId) return;
 
     setCarregando(true);
+
+    const { data: municipioData, error: erroMunicipio } = await supabase
+      .from("municipios")
+      .select(
+        "id, nome, estado, nome_guarda, comandante, brasao, brasao_gcm, brasao_prefeitura"
+      )
+      .eq("id", Number(municipioId))
+      .eq("ativo", true)
+      .maybeSingle();
+
+    if (erroMunicipio || !municipioData) {
+      console.error("Erro ao carregar município:", erroMunicipio);
+      alert("Não foi possível carregar a identidade institucional do município.");
+      setMunicipioSelecionado(null);
+      setCarregando(false);
+      return;
+    }
+
+    setMunicipioSelecionado(municipioData as Municipio);
 
     const { data: guarnicoesData, error: erroGuarnicoes } = await supabase
       .from("guarnicoes")
@@ -154,7 +180,7 @@ setMembrosGuarnicao(membrosData || []);
   }
 
   useEffect(() => {
-    carregarMunicipios();
+    identificarMunicipioAtual();
   }, []);
 
   useEffect(() => {
@@ -338,411 +364,694 @@ await registrarAuditoria({
   }
 
   async function gerarPDF() {
-    if (guarnicoes.length === 0) {
-  alert("Nenhuma guarnição cadastrada.");
-  return;
-}
-  const municipioSelecionado = municipios.find(
-    (m) => m.id === Number(municipioId)
-  );
-
-  if (!municipioSelecionado) {
-    alert("Selecione o município.");
-    return;
-  }
-
-  const municipio = municipioSelecionado;
-
-  if (registros.length === 0) {
-    alert("Gere ou cadastre a escala antes de emitir o PDF.");
-    return;
-  }
-
-  const pdf = new jsPDF({
-    orientation: "portrait",
-    unit: "mm",
-    format: "a4",
-  });
-
-  const navy: [number, number, number] = [8, 29, 58];
-  const gold: [number, number, number] = [212, 175, 55];
-  const border: [number, number, number] = [190, 198, 210];
-
-  const meses: Record<string, string> = {
-    "01": "JANEIRO",
-    "02": "FEVEREIRO",
-    "03": "MARÇO",
-    "04": "ABRIL",
-    "05": "MAIO",
-    "06": "JUNHO",
-    "07": "JULHO",
-    "08": "AGOSTO",
-    "09": "SETEMBRO",
-    "10": "OUTUBRO",
-    "11": "NOVEMBRO",
-    "12": "DEZEMBRO",
-  };
-
-  const brasaoUrl = municipio.emblema_url || "/biritinga-gcm.png";
-
-  async function imagemParaBase64(url: string): Promise<string | null> {
-    try {
-      const resposta = await fetch(url);
-      const blob = await resposta.blob();
-
-      return await new Promise((resolve) => {
-        const leitor = new FileReader();
-        leitor.onloadend = () => resolve(String(leitor.result));
-        leitor.onerror = () => resolve(null);
-        leitor.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
+    if (!municipioSelecionado || !municipioId) {
+      alert("Município não identificado.");
+      return;
     }
-  }
 
-  const brasaoBase64 = await imagemParaBase64(brasaoUrl);
+    if (guarnicoes.length === 0) {
+      alert("Nenhuma guarnição cadastrada.");
+      return;
+    }
 
-  function inserirBrasao(x: number, y: number, w: number, h: number) {
-    if (!brasaoBase64) return;
+    if (registros.length === 0) {
+      alert("Gere ou cadastre a escala antes de emitir o PDF.");
+      return;
+    }
 
-    try {
-      pdf.addImage(brasaoBase64, "PNG", x, y, w, h);
-    } catch {}
-  }
+    const municipio = municipioSelecionado;
+    const nomeGuarda =
+      municipio.nome_guarda?.trim() ||
+      `Guarda Civil Municipal de ${municipio.nome}`;
 
-  function marcaDagua() {
-    if (!brasaoBase64) return;
+    const usuarioLogado = (() => {
+      try {
+        return JSON.parse(
+          localStorage.getItem("usuarioLogado") || "{}"
+        );
+      } catch {
+        return {};
+      }
+    })();
 
-    try {
-      pdf.setGState(
-        new (pdf as any).GState({
-          opacity: 0.12,
-        })
-      );
+    const usuarioEmissor =
+      String(usuarioLogado?.nome || "Usuário não identificado").trim();
 
-      pdf.addImage(
-  brasaoBase64,
-  "PNG",
-  40,
-  65,
-  130,
-  130
-);
+    const dataEmissao = new Date().toLocaleString("pt-BR", {
+      timeZone: "America/Bahia",
+    });
 
-      pdf.setGState(
-        new (pdf as any).GState({
-          opacity: 1,
-        })
-      );
-    } catch {}
-  }
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
 
-  function corPDF(nome: string): [number, number, number] {
-    const n = nome.toLowerCase();
+    const navy: [number, number, number] = [8, 29, 58];
+    const cyan: [number, number, number] = [6, 182, 212];
+    const border: [number, number, number] = [190, 198, 210];
 
-    if (n.includes("alfa")) return [37, 99, 235];
-    if (n.includes("bravo")) return [22, 163, 74];
-    if (n.includes("charlie")) return [126, 58, 242];
-    if (n.includes("delta")) return [202, 138, 4];
-    if (n.includes("echo")) return [8, 145, 178];
+    const meses: Record<string, string> = {
+      "01": "JANEIRO",
+      "02": "FEVEREIRO",
+      "03": "MARÇO",
+      "04": "ABRIL",
+      "05": "MAIO",
+      "06": "JUNHO",
+      "07": "JULHO",
+      "08": "AGOSTO",
+      "09": "SETEMBRO",
+      "10": "OUTUBRO",
+      "11": "NOVEMBRO",
+      "12": "DEZEMBRO",
+    };
 
-    return [15, 23, 42];
-  }
+    type ImagemPdf = {
+      dados: string;
+      formato: "PNG" | "JPEG" | "WEBP";
+      largura: number;
+      altura: number;
+    };
 
-  function header(titulo: string, subtitulo: string) {
-    inserirBrasao(14, 8, 26, 26);
+    async function carregarImagemPdf(
+      url: string | null | undefined
+    ): Promise<ImagemPdf | null> {
+      const caminho = String(url || "").trim();
 
-    pdf.setTextColor(...navy);
-    pdf.setFont("helvetica", "bold");
-    pdf.setFontSize(11);
-    pdf.text(
-      `GUARDA CIVIL MUNICIPAL DE ${municipio.nome.toUpperCase()}`,
-      44,
-      14
+      if (!caminho) {
+        return null;
+      }
+
+      try {
+        const resposta = await fetch(caminho, {
+          cache: "no-store",
+        });
+
+        if (!resposta.ok) {
+          console.error("Imagem institucional não encontrada:", {
+            url: caminho,
+            status: resposta.status,
+          });
+          return null;
+        }
+
+        const blob = await resposta.blob();
+        const dados = await new Promise<string | null>((resolve) => {
+          const leitor = new FileReader();
+          leitor.onloadend = () =>
+            resolve(typeof leitor.result === "string" ? leitor.result : null);
+          leitor.onerror = () => resolve(null);
+          leitor.readAsDataURL(blob);
+        });
+
+        if (!dados) {
+          return null;
+        }
+
+        const dimensoes = await new Promise<{
+          largura: number;
+          altura: number;
+        } | null>((resolve) => {
+          const imagem = new Image();
+          imagem.onload = () =>
+            resolve({
+              largura: imagem.naturalWidth || imagem.width,
+              altura: imagem.naturalHeight || imagem.height,
+            });
+          imagem.onerror = () => resolve(null);
+          imagem.src = dados;
+        });
+
+        if (!dimensoes?.largura || !dimensoes?.altura) {
+          return null;
+        }
+
+        const mime = blob.type.toLowerCase();
+        const formato: ImagemPdf["formato"] = mime.includes("jpeg")
+          ? "JPEG"
+          : mime.includes("webp")
+            ? "WEBP"
+            : "PNG";
+
+        return {
+          dados,
+          formato,
+          largura: dimensoes.largura,
+          altura: dimensoes.altura,
+        };
+      } catch (error) {
+        console.error("Erro ao carregar imagem institucional:", {
+          url: caminho,
+          error,
+        });
+        return null;
+      }
+    }
+
+    const imagemPrefeitura = await carregarImagemPdf(
+      municipio.brasao_prefeitura
     );
 
-    pdf.setFontSize(22);
-    pdf.text(titulo, 44, 26);
+    const imagemGcm = await carregarImagemPdf(
+      municipio.brasao_gcm || municipio.brasao
+    );
 
-    pdf.setFontSize(9);
-    pdf.text(subtitulo, 40, 34);
-    pdf.text("SISTEMA INTEGRADO DE GESTÃO - SIG-GCM", 40, 39);
+    function inserirImagemContida(
+      imagem: ImagemPdf | null,
+      x: number,
+      y: number,
+      larguraMaxima: number,
+      alturaMaxima: number
+    ) {
+      if (!imagem) {
+        return false;
+      }
 
-    pdf.setFillColor(...navy);
-    pdf.roundedRect(155, 10, 42, 22, 2, 2, "F");
+      const escala = Math.min(
+        larguraMaxima / imagem.largura,
+        alturaMaxima / imagem.altura
+      );
 
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(8);
-    pdf.text("MÊS / ANO", 176, 18, { align: "center" });
+      const largura = imagem.largura * escala;
+      const altura = imagem.altura * escala;
+      const posicaoX = x + (larguraMaxima - largura) / 2;
+      const posicaoY = y + (alturaMaxima - altura) / 2;
 
-    pdf.setTextColor(...gold);
-    pdf.setFontSize(12);
-    pdf.text(`${meses[mes]} / ${ano}`, 176, 26, { align: "center" });
+      try {
+        pdf.addImage(
+          imagem.dados,
+          imagem.formato,
+          posicaoX,
+          posicaoY,
+          largura,
+          altura
+        );
+        return true;
+      } catch (error) {
+        console.error("Erro ao inserir imagem no PDF:", error);
+        return false;
+      }
+    }
 
-    pdf.setDrawColor(...gold);
-    pdf.setLineWidth(0.6);
-    pdf.line(14, 44, 196, 44);
-  }
+    function desenharEspacoSemBrasao(
+      x: number,
+      y: number,
+      texto: string
+    ) {
+      pdf.setDrawColor(...border);
+      pdf.setFillColor(248, 250, 252);
+      pdf.roundedRect(x, y, 25, 25, 2, 2, "FD");
+      pdf.setTextColor(100, 116, 139);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(5.5);
+      pdf.text(texto, x + 12.5, y + 13, {
+        align: "center",
+        maxWidth: 21,
+      });
+    }
 
-  function footer() {
-    pdf.setFillColor(...gold);
-    pdf.rect(0, 281, 210, 2, "F");
+    function corPDF(nome: string): [number, number, number] {
+      const n = nome.toLowerCase();
 
-    pdf.setFillColor(...navy);
-    pdf.rect(0, 283, 210, 14, "F");
+      if (n.includes("alfa")) return [37, 99, 235];
+      if (n.includes("bravo")) return [22, 163, 74];
+      if (n.includes("charlie")) return [126, 58, 242];
+      if (n.includes("delta")) return [202, 138, 4];
+      if (n.includes("echo")) return [8, 145, 178];
 
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(9);
-    pdf.setFont("helvetica", "bold");
-    pdf.text("“PROTEGER E SERVIR”", 105, 291, { align: "center" });
-  }
+      return [15, 23, 42];
+    }
 
-  header(
-    "ESCALA OPERACIONAL",
-    `PLANEJAMENTO MENSAL DE SERVIÇO - ESCALA ${tipoEscala}`
-  );
-  marcaDagua();
+    function cabecalho(titulo: string, subtitulo: string) {
+      const adicionouPrefeitura = inserirImagemContida(
+        imagemPrefeitura,
+        14,
+        8,
+        25,
+        25
+      );
 
-  const infos = [
-    ["DIAS NO MÊS", String(diasNoMes)],
-    ["REGISTROS", String(registros.length)],
-    ["GUARNIÇÕES", String(guarnicoes.length)],
-    ["HORÁRIO", horarioPadrao],
-  ];
+      if (!adicionouPrefeitura) {
+        desenharEspacoSemBrasao(14, 8, "PREFEITURA");
+      }
 
-  infos.forEach((item, i) => {
-    const x = 14 + i * 45.5;
+      const adicionouGcm = inserirImagemContida(
+        imagemGcm,
+        171,
+        8,
+        25,
+        25
+      );
+
+      if (!adicionouGcm) {
+        desenharEspacoSemBrasao(171, 8, "GCM");
+      }
+
+      pdf.setTextColor(...navy);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(10);
+
+      const linhasNome = pdf
+        .splitTextToSize(nomeGuarda.toUpperCase(), 118)
+        .slice(0, 2);
+
+      pdf.text(linhasNome, 105, 11, {
+        align: "center",
+      });
+
+      const yMunicipio = 11 + linhasNome.length * 4;
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(
+        `${municipio.nome.toUpperCase()} - ${municipio.estado.toUpperCase()}`,
+        105,
+        yMunicipio,
+        { align: "center" }
+      );
+
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(17);
+      pdf.text(titulo, 105, 29, {
+        align: "center",
+      });
+
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(8);
+      pdf.text(subtitulo, 105, 36, {
+        align: "center",
+        maxWidth: 120,
+      });
+
+      pdf.setDrawColor(...cyan);
+      pdf.setLineWidth(0.7);
+      pdf.line(14, 43, 196, 43);
+    }
+
+    function marcaDagua() {
+      if (!imagemGcm) {
+        return;
+      }
+
+      try {
+        pdf.setGState(
+          new (pdf as any).GState({
+            opacity: 0.05,
+          })
+        );
+
+        inserirImagemContida(imagemGcm, 48, 80, 114, 114);
+
+        pdf.setGState(
+          new (pdf as any).GState({
+            opacity: 1,
+          })
+        );
+      } catch {
+        // O PDF continua válido mesmo se o navegador não suportar transparência.
+      }
+    }
+
+    cabecalho(
+      "ESCALA OPERACIONAL",
+      `PLANEJAMENTO MENSAL DE SERVIÇO - ESCALA ${tipoEscala}`
+    );
+    marcaDagua();
+
+    const infos = [
+      ["PERÍODO", `${meses[mes]} / ${ano}`],
+      ["REGISTROS", String(registros.length)],
+      ["GUARNIÇÕES", String(guarnicoes.length)],
+      ["HORÁRIO", horarioPadrao],
+    ];
+
+    infos.forEach((item, i) => {
+      const x = 14 + i * 45.5;
+
+      pdf.setDrawColor(...border);
+      pdf.setFillColor(255, 255, 255);
+      pdf.roundedRect(x, 49, 43, 16, 2, 2, "FD");
+
+      pdf.setTextColor(...navy);
+      pdf.setFont("helvetica", "bold");
+      pdf.setFontSize(7);
+      pdf.text(item[0], x + 4, 55);
+
+      pdf.setFontSize(item[0] === "HORÁRIO" ? 8 : 10);
+      pdf.text(item[1], x + 4, 62, {
+        maxWidth: 35,
+      });
+    });
+
+    const diasSemana = [
+      "DOMINGO",
+      "SEGUNDA",
+      "TERÇA",
+      "QUARTA",
+      "QUINTA",
+      "SEXTA",
+      "SÁBADO",
+    ];
+
+    const primeiroDia = new Date(
+      Number(ano),
+      Number(mes) - 1,
+      1
+    ).getDay();
+
+    const calX = 14;
+    const calY = 72;
+    const cellW = 182 / 7;
+    const cellH = 25;
+
+    diasSemana.forEach((diaSemana, i) => {
+      pdf.setFillColor(...navy);
+      pdf.setDrawColor(180, 190, 205);
+      pdf.rect(calX + i * cellW, calY, cellW, 8, "FD");
+
+      pdf.setTextColor(255, 255, 255);
+      pdf.setFontSize(7);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(
+        diaSemana,
+        calX + i * cellW + cellW / 2,
+        calY + 5.5,
+        { align: "center" }
+      );
+    });
+
+    for (let i = 0; i < 42; i++) {
+      const coluna = i % 7;
+      const linha = Math.floor(i / 7);
+      const diaNumero = i - primeiroDia + 1;
+      const x = calX + coluna * cellW;
+      const y = calY + 8 + linha * cellH;
+
+      pdf.setDrawColor(205, 210, 218);
+      pdf.setFillColor(255, 255, 255);
+      pdf.rect(x, y, cellW, cellH, "FD");
+
+      if (diaNumero >= 1 && diaNumero <= diasNoMes) {
+        const data = `${ano}-${mes}-${String(diaNumero).padStart(2, "0")}`;
+        const registro = registros.find(
+          (item) => item.data_servico === data
+        );
+        const nome =
+          registro?.equipe || registro?.guarda_nome || "Sem escala";
+        const cor = corPDF(nome);
+
+        pdf.setTextColor(coluna === 0 ? 200 : 5, 25, 45);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(9);
+        pdf.text(
+          String(diaNumero).padStart(2, "0"),
+          x + 3,
+          y + 6
+        );
+
+        pdf.setTextColor(...cor);
+        pdf.setFontSize(6.5);
+
+        const linhasEquipe = pdf
+          .splitTextToSize(nome, cellW - 6)
+          .slice(0, 2);
+
+        pdf.text(linhasEquipe, x + 3, y + 12);
+
+        pdf.setTextColor(...navy);
+        pdf.setFontSize(5.7);
+        pdf.text(
+          registro?.turno || horarioPadrao,
+          x + 3,
+          y + 21,
+          { maxWidth: cellW - 6 }
+        );
+      }
+    }
+
+    pdf.addPage("a4", "portrait");
+
+    const resumoBody = guarnicoes.map((guarnicao) => {
+      const membrosDaGuarnicao = membrosGuarnicao.filter(
+        (membro: any) =>
+          Number(membro.guarnicao_id) === Number(guarnicao.id)
+      );
+
+      function nomeDoGuarda(membro: any) {
+        const guardaEncontrado = guardas.find(
+          (guarda) => Number(guarda.id) === Number(membro.guarda_id)
+        );
+
+        return guardaEncontrado
+          ? `${guardaEncontrado.nome} (${guardaEncontrado.matricula})`
+          : "";
+      }
+
+      const membrosComNome = membrosDaGuarnicao
+        .map((membro: any) => ({
+          ...membro,
+          nomeFormatado: nomeDoGuarda(membro),
+          funcaoNormalizada: String(membro.funcao || "")
+            .toUpperCase()
+            .trim(),
+        }))
+        .filter((membro: any) => membro.nomeFormatado);
+
+      const comandanteItem =
+        membrosComNome.find((membro: any) =>
+          ["CMT_GUARNICAO", "COMANDANTE", "CMT", "CHEFE"].includes(
+            membro.funcaoNormalizada
+          )
+        ) || membrosComNome[0];
+
+      const motoristaItem =
+        membrosComNome.find(
+          (membro: any) =>
+            membro.funcaoNormalizada === "MOTORISTA" &&
+            Number(membro.guarda_id) !==
+              Number(comandanteItem?.guarda_id)
+        ) ||
+        membrosComNome.find(
+          (membro: any) =>
+            Number(membro.guarda_id) !==
+            Number(comandanteItem?.guarda_id)
+        );
+
+      const demaisLista = membrosComNome
+        .filter(
+          (membro: any) =>
+            Number(membro.guarda_id) !==
+              Number(comandanteItem?.guarda_id) &&
+            Number(membro.guarda_id) !==
+              Number(motoristaItem?.guarda_id)
+        )
+        .map((membro: any) => membro.nomeFormatado);
+
+      const comandante =
+        comandanteItem?.nomeFormatado || "Não definido";
+      const motorista =
+        motoristaItem?.nomeFormatado || "Não definido";
+
+      const dias = registros
+        .filter(
+          (registro) =>
+            (registro.equipe || registro.guarda_nome) === guarnicao.nome
+        )
+        .map((registro) => registro.data_servico.split("-")[2])
+        .join(", ");
+
+      const total = registros.filter(
+        (registro) =>
+          (registro.equipe || registro.guarda_nome) === guarnicao.nome
+      ).length;
+
+      const integrantes = [
+        `CMT: ${comandante}`,
+        `Motorista: ${motorista}`,
+        ...demaisLista,
+        `Total de integrantes: ${membrosComNome.length}`,
+      ].join("\n");
+
+      return [
+        guarnicao.nome,
+        integrantes,
+        dias || "-",
+        `${total} plantões`,
+      ];
+    });
+
+    autoTable(pdf, {
+      startY: 50,
+      margin: {
+        top: 50,
+        right: 14,
+        bottom: 24,
+        left: 14,
+      },
+      head: [["GUARNIÇÃO", "INTEGRANTES / MATRÍCULA", "DIAS", "TOTAL"]],
+      body: resumoBody,
+      theme: "grid",
+      styles: {
+        fontSize: 8,
+        cellPadding: 4,
+        minCellHeight: 12,
+        valign: "middle",
+        lineColor: border,
+        lineWidth: 0.2,
+        textColor: navy,
+        overflow: "linebreak",
+      },
+      headStyles: {
+        fillColor: navy,
+        textColor: [255, 255, 255],
+        fontStyle: "bold",
+        halign: "center",
+      },
+      columnStyles: {
+        0: {
+          cellWidth: 34,
+          fontStyle: "bold",
+          halign: "center",
+          valign: "middle",
+        },
+        1: {
+          cellWidth: 82,
+          valign: "top",
+        },
+        2: {
+          cellWidth: 40,
+          halign: "center",
+          valign: "middle",
+        },
+        3: {
+          cellWidth: 26,
+          halign: "center",
+          fontStyle: "bold",
+          valign: "middle",
+        },
+      },
+      willDrawPage: () => {
+        marcaDagua();
+        cabecalho(
+          "RESUMO POR GUARNIÇÃO",
+          `DISTRIBUIÇÃO DE PLANTÕES - ${meses[mes]} / ${ano}`
+        );
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 0) {
+          data.cell.styles.textColor = corPDF(String(data.cell.raw));
+        }
+      },
+    });
+
+    let yObservacoes =
+      Number((pdf as any).lastAutoTable?.finalY || 55) + 8;
+
+    if (yObservacoes > 247) {
+      pdf.addPage("a4", "portrait");
+      cabecalho(
+        "VALIDAÇÃO DA ESCALA",
+        `${meses[mes]} / ${ano}`
+      );
+      marcaDagua();
+      yObservacoes = 55;
+    }
 
     pdf.setDrawColor(...border);
     pdf.setFillColor(255, 255, 255);
-    pdf.roundedRect(x, 50, 43, 16, 2, 2, "FD");
+    pdf.roundedRect(14, yObservacoes, 182, 31, 2, 2, "FD");
 
     pdf.setTextColor(...navy);
+    pdf.setFontSize(8);
+    pdf.setFont("helvetica", "bold");
+    pdf.text("OBSERVAÇÕES E VALIDAÇÃO", 18, yObservacoes + 7);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(7);
+    pdf.text(
+      "Documento gerado automaticamente pelo SIG-GCM Brasil.",
+      18,
+      yObservacoes + 13
+    );
+    pdf.text(
+      "Substituições, férias, licenças e permutas devem constar no sistema.",
+      18,
+      yObservacoes + 18
+    );
+
+    pdf.setFontSize(6.5);
+    pdf.text(
+      `Emitido por: ${usuarioEmissor}`,
+      18,
+      yObservacoes + 24
+    );
+    pdf.text(
+      `Emissão: ${dataEmissao}`,
+      18,
+      yObservacoes + 28
+    );
+
+    pdf.line(132, yObservacoes + 20, 188, yObservacoes + 20);
     pdf.setFont("helvetica", "bold");
     pdf.setFontSize(7);
-    pdf.text(item[0], x + 4, 56);
-
-    pdf.setFontSize(11);
-    pdf.text(item[1], x + 4, 63);
-  });
-
-  const diasSemana = [
-    "DOMINGO",
-    "SEGUNDA",
-    "TERÇA",
-    "QUARTA",
-    "QUINTA",
-    "SEXTA",
-    "SÁBADO",
-  ];
-
-  const primeiroDia = new Date(Number(ano), Number(mes) - 1, 1).getDay();
-  const calX = 14;
-  const calY = 74;
-  const cellW = 182 / 7;
-  const cellH = 25;
-
-  diasSemana.forEach((d, i) => {
-    pdf.setFillColor(...navy);
-    pdf.setDrawColor(180, 190, 205);
-    pdf.rect(calX + i * cellW, calY, cellW, 8, "FD");
-
-    pdf.setTextColor(255, 255, 255);
-    pdf.setFontSize(7);
-    pdf.setFont("helvetica", "bold");
-    pdf.text(d, calX + i * cellW + cellW / 2, calY + 5.5, {
+    pdf.text(
+      municipio.comandante?.trim() || "COMANDANTE",
+      160,
+      yObservacoes + 25,
+      {
+        align: "center",
+        maxWidth: 55,
+      }
+    );
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(6);
+    pdf.text("Comandante da Guarda", 160, yObservacoes + 29, {
       align: "center",
     });
-  });
 
-  for (let i = 0; i < 42; i++) {
-    const col = i % 7;
-    const row = Math.floor(i / 7);
-    const diaNumero = i - primeiroDia + 1;
-    const x = calX + col * cellW;
-    const y = calY + 8 + row * cellH;
+    const totalPaginas = pdf.getNumberOfPages();
 
-    pdf.setDrawColor(205, 210, 218);
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(x, y, cellW, cellH, "FD");
+    for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+      pdf.setPage(pagina);
 
-    if (diaNumero >= 1 && diaNumero <= diasNoMes) {
-      const data = `${ano}-${mes}-${String(diaNumero).padStart(2, "0")}`;
-      const registro = registros.find((r) => r.data_servico === data);
-      const nome = registro?.equipe || registro?.guarda_nome || "Sem escala";
-      const c = corPDF(nome);
-
-      pdf.setTextColor(col === 0 ? 200 : 5, 25, 45);
-      pdf.setFont("helvetica", "bold");
-      pdf.setFontSize(9);
-      pdf.text(String(diaNumero).padStart(2, "0"), x + 3, y + 6);
-
-      pdf.setTextColor(...c);
-      pdf.setFontSize(6.5);
-      pdf.text(nome, x + 3, y + 12);
+      pdf.setDrawColor(...cyan);
+      pdf.setLineWidth(0.6);
+      pdf.line(14, 278, 196, 278);
 
       pdf.setTextColor(...navy);
-      pdf.setFontSize(6);
-      pdf.text(registro?.turno || horarioPadrao, x + 3, y + 17);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(6.5);
+      pdf.text(
+        `${nomeGuarda} - ${municipio.nome}/${municipio.estado}`,
+        14,
+        284,
+        { maxWidth: 118 }
+      );
+
+      pdf.text(
+        `SIG-GCM Brasil | Página ${pagina} de ${totalPaginas}`,
+        196,
+        284,
+        { align: "right" }
+      );
     }
+
+    const nomeSeguro = municipio.nome
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9_-]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+
+    pdf.save(
+      `Escala_Operacional_${nomeSeguro}_${ano}_${mes}.pdf`
+    );
+
+    await registrarAuditoria({
+      modulo: "Escalas",
+      acao: "EXPORTAR_PDF",
+      descricao: `Gerou o PDF da escala mensal de ${mes}/${ano}.`,
+    });
   }
-
-  footer();
-
-  pdf.addPage("a4", "portrait");
-
-  header(
-    "RESUMO POR GUARNIÇÃO",
-    `DISTRIBUIÇÃO DE PLANTÕES - ${meses[mes]} / ${ano}`
-  );
-  marcaDagua();
-
-  const resumoBody = guarnicoes.map((g) => {
-  const membrosDaGuarnicao = (membrosGuarnicao || []).filter(
-  (m: any) => Number(m.guarnicao_id) === Number(g.id)
-);
-
-function nomeDoGuarda(m: any) {
-  const guardaEncontrado = guardas.find(
-    (guarda) => Number(guarda.id) === Number(m.guarda_id)
-  );
-
-  return guardaEncontrado
-    ? `${guardaEncontrado.nome} (${guardaEncontrado.matricula})`
-    : "";
-}
-
-const membrosComNome = (membrosDaGuarnicao || [])
-  .map((m: any) => ({
-    ...m,
-    nomeFormatado: nomeDoGuarda(m),
-    funcaoNormalizada: String(m.funcao || "").toUpperCase().trim(),
-  }))
-  .filter((m: any) => m.nomeFormatado);
-
-const comandanteItem =
-  membrosComNome.find((m: any) =>
-    ["CMT_GUARNICAO", "COMANDANTE", "CMT", "CHEFE"].includes(
-      m.funcaoNormalizada
-    )
-  ) || membrosComNome[0];
-
-const motoristaItem =
-  membrosComNome.find(
-    (m: any) =>
-      m.funcaoNormalizada === "MOTORISTA" &&
-      Number(m.guarda_id) !== Number(comandanteItem?.guarda_id)
-  ) ||
-  membrosComNome.find(
-    (m: any) => Number(m.guarda_id) !== Number(comandanteItem?.guarda_id)
-  );
-
-const demaisLista = membrosComNome
-  .filter(
-    (m: any) =>
-      Number(m.guarda_id) !== Number(comandanteItem?.guarda_id) &&
-      Number(m.guarda_id) !== Number(motoristaItem?.guarda_id)
-  )
-  .map((m: any) => m.nomeFormatado);
-
-const comandante = comandanteItem?.nomeFormatado || "Não definido";
-const motorista = motoristaItem?.nomeFormatado || "Não definido";
-
-const dias = registros
-  .filter((r) => (r.equipe || r.guarda_nome) === g.nome)
-  .map((r) => r.data_servico.split("-")[2])
-  .join(", ");
-
-const total = registros.filter(
-  (r) => (r.equipe || r.guarda_nome) === g.nome
-).length;
-
-return [
-  g.nome,
-  `CMT: ${comandante}
-
-Motorista: ${motorista}
-
-${demaisLista.join("\n")}
-
-Total de Integrantes: ${membrosDaGuarnicao.length}`,
-  dias || "-",
-  `${total} plantões`,
-];
-});
-  autoTable(pdf, {
-    startY: 52,
-    head: [["GUARNIÇÃO", "INTEGRANTES / MATRÍCULA", "DIAS", "TOTAL"]],
-    body: resumoBody,
-    theme: "grid",
-    styles: {
-  fontSize: 8,
-  cellPadding: 4,
-  minCellHeight: 12,
-  valign: "middle",
-      lineColor: border,
-      lineWidth: 0.2,
-      textColor: navy,
-    },
-    headStyles: {
-      fillColor: navy,
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      halign: "center",
-    },
-    columnStyles: {
-  0: {
-    cellWidth: 38,
-    fontStyle: "bold",
-    halign: "center",
-    valign: "middle",
-  },
-  1: {
-    cellWidth: 78,
-    valign: "top",
-  },
-  2: {
-    cellWidth: 40,
-    halign: "center",
-    valign: "middle",
-  },
-  3: {
-    cellWidth: 26,
-    halign: "center",
-    fontStyle: "bold",
-    valign: "middle",
-  },
-},
-    didParseCell: (data) => {
-      if (data.section === "body" && data.column.index === 0) {
-        const nome = String(data.cell.raw);
-        data.cell.styles.textColor = corPDF(nome);
-      }
-    },
-  });
-
-  pdf.setDrawColor(...border);
-  pdf.roundedRect(14, 244, 182, 24, 2, 2, "S");
-
-  pdf.setTextColor(...navy);
-  pdf.setFontSize(8);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("OBSERVAÇÕES", 18, 251);
-
-  pdf.setFont("helvetica", "normal");
-  pdf.setFontSize(7);
-  pdf.text("• Documento gerado automaticamente pelo SIG-GCM.", 18, 257);
-  pdf.text("• Substituições, férias e permutas devem constar no sistema.", 18, 262);
-
-  pdf.line(135, 258, 185, 258);
-  pdf.setFont("helvetica", "bold");
-  pdf.text("COMANDANTE", 160, 264, { align: "center" });
-
-  footer();
-
-  pdf.save(`Escala_Operacional_${municipioSelecionado.nome}_${mes}_${ano}.pdf`);
-}
 
   const totalPlantao = registros.filter((r) => r.tipo === "Plantão").length;
   const hojeLocal = new Date();
@@ -779,20 +1088,17 @@ const hojeISO = `${hojeLocal.getFullYear()}-${String(
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
 
   <div>
-    <label className="label">Município</label>
-    <select
-      className="input"
-      value={municipioId}
-      onChange={(e) => setMunicipioId(e.target.value)}
-    >
-      <option value="">Selecione</option>
-
-      {municipios.map((m) => (
-        <option key={m.id} value={m.id}>
-          {m.nome} - {m.estado}
-        </option>
-      ))}
-    </select>
+    <label className="label">Município do contexto atual</label>
+    <input
+      className="input cursor-not-allowed opacity-80"
+      value={
+        municipioSelecionado
+          ? `${municipioSelecionado.nome} - ${municipioSelecionado.estado}`
+          : "Carregando município..."
+      }
+      readOnly
+      disabled
+    />
   </div>
 
   <div>

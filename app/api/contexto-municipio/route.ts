@@ -335,7 +335,7 @@ async function listarMunicipios() {
   return {
     ok: true as const,
     municipios:
-      (data || []) as Municipio[],
+      (data || []) as unknown as Municipio[],
   };
 }
 

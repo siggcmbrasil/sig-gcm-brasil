@@ -865,7 +865,7 @@ const brasaoMunicipio =
           autenticacao.permissoes,
         locais:
           (locaisResultado.data ||
-            []) as LocalCadastrado[],
+            []) as unknown as LocalCadastrado[],
         municipio: {
           id:
             autenticacao.municipioId,

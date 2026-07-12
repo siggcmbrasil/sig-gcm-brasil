@@ -103,7 +103,7 @@ export default function AdvertenciasPage() {
       return;
     }
 
-    setAdvertencias((data || []) as Advertencia[]);
+    setAdvertencias((data || []) as unknown as Advertencia[]);
     setCarregando(false);
   }
 
