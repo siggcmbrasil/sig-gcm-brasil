@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 
 type UsuarioSistema = {
   id: number;
+  auth_id: string | null;
   nome: string | null;
   email: string | null;
   perfil: string | null;
@@ -355,6 +356,7 @@ async function autenticar(
     .select(
       `
         id,
+        auth_id,
         nome,
         email,
         perfil,
@@ -756,7 +758,7 @@ export async function PATCH(
   request: NextRequest
 ) {
   let pontoFinalId:
-    number | null = null;
+    string | null = null;
 
   try {
     const autenticacao =
@@ -923,7 +925,7 @@ export async function PATCH(
             autenticacao.municipioId,
           patrulhamento_id: id,
           guarda_id:
-            autenticacao.usuario.id,
+            autenticacao.usuario.auth_id,
           viatura_id: null,
           latitude:
             coordenadas.latitude,
@@ -972,7 +974,7 @@ export async function PATCH(
         );
       }
 
-      pontoFinalId = Number(
+      pontoFinalId = String(
         pontoFinal.id
       );
     }
