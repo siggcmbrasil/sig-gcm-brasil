@@ -4,7 +4,7 @@ import Link from "next/link";
 
 export default function MobileActionCard({
   href,
-  icon: Icon,
+  icon: Icone,
   title,
   subtitle,
   color,
@@ -15,19 +15,19 @@ export default function MobileActionCard({
   subtitle: string;
   color: "red" | "blue";
 }) {
-  const classes =
+  const classe =
     color === "red"
-      ? "border-red-400/30 bg-red-600 text-red-50"
-      : "border-blue-400/30 bg-blue-600 text-blue-50";
+      ? "border-red-400/30 bg-red-600"
+      : "border-blue-400/30 bg-blue-600";
 
   return (
     <Link
       href={href}
-      className={`h-24 rounded-3xl border p-4 shadow-xl active:scale-95 ${classes}`}
+      className={`min-h-28 rounded-3xl border p-5 text-white shadow-xl active:scale-[0.99] ${classe}`}
     >
-      <Icon className="mb-2 h-8 w-8" />
-      <p className="text-base font-black leading-tight">{title}</p>
-      <p className="mt-0.5 text-[11px] opacity-90">{subtitle}</p>
+      <Icone className="h-9 w-9" />
+      <p className="mt-3 text-xl font-black">{title}</p>
+      <p className="mt-1 text-sm text-white/75">{subtitle}</p>
     </Link>
   );
 }

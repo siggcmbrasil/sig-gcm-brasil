@@ -230,6 +230,24 @@ const GRUPOS_MENU: GrupoMenuConfig[] = [
           "/sistema/central-cidadao",
         ],
       },
+
+{
+  href: "/sistema/central-feeds",
+  icone: MessageCircle,
+  titulo: "Central de Feeds",
+  modulos: ["avisos"],
+  rotasAtivas: [
+    "/sistema/central-feeds",
+    "/sistema/feed-sig",
+    "/sistema/feed-brasil",
+    "/sistema/blog-operacional",
+    "/sistema/avisos",
+    "/sistema/notificacoes",
+    "/sistema/agenda-institucional",
+    "/sistema/atualizacoes",
+  ],
+},
+
       {
         href: "/sistema/comunicacao",
         icone: MessageCircle,

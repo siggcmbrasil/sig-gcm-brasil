@@ -1,7 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Clock, Shield, Users } from "lucide-react";
+import {
+  CarFront,
+  ChevronRight,
+  Shield,
+  UserRound,
+} from "lucide-react";
 
 export default function MobileGuarnicaoCard({
   guarnicaoDia,
@@ -11,83 +16,37 @@ export default function MobileGuarnicaoCard({
   return (
     <Link
       href="/sistema/mobile/guarnicao"
-      className="
-        block
-        rounded-3xl
-        border
-        border-slate-800
-        bg-slate-900/90
-        p-4
-        shadow-xl
-        active:scale-[0.99]
-      "
+      className="block rounded-3xl border border-blue-400/25 bg-gradient-to-br from-blue-600/15 to-slate-950 p-4 shadow-xl"
     >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Shield className="h-5 w-5 text-blue-400" />
-          <span className="font-bold text-slate-200">
-            Guarnição do Dia
-          </span>
+      <div className="flex items-start gap-3">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-500/15">
+          <Shield className="h-7 w-7 text-blue-300" />
         </div>
 
-        <ChevronRight className="h-5 w-5 text-slate-500" />
-      </div>
-
-      {guarnicaoDia ? (
-        <>
-          <h2 className="text-2xl font-black text-blue-300">
-            {guarnicaoDia.viatura}
-          </h2>
-
-          <p className="mt-1 text-sm font-semibold text-white">
-            {guarnicaoDia.nome}
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-black uppercase tracking-wider text-blue-300">
+            Guarnição do dia
           </p>
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <h2 className="mt-1 text-xl font-black text-white">
+            {guarnicaoDia?.nome || "Sem guarnição definida"}
+          </h2>
 
-            <div className="rounded-2xl bg-slate-800/60 p-3">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-blue-400" />
-                <span className="text-xs text-slate-400">
-                  Integrantes
-                </span>
-              </div>
-
-              <p className="mt-1 text-lg font-bold">
-                {guarnicaoDia.membros.length}
-              </p>
-            </div>
-
-            <div className="rounded-2xl bg-slate-800/60 p-3">
-              <div className="flex items-center gap-2">
-                <Clock className="h-4 w-4 text-green-400" />
-                <span className="text-xs text-slate-400">
-                  Turno
-                </span>
-              </div>
-
-              <p className="mt-1 text-sm font-bold text-green-400">
-                Em Serviço
-              </p>
-            </div>
-
-          </div>
-
-          <div className="mt-4 rounded-2xl bg-slate-800/50 p-3">
-            <p className="text-xs text-slate-400">
-              Comandante
+          <div className="mt-3 grid gap-2 text-sm text-slate-300">
+            <p className="flex items-center gap-2">
+              <UserRound className="h-4 w-4 text-cyan-300" />
+              {guarnicaoDia?.comandante || "Comandante não informado"}
             </p>
 
-            <p className="mt-1 font-semibold">
-              {guarnicaoDia.comandante}
+            <p className="flex items-center gap-2">
+              <CarFront className="h-4 w-4 text-cyan-300" />
+              {guarnicaoDia?.viatura || "Viatura não informada"}
             </p>
           </div>
-        </>
-      ) : (
-        <div className="rounded-2xl bg-slate-800/50 p-4 text-center text-sm text-slate-400">
-          Nenhuma guarnição encontrada para hoje.
         </div>
-      )}
+
+        <ChevronRight className="h-6 w-6 text-slate-500" />
+      </div>
     </Link>
   );
 }

@@ -2,48 +2,70 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Home, MapPin, Menu, Shield } from "lucide-react";
+import {
+  FileText,
+  Home,
+  MapPin,
+  Menu,
+  Route,
+} from "lucide-react";
+
+const itens = [
+  {
+    href: "/sistema/mobile",
+    titulo: "Início",
+    icone: Home,
+  },
+  {
+    href: "/sistema/patrulhamento",
+    titulo: "Patrulha",
+    icone: Route,
+  },
+  {
+    href: "/sistema/ocorrencias/expressa",
+    titulo: "Ocorrência",
+    icone: FileText,
+  },
+  {
+    href: "/sistema/mapa-operacional",
+    titulo: "Mapa",
+    icone: MapPin,
+  },
+  {
+    href: "/sistema",
+    titulo: "Mais",
+    icone: Menu,
+  },
+];
 
 export default function MobileBottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-slate-800 bg-[#02060f]/95 backdrop-blur-xl md:hidden pb-[env(safe-area-inset-bottom)]">
-      <div className="grid h-[72px] grid-cols-5 items-center text-center">
-        <Item href="/sistema/mobile" icon={Home} text="Início" active={pathname === "/sistema/mobile"} />
-        <Item href="/sistema/ocorrencias" icon={FileText} text="Ocorr." active={pathname.includes("/ocorrencias")} />
+    <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-slate-800 bg-[#02060f]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl md:hidden">
+      <div className="mx-auto grid h-[72px] max-w-md grid-cols-5">
+        {itens.map((item) => {
+          const ativo =
+            item.href === "/sistema/mobile"
+              ? pathname === item.href
+              : pathname.startsWith(item.href);
 
-        <Link href="/sistema/mobile/operacao" className="flex flex-col items-center justify-center gap-1">
-          <div className="flex h-14 w-14 items-center justify-center rounded-full border-4 border-[#02060f] bg-blue-600 shadow-xl active:scale-95">
-            <Shield className="h-7 w-7 text-white" />
-          </div>
-          <span className="text-[10px] font-bold text-blue-300">Operação</span>
-        </Link>
+          const Icone = item.icone;
 
-        <Item href="/sistema/mobile/gps" icon={MapPin} text="GPS" active={pathname.includes("/gps")} />
-        <Item href="/sistema/mobile/mais" icon={Menu} text="Mais" active={pathname.includes("/mais")} />
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center justify-center gap-1 text-[10px] font-black ${
+                ativo ? "text-cyan-300" : "text-slate-500"
+              }`}
+            >
+              <Icone className="h-5 w-5" />
+              {item.titulo}
+            </Link>
+          );
+        })}
       </div>
     </nav>
-  );
-}
-
-function Item({
-  href,
-  icon: Icon,
-  text,
-  active,
-}: {
-  href: string;
-  icon: any;
-  text: string;
-  active?: boolean;
-}) {
-  return (
-    <Link href={href} className="flex flex-col items-center justify-center gap-1">
-      <Icon className={`h-5 w-5 ${active ? "text-blue-400" : "text-slate-500"}`} />
-      <span className={`text-[10px] ${active ? "font-bold text-blue-400" : "text-slate-500"}`}>
-        {text}
-      </span>
-    </Link>
   );
 }
