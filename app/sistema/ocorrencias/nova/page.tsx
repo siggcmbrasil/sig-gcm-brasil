@@ -1169,18 +1169,26 @@ async function carregarSistema() {
       .json()
       .catch(() => null)) as RespostaDadosNovaOcorrencia | null;
 
-    if (!resposta.ok || !dados?.ok || !dados.contexto) {
-      if (resposta.status === 401) {
-        localStorage.removeItem("usuarioLogado");
-        router.replace("/login");
-        return;
-      }
+if (!resposta.ok || !dados?.ok || !dados.contexto) {
+  if (resposta.status === 401) {
+    localStorage.removeItem("usuarioLogado");
+    router.replace("/login");
+    return;
+  }
 
-      throw new Error(
-        dados?.erro ||
-          "Não foi possível preparar a nova ocorrência."
-      );
-    }
+  if (resposta.status === 403) {
+    setErroInicial(
+      dados?.erro ||
+        "Seu perfil não possui permissão para registrar ocorrências."
+    );
+    return;
+  }
+
+  throw new Error(
+    dados?.erro ||
+      "Não foi possível preparar a nova ocorrência."
+  );
+}
 
     const contexto = dados.contexto;
 
@@ -1313,13 +1321,10 @@ Observação: ${chamado.observacao || "-"}`
         ? error.message
         : "Erro ao preparar a nova ocorrência.";
 
-    console.error(
-      "Erro ao carregar dados da nova ocorrência:",
-      {
-        mensagem,
-        error,
-      }
-    );
+console.warn(
+  "Falha ao preparar a nova ocorrência:",
+  mensagem
+);
 
     setErroInicial(mensagem);
   } finally {
@@ -2301,25 +2306,62 @@ async function preencherVeiculoPorRenavam(
     );
   }
 
-  if (erroInicial) {
-    return (
-      <ProtecaoModulo modulo="ocorrencias">
-        <div className="p-6">
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200">
-            {erroInicial}
-          </div>
+if (erroInicial) {
+  const semPermissao =
+    erroInicial
+      .toLowerCase()
+      .includes("permissão");
 
-          <button
-            type="button"
-            onClick={() => void carregarSistema()}
-            className="mt-4 rounded-xl bg-blue-600 px-5 py-3 font-semibold hover:bg-blue-700"
-          >
-            Tentar novamente
-          </button>
+  return (
+    <ProtecaoModulo modulo="ocorrencias">
+      <main className="sig-page">
+        <div
+          className={
+            semPermissao
+              ? "sig-empty"
+              : "sig-error"
+          }
+        >
+          <div className="max-w-xl text-center">
+            <h1 className="text-2xl font-black text-white">
+              {semPermissao
+                ? "Acesso restrito"
+                : "Não foi possível abrir a página"}
+            </h1>
+
+            <p className="mt-3 text-slate-400">
+              {erroInicial}
+            </p>
+
+            <button
+              type="button"
+              onClick={() =>
+                router.replace(
+                  "/sistema/central-ocorrencias"
+                )
+              }
+              className="btn-primary mt-6"
+            >
+              Voltar para a Central de Ocorrências
+            </button>
+
+            {!semPermissao ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void carregarSistema()
+                }
+                className="btn-secondary mt-3"
+              >
+                Tentar novamente
+              </button>
+            ) : null}
+          </div>
         </div>
-      </ProtecaoModulo>
-    );
-  }
+      </main>
+    </ProtecaoModulo>
+  );
+}
 
   return (
   <ProtecaoModulo modulo="ocorrencias">

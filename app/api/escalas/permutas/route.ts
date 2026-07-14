@@ -27,6 +27,7 @@ type UsuarioSistema = {
   perfil: string | null;
   status: string | null;
   municipio_id: number | null;
+  guarda_id: number | null;
 };
 
 type Guarda = {
@@ -180,7 +181,7 @@ async function autenticar(
   } = await supabaseAdmin
     .from("usuarios")
     .select(
-      "id,nome,email,cpf,matricula,perfil,status,municipio_id"
+      "id,nome,email,cpf,matricula,perfil,status,municipio_id,guarda_id"
     )
     .eq("auth_id", user.id)
     .maybeSingle();
@@ -276,51 +277,48 @@ async function localizarGuarda(
   usuario: UsuarioSistema,
   municipioId: number
 ) {
-  const candidatos = [
-    ["matricula", usuario.matricula],
-    ["cpf", usuario.cpf],
-    ["email", usuario.email],
-  ] as const;
+  const guardaId =
+    numeroId(usuario.guarda_id);
 
-  for (
-    const [campo, valor]
-    of candidatos
-  ) {
-    const limpo = texto(valor);
-
-    if (!limpo) {
-      continue;
-    }
-
-    const {
-      data,
-      error,
-    } = await supabaseAdmin
-      .from("guardas")
-      .select(
-        "id,nome,matricula,cpf,email,cargo,status,ativo"
-      )
-      .eq(
-        "municipio_id",
-        municipioId
-      )
-      .eq(campo, limpo)
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      console.error(
-        "Erro ao localizar guarda:",
-        error
-      );
-    }
-
-    if (data) {
-      return data as Guarda;
-    }
+  if (!guardaId) {
+    return null;
   }
 
-  return null;
+  const {
+    data,
+    error,
+  } = await supabaseAdmin
+    .from("guardas")
+    .select(
+      "id,nome,matricula,cpf,email,cargo,status,ativo"
+    )
+    .eq("id", guardaId)
+    .eq(
+      "municipio_id",
+      municipioId
+    )
+    .maybeSingle();
+
+  if (error) {
+    console.error(
+      "Erro ao localizar guarda pelo vínculo direto:",
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        usuario_id: usuario.id,
+        guarda_id: guardaId,
+        municipio_id: municipioId,
+      }
+    );
+
+    throw error;
+  }
+
+  return data
+    ? (data as Guarda)
+    : null;
 }
 
 async function buscarPermuta(
@@ -345,6 +343,80 @@ async function buscarPermuta(
   }
 
   return data;
+}
+
+async function auditarPermuta({
+  request,
+  usuario,
+  perfil,
+  municipioId,
+  acao,
+  descricao,
+  registroId,
+  detalhes,
+}: {
+  request: NextRequest;
+  usuario: UsuarioSistema;
+  perfil: string;
+  municipioId: number;
+  acao: string;
+  descricao: string;
+  registroId: number | null;
+  detalhes?: Record<string, unknown>;
+}) {
+  const encaminhado =
+    request.headers.get("x-vercel-forwarded-for") ||
+    request.headers.get("x-forwarded-for") ||
+    request.headers.get("x-real-ip") ||
+    "Não identificado";
+
+  const ip = encaminhado
+    .split(",")[0]
+    .trim()
+    .slice(0, 64);
+
+  const dispositivo = (
+    request.headers.get("user-agent") ||
+    "Não identificado"
+  ).slice(0, 500);
+
+  const { error } = await supabaseAdmin
+    .from("auditoria")
+    .insert({
+      municipio_id: municipioId,
+      guarda_id: usuario.guarda_id || null,
+      usuario_nome: usuario.nome || "Usuário",
+      usuario_email: usuario.email || "",
+      perfil,
+      modulo: "Permutas de Plantão",
+      acao,
+      descricao,
+      status: "SUCESSO",
+      ip,
+      dispositivo,
+      tabela: "permutas_plantao",
+      registro_id:
+        registroId === null
+          ? null
+          : String(registroId),
+      detalhes: detalhes || {},
+    });
+
+  if (error) {
+    console.error(
+      "Ação da permuta concluída, mas a auditoria falhou:",
+      {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+        acao,
+        registro_id: registroId,
+        usuario_id: usuario.id,
+        municipio_id: municipioId,
+      }
+    );
+  }
 }
 
 export async function GET(
@@ -457,7 +529,7 @@ export async function GET(
         permutas: [],
         historico: [],
         aviso:
-          "Seu usuário ainda não está vinculado a um cadastro de guarda por matrícula, CPF ou e-mail.",
+          "Seu usuário ainda não possui vínculo funcional em usuarios.guarda_id.",
       });
     }
 
@@ -552,11 +624,12 @@ export async function POST(
     return contexto.resposta;
   }
 
-  const {
-    usuario,
-    municipioId,
-    comando,
-  } = contexto;
+const {
+  usuario,
+  perfil,
+  municipioId,
+  comando,
+} = contexto;
 
   let corpo: Record<
     string,
@@ -816,6 +889,24 @@ export async function POST(
         throw inserirError;
       }
 
+      await auditarPermuta({
+        request,
+        usuario,
+        perfil,
+        municipioId,
+        acao: "SOLICITAR",
+        descricao: `Criou a solicitação de permuta ${criada.id}.`,
+        registroId: numeroId(criada.id),
+        detalhes: {
+          escala_origem_id: origem.id,
+          escala_troca_id: troca.id,
+          guarda_solicitante_id: origem.guarda_id,
+          guarda_substituto_id: troca.guarda_id,
+          motivo,
+          status: "AGUARDANDO_SUBSTITUTO",
+        },
+      });
+
       return responder(
         {
           ok: true,
@@ -984,6 +1075,31 @@ export async function POST(
         );
       }
 
+      await auditarPermuta({
+        request,
+        usuario,
+        perfil,
+        municipioId,
+        acao:
+          resposta === "ACEITA"
+            ? "ACEITAR"
+            : "RECUSAR",
+        descricao:
+          resposta === "ACEITA"
+            ? `Aceitou a permuta ${permutaId}.`
+            : `Recusou a permuta ${permutaId}.`,
+        registroId: permutaId,
+        detalhes: {
+          resposta,
+          motivo:
+            resposta === "RECUSADA"
+              ? motivo
+              : null,
+          status_novo: status,
+          guarda_substituto_id: guardaAtual.id,
+        },
+      });
+
       return responder({
         ok: true,
         mensagem:
@@ -1086,6 +1202,27 @@ export async function POST(
         );
       }
 
+      await auditarPermuta({
+        request,
+        usuario,
+        perfil,
+        municipioId,
+        acao:
+          decisao === "APROVAR"
+            ? "APROVAR"
+            : "NEGAR",
+        descricao:
+          decisao === "APROVAR"
+            ? `Aprovou a permuta ${permutaId} e atualizou as escalas.`
+            : `Negou a permuta ${permutaId}.`,
+        registroId: permutaId,
+        detalhes: {
+          decisao,
+          motivo: motivo || null,
+          resultado_rpc: data,
+        },
+      });
+
       return responder({
         ok: true,
         mensagem:
@@ -1166,6 +1303,34 @@ export async function POST(
           409
         );
       }
+
+      const resultadoManual =
+        data && typeof data === "object"
+          ? (data as Record<string, unknown>)
+          : null;
+
+      const permutaManualId =
+        numeroId(resultadoManual?.permuta_id);
+
+      await auditarPermuta({
+        request,
+        usuario,
+        perfil,
+        municipioId,
+        acao: "PERMUTA_MANUAL",
+        descricao:
+          permutaManualId
+            ? `Registrou a permuta manual ${permutaManualId} e atualizou as escalas.`
+            : "Registrou uma permuta manual e atualizou as escalas.",
+        registroId: permutaManualId,
+        detalhes: {
+          escala_origem_id: escalaOrigemId,
+          escala_troca_id: escalaTrocaId,
+          motivo,
+          observacao: observacao || null,
+          resultado_rpc: data,
+        },
+      });
 
       return responder(
         {
@@ -1288,6 +1453,22 @@ export async function POST(
           409
         );
       }
+
+      await auditarPermuta({
+        request,
+        usuario,
+        perfil,
+        municipioId,
+        acao: "CANCELAR",
+        descricao: `Cancelou a permuta ${permutaId}.`,
+        registroId: permutaId,
+        detalhes: {
+          motivo:
+            motivo || "Cancelada pelo usuário.",
+          status_anterior: permuta.status,
+          status_novo: "CANCELADA",
+        },
+      });
 
       return responder({
         ok: true,

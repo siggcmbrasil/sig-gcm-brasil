@@ -488,36 +488,65 @@ export async function GET(
         .maybeSingle<ConfigEscalaOperacional>(),
     ]);
 
-    const erroCarregamento =
-      guardasResposta.error ||
-      viaturasResposta.error ||
-      locaisResposta.error ||
-      guarnicoesResposta.error ||
-      escalaResposta.error;
+   const falhasCarregamento = [
+  {
+    origem: "guardas",
+    erro: guardasResposta.error,
+  },
+  {
+    origem: "viaturas",
+    erro: viaturasResposta.error,
+  },
+  {
+    origem: "locais",
+    erro: locaisResposta.error,
+  },
+  {
+    origem: "guarnicoes",
+    erro: guarnicoesResposta.error,
+  },
+  {
+    origem: "escala_operacional_config",
+    erro: escalaResposta.error,
+  },
+].filter(
+  (
+    item
+  ): item is {
+    origem: string;
+    erro: NonNullable<
+      typeof guardasResposta.error
+    >;
+  } => Boolean(item.erro)
+);
 
-    if (erroCarregamento) {
-      console.error(
-        "Erro ao carregar dados da nova ocorrência:",
-        {
-          message:
-            erroCarregamento.message,
-          details:
-            erroCarregamento.details,
-          hint: erroCarregamento.hint,
-          code: erroCarregamento.code,
-          municipio_id: municipioId,
-        }
-      );
+if (falhasCarregamento.length > 0) {
+  for (const falha of falhasCarregamento) {
+    console.error(
+      `Erro em ${falha.origem} ao preparar nova ocorrência:`,
+      {
+        message: falha.erro.message,
+        details: falha.erro.details,
+        hint: falha.erro.hint,
+        code: falha.erro.code,
+        municipio_id: municipioId,
+      }
+    );
+  }
 
-      return responder(
-        {
-          ok: false,
-          erro:
-            "Não foi possível carregar os dados da nova ocorrência.",
-        },
-        500
-      );
-    }
+  const primeiraFalha =
+    falhasCarregamento[0];
+
+  return responder(
+    {
+      ok: false,
+      erro:
+        `Falha ao carregar ${primeiraFalha.origem}: ` +
+        primeiraFalha.erro.message,
+    },
+    500
+  );
+}
 
     const guardas =
       (guardasResposta.data ||

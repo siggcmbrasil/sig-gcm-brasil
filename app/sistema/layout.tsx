@@ -383,13 +383,23 @@ export default function SistemaLayout({
     };
   }, [router, verificarSessao]);
 
-  if (verificando) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#061426] text-xl text-white">
-        Verificando acesso...
+if (verificando) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[var(--sig-bg)] px-6 text-white">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
+
+        <h1 className="mt-5 text-xl font-black">
+          SIG-GCM Brasil
+        </h1>
+
+        <p className="mt-2 text-sm text-slate-400">
+          Verificando acesso e preparando o ambiente...
+        </p>
       </div>
-    );
-  }
+    </div>
+  );
+}
 
   if (!usuario) {
     return null;
@@ -399,19 +409,30 @@ export default function SistemaLayout({
     <>
       <RegistrarServiceWorker />
 
-      <div className="flex min-h-screen flex-col bg-[#061426] md:flex-row">
-        <Sidebar usuario={usuario} />
+<div className="min-h-screen bg-[var(--sig-bg)] text-white">
+  <div className="flex min-h-screen flex-col md:flex-row">
+    <Sidebar usuario={usuario} />
 
-        <main className="min-w-0 w-full flex-1 overflow-x-hidden">
-          <div className="w-full text-white">
-            <SeletorMunicipioDev
-              usuario={usuario}
-            />
-            <ModalAniversariantes />
-            {children}
-          </div>
-        </main>
+    <main className="min-w-0 flex-1 overflow-x-hidden">
+      <div
+        className="
+          min-h-screen
+          w-full
+          bg-transparent
+          pb-[calc(5.5rem+env(safe-area-inset-bottom))]
+          md:pb-0
+        "
+      >
+        <SeletorMunicipioDev usuario={usuario} />
+        <ModalAniversariantes />
+
+        <div className="mx-auto w-full max-w-[1920px]">
+          {children}
+        </div>
       </div>
+    </main>
+  </div>
+</div>
     </>
   );
 }

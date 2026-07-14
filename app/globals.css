@@ -510,3 +510,341 @@ body.imprimindo {
 body.imprimindo > * {
   overflow: hidden !important;
 }
+
+/* =========================================================
+   SIG-GCM BRASIL — DESIGN SYSTEM FINAL
+   Este bloco deve ficar no final do globals.css
+========================================================= */
+
+:root {
+  --sig-bg: #061426;
+  --sig-bg-soft: #0a1b31;
+  --sig-surface: rgba(7, 22, 43, 0.92);
+  --sig-surface-2: rgba(3, 13, 32, 0.88);
+  --sig-border: rgba(56, 189, 248, 0.18);
+  --sig-border-strong: rgba(56, 189, 248, 0.34);
+  --sig-primary: #2563eb;
+  --sig-primary-hover: #1d4ed8;
+  --sig-cyan: #22d3ee;
+  --sig-success: #10b981;
+  --sig-warning: #f59e0b;
+  --sig-danger: #ef4444;
+  --sig-text: #f8fafc;
+  --sig-muted: #94a3b8;
+  --sig-radius: 20px;
+  --sig-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+html {
+  background: var(--sig-bg);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  margin: 0;
+  overflow-x: hidden;
+  background:
+    radial-gradient(
+      circle at top left,
+      rgba(37, 99, 235, 0.18),
+      transparent 32%
+    ),
+    radial-gradient(
+      circle at top right,
+      rgba(34, 211, 238, 0.08),
+      transparent 28%
+    ),
+    linear-gradient(
+      180deg,
+      #061426 0%,
+      #04101f 100%
+    );
+  color: var(--sig-text);
+  font-family:
+    Arial,
+    Helvetica,
+    sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+/* Estrutura geral */
+
+.sig-page {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  padding:
+    1rem
+    1rem
+    calc(6rem + env(safe-area-inset-bottom));
+}
+
+.sig-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sig-section {
+  border: 1px solid var(--sig-border);
+  border-radius: var(--sig-radius);
+  background: var(--sig-surface);
+  box-shadow: var(--sig-shadow);
+  backdrop-filter: blur(16px);
+}
+
+.sig-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--sig-border);
+}
+
+.sig-section-body {
+  padding: 1.25rem;
+}
+
+/* Compatibilidade com páginas antigas */
+
+.card {
+  border: 1px solid var(--sig-border) !important;
+  border-radius: var(--sig-radius) !important;
+  background: var(--sig-surface) !important;
+  box-shadow: var(--sig-shadow) !important;
+  backdrop-filter: blur(16px);
+}
+
+.label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #cbd5e1 !important;
+  font-size: 0.875rem;
+  font-weight: 700 !important;
+}
+
+.input,
+.input-premium,
+select,
+textarea {
+  min-height: 48px;
+  border: 1px solid rgba(71, 85, 105, 0.9) !important;
+  border-radius: 14px !important;
+  background: rgba(2, 8, 23, 0.92) !important;
+  color: white !important;
+  outline: none !important;
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.input,
+.input-premium {
+  width: 100%;
+  padding: 0.8rem 1rem;
+}
+
+textarea.input,
+textarea.input-premium {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.input:focus,
+.input-premium:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--sig-cyan) !important;
+  box-shadow:
+    0 0 0 3px
+    rgba(34, 211, 238, 0.12) !important;
+}
+
+/* Botões */
+
+.btn-primary,
+.sig-button-primary {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 0;
+  border-radius: 14px;
+  padding: 0.75rem 1.1rem;
+  background: var(--sig-primary);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    opacity 0.2s ease;
+}
+
+.btn-primary:hover,
+.sig-button-primary:hover {
+  background: var(--sig-primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-secondary,
+.sig-button-secondary {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(71, 85, 105, 0.85);
+  border-radius: 14px;
+  padding: 0.75rem 1.1rem;
+  background: rgba(30, 41, 59, 0.88);
+  color: white;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn-danger,
+.sig-button-danger {
+  display: inline-flex;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 14px;
+  padding: 0.75rem 1.1rem;
+  background: rgba(239, 68, 68, 0.12);
+  color: #fecaca;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+/* Tabelas */
+
+.sig-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--sig-border);
+  border-radius: 16px;
+  background: rgba(2, 8, 23, 0.7);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+th {
+  padding: 0.9rem 1rem;
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+td {
+  padding: 0.9rem 1rem;
+  border-top: 1px solid rgba(51, 65, 85, 0.55);
+  color: #e2e8f0;
+}
+
+tbody tr:hover {
+  background: rgba(30, 41, 59, 0.42);
+}
+
+/* Estados */
+
+.sig-loading,
+.sig-empty,
+.sig-error {
+  display: flex;
+  min-height: 220px;
+  align-items: center;
+  justify-content: center;
+  border: 1px dashed var(--sig-border);
+  border-radius: var(--sig-radius);
+  background: var(--sig-surface-2);
+  padding: 2rem;
+  text-align: center;
+}
+
+.sig-empty {
+  color: var(--sig-muted);
+}
+
+.sig-error {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(127, 29, 29, 0.14);
+  color: #fecaca;
+}
+
+/* Mobile */
+
+@media (min-width: 768px) {
+  .sig-page {
+    padding:
+      1.5rem
+      1.5rem
+      3rem;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    font-size: 16px;
+  }
+
+  .sig-page {
+    padding-top:
+      calc(1rem + env(safe-area-inset-top));
+  }
+
+  .sig-section-header {
+    flex-direction: column;
+  }
+
+  .btn-primary,
+  .btn-secondary,
+  .btn-danger,
+  .sig-button-primary,
+  .sig-button-secondary,
+  .sig-button-danger {
+    width: 100%;
+  }
+
+  .card {
+    padding: 1rem !important;
+  }
+
+  th,
+  td {
+    white-space: nowrap;
+  }
+}
+
+/* Acessibilidade */
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--sig-cyan);
+  outline-offset: 2px;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+  transform: none !important;
+}

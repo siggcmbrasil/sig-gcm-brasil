@@ -41,46 +41,77 @@ export default function PessoasAbordadasPage() {
   const perfilUsuario = usuarioLogado?.perfil || "CONSULTA";
   const podeEditar = perfilUsuario !== "CONSULTA";
 
-  async function carregarPessoas() {
-    if (!usuarioLogado?.municipio_id) {
-      setCarregando(false);
-      return;
-    }
+async function carregarPessoas() {
+  const municipioId = Number(usuarioLogado?.municipio_id);
 
-    setCarregando(true);
-
-    const { data, error } = await supabase
-      .from("pessoas_abordadas")
-      .select(`
-  id,
-  nome,
-  documento,
-  nascimento,
-  endereco,
-  local,
-  data,
-  hora,
-  guarda,
-  observacao,
-  tipo_documento,
-  telefone,
-  foto_url,
-  profissao
-`)
-.limit(200)
-      .eq("municipio_id", usuarioLogado.municipio_id)
-      .order("id", { ascending: false });
-
+  if (!municipioId) {
+    setPessoas([]);
     setCarregando(false);
+    return;
+  }
 
-    if (error) {
-      console.error(error);
-      alert("Erro ao carregar pessoas.");
-      return;
+  setCarregando(true);
+
+  try {
+    const tamanhoLote = 200;
+    let inicio = 0;
+    let terminou = false;
+    const todasAsPessoas: Pessoa[] = [];
+
+    while (!terminou) {
+      const fim = inicio + tamanhoLote - 1;
+
+      const { data, error } = await supabase
+        .from("pessoas_abordadas")
+        .select(`
+          id,
+          nome,
+          documento,
+          nascimento,
+          endereco,
+          local,
+          data,
+          hora,
+          guarda,
+          observacao,
+          tipo_documento,
+          telefone,
+          foto_url,
+          profissao
+        `)
+        .eq("municipio_id", municipioId)
+        .order("id", { ascending: false })
+        .range(inicio, fim);
+
+      if (error) {
+        throw error;
+      }
+
+      const lote = (data || []) as Pessoa[];
+
+      todasAsPessoas.push(...lote);
+
+      if (lote.length < tamanhoLote) {
+        terminou = true;
+      } else {
+        inicio += tamanhoLote;
+      }
     }
 
-    setPessoas(data || []);
+    setPessoas(todasAsPessoas);
+
+    console.log(
+      "TOTAL DE PESSOAS CARREGADAS:",
+      todasAsPessoas.length
+    );
+  } catch (error) {
+    console.error("Erro ao carregar pessoas:", error);
+    alert("Erro ao carregar pessoas.");
+    setPessoas([]);
+  } finally {
+    setCarregando(false);
   }
+}
 
  async function excluirPessoa(id: number) {
   if (!podeEditar) {

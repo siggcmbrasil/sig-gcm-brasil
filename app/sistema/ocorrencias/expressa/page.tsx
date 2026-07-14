@@ -237,15 +237,29 @@ export default function OcorrenciaExpressaPage() {
       }
 
       if (
-        !resposta.ok ||
-        !dados?.ok ||
-        !dados.contexto
-      ) {
-        throw new Error(
-          dados?.erro ||
-            "Não foi possível preparar a ocorrência expressa."
-        );
-      }
+  !resposta.ok ||
+  !dados?.ok ||
+  !dados.contexto
+) {
+  if (resposta.status === 401) {
+    localStorage.removeItem("usuarioLogado");
+    router.replace("/login");
+    return;
+  }
+
+  if (resposta.status === 403) {
+    setErroInicial(
+      dados?.erro ||
+        "Seu perfil não possui permissão para registrar ocorrências."
+    );
+    return;
+  }
+
+  throw new Error(
+    dados?.erro ||
+      "Não foi possível preparar a ocorrência expressa."
+  );
+}
 
       setContexto(dados.contexto);
     } catch (error) {
@@ -254,10 +268,10 @@ export default function OcorrenciaExpressaPage() {
           ? error.message
           : "Erro ao preparar a ocorrência expressa.";
 
-      console.error(
-        "Erro ao carregar contexto da ocorrência expressa:",
-        error
-      );
+console.warn(
+  "Falha ao preparar a ocorrência expressa:",
+  mensagem
+);
 
       setErroInicial(mensagem);
     } finally {
@@ -696,38 +710,61 @@ export default function OcorrenciaExpressaPage() {
   }
 
   if (erroInicial) {
-    return (
-      <ProtecaoModulo modulo="ocorrencias">
-        <div className="mx-auto max-w-3xl p-4 md:p-6">
-          <div className="rounded-3xl border border-red-500/30 bg-red-500/10 p-6">
-            <div className="flex items-start gap-3">
-              <XCircle className="mt-0.5 h-6 w-6 text-red-300" />
+  const semPermissao =
+    erroInicial
+      .toLowerCase()
+      .includes("permissão");
 
-              <div>
-                <h1 className="text-lg font-bold text-white">
-                  Não foi possível abrir a ocorrência expressa
-                </h1>
+  return (
+    <ProtecaoModulo modulo="ocorrencias">
+      <main className="sig-page">
+        <div
+          className={
+            semPermissao
+              ? "sig-empty"
+              : "sig-error"
+          }
+        >
+          <div className="max-w-xl text-center">
+            <h1 className="text-2xl font-black text-white">
+              {semPermissao
+                ? "Acesso restrito"
+                : "Não foi possível abrir a ocorrência expressa"}
+            </h1>
 
-                <p className="mt-2 text-sm leading-6 text-red-100/80">
-                  {erroInicial}
-                </p>
-              </div>
-            </div>
+            <p className="mt-3 text-slate-400">
+              {erroInicial}
+            </p>
 
             <button
               type="button"
               onClick={() =>
-                void carregarContexto()
+                router.replace(
+                  "/sistema/central-ocorrencias"
+                )
               }
-              className="mt-5 rounded-xl bg-red-500 px-5 py-3 font-semibold text-white transition hover:bg-red-400"
+              className="btn-primary mt-6"
             >
-              Tentar novamente
+              Voltar para a Central de Ocorrências
             </button>
+
+            {!semPermissao ? (
+              <button
+                type="button"
+                onClick={() =>
+                  void carregarContexto()
+                }
+                className="btn-secondary mt-3"
+              >
+                Tentar novamente
+              </button>
+            ) : null}
           </div>
         </div>
-      </ProtecaoModulo>
-    );
-  }
+      </main>
+    </ProtecaoModulo>
+  );
+}
 
   return (
     <ProtecaoModulo modulo="ocorrencias">

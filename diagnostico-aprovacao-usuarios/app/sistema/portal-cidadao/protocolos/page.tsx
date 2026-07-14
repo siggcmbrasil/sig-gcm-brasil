@@ -1,0 +1,343 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import {
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  FileText,
+  Search,
+} from "lucide-react";
+
+import { supabase } from "@/lib/supabase";
+import { registrarAuditoria } from "@/lib/auditoria";
+import SigPageHeader from "@/components/sig/SigPageHeader";
+import SigCard from "@/components/sig/SigCard";
+import SigButton from "@/components/sig/SigButton";
+
+type UsuarioLogado = {
+  id: string;
+  perfil: string;
+  municipio_id: number;
+};
+
+type Protocolo = {
+  id: number;
+  protocolo: string | null;
+  tipo: string | null;
+  status: string | null;
+  criado_em: string | null;
+  origem: "Denúncia" | "Ouvidoria" | "Solicitação";
+  descricao: string;
+};
+
+function obterUsuarioLogado(): UsuarioLogado | null {
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+
+    if (!usuario?.id || !usuario?.perfil || !usuario?.municipio_id) {
+      return null;
+    }
+
+    return {
+      id: String(usuario.id),
+      perfil: usuario.perfil,
+      municipio_id: Number(usuario.municipio_id),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export default function ProtocolosPage() {
+  const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
+  const [busca, setBusca] = useState("");
+  const [status, setStatus] = useState("TODOS");
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => {
+    void carregar();
+  }, []);
+
+  async function carregar() {
+    const usuario = obterUsuarioLogado();
+
+    if (!usuario) {
+      setProtocolos([]);
+      setCarregando(false);
+      return;
+    }
+
+    setCarregando(true);
+
+    const [denuncias, ouvidorias, solicitacoes] = await Promise.all([
+      supabase
+        .from("denuncias_cidadao")
+        .select("id, protocolo, tipo, status, criado_em, local")
+        .eq("municipio_id", usuario.municipio_id)
+        .order("criado_em", { ascending: false })
+        .limit(100),
+
+      supabase
+        .from("ouvidoria_cidadao")
+        .select("id, protocolo, tipo, status, criado_em, assunto")
+        .eq("municipio_id", usuario.municipio_id)
+        .order("criado_em", { ascending: false })
+        .limit(100),
+
+      supabase
+        .from("solicitacoes_cidadao")
+        .select("id, protocolo, tipo, status, criado_em, local")
+        .eq("municipio_id", usuario.municipio_id)
+        .order("criado_em", { ascending: false })
+        .limit(100),
+    ]);
+
+    if (denuncias.error || ouvidorias.error || solicitacoes.error) {
+      console.error(denuncias.error || ouvidorias.error || solicitacoes.error);
+
+      await registrarAuditoria({
+        modulo: "Protocolos do Cidadão",
+        acao: "ERRO",
+        descricao: "Erro ao carregar protocolos do cidadão.",
+        tabela: "portal_cidadao",
+        detalhes: {
+          erro:
+            denuncias.error?.message ||
+            ouvidorias.error?.message ||
+            solicitacoes.error?.message,
+          municipio_id: usuario.municipio_id,
+          usuario_id: usuario.id,
+        },
+      });
+
+      alert("Erro ao carregar protocolos.");
+      setCarregando(false);
+      return;
+    }
+
+    const lista: Protocolo[] = [
+      ...(denuncias.data || []).map((item) => ({
+        id: item.id,
+        protocolo: item.protocolo,
+        tipo: item.tipo,
+        status: item.status,
+        criado_em: item.criado_em,
+        origem: "Denúncia" as const,
+        descricao: item.local || "Sem local informado",
+      })),
+
+      ...(ouvidorias.data || []).map((item) => ({
+        id: item.id,
+        protocolo: item.protocolo,
+        tipo: item.tipo,
+        status: item.status,
+        criado_em: item.criado_em,
+        origem: "Ouvidoria" as const,
+        descricao: item.assunto || "Sem assunto",
+      })),
+
+      ...(solicitacoes.data || []).map((item) => ({
+        id: item.id,
+        protocolo: item.protocolo,
+        tipo: item.tipo,
+        status: item.status,
+        criado_em: item.criado_em,
+        origem: "Solicitação" as const,
+        descricao: item.local || "Sem local informado",
+      })),
+    ].sort(
+      (a, b) =>
+        new Date(b.criado_em || "").getTime() -
+        new Date(a.criado_em || "").getTime()
+    );
+
+    await registrarAuditoria({
+      modulo: "Protocolos do Cidadão",
+      acao: "ACESSO",
+      descricao: "Acessou a central de protocolos do cidadão.",
+      tabela: "portal_cidadao",
+      detalhes: {
+        municipio_id: usuario.municipio_id,
+        usuario_id: usuario.id,
+        total_registros: lista.length,
+      },
+    });
+
+    setProtocolos(lista);
+    setCarregando(false);
+  }
+
+  const filtrados = useMemo(() => {
+    return protocolos.filter((protocolo) => {
+      const porStatus =
+        status === "TODOS" || protocolo.status === status;
+
+      const termo = busca.toLowerCase().trim();
+
+      const porBusca =
+        !termo ||
+        protocolo.protocolo?.toLowerCase().includes(termo) ||
+        protocolo.tipo?.toLowerCase().includes(termo) ||
+        protocolo.origem.toLowerCase().includes(termo) ||
+        protocolo.descricao.toLowerCase().includes(termo);
+
+      return porStatus && porBusca;
+    });
+  }, [protocolos, busca, status]);
+
+  const pendentes = protocolos.filter((p) => p.status === "PENDENTE").length;
+
+  const analise = protocolos.filter((p) => p.status === "EM_ANALISE").length;
+
+  const finalizados = protocolos.filter((p) =>
+    ["FINALIZADO", "CONCLUIDA", "CONCLUIDO", "ATENDIDA", "RESPONDIDO"].includes(
+      p.status || ""
+    )
+  ).length;
+
+  return (
+    <div className="p-4 md:p-6 pb-24 space-y-6">
+      <SigPageHeader
+        titulo="Protocolos"
+        subtitulo="Consulta e acompanhamento de protocolos do cidadão."
+        icone={FileText}
+      />
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Card
+          titulo="Protocolos"
+          valor={protocolos.length}
+          icone={<FileText className="w-7 h-7 text-blue-400" />}
+        />
+
+        <Card
+          titulo="Pendentes"
+          valor={pendentes}
+          icone={<Clock className="w-7 h-7 text-yellow-400" />}
+        />
+
+        <Card
+          titulo="Em Análise"
+          valor={analise}
+          icone={<AlertCircle className="w-7 h-7 text-red-400" />}
+        />
+
+        <Card
+          titulo="Finalizados"
+          valor={finalizados}
+          icone={<CheckCircle className="w-7 h-7 text-green-400" />}
+        />
+      </div>
+
+      <SigCard>
+        <div className="flex flex-col md:flex-row gap-3">
+          <input
+            className="input flex-1"
+            placeholder="Pesquisar por protocolo, tipo, origem ou descrição..."
+            value={busca}
+            maxLength={80}
+            onChange={(e) => setBusca(e.target.value)}
+          />
+
+          <select
+            className="input md:w-60"
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+          >
+            <option value="TODOS">Todos</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="EM_ANALISE">Em análise</option>
+            <option value="ATENDIDA">Atendida</option>
+            <option value="RESPONDIDO">Respondido</option>
+            <option value="CONCLUIDA">Concluída</option>
+            <option value="ARQUIVADO">Arquivado</option>
+          </select>
+
+          <SigButton type="gold" onClick={carregar}>
+            <Search className="w-4 h-4" />
+            Consultar
+          </SigButton>
+        </div>
+      </SigCard>
+
+      <SigCard>
+        {carregando ? (
+          <p className="text-slate-400">Carregando protocolos...</p>
+        ) : filtrados.length === 0 ? (
+          <div className="text-center py-16">
+            <FileText className="w-16 h-16 mx-auto text-slate-600 mb-4" />
+
+            <h2 className="text-xl font-black text-white">
+              Nenhum protocolo encontrado
+            </h2>
+
+            <p className="text-slate-400 mt-2">
+              Os protocolos gerados pelo Portal do Cidadão aparecerão aqui.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtrados.map((protocolo) => (
+              <div
+                key={`${protocolo.origem}-${protocolo.id}`}
+                className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4"
+              >
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                  <div>
+                    <p className="text-white font-black">
+                      {protocolo.protocolo || "Sem protocolo"}
+                    </p>
+
+                    <p className="text-slate-400 text-sm">
+                      {protocolo.origem} • {protocolo.tipo || "Sem tipo"} •{" "}
+                      {protocolo.descricao}
+                    </p>
+
+                    <p className="text-xs text-slate-500 mt-2">
+                      Criado em:{" "}
+                      {protocolo.criado_em
+                        ? new Date(protocolo.criado_em).toLocaleString("pt-BR")
+                        : "N/I"}
+                    </p>
+                  </div>
+
+                  <span className="rounded-full border border-slate-700 px-3 py-1 text-xs font-bold text-slate-300">
+                    {protocolo.status || "PENDENTE"}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </SigCard>
+    </div>
+  );
+}
+
+function Card({
+  titulo,
+  valor,
+  icone,
+}: {
+  titulo: string;
+  valor: number;
+  icone: React.ReactNode;
+}) {
+  return (
+    <div className="painel-premium p-5">
+      <div className="flex justify-between items-center">
+        <div>
+          <p className="text-slate-400 text-sm">{titulo}</p>
+          <h2 className="text-3xl font-black text-white">{valor}</h2>
+        </div>
+
+        {icone}
+      </div>
+    </div>
+  );
+}

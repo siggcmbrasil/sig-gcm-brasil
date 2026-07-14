@@ -2,17 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Activity,
   Boxes,
   Brain,
   Building2,
   CarFront,
+  ChevronDown,
+  ChevronRight,
   Code2,
   Cog,
   FileText,
@@ -23,9 +21,12 @@ import {
   MessageCircle,
   PhoneCall,
   Scale,
+  Search,
   Shield,
   ShieldCheck,
+  Star,
   Users,
+  X,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -63,6 +64,9 @@ type GrupoMenuConfig = {
   titulo: string;
   itens: ItemMenuConfig[];
 };
+
+const CHAVE_FAVORITOS = "sig_sidebar_favoritos";
+const CHAVE_GRUPOS = "sig_sidebar_grupos";
 
 const GRUPOS_MENU: GrupoMenuConfig[] = [
   {
@@ -130,6 +134,13 @@ const GRUPOS_MENU: GrupoMenuConfig[] = [
   {
     titulo: "Gestão da Guarda",
     itens: [
+      {
+        href: "/sistema/escalas/permutas",
+        icone: Activity,
+        titulo: "Permutas",
+        modulos: ["permutas"],
+        rotasAtivas: ["/sistema/escalas/permutas"],
+      },
       {
         href: "/sistema/central-rh",
         icone: Users,
@@ -276,10 +287,7 @@ const GRUPOS_MENU: GrupoMenuConfig[] = [
   },
 ];
 
-function rotaAtiva(
-  pathname: string,
-  item: ItemMenuConfig
-) {
+function rotaAtiva(pathname: string, item: ItemMenuConfig) {
   if (item.href === "/sistema") {
     return pathname === "/sistema";
   }
@@ -287,6 +295,15 @@ function rotaAtiva(
   return item.rotasAtivas.some((rota) =>
     pathname.startsWith(rota)
   );
+}
+
+function iniciais(nome: string) {
+  return nome
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((parte) => parte.charAt(0).toUpperCase())
+    .join("");
 }
 
 export default function Sidebar({
@@ -297,19 +314,41 @@ export default function Sidebar({
   const pathname = usePathname();
 
   const [aberto, setAberto] = useState(false);
-  const [menuCompacto, setMenuCompacto] =
-    useState(false);
-  const [carregandoMenu, setCarregandoMenu] =
-    useState(true);
+  const [menuCompacto, setMenuCompacto] = useState(false);
+  const [carregandoMenu, setCarregandoMenu] = useState(true);
   const [erroMenu, setErroMenu] = useState("");
   const [modulosPermitidos, setModulosPermitidos] =
     useState<Set<string>>(new Set());
-  const [perfilServidor, setPerfilServidor] =
-    useState("");
-  const [municipioNome, setMunicipioNome] =
-    useState("");
-  const [brasaoMunicipio, setBrasaoMunicipio] =
-    useState("/brasoes/sig-gcm-logo.png");
+  const [perfilServidor, setPerfilServidor] = useState("");
+  const [municipioNome, setMunicipioNome] = useState("");
+  const [brasaoMunicipio, setBrasaoMunicipio] = useState(
+    "/brasoes/sig-gcm-logo.png"
+  );
+  const [busca, setBusca] = useState("");
+  const [favoritos, setFavoritos] = useState<Set<string>>(new Set());
+  const [gruposAbertos, setGruposAbertos] = useState<Set<string>>(
+    new Set(["Principal", "Operacional"])
+  );
+
+  useEffect(() => {
+    try {
+      const favoritosSalvos = JSON.parse(
+        localStorage.getItem(CHAVE_FAVORITOS) || "[]"
+      ) as string[];
+
+      const gruposSalvos = JSON.parse(
+        localStorage.getItem(CHAVE_GRUPOS) || "[]"
+      ) as string[];
+
+      setFavoritos(new Set(favoritosSalvos));
+
+      if (gruposSalvos.length > 0) {
+        setGruposAbertos(new Set(gruposSalvos));
+      }
+    } catch {
+      setFavoritos(new Set());
+    }
+  }, []);
 
   useEffect(() => {
     let ativo = true;
@@ -332,66 +371,46 @@ export default function Sidebar({
           return;
         }
 
-        const resposta = await fetch(
-          "/api/permissoes/menu",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-            cache: "no-store",
-            signal: controller.signal,
-          }
-        );
+        const resposta = await fetch("/api/permissoes/menu", {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          cache: "no-store",
+          signal: controller.signal,
+        });
 
-        const retorno = await resposta
-          .json()
-          .catch(() => null);
+        const retorno = await resposta.json().catch(() => null);
 
-        if (!ativo) {
-          return;
-        }
+        if (!ativo) return;
 
         if (!resposta.ok) {
           if (resposta.status === 401) {
-            localStorage.removeItem(
-              "usuarioLogado"
-            );
+            localStorage.removeItem("usuarioLogado");
             window.location.replace("/login");
             return;
           }
 
           setErroMenu(
-            retorno?.erro ||
-              "Não foi possível carregar o menu."
+            retorno?.erro || "Não foi possível carregar o menu."
           );
           setModulosPermitidos(new Set());
           return;
         }
 
-        setPerfilServidor(
-          String(retorno?.perfil || "")
-        );
-
+        setPerfilServidor(String(retorno?.perfil || ""));
         setMunicipioNome(
-          String(
-            retorno?.municipio_nome ||
-              "Município"
-          )
+          String(retorno?.municipio_nome || "Município")
         );
-
         setBrasaoMunicipio(
           String(retorno?.brasao_gcm || "").trim() ||
             "/brasoes/sig-gcm-logo.png"
         );
-
         setModulosPermitidos(
           new Set(
             Array.isArray(retorno?.modulos)
               ? retorno.modulos.map((modulo: unknown) =>
-                  String(modulo)
-                    .trim()
-                    .toLowerCase()
+                  String(modulo).trim().toLowerCase()
                 )
               : []
           )
@@ -410,9 +429,7 @@ export default function Sidebar({
         );
 
         if (ativo) {
-          setErroMenu(
-            "Não foi possível carregar o menu."
-          );
+          setErroMenu("Não foi possível carregar o menu.");
           setModulosPermitidos(new Set());
         }
       } finally {
@@ -431,25 +448,52 @@ export default function Sidebar({
   }, [usuario?.id]);
 
   const gruposVisiveis = useMemo(() => {
-    const desenvolvedor =
-      perfilServidor === "DESENVOLVEDOR";
+    const desenvolvedor = perfilServidor === "DESENVOLVEDOR";
+    const termo = busca.trim().toLowerCase();
 
     return GRUPOS_MENU.map((grupo) => ({
       ...grupo,
-      itens: grupo.itens.filter(
-        (item) =>
+      itens: grupo.itens.filter((item) => {
+        const permitido =
           desenvolvedor ||
           item.modulos.some((modulo) =>
             modulosPermitidos.has(modulo)
-          )
-      ),
+          );
+
+        const correspondeBusca =
+          !termo ||
+          item.titulo.toLowerCase().includes(termo) ||
+          grupo.titulo.toLowerCase().includes(termo);
+
+        return permitido && correspondeBusca;
+      }),
     })).filter((grupo) => grupo.itens.length > 0);
-  }, [modulosPermitidos, perfilServidor]);
+  }, [busca, modulosPermitidos, perfilServidor]);
+
+  const itensFavoritos = useMemo(() => {
+    return gruposVisiveis
+      .flatMap((grupo) => grupo.itens)
+      .filter((item) => favoritos.has(item.href));
+  }, [favoritos, gruposVisiveis]);
+
+  useEffect(() => {
+    const grupoAtivo = GRUPOS_MENU.find((grupo) =>
+      grupo.itens.some((item) => rotaAtiva(pathname, item))
+    );
+
+    if (!grupoAtivo) return;
+
+    setGruposAbertos((atual) => {
+      if (atual.has(grupoAtivo.titulo)) return atual;
+
+      const novo = new Set(atual);
+      novo.add(grupoAtivo.titulo);
+      return novo;
+    });
+  }, [pathname]);
 
   async function sair() {
-    if (
-      !confirm("Deseja realmente sair do sistema?")
-    ) {
+    if (!confirm("Deseja realmente sair do sistema?")) {
       return;
     }
 
@@ -468,13 +512,51 @@ export default function Sidebar({
     setAberto(false);
   }
 
+  function alternarFavorito(href: string) {
+    setFavoritos((atual) => {
+      const novo = new Set(atual);
+
+      if (novo.has(href)) {
+        novo.delete(href);
+      } else {
+        novo.add(href);
+      }
+
+      localStorage.setItem(
+        CHAVE_FAVORITOS,
+        JSON.stringify(Array.from(novo))
+      );
+
+      return novo;
+    });
+  }
+
+  function alternarGrupo(titulo: string) {
+    setGruposAbertos((atual) => {
+      const novo = new Set(atual);
+
+      if (novo.has(titulo)) {
+        novo.delete(titulo);
+      } else {
+        novo.add(titulo);
+      }
+
+      localStorage.setItem(
+        CHAVE_GRUPOS,
+        JSON.stringify(Array.from(novo))
+      );
+
+      return novo;
+    });
+  }
+
   const perfilExibido =
     perfilServidor || usuario?.perfil || "";
 
   return (
     <>
-      <div className="flex items-center justify-between border-b border-slate-800 bg-[#020b1c] p-4 md:hidden">
-        <div className="flex items-center gap-3">
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-cyan-400/10 bg-[#020b1c]/95 px-4 py-3 backdrop-blur-xl md:hidden">
+        <div className="flex min-w-0 items-center gap-3">
           <img
             src={brasaoMunicipio}
             onError={(event) => {
@@ -482,15 +564,14 @@ export default function Sidebar({
                 "/brasoes/sig-gcm-logo.png";
             }}
             alt="Brasão GCM"
-            className="h-16 w-16 object-contain"
+            className="h-12 w-12 shrink-0 object-contain"
           />
 
-          <div>
-            <h1 className="font-bold text-white">
-              SIG-GCM
+          <div className="min-w-0">
+            <h1 className="truncate font-black text-white">
+              SIG-GCM Brasil
             </h1>
-
-            <p className="text-xs text-slate-400">
+            <p className="truncate text-xs text-slate-400">
               {municipioNome || "Município"}
             </p>
           </div>
@@ -499,26 +580,31 @@ export default function Sidebar({
         <button
           type="button"
           onClick={() => setAberto(!aberto)}
-          className="rounded-xl bg-blue-700 px-4 py-3 font-bold text-white"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-200"
+          aria-label={aberto ? "Fechar menu" : "Abrir menu"}
         >
-          ☰ Menu
+          {aberto ? (
+            <X className="h-5 w-5" />
+          ) : (
+            <Menu className="h-5 w-5" />
+          )}
         </button>
       </div>
 
       {aberto ? (
         <div
-          className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm md:hidden"
           onClick={fecharMenu}
         />
       ) : null}
 
       <aside
         className={`
-          fixed left-0 top-0 z-50 flex h-screen w-80 flex-col
-          border-r border-blue-900/40 bg-slate-950/80 text-white
-          shadow-[0_0_30px_rgba(0,80,255,0.15)] backdrop-blur-xl
+          fixed left-0 top-0 z-50 flex h-screen flex-col
+          border-r border-cyan-400/10 bg-[#020b1c]/95 text-white
+          shadow-[0_0_50px_rgba(2,132,199,0.10)] backdrop-blur-xl
           transition-all duration-300 md:sticky
-          ${menuCompacto ? "md:w-20" : "md:w-72"}
+          ${menuCompacto ? "md:w-20" : "w-[88vw] max-w-80 md:w-72"}
           ${
             aberto
               ? "translate-x-0"
@@ -526,30 +612,9 @@ export default function Sidebar({
           }
         `}
       >
-        <div className="hidden justify-end border-b border-slate-800 p-2 md:flex">
-          <button
-            type="button"
-            onClick={() =>
-              setMenuCompacto(!menuCompacto)
-            }
-            className="text-xl text-white hover:text-blue-400"
-            title={
-              menuCompacto
-                ? "Expandir menu"
-                : "Recolher menu"
-            }
-          >
-            <Menu className="h-6 w-6" />
-          </button>
-        </div>
-
-        {usuario ? (
-          <div
-            className={`border-b border-slate-800 bg-slate-950/40 p-5 ${
-              menuCompacto ? "text-center" : ""
-            }`}
-          >
-            <div className="flex flex-col items-center">
+        <div className="flex items-center justify-between border-b border-slate-800/80 px-3 py-3">
+          {!menuCompacto ? (
+            <div className="flex min-w-0 items-center gap-3">
               <img
                 src={brasaoMunicipio}
                 onError={(event) => {
@@ -557,115 +622,213 @@ export default function Sidebar({
                     "/brasoes/sig-gcm-logo.png";
                 }}
                 alt="Brasão GCM"
-                className={
-                  menuCompacto
-                    ? "h-12 w-12 object-contain"
-                    : "mb-4 h-40 w-40 object-contain"
-                }
+                className="h-11 w-11 shrink-0 object-contain"
               />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-black">
+                  SIG-GCM Brasil
+                </p>
+                <p className="truncate text-xs text-slate-500">
+                  {municipioNome || "Município"}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <img
+              src={brasaoMunicipio}
+              onError={(event) => {
+                event.currentTarget.src =
+                  "/brasoes/sig-gcm-logo.png";
+              }}
+              alt="Brasão GCM"
+              className="mx-auto h-10 w-10 object-contain"
+            />
+          )}
+
+          <button
+            type="button"
+            onClick={() => setMenuCompacto(!menuCompacto)}
+            className="hidden rounded-lg p-2 text-slate-400 transition hover:bg-slate-800 hover:text-white md:inline-flex"
+            title={
+              menuCompacto ? "Expandir menu" : "Recolher menu"
+            }
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        </div>
+
+        {usuario ? (
+          <div
+            className={`border-b border-slate-800/80 bg-slate-950/30 p-4 ${
+              menuCompacto ? "px-2" : ""
+            }`}
+          >
+            <div
+              className={`flex items-center gap-3 ${
+                menuCompacto ? "justify-center" : ""
+              }`}
+            >
+              {usuario.foto_url ? (
+                <img
+                  src={usuario.foto_url}
+                  alt={usuario.nome}
+                  className="h-11 w-11 shrink-0 rounded-xl border border-cyan-400/20 object-cover"
+                />
+              ) : (
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 font-black text-cyan-200">
+                  {iniciais(usuario.nome)}
+                </div>
+              )}
 
               {!menuCompacto ? (
-                <>
-                  <p className="text-center text-lg font-black">
-                    {usuario.nome}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.8)]" />
+                    <p className="truncate text-sm font-black">
+                      {usuario.nome}
+                    </p>
+                  </div>
+                  <p className="mt-1 truncate text-xs text-slate-500">
+                    {perfilExibido}
+                    {usuario.matricula
+                      ? ` • ${usuario.matricula}`
+                      : ""}
                   </p>
-
-                  <p className="mt-1 text-xs text-slate-400">
-                    Matrícula:{" "}
-                    {usuario.matricula || "-"}
-                  </p>
-
-                  <p className="text-xs font-bold text-blue-400">
-                    Perfil: {perfilExibido}
-                  </p>
-                </>
+                </div>
               ) : null}
             </div>
           </div>
         ) : null}
 
-        <nav className="min-h-0 flex-1 overflow-y-auto p-0">
+        {!menuCompacto ? (
+          <div className="border-b border-slate-800/80 p-3">
+            <div className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-700/80 bg-slate-950/70 px-3">
+              <Search className="h-4 w-4 shrink-0 text-slate-500" />
+              <input
+                value={busca}
+                onChange={(evento) => setBusca(evento.target.value)}
+                placeholder="Pesquisar módulo..."
+                className="w-full bg-transparent text-sm text-white outline-none placeholder:text-slate-600"
+              />
+              {busca ? (
+                <button
+                  type="button"
+                  onClick={() => setBusca("")}
+                  className="text-slate-500 hover:text-white"
+                  aria-label="Limpar pesquisa"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
+        <nav className="min-h-0 flex-1 overflow-y-auto px-2 py-3">
           {carregandoMenu ? (
             <div className="p-5 text-center text-sm text-slate-400">
               Carregando menu...
             </div>
           ) : erroMenu ? (
-            <div className="m-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            <div className="m-2 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
               {erroMenu}
             </div>
           ) : gruposVisiveis.length === 0 ? (
             <div className="p-5 text-center text-sm text-slate-400">
-              Nenhum módulo disponível para este
-              perfil.
+              Nenhum módulo disponível para este perfil.
             </div>
           ) : (
-            gruposVisiveis.map((grupo) => (
-              <div key={grupo.titulo}>
-                <GrupoMenu
-                  titulo={grupo.titulo}
-                  compacto={menuCompacto}
-                />
-
-                {grupo.itens.map((item) => (
-                  <ItemMenu
-                    key={item.href}
-                    href={item.href}
-                    icone={item.icone}
-                    titulo={item.titulo}
-                    fecharMenu={fecharMenu}
+            <>
+              {itensFavoritos.length > 0 && !busca ? (
+                <div className="mb-3">
+                  <GrupoTitulo
+                    titulo="Favoritos"
                     compacto={menuCompacto}
-                    ativo={rotaAtiva(
-                      pathname,
-                      item
-                    )}
+                    aberto
+                    fixo
                   />
-                ))}
-              </div>
-            ))
+
+                  <div className="mt-1 space-y-1">
+                    {itensFavoritos.map((item) => (
+                      <ItemMenu
+                        key={`favorito-${item.href}`}
+                        item={item}
+                        fecharMenu={fecharMenu}
+                        compacto={menuCompacto}
+                        ativo={rotaAtiva(pathname, item)}
+                        favorito
+                        alternarFavorito={alternarFavorito}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {gruposVisiveis.map((grupo) => {
+                const abertoGrupo =
+                  Boolean(busca) ||
+                  gruposAbertos.has(grupo.titulo);
+
+                return (
+                  <div key={grupo.titulo} className="mb-2">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        !menuCompacto &&
+                        alternarGrupo(grupo.titulo)
+                      }
+                      className="w-full"
+                    >
+                      <GrupoTitulo
+                        titulo={grupo.titulo}
+                        compacto={menuCompacto}
+                        aberto={abertoGrupo}
+                      />
+                    </button>
+
+                    {abertoGrupo ? (
+                      <div className="mt-1 space-y-1">
+                        {grupo.itens.map((item) => (
+                          <ItemMenu
+                            key={item.href}
+                            item={item}
+                            fecharMenu={fecharMenu}
+                            compacto={menuCompacto}
+                            ativo={rotaAtiva(pathname, item)}
+                            favorito={favoritos.has(item.href)}
+                            alternarFavorito={alternarFavorito}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </>
           )}
         </nav>
 
-        <div className="shrink-0 border-t border-slate-800 bg-slate-950 p-3">
-          <div
-            className={`mb-4 flex items-center gap-3 ${
-              menuCompacto
-                ? "justify-center"
-                : ""
-            }`}
-          >
-            <img
-              src="/brasoes/sig-gcm-logo.png"
-              alt="SIG-GCM Brasil"
-              className="h-12 w-12 object-contain"
-            />
-
-            {!menuCompacto ? (
-              <div>
-                <p className="font-semibold">
-                  SIG-GCM Brasil
-                </p>
-
-                <p className="text-xs text-slate-400">
-                  {usuario?.nome}
-                </p>
-
-                <p className="text-xs text-blue-400">
-                  {perfilExibido}
-                </p>
+        <div className="shrink-0 border-t border-slate-800/80 bg-slate-950/50 p-3">
+          {!menuCompacto ? (
+            <div className="mb-3 rounded-xl border border-slate-800 bg-slate-900/40 p-3">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-500">Versão</span>
+                <strong className="text-slate-300">1.0 Final</strong>
               </div>
-            ) : null}
-          </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-slate-500">Ambiente</span>
+                <strong className="text-emerald-300">Operacional</strong>
+              </div>
+            </div>
+          ) : null}
 
           <button
             type="button"
             onClick={sair}
-            className="w-full rounded-lg bg-red-700 px-3 py-3 text-base font-semibold hover:bg-red-800"
+            className="flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-3 font-black text-red-200 transition hover:bg-red-500/20"
           >
-            {menuCompacto ? (
-              <LogOut className="mx-auto h-5 w-5" />
-            ) : (
-              "Sair do Sistema"
-            )}
+            <LogOut className="h-5 w-5" />
+            {!menuCompacto ? "Sair do sistema" : null}
           </button>
         </div>
       </aside>
@@ -673,68 +836,120 @@ export default function Sidebar({
   );
 }
 
-function GrupoMenu({
+function GrupoTitulo({
   titulo,
   compacto,
+  aberto,
+  fixo = false,
 }: {
   titulo: string;
   compacto: boolean;
+  aberto: boolean;
+  fixo?: boolean;
 }) {
   if (compacto) {
     return (
-      <div className="h-3 border-b border-slate-800" />
+      <div className="mx-auto my-2 h-px w-8 bg-slate-800" />
     );
   }
 
   return (
-    <div className="border-b border-slate-800 bg-slate-900/60 px-5 py-3">
-      <p className="text-xs font-black uppercase tracking-[0.18em] text-cyan-400">
+    <div className="flex items-center justify-between rounded-lg px-3 py-2 text-left transition hover:bg-slate-900/70">
+      <p className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">
         {titulo}
       </p>
+
+      {fixo ? (
+        <Star className="h-3.5 w-3.5 fill-amber-300 text-amber-300" />
+      ) : aberto ? (
+        <ChevronDown className="h-4 w-4 text-slate-600" />
+      ) : (
+        <ChevronRight className="h-4 w-4 text-slate-600" />
+      )}
     </div>
   );
 }
 
 function ItemMenu({
-  href,
-  icone: Icone,
-  titulo,
+  item,
   fecharMenu,
   compacto,
   ativo,
+  favorito,
+  alternarFavorito,
 }: {
-  href: string;
-  icone: LucideIcon;
-  titulo: string;
+  item: ItemMenuConfig;
   fecharMenu: () => void;
   compacto: boolean;
   ativo: boolean;
+  favorito: boolean;
+  alternarFavorito: (href: string) => void;
 }) {
-  return (
-    <Link
-      onClick={fecharMenu}
-      href={href}
-      className={`
-        flex w-full items-center gap-4 border-b border-slate-800
-        px-5 py-5 text-lg font-bold transition-all duration-200
-        ${
-          ativo
-            ? "border-l-4 border-l-cyan-400 bg-blue-700/40 text-white"
-            : "text-slate-200 hover:bg-blue-700/40 hover:text-white"
-        }
-        ${compacto ? "justify-center px-0" : ""}
-      `}
-      title={titulo}
-    >
-      <Icone
-        className={`h-9 w-9 shrink-0 ${
-          ativo
-            ? "text-cyan-300"
-            : "text-blue-400"
-        }`}
-      />
+  const Icone = item.icone;
 
-      {!compacto ? <span>{titulo}</span> : null}
-    </Link>
+  return (
+    <div className="group relative">
+      <Link
+        onClick={fecharMenu}
+        href={item.href}
+        className={`
+          relative flex min-h-12 w-full items-center gap-3 overflow-hidden
+          rounded-xl border px-3 text-sm font-bold transition-all duration-200
+          ${
+            ativo
+              ? "border-cyan-400/25 bg-cyan-400/10 text-white shadow-[inset_3px_0_0_#22d3ee,0_0_22px_rgba(34,211,238,.06)]"
+              : "border-transparent text-slate-300 hover:border-slate-700/70 hover:bg-slate-900/80 hover:text-white"
+          }
+          ${compacto ? "justify-center px-0" : ""}
+        `}
+        title={item.titulo}
+      >
+        <Icone
+          className={`h-5 w-5 shrink-0 ${
+            ativo ? "text-cyan-300" : "text-blue-400"
+          }`}
+        />
+
+        {!compacto ? (
+          <>
+            <span className="min-w-0 flex-1 truncate">
+              {item.titulo}
+            </span>
+
+            {ativo ? (
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.9)]" />
+            ) : null}
+          </>
+        ) : null}
+      </Link>
+
+      {!compacto ? (
+        <button
+          type="button"
+          onClick={() => alternarFavorito(item.href)}
+          className={`absolute right-8 top-1/2 -translate-y-1/2 rounded-md p-1 opacity-0 transition group-hover:opacity-100 ${
+            favorito
+              ? "text-amber-300 opacity-100"
+              : "text-slate-600 hover:text-amber-300"
+          }`}
+          title={
+            favorito
+              ? "Remover dos favoritos"
+              : "Adicionar aos favoritos"
+          }
+          aria-label={
+            favorito
+              ? "Remover dos favoritos"
+              : "Adicionar aos favoritos"
+          }
+        >
+          <Star
+            className={`h-4 w-4 ${
+              favorito ? "fill-current" : ""
+            }`}
+          />
+        </button>
+      ) : null}
+    </div>
   );
 }

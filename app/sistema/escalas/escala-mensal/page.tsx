@@ -243,98 +243,168 @@ const diasCalendario = useMemo(() => {
 }
 
   async function gerarEscalaAutomatica() {
-  if (!municipioId) return alert("Selecione o município.");
-  if (guarnicoes.length === 0) return alert("Nenhuma guarnição ativa cadastrada.");
-
-  if (!confirm(`Gerar escala ${tipoEscala} para ${mes}/${ano}?`)) return;
-
-  const indiceInicial = guarnicaoInicialId
-    ? guarnicoes.findIndex((g) => g.id === Number(guarnicaoInicialId))
-    : 0;
-
-  let inicio = indiceInicial >= 0 ? indiceInicial : 0;
-
-if (
-  usarConfiguracao &&
-  configEscala?.guarnicao_base_id
-) {
-  const indiceConfig = guarnicoes.findIndex(
-    (g) => g.id === configEscala.guarnicao_base_id
-  );
-
-  if (indiceConfig >= 0) {
-    inicio = indiceConfig;
-  }
-}
-  let diasPorGuarnicao = 1;
-
-switch (tipoEscala) {
-  case "24x96":
-    diasPorGuarnicao = 1;
-    break;
-
-  case "12x36":
-    diasPorGuarnicao = 1;
-    break;
-
-  case "24x72":
-    diasPorGuarnicao = 1;
-    break;
-
-  case "48x144":
-    diasPorGuarnicao = 2;
-    break;
-
-  default:
-    diasPorGuarnicao = 1;
-}
-
-  const novosRegistros = [];
-
-  for (let dia = 1; dia <= diasNoMes; dia++) {
-    const data = `${ano}-${mes}-${String(dia).padStart(2, "0")}`;
-    const bloco = Math.floor((dia - 1) / diasPorGuarnicao);
-    const guarnicao = guarnicoes[(inicio + bloco) % guarnicoes.length];
-
-    novosRegistros.push({
-      municipio_id: Number(municipioId),
-      mes,
-      ano,
-      data_servico: data,
-      guarda_nome: guarnicao.nome,
-      matricula: "",
-      tipo: "Plantão",
-      turno: horarioPadrao,
-      equipe: guarnicao.nome,
-      observacao: `Gerado automaticamente - Escala ${tipoEscala}`,
-    });
-  }
-
-  await supabase
-    .from("escala_mensal")
-    .delete()
-    .eq("municipio_id", Number(municipioId))
-    .eq("mes", mes)
-    .eq("ano", ano)
-    .like("observacao", "Gerado automaticamente%");
-
-  const { error } = await supabase.from("escala_mensal").insert(novosRegistros);
-
-  if (error) {
-    console.error(error);
-    alert(error.message || "Erro ao gerar escala.");
+  if (!municipioId) {
+    alert("Selecione o município.");
     return;
   }
 
-  alert("Escala gerada com sucesso.");
+  if (guarnicoes.length === 0) {
+    alert("Nenhuma guarnição ativa cadastrada.");
+    return;
+  }
 
-await registrarAuditoria({
-  modulo: "Escalas",
-  acao: "GERAR",
-  descricao: `Gerou a escala ${tipoEscala} referente a ${mes}/${ano}.`,
-});
+  const confirmar = window.confirm(
+    `Gerar escala ${tipoEscala} para ${mes}/${ano}?`
+  );
 
-  carregarDados();
+  if (!confirmar) {
+    return;
+  }
+
+  setCarregando(true);
+
+  try {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (
+      sessionError ||
+      !session?.access_token
+    ) {
+      alert(
+        "Sessão expirada. Entre novamente no sistema."
+      );
+      return;
+    }
+
+    const resposta = await fetch(
+      "/api/escalas/gerar",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          municipio_id: Number(municipioId),
+          mes,
+          ano,
+          turno: horarioPadrao,
+          tipo_escala: tipoEscala,
+          guarnicao_inicial_id:
+            guarnicaoInicialId
+              ? Number(guarnicaoInicialId)
+              : null,
+        }),
+      }
+    );
+
+    const retorno = await resposta
+      .json()
+      .catch(() => null);
+
+    if (!resposta.ok || !retorno?.ok) {
+      alert(
+        retorno?.erro ||
+          "Não foi possível gerar a escala."
+      );
+      return;
+    }
+
+    alert(
+      `${retorno.mensagem}\n\n` +
+        `${retorno.total_dias} dias gerados.\n` +
+        `${retorno.total_plantões} plantões individuais gerados.`
+    );
+
+    await carregarDados();
+  } catch (error) {
+    console.error(
+      "Erro ao gerar escala:",
+      error
+    );
+
+    alert(
+      "Não foi possível gerar a escala."
+    );
+  } finally {
+    setCarregando(false);
+  }
+}
+
+async function sincronizarEscalasServico(
+  escalaGerada: any[]
+) {
+  const municipio = Number(municipioId);
+
+  await supabase
+    .from("escalas_servico")
+    .delete()
+    .eq("municipio_id", municipio)
+    .gte("data_servico", `${ano}-${mes}-01`)
+    .lte("data_servico", `${ano}-${mes}-31`);
+
+  const registrosServico = [];
+
+  for (const dia of escalaGerada) {
+    const guarnicao = guarnicoes.find(
+      (g) => g.nome === dia.equipe
+    );
+
+    if (!guarnicao) continue;
+
+    const membros = membrosGuarnicao.filter(
+      (m) => Number(m.guarnicao_id) === Number(guarnicao.id)
+    );
+
+    for (const membro of membros) {
+      const guarda = guardas.find(
+        (g) => Number(g.id) === Number(membro.guarda_id)
+      );
+
+      if (!guarda) continue;
+
+      registrosServico.push({
+        municipio_id: municipio,
+
+        data_servico: dia.data_servico,
+
+        turno: dia.turno,
+
+        guarda_id: guarda.id,
+
+        guarda_nome: guarda.nome,
+
+        matricula: guarda.matricula,
+
+        equipe: guarnicao.nome,
+
+        funcao: membro.funcao,
+
+        observacao:
+          "Gerado automaticamente pela Escala Mensal",
+      });
+    }
+  }
+
+  if (registrosServico.length === 0) return;
+
+  const { error } = await supabase
+    .from("escalas_servico")
+    .insert(registrosServico);
+
+  if (error) {
+    console.error(
+      "Erro sincronizando escalas_servico",
+      error
+    );
+
+    alert(
+      "Escala Mensal gerada, porém ocorreu erro ao gerar a Escala Operacional."
+    );
+  }
 }
 
   async function excluirRegistro(id: number) {
