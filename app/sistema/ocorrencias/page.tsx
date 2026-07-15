@@ -21,6 +21,7 @@ import { supabase } from "@/lib/supabase";
 import CardIndicador from "@/components/CardIndicador";
 import { registrarAuditoria } from "@/lib/auditoria";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import ListaOcorrenciasMobile from "@/components/ocorrencias/ListaOcorrenciasMobile";
 import {
   montarUrlComMunicipioContexto,
 } from "@/lib/contextoMunicipio";
@@ -129,6 +130,8 @@ export default function Ocorrencias() {
   const [dataInicial, setDataInicial] = useState("");
   const [dataFinal, setDataFinal] = useState("");
   const [somenteMinhas, setSomenteMinhas] = useState(false);
+  const [mostrarFiltrosMobile, setMostrarFiltrosMobile] =
+  useState(false);
 
   const [podeCriar, setPodeCriar] = useState(false);
   const [podeEditar, setPodeEditar] = useState(false);
@@ -553,7 +556,7 @@ export default function Ocorrencias() {
 return (
   <ProtecaoModulo modulo="ocorrencias">
     <div className="p-3 md:p-6 pb-24 space-y-6">
-      <header className="painel-premium p-6">
+      <header className="painel-premium p-4 md:p-6">
         <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-6">
           <div>
             <h1 className="text-3xl md:text-4xl font-black tracking-tight">
@@ -594,6 +597,17 @@ return (
         </div>
       </header>
 
+      {podeCriar && (
+  <Link
+    href="/sistema/ocorrencias/nova"
+    className="fixed bottom-24 right-5 z-50 flex h-16 w-16 items-center justify-center rounded-full bg-blue-600 text-white shadow-2xl shadow-blue-900/40 transition hover:scale-105 active:scale-95 md:hidden"
+  >
+    <span className="text-4xl font-black leading-none">
+      +
+    </span>
+  </Link>
+)}
+
       {erroTela && (
         <section className="painel-premium p-6 border border-red-500/40">
           <div className="flex items-center gap-3 text-red-300 font-bold">
@@ -603,7 +617,7 @@ return (
         </section>
       )}
 
-      <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+      <section className="hidden md:grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
         <CardIndicador
           titulo="Total de Ocorrências"
           valor={ocorrencias.length}
@@ -645,13 +659,144 @@ return (
         />
       </section>
 
-      <section className="painel-premium p-6">
-        <div className="flex items-center gap-3 mb-5">
-          <Search className="w-8 h-8 text-blue-400 shrink-0" />
-          <h2 className="text-3xl font-black">Filtros de Ocorrências</h2>
-        </div>
+      <section className="grid grid-cols-5 gap-2 md:hidden">
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+  <ResumoCard
+
+    emoji="🚨"
+
+    valor={ocorrencias.length}
+
+    cor="bg-blue-600"
+
+  />
+
+
+
+  <ResumoCard
+
+    emoji="🔴"
+
+    valor={
+
+      ocorrencias.filter(
+
+        (o) => o.status === "Aberta"
+
+      ).length
+
+    }
+
+    cor="bg-red-600"
+
+  />
+
+
+
+  <ResumoCard
+
+    emoji="🟣"
+
+    valor={
+
+      ocorrencias.filter(
+
+        (o) =>
+
+          o.status ===
+
+          "Em andamento"
+
+      ).length
+
+    }
+
+    cor="bg-violet-600"
+
+  />
+
+
+
+  <ResumoCard
+
+    emoji="🟢"
+
+    valor={
+
+      ocorrencias.filter(
+
+        (o) =>
+
+          o.status ===
+
+          "Finalizada"
+
+      ).length
+
+    }
+
+    cor="bg-emerald-600"
+
+  />
+
+
+
+  <ResumoCard
+
+    emoji="⚫"
+
+    valor={
+
+      ocorrencias.filter(
+
+        (o) =>
+
+          o.status ===
+
+          "Cancelada"
+
+      ).length
+
+    }
+
+    cor="bg-slate-700"
+
+  />
+
+</section>
+
+<section className="painel-premium p-4 md:p-6">
+  <div className="flex items-center justify-between gap-3">
+    <div className="flex items-center gap-3">
+      <Search className="h-6 w-6 shrink-0 text-blue-400 md:h-8 md:w-8" />
+
+      <h2 className="text-xl font-black md:text-3xl">
+        Filtros de Ocorrências
+      </h2>
+    </div>
+
+    <button
+      type="button"
+      onClick={() =>
+        setMostrarFiltrosMobile(
+          (valor) => !valor
+        )
+      }
+      className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-bold text-blue-300 md:hidden"
+    >
+      {mostrarFiltrosMobile
+        ? "Fechar"
+        : "Abrir"}
+    </button>
+  </div>
+
+        <div
+  className={`${
+    mostrarFiltrosMobile
+      ? "grid"
+      : "hidden"
+  } md:grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mt-5`}
+>
           <div>
             <label className="label">Buscar</label>
             <input
@@ -815,6 +960,7 @@ return (
         </div>
       </section>
 
+
       <section className="painel-premium p-6">
         <div className="flex items-center justify-between gap-4 mb-5">
           <div className="flex items-center gap-3">
@@ -846,94 +992,17 @@ return (
           </div>
         ) : (
           <>
-            <div className="md:hidden space-y-4">
-              {ocorrenciasFiltradas.map((ocorrencia) => (
-                <div
-                  key={ocorrencia.id}
-                  className="bg-slate-950/40 border border-slate-700 rounded-2xl p-4 space-y-3"
-                >
-                  <div className="flex justify-between gap-3 items-start">
-                    <div>
-                      <p className="text-blue-400 font-black">
-                        {ocorrencia.protocolo}
-                      </p>
-
-                      <h3 className="text-xl font-bold">{ocorrencia.tipo}</h3>
-                    </div>
-
-                    <Status status={ocorrencia.status} />
-                  </div>
-
-                  <div className="text-slate-300 space-y-1">
-                    <p>
-                      <span className="text-slate-500">Local: </span>
-                      {ocorrencia.local}
-                    </p>
-
-                    <p>
-                      <span className="text-slate-500">Bairro: </span>
-                      {ocorrencia.bairro || "-"}
-                    </p>
-
-                    <p>
-                      <span className="text-slate-500">Data: </span>
-                      {ocorrencia.data} {ocorrencia.hora || "--:--"}
-                    </p>
-
-                    <p>
-                      <span className="text-slate-500">Guarnição: </span>
-                      {nomeGuarnicao(ocorrencia.guarnicao_id)}
-                    </p>
-
-                    <p>
-                      <span className="text-slate-500">Viatura: </span>
-                      {prefixoViatura(ocorrencia.viatura_id)}
-                    </p>
-
-                    <p>
-                      <span className="text-slate-500">Responsável: </span>
-                      {nomeGuarda(ocorrencia.guarda_responsavel_id)}
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-2 pt-2">
-                    <Link
-                      href={`/sistema/ocorrencias/${ocorrencia.id}`}
-                      className="bg-blue-700 hover:bg-blue-800 text-white px-4 py-3 rounded-xl text-center font-semibold"
-                    >
-                      Ver
-                    </Link>
-
-                    {podeEditar && (
-                      <Link
-                        href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                        onClick={(e) => {
-                          if (ocorrencia.status === "Finalizada") {
-                            e.preventDefault();
-                            alert(
-                              "Ocorrências finalizadas não podem ser editadas."
-                            );
-                          }
-                        }}
-                        className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-3 rounded-xl text-center font-semibold"
-                      >
-                        Editar
-                      </Link>
-                    )}
-
-                    {podeExcluir && (
-                      <button
-                        type="button"
-                        onClick={() => excluirOcorrencia(ocorrencia.id)}
-                        className="bg-red-700 hover:bg-red-800 text-white px-4 py-3 rounded-xl text-center font-semibold"
-                      >
-                        Excluir
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+            
+            <ListaOcorrenciasMobile
+  ocorrencias={ocorrenciasFiltradas}
+  podeEditar={podeEditar}
+  podeExcluir={podeExcluir}
+  nomeGuarnicao={nomeGuarnicao}
+  prefixoViatura={prefixoViatura}
+  nomeGuarda={nomeGuarda}
+  alterarStatus={alterarStatus}
+  excluirOcorrencia={excluirOcorrencia}
+/>
 
             <div className="hidden md:block overflow-x-auto border border-slate-800 rounded-2xl">
               <table className="w-full text-sm">
@@ -1129,5 +1198,29 @@ function Status({ status }: { status: string }) {
     >
       {status}
     </span>
+  );
+}
+
+function ResumoCard({
+  emoji,
+  valor,
+  cor,
+}: {
+  emoji: string;
+  valor: number;
+  cor: string;
+}) {
+  return (
+    <div
+      className={`${cor} rounded-2xl py-4 text-center shadow-lg`}
+    >
+      <div className="text-xl">
+        {emoji}
+      </div>
+
+      <div className="mt-1 text-2xl font-black text-white">
+        {valor}
+      </div>
+    </div>
   );
 }

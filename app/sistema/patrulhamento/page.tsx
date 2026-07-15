@@ -37,6 +37,8 @@ import {
 import { supabase } from "@/lib/supabase";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
 import { montarUrlComMunicipioContexto } from "@/lib/contextoMunicipio";
+import { listarPontosPendentes,} from "@/lib/patrulhamento/offlineDB";
+import { sincronizarGPSOffline,} from "@/lib/patrulhamento/iniciarGPS";
 
 type ContextoPatrulhamento = {
   usuario_id: number;
@@ -298,9 +300,77 @@ export default function PatrulhamentoPage() {
     setPatrulhamentoAtivoId,
   ] = useState<number | null>(null);
 
+  const [online, setOnline] = useState(true);
+
+const [
+  pontosPendentes,
+  setPontosPendentes,
+] = useState(0);
+
+const [
+  sincronizandoOffline,
+  setSincronizandoOffline,
+] = useState(false);
+
   useEffect(() => {
     void carregarPatrulhamentos();
   }, []);
+
+  useEffect(() => {
+  function atualizarStatusOnline() {
+    setOnline(navigator.onLine);
+  }
+
+  async function atualizarPontosPendentes() {
+    try {
+      const pendentes =
+        await listarPontosPendentes();
+
+      setPontosPendentes(
+        pendentes.length
+      );
+    } catch (error) {
+      console.error(
+        "Erro ao consultar pontos offline:",
+        error
+      );
+    }
+  }
+
+  atualizarStatusOnline();
+  void atualizarPontosPendentes();
+
+  window.addEventListener(
+    "online",
+    atualizarStatusOnline
+  );
+
+  window.addEventListener(
+    "offline",
+    atualizarStatusOnline
+  );
+
+  const intervalo =
+    window.setInterval(() => {
+      void atualizarPontosPendentes();
+    }, 5000);
+
+  return () => {
+    window.removeEventListener(
+      "online",
+      atualizarStatusOnline
+    );
+
+    window.removeEventListener(
+      "offline",
+      atualizarStatusOnline
+    );
+
+    window.clearInterval(
+      intervalo
+    );
+  };
+}, []);
 
   async function obterAccessToken() {
     const {
@@ -427,6 +497,43 @@ export default function PatrulhamentoPage() {
       setCarregando(false);
     }
   }
+
+  async function sincronizarOfflineAgora() {
+  if (!navigator.onLine) {
+    alert(
+      "Sem internet. Os pontos continuarão salvos neste dispositivo."
+    );
+    return;
+  }
+
+  setSincronizandoOffline(true);
+
+  try {
+    await sincronizarGPSOffline();
+
+    const pendentes =
+      await listarPontosPendentes();
+
+    setPontosPendentes(
+      pendentes.length
+    );
+
+    alert(
+      pendentes.length === 0
+        ? "Todos os pontos GPS foram sincronizados."
+        : `${pendentes.length} ponto(s) ainda aguardam sincronização.`
+    );
+  } catch (error) {
+    const mensagem =
+      error instanceof Error
+        ? error.message
+        : "Erro ao sincronizar pontos offline.";
+
+    alert(mensagem);
+  } finally {
+    setSincronizandoOffline(false);
+  }
+}
 
   async function finalizarPatrulhamento(
     patrulhamento: Patrulhamento
@@ -771,6 +878,58 @@ export default function PatrulhamentoPage() {
               </div>
             </section>
           )}
+
+          <section
+  className={`rounded-3xl border p-4 ${
+    online
+      ? "border-emerald-400/25 bg-emerald-400/[0.07]"
+      : "border-amber-400/25 bg-amber-400/[0.08]"
+  }`}
+>
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h2
+        className={`font-black ${
+          online
+            ? "text-emerald-200"
+            : "text-amber-200"
+        }`}
+      >
+        {online
+          ? "Sistema online"
+          : "Modo offline ativo"}
+      </h2>
+
+      <p className="mt-1 text-sm text-slate-400">
+        {pontosPendentes > 0
+          ? `${pontosPendentes} ponto(s) GPS aguardando sincronização.`
+          : "Nenhum ponto GPS pendente."}
+      </p>
+    </div>
+
+    {pontosPendentes > 0 && (
+      <button
+        type="button"
+        disabled={
+          !online ||
+          sincronizandoOffline
+        }
+        onClick={() =>
+          void sincronizarOfflineAgora()
+        }
+        className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-4 py-3 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+      >
+        {sincronizandoOffline ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <RefreshCw className="h-4 w-4" />
+        )}
+
+        Sincronizar agora
+      </button>
+    )}
+  </div>
+</section>
 
           <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <ResumoCard
