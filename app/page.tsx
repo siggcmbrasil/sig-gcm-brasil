@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MessageCircle, Send } from "lucide-react";
 import LandingHeader from "@/components/landing/LandingHeader";
 import LandingFooter from "@/components/landing/LandingFooter";
+import { clarityEvent } from "@/lib/clarity";
 
 const WHATSAPP = "5575983232198";
 const TELEGRAM = "https://t.me/+oeTuWMIk-u4wMzcx";
@@ -40,32 +41,32 @@ export default function HomePage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <a
-                href={linkWhatsapp}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-7 py-4 font-black text-black hover:bg-yellow-400"
-              >
-                <MessageCircle size={21} />
-                Solicitar demonstração
-              </a>
+<a
+  href={linkWhatsapp}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-2 rounded-xl bg-yellow-500 px-7 py-4 font-black text-black hover:bg-yellow-400"
+>
+  <MessageCircle size={21} />
+  Solicitar demonstração
+</a>
 
-              <a
-                href={TELEGRAM}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 px-7 py-4 font-bold text-sky-300 hover:bg-sky-500/20"
-              >
-                <Send size={21} />
-                Telegram
-              </a>
+<a
+  href={TELEGRAM}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="inline-flex items-center gap-2 rounded-xl border border-sky-400/40 bg-sky-500/10 px-7 py-4 font-bold text-sky-300 hover:bg-sky-500/20"
+>
+  <Send size={21} />
+  Telegram
+</a>
 
-              <Link
-                href="/login"
-                className="rounded-xl border border-white/20 bg-white/5 px-7 py-4 font-bold hover:bg-white/10"
-              >
-                Acessar sistema
-              </Link>
+<Link
+  href="/login"
+  className="rounded-xl border border-white/20 bg-white/5 px-7 py-4 font-bold hover:bg-white/10"
+>
+  Acessar sistema
+</Link>
             </div>
           </div>
 

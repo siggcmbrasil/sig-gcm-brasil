@@ -9,9 +9,35 @@ function normalizar(valor: string) {
 }
 
 function hojeISO() {
-  return new Date()
-    .toISOString()
-    .slice(0, 10);
+  const agora = new Date();
+
+  const ano = agora.getFullYear();
+  const mes = String(
+    agora.getMonth() + 1
+  ).padStart(2, "0");
+  const dia = String(
+    agora.getDate()
+  ).padStart(2, "0");
+
+  return `${ano}-${mes}-${dia}`;
+}
+
+function formatarInicio(
+  data?: string | null,
+  hora?: string | null
+) {
+  if (!data) {
+    return "Data não informada";
+  }
+
+  const dataFormatada =
+    new Date(
+      `${data}T12:00:00`
+    ).toLocaleDateString("pt-BR");
+
+  return hora
+    ? `${dataFormatada} às ${hora}`
+    : dataFormatada;
 }
 
 export async function consultarPatrulhamento(
@@ -27,10 +53,13 @@ export async function consultarPatrulhamento(
   let consulta = supabase
     .from("patrulhamentos")
     .select(
-      "id, status, iniciado_em, finalizado_em, distancia_km, duracao_minutos, guarnicao_id, viatura_id, observacao"
+      "id, status, data, hora, finalizado_em, distancia_km, duracao_minutos, guarnicao_id, viatura_id, observacao"
     )
     .eq("municipio_id", municipioId)
-    .order("iniciado_em", {
+    .order("data", {
+      ascending: false,
+    })
+    .order("hora", {
       ascending: false,
     })
     .limit(30);
@@ -39,17 +68,10 @@ export async function consultarPatrulhamento(
     texto.includes("hoje") ||
     texto.includes("do dia")
   ) {
-    const hoje = hojeISO();
-
-    consulta = consulta
-      .gte(
-        "iniciado_em",
-        `${hoje}T00:00:00`
-      )
-      .lte(
-        "iniciado_em",
-        `${hoje}T23:59:59`
-      );
+    consulta = consulta.eq(
+      "data",
+      hojeISO()
+    );
   }
 
   if (
@@ -105,13 +127,12 @@ export async function consultarPatrulhamento(
     return `Patrulhamento encontrado
 
 Status: ${patrulhamento.status || "Não informado"}
-Início: ${
-      patrulhamento.iniciado_em
-        ? new Date(
-            patrulhamento.iniciado_em
-          ).toLocaleString("pt-BR")
-        : "Não informado"
-    }
+
+Início: ${formatarInicio(
+      patrulhamento.data,
+      patrulhamento.hora
+    )}
+
 Finalização: ${
       patrulhamento.finalizado_em
         ? new Date(
@@ -119,14 +140,17 @@ Finalização: ${
           ).toLocaleString("pt-BR")
         : "Em andamento"
     }
+
 Distância: ${
       patrulhamento.distancia_km ??
       "Não informada"
     } km
+
 Duração: ${
       patrulhamento.duracao_minutos ??
       "Não informada"
     } minutos
+
 Observação: ${
       patrulhamento.observacao ||
       "Sem observações"
@@ -138,11 +162,10 @@ Observação: ${
 ${data
   .map((patrulhamento) => {
     const inicio =
-      patrulhamento.iniciado_em
-        ? new Date(
-            patrulhamento.iniciado_em
-          ).toLocaleString("pt-BR")
-        : "Data não informada";
+      formatarInicio(
+        patrulhamento.data,
+        patrulhamento.hora
+      );
 
     return `• #${patrulhamento.id} — ${patrulhamento.status || "Status não informado"} — ${inicio} — ${patrulhamento.distancia_km ?? 0} km`;
   })

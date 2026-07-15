@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { ReactNode } from "react";
 import {
   AlertTriangle,
   CalendarDays,
@@ -371,7 +372,7 @@ function InfoLinha({
   titulo,
   valor,
 }: {
-  icone: React.ReactNode;
+  icone: ReactNode;
   titulo: string;
   valor: string;
 }) {

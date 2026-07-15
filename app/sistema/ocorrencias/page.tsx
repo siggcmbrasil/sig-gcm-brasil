@@ -857,8 +857,13 @@ return (
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <div>
+<div
+  className={`${
+    mostrarFiltrosMobile
+      ? "grid"
+      : "hidden"
+  } md:grid grid-cols-1 md:grid-cols-4 gap-4 mt-4`}
+>          <div>
             <label className="label">Data Inicial</label>
             <input
               type="date"
@@ -911,7 +916,13 @@ return (
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3 mt-5">
+        <div
+  className={`${
+    mostrarFiltrosMobile
+      ? "flex"
+      : "hidden"
+  } md:flex flex-wrap gap-3 mt-5`}
+>
           <button type="button" onClick={aplicarHoje} className="btn-secondary">
             Hoje
           </button>
@@ -941,7 +952,13 @@ return (
           </button>
         </div>
 
-        <div className="mt-5 flex flex-col md:flex-row md:justify-between md:items-center gap-3 text-sm text-slate-400">
+        <div
+  className={`${
+    mostrarFiltrosMobile
+      ? "flex"
+      : "hidden"
+  } md:flex mt-5 flex-col gap-3 text-sm text-slate-400 md:flex-row md:items-center md:justify-between`}
+>
           <p>
             Exibindo{" "}
             <span className="text-white font-bold">
