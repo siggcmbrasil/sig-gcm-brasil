@@ -1,6 +1,13 @@
-import { responderAgente, querOcorrenciasHoje } from "@/lib/sigia/agentes";
+import {
+  responderAgente,
+  querOcorrenciasHoje,
+  querPlantaoHoje,
+} from "@/lib/sigia/agentes";
 import { buscarConhecimentoSIGIA } from "@/lib/sigia/baseConhecimento";
-import { consultarOcorrenciasHoje } from "@/lib/sigia/consultas";
+import {
+  consultarOcorrenciasHoje,
+  consultarPlantaoHoje,
+} from "@/lib/sigia/consultas";
 import { buscarPromptPrincipal } from "@/lib/sigia/prompts";
 import { criarContextoSIGIA, UsuarioSIGIA } from "./contexto";
 import { criarMemoriaTemporaria } from "./memoria";
@@ -9,6 +16,7 @@ import { salvarLogSIGIA } from "../logs";
 import { buscarConhecimentoWebSIGIA } from "../webConhecimento";
 import { buscarConhecimentoDocumentosSIGIA } from "../conhecimentoDocumentos";
 import { responderComBibliotecaSIGIA } from "../responderBiblioteca";
+import { executarConsultaSIGIA } from "./executor";
 
 export async function processarMensagemSIGIA({
   mensagem,
@@ -19,6 +27,56 @@ export async function processarMensagemSIGIA({
 }) {
   const contexto = criarContextoSIGIA(usuario);
   const promptSistema = await buscarPromptPrincipal();
+
+  const respostaSIG = await executarConsultaSIGIA(
+  mensagem,
+  contexto.municipioId
+);
+
+if (respostaSIG) {
+  await salvarLogSIGIA(
+    usuario?.id,
+    mensagem,
+    respostaSIG,
+    "consulta_sig"
+  );
+
+  return {
+    agente: "consulta_sig",
+    resposta: respostaSIG,
+    contexto,
+    memoria: criarMemoriaTemporaria(
+      mensagem,
+      "consulta_sig"
+    ),
+    promptCarregado: Boolean(promptSistema),
+  };
+}
+
+  if (querPlantaoHoje(mensagem)) {
+  const resposta =
+    await consultarPlantaoHoje();
+
+  await salvarLogSIGIA(
+    usuario?.id,
+    mensagem,
+    resposta,
+    "operacional"
+  );
+
+  return {
+    agente: "operacional",
+    resposta,
+    contexto,
+    memoria:
+      criarMemoriaTemporaria(
+        mensagem,
+        "operacional"
+      ),
+    promptCarregado:
+      Boolean(promptSistema),
+  };
+}
 
   if (querOcorrenciasHoje(mensagem)) {
     const resposta = await consultarOcorrenciasHoje();
@@ -39,7 +97,7 @@ export async function processarMensagemSIGIA({
   contexto.municipioId
 );
 
-if (conhecimento) {
+if (!respostaSIG && conhecimento) {
   await salvarLogSIGIA(usuario?.id, mensagem, conhecimento, "conhecimento");
 
   return {
@@ -58,7 +116,10 @@ if (conhecimento) {
 
 const conhecimentoWeb = await buscarConhecimentoWebSIGIA(mensagem);
 
-if (conhecimentoDocumentos || conhecimentoWeb) {
+if (
+  !respostaSIG &&
+  (conhecimentoDocumentos || conhecimentoWeb)
+) {
   const resposta = await responderComBibliotecaSIGIA({
   pergunta: mensagem,
   conhecimentoDocumentos,

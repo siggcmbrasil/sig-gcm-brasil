@@ -1,56 +1,79 @@
 import { supabase } from "@/lib/supabase";
 
-function hojeInicioEFim() {
-  const agora = new Date();
-
-  const inicio = new Date(agora);
-  inicio.setHours(0, 0, 0, 0);
-
-  const fim = new Date(agora);
-  fim.setHours(23, 59, 59, 999);
-
-  return {
-    inicio: inicio.toISOString(),
-    fim: fim.toISOString(),
-  };
+function hoje() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 export async function consultarOcorrenciasHoje() {
-  const { inicio, fim } = hojeInicioEFim();
+  const dataHoje = hoje();
 
   const { data, error } = await supabase
     .from("ocorrencias")
-    .select("id, tipo, local, data")
-    .gte("data", inicio)
-    .lte("data", fim);
+    .select("id,tipo,local,data")
+    .gte("data", `${dataHoje}T00:00:00`)
+    .lte("data", `${dataHoje}T23:59:59`);
 
   if (error) {
-    console.error("Erro ao consultar ocorrências:", error);
-
-    return "Não consegui consultar as ocorrências de hoje no banco de dados.";
+    return "Não consegui consultar as ocorrências de hoje.";
   }
 
-  const total = data?.length || 0;
-
-  if (total === 0) {
-    return "Hoje ainda não há ocorrências registradas no sistema.";
+  if (!data?.length) {
+    return "Hoje ainda não existem ocorrências registradas.";
   }
 
   const tipos: Record<string, number> = {};
 
-  data?.forEach((ocorrencia) => {
-    const tipo = ocorrencia.tipo || "Não informado";
-    tipos[tipo] = (tipos[tipo] || 0) + 1;
+  data.forEach((o) => {
+    tipos[o.tipo || "Não informado"] =
+      (tipos[o.tipo || "Não informado"] || 0) + 1;
   });
 
-  const listaTipos = Object.entries(tipos)
-    .map(([tipo, quantidade]) => `• ${tipo}: ${quantidade}`)
-    .join("\n");
+  return `Hoje existem ${data.length} ocorrência(s).\n\n${Object.entries(
+    tipos
+  )
+    .map(([t, q]) => `${t}: ${q}`)
+    .join("\n")}`;
+}
 
-  return `📊 Ocorrências de hoje
+export async function consultarPlantaoHoje() {
+  const dataHoje = hoje();
 
-Total registrado: ${total}
+  const { data, error } = await supabase
+    .from("escalas_servico")
+    .select("*")
+    .eq("data_servico", dataHoje)
+    .order("equipe");
 
-Tipos:
-${listaTipos}`;
+  if (error) {
+    console.error(error);
+    return "Não consegui consultar a escala de serviço.";
+  }
+
+  if (!data || data.length === 0) {
+    return "Não existe escala cadastrada para hoje.";
+  }
+
+  const equipes: Record<string, string[]> = {};
+
+  data.forEach((g: any) => {
+    const equipe = g.equipe || "Sem equipe";
+
+    if (!equipes[equipe]) {
+      equipes[equipe] = [];
+    }
+
+    equipes[equipe].push(
+      `${g.guarda_nome} (${g.tipo})`
+    );
+  });
+
+  let resposta = "👮 Plantão de hoje\n\n";
+
+  Object.entries(equipes).forEach(([equipe, guardas]) => {
+    resposta += `🚔 ${equipe}\n`;
+    resposta += guardas.join("\n");
+    resposta += "\n\n";
+  });
+
+  return resposta;
 }

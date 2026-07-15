@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import PainelSIGIA from "./PainelSIGIA";
+import SIGIAHeader from "./SIGIAHeader";
+import SIGIAInput from "./SIGIAInput";
+import SIGIAMessage from "./SIGIAMessage";
 
 type Mensagem = {
   autor: "usuario" | "sigia";
@@ -19,96 +21,312 @@ type UsuarioLogado = {
   foto_url?: string;
 };
 
+type AnexoPreparado = {
+  nome: string;
+  tipo: string;
+  tamanho: number;
+  conteudo_texto: string;
+};
+
+type RespostaSIGIA = {
+  resposta?: string;
+  agente?: string;
+};
+
 export default function SIGIAChat() {
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     {
       autor: "sigia",
-      texto: "Olá, Comandante. Sou a SIGIA, Inteligência Artificial do SIG-GCM Brasil. Como posso ajudar?",
+      texto:
+        "Olá. Sou a SIGIA, Inteligência Artificial do SIG-GCM Brasil. Como posso ajudar?",
     },
   ]);
 
+  const [historico, setHistorico] = useState<
+  {
+    autor: string;
+    texto: string;
+  }[]
+>([]);
+
   const [texto, setTexto] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [arquivoAnexado, setArquivoAnexado] = useState<File | null>(
+    null
+  );
   const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
 
-function saudacao() {
-  const hora = new Date().getHours();
+  function saudacao() {
+    const hora = new Date().getHours();
 
-  if (hora < 12) return "Bom dia";
-  if (hora < 18) return "Boa tarde";
+    if (hora < 12) return "Bom dia";
+    if (hora < 18) return "Boa tarde";
 
-  return "Boa noite";
-}
+    return "Boa noite";
+  }
 
   useEffect(() => {
-    const usuarioSalvo = localStorage.getItem("usuarioLogado");
+    try {
+      const usuarioSalvo = localStorage.getItem("usuarioLogado");
 
-    if (usuarioSalvo) {
-      setUsuario(JSON.parse(usuarioSalvo));
+      if (!usuarioSalvo) return;
+
+      const usuarioConvertido = JSON.parse(
+        usuarioSalvo
+      ) as UsuarioLogado;
+
+      setUsuario(usuarioConvertido);
+    } catch (error) {
+      console.error("Erro ao carregar usuário da SIGIA:", error);
+      setUsuario(null);
     }
   }, []);
 
   useEffect(() => {
-  if (!usuario) return;
+    if (!usuario) return;
 
-  <PainelSIGIA />
-
-  setMensagens([
-    {
-      autor: "sigia",
-      texto: `${saudacao()}, ${usuario.nome}.
+    setMensagens([
+      {
+        autor: "sigia",
+        texto: `${saudacao()}, ${usuario.nome}.
 
 Sou a SIGIA, Inteligência Artificial do SIG-GCM Brasil.
 
 Perfil identificado: ${usuario.perfil}.
 
 Como posso ajudar?`,
-    },
-  ]);
-}, [usuario]);
+      },
+    ]);
+  }, [usuario]);
+
+  function executarComando(comando: string): boolean {
+    const comandoNormalizado = comando
+      .trim()
+      .toLocaleLowerCase("pt-BR");
+
+    if (
+      comandoNormalizado.includes("nova ocorrência") ||
+      comandoNormalizado.includes("criar ocorrência") ||
+      comandoNormalizado.includes("registrar ocorrência")
+    ) {
+      window.location.href = "/sistema/ocorrencias/nova";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("ocorrência expressa") ||
+      comandoNormalizado.includes("ocorrencia expressa")
+    ) {
+      window.location.href = "/sistema/ocorrencias/expressa";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("abrir patrulhamento") ||
+      comandoNormalizado.includes("iniciar patrulhamento")
+    ) {
+      window.location.href = "/sistema/patrulhamento";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("abrir visitas") ||
+      comandoNormalizado.includes("registrar visita")
+    ) {
+      window.location.href = "/sistema/visitas";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("abrir mapa") ||
+      comandoNormalizado.includes("mapa operacional")
+    ) {
+      window.location.href = "/sistema/mapa-operacional";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("abrir feed") ||
+      comandoNormalizado.includes("central de feeds")
+    ) {
+      window.location.href = "/sistema/central-feeds";
+      return true;
+    }
+
+    if (
+      comandoNormalizado.includes("abrir escala") ||
+      comandoNormalizado.includes("consultar escala")
+    ) {
+      window.location.href = "/sistema/escalas";
+      return true;
+    }
+
+    return false;
+  }
+
+  async function escreverSIGIA(
+    respostaTexto: string,
+    agente?: string
+  ) {
+    let textoAtual = "";
+
+    setMensagens((listaAtual) => [
+      ...listaAtual,
+      {
+        autor: "sigia",
+        texto: "",
+        agente,
+      },
+    ]);
+
+    for (const caractere of respostaTexto) {
+      textoAtual += caractere;
+
+      setMensagens((listaAtual) => {
+        const copia = [...listaAtual];
+        const ultimoIndice = copia.length - 1;
+
+        copia[ultimoIndice] = {
+          autor: "sigia",
+          texto: textoAtual,
+          agente,
+        };
+
+        return copia;
+      });
+
+      await new Promise<void>((resolve) => {
+        window.setTimeout(resolve, 5);
+      });
+    }
+  }
+
+  async function prepararAnexo(
+    arquivo: File | null
+  ): Promise<AnexoPreparado | null> {
+    if (!arquivo) {
+      return null;
+    }
+
+    let conteudoTexto = "";
+
+    if (arquivo.type === "text/plain") {
+      conteudoTexto = await arquivo.text();
+    }
+
+    return {
+      nome: arquivo.name,
+      tipo: arquivo.type,
+      tamanho: arquivo.size,
+      conteudo_texto: conteudoTexto.slice(0, 20000),
+    };
+  }
 
   async function enviarMensagem(pergunta?: string) {
-    const mensagem = pergunta || texto;
+    if (carregando) return;
 
-    if (!mensagem.trim()) return;
+    const mensagem = String(pergunta ?? texto).trim();
 
-    setMensagens((atual) => [...atual, { autor: "usuario", texto: mensagem }]);
+    if (!mensagem && !arquivoAnexado) {
+      return;
+    }
+
+    if (
+      mensagem &&
+      !arquivoAnexado &&
+      executarComando(mensagem)
+    ) {
+      return;
+    }
+
+    const textoExibido = arquivoAnexado
+      ? `${mensagem || "Analise o arquivo anexado."}
+
+📎 ${arquivoAnexado.name}`
+      : mensagem;
+
+    setMensagens((listaAtual) => [
+      ...listaAtual,
+      {
+        autor: "usuario",
+        texto: textoExibido,
+      },
+    ]);
+
+    setHistorico((lista) => [
+  ...lista,
+  {
+    autor: "usuario",
+    texto: textoExibido,
+  },
+]);
+
     setTexto("");
     setCarregando(true);
 
     try {
+      const anexoPreparado = await prepararAnexo(
+        arquivoAnexado
+      );
+
       const resposta = await fetch("/api/sigia", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          mensagem,
-          usuario,
+            mensagem:mensagem || "Analise o arquivo anexado.",
+            usuario,
+            contexto: {
+            data: new Date().toLocaleDateString("pt-BR"),
+            hora: new Date().toLocaleTimeString("pt-BR"),
+            usuario_nome: usuario?.nome || "",
+            perfil: usuario?.perfil || "",
+            municipio_id: usuario?.municipio_id || null,
+          },
+
+          historico,
+                    anexo: anexoPreparado,
         }),
       });
 
-      const dados = await resposta.json();
+      const dados = (await resposta.json().catch(() => ({
+        resposta:
+          "A SIGIA recebeu uma resposta inválida do servidor.",
+      }))) as RespostaSIGIA;
 
-      setMensagens((atual) => [
-        ...atual,
-        {
-          autor: "sigia",
-          texto: dados.resposta || "Não consegui responder agora.",
-          agente: dados.agente,
-        },
-      ]);
-    } catch {
-      setMensagens((atual) => [
-        ...atual,
-        {
-          autor: "sigia",
-          texto: "Erro ao conectar com a SIGIA.",
-        },
-      ]);
+      if (!resposta.ok) {
+        throw new Error(
+          dados.resposta ||
+            "Não foi possível processar a solicitação."
+        );
+      }
+
+      await escreverSIGIA(
+        dados.resposta || "Não consegui responder agora.",
+        dados.agente
+      );
+
+      setArquivoAnexado(null);
+    } catch (error) {
+      const mensagemErro =
+        error instanceof Error
+          ? error.message
+          : "Erro ao conectar com a SIGIA.";
+
+      await escreverSIGIA(mensagemErro);
     } finally {
       setCarregando(false);
     }
+  }
+
+  function transformarEmOcorrencia(respostaTexto: string) {
+    sessionStorage.setItem(
+      "sigia_ocorrencia",
+      respostaTexto
+    );
+
+    window.location.href = "/sistema/ocorrencias/nova";
   }
 
   const sugestoes = [
@@ -121,117 +339,41 @@ Como posso ajudar?`,
   ];
 
   return (
-    <main className="min-h-screen bg-slate-950 text-white p-4 md:p-8">
-      <section className="max-w-6xl mx-auto">
-        <div className="rounded-3xl border border-yellow-500/30 bg-slate-900/80 shadow-2xl overflow-hidden">
-          <div className="p-6 md:p-8 border-b border-yellow-500/20 bg-gradient-to-r from-slate-950 to-blue-950">
-            <p className="text-yellow-400 text-sm uppercase tracking-[0.3em]">
-              Inteligência Artificial
-            </p>
+    <main className="min-h-[100dvh] w-full bg-slate-950 text-white">
+      <section className="flex min-h-[100dvh] w-full flex-col md:min-h-0">
+        <div className="flex min-h-[100dvh] w-full flex-1 flex-col overflow-hidden bg-slate-900/80 md:min-h-0">
+          <SIGIAHeader usuario={usuario} />
 
-            <h1 className="text-4xl md:text-6xl font-bold mt-2">
-              SIG<span className="text-yellow-400">IA</span>
-            </h1>
-
-            <p className="text-slate-300 mt-3 text-lg">
-              Inteligência Artificial do SIG-GCM Brasil
-            </p>
-
-            <div className="mt-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="rounded-2xl bg-slate-900 border border-green-500/30 p-4">
-                <p className="text-xs text-slate-400">STATUS</p>
-                <p className="text-green-400 font-bold mt-1">🟢 ONLINE</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-900 border border-blue-500/30 p-4">
-                <p className="text-xs text-slate-400">AGENTES</p>
-                <p className="text-blue-400 font-bold mt-1">7 Ativos</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-900 border border-yellow-500/30 p-4">
-                <p className="text-xs text-slate-400">VERSÃO</p>
-                <p className="text-yellow-400 font-bold mt-1">SIGIA v1.0</p>
-              </div>
-
-              <div className="rounded-2xl bg-slate-900 border border-cyan-500/30 p-4">
-                <p className="text-xs text-slate-400">SISTEMA</p>
-                <p className="text-cyan-400 font-bold mt-1">
-                  SIG-GCM Brasil
-                </p>
-              </div>
-            </div>
-
-            {usuario && (
-              <div className="mt-6 rounded-2xl border border-blue-500/20 bg-slate-950/60 p-4">
-                <p className="text-xs text-slate-400 uppercase tracking-[0.2em]">
-                  Usuário conectado
-                </p>
-
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
-                  <div>
-                    <p className="text-slate-500">Nome</p>
-                    <p className="font-bold text-white">{usuario.nome}</p>
-                  </div>
-
-                  <div>
-                    <p className="text-slate-500">Perfil</p>
-                    <p className="font-bold text-yellow-400">
-                      {usuario.perfil}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-slate-500">Município</p>
-                    <p className="font-bold text-cyan-400">
-                      ID {usuario.municipio_id || "-"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px]">
-            <div className="p-4 md:p-6">
-              <div className="h-[560px] overflow-y-auto space-y-4 pr-2">
-                {mensagens.map((msg, index) => (
-                  <div
-                    key={index}
-                    className={`flex ${
-                      msg.autor === "usuario" ? "justify-end" : "justify-start"
-                    }`}
-                  >
-                    <div
-                      className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm md:text-base ${
-                        msg.autor === "usuario"
-                          ? "bg-yellow-500 text-slate-950"
-                          : "bg-slate-800 border border-slate-700 text-slate-100"
-                      }`}
-                    >
-                      <p className="font-semibold mb-1">
-                        {msg.autor === "usuario"
-                          ? "Você"
-                          : msg.agente
-                          ? `SIGIA • Agente ${msg.agente}`
-                          : "SIGIA"}
-                      </p>
-
-                      <p className="whitespace-pre-line">{msg.texto}</p>
-                    </div>
-                  </div>
+          <div className="flex min-h-0 w-full flex-1 flex-col lg:grid lg:grid-cols-[minmax(0,1fr)_360px]">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-4 md:p-6 lg:p-8">
+              <div className="flex-1 overflow-y-auto space-y-4 px-2 pb-28">
+                {mensagens.map((mensagem, index) => (
+                  <SIGIAMessage
+                    key={`${mensagem.autor}-${index}`}
+                    autor={mensagem.autor}
+                    texto={mensagem.texto}
+                    agente={mensagem.agente}
+                    onOcorrencia={transformarEmOcorrencia}
+                  />
                 ))}
 
                 {carregando && (
-                  <div className="flex items-center gap-3 p-4 rounded-2xl bg-slate-800 border border-slate-700 w-fit">
+                  <div className="flex w-fit items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800 p-4">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 rounded-full bg-yellow-400 animate-bounce" />
+                      <div className="h-2 w-2 animate-bounce rounded-full bg-yellow-400" />
+
                       <div
-                        className="w-2 h-2 rounded-full bg-yellow-400 animate-bounce"
-                        style={{ animationDelay: "0.15s" }}
+                        className="h-2 w-2 animate-bounce rounded-full bg-yellow-400"
+                        style={{
+                          animationDelay: "0.15s",
+                        }}
                       />
+
                       <div
-                        className="w-2 h-2 rounded-full bg-yellow-400 animate-bounce"
-                        style={{ animationDelay: "0.30s" }}
+                        className="h-2 w-2 animate-bounce rounded-full bg-yellow-400"
+                        style={{
+                          animationDelay: "0.30s",
+                        }}
                       />
                     </div>
 
@@ -248,60 +390,64 @@ Como posso ajudar?`,
                 )}
               </div>
 
-              <div className="mt-6 rounded-2xl border border-yellow-500/20 bg-slate-900 p-3">
-                <div className="flex gap-2">
-                  <input
-                    value={texto}
-                    onChange={(e) => setTexto(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") enviarMensagem();
-                    }}
-                    placeholder="Digite sua pergunta para a SIGIA..."
-                    className="flex-1 rounded-xl bg-slate-800 border border-slate-700 px-4 py-3 outline-none focus:border-yellow-400"
-                  />
+              <div className="mb-3 flex gap-2 overflow-x-auto lg:hidden">
+  {sugestoes.map((item) => (
+    <button
+      key={item}
+      onClick={() => void enviarMensagem(item)}
+      className="shrink-0 rounded-full bg-slate-800 px-4 py-2 text-xs text-white"
+    >
+      {item}
+    </button>
+  ))}
+</div>
 
-                  <button
-                    type="button"
-                    onClick={() => enviarMensagem()}
-                    className="rounded-xl bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold px-5 py-3"
-                  >
-                    Enviar
-                  </button>
-                </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                  <span>
-                    🧠 SIGIA pode consultar os módulos autorizados do sistema.
-                  </span>
-
-                  <span>Enter ↵ para enviar</span>
-                </div>
+              <div className="sticky bottom-0 z-20 mt-2 bg-slate-900/95 pt-2 backdrop-blur md:static md:mt-6 md:bg-transparent md:pt-0">
+                <SIGIAInput
+                  texto={texto}
+                  setTexto={setTexto}
+                  carregando={carregando}
+                  enviar={() => {
+                    void enviarMensagem();
+                  }}
+                  anexar={(arquivo) => {
+                    setArquivoAnexado(arquivo);
+                  }}
+                />
               </div>
             </div>
 
-            <aside className="border-t lg:border-t-0 lg:border-l border-yellow-500/20 p-5 bg-slate-950/60">
-              <h2 className="text-yellow-400 font-bold mb-4">
-                Sugestões rápidas
-              </h2>
+            <aside className="hidden lg:block lg:border-l lg:border-yellow-500/20 lg:bg-slate-950/60 lg:p-5">
+<h2 className="mb-3 text-sm font-bold text-yellow-400 lg:text-base">
+  Sugestões rápidas
+</h2>
 
-              <div className="space-y-2">
+<div className="flex gap-2 overflow-x-auto pb-2 lg:block lg:space-y-2 lg:overflow-visible lg:pb-0">
                 {sugestoes.map((item) => (
                   <button
-                    type="button"
                     key={item}
-                    onClick={() => enviarMensagem(item)}
-                    className="w-full text-left rounded-xl border border-slate-700 bg-slate-900 hover:border-yellow-400 px-4 py-3 text-sm"
+                    type="button"
+                    disabled={carregando}
+                    onClick={() => {
+                      void enviarMensagem(item);
+                    }}
+                    className="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-left text-xs transition hover:border-yellow-400 disabled:cursor-not-allowed disabled:opacity-50 lg:w-full lg:py-3 lg:text-sm"
                   >
                     {item}
                   </button>
                 ))}
               </div>
 
-              <div className="mt-6 rounded-2xl border border-yellow-500/20 bg-slate-900 p-4">
-                <p className="text-sm text-slate-300">Módulos futuros:</p>
+              <div className="mt-6 hidden rounded-2xl border border-yellow-500/20 bg-slate-900 p-4 lg:block">
+                <p className="text-sm font-semibold text-slate-300">
+                  Recursos disponíveis
+                </p>
 
-                <p className="text-sm mt-2 text-slate-400">
-                  Operacional, Jurídico, Relatórios, Estatísticas, Mapas e Voz.
+                <p className="mt-2 text-sm leading-6 text-slate-400">
+                  Voz, anexos, comandos operacionais, criação de
+                  ocorrência, consultas, relatórios e análise
+                  inteligente.
                 </p>
               </div>
             </aside>

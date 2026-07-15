@@ -501,63 +501,268 @@ cep_proprietario: "",
     situacao_consulta: "",
   },
 ]);
-  useEffect(() => {
-    if (
-      !municipioId ||
-      !usuarioAtual?.perfil
-    ) {
-      return;
-    }
 
-    const timers =
-      envolvidos.map(
-        (
-          pessoa,
-          index
-        ) => {
-          if (
-            !documentoPessoaValidoParaAlerta(
-              pessoa.tipo_documento,
-              pessoa.documento
-            )
-          ) {
-            return null;
-          }
+useEffect(() => {
+  const narrativaSIGIA =
+    sessionStorage.getItem("sigia_ocorrencia");
 
-          return window.setTimeout(
-            () => {
-              void consultarAlertaPessoaIntermunicipal(
-                index,
-                pessoa.tipo_documento,
-                pessoa.documento
-              );
-            },
-            700
-          );
-        }
+  if (!narrativaSIGIA) {
+    return;
+  }
+
+  setDescricao(narrativaSIGIA);
+
+  setMostrarVeiculos(
+  /placa|veículo|automóvel|moto|caminhão/i.test(narrativaSIGIA)
+);
+
+setMostrarObjetos(
+  /arma|droga|entorpecente|celular|objeto|faca|revólver|pistola/i.test(
+    narrativaSIGIA
+  )
+);
+
+  const texto =
+    narrativaSIGIA.toLowerCase();
+
+  if (texto.includes("furto")) {
+    setTipo("Furto");
+  } else if (texto.includes("roubo")) {
+    setTipo("Roubo");
+  } else if (texto.includes("ameaça")) {
+    setTipo("Ameaça");
+  } else if (texto.includes("lesão")) {
+    setTipo("Lesão Corporal");
+  } else if (
+    texto.includes(
+      "violência doméstica"
+    )
+  ) {
+    setTipo(
+      "Violência Doméstica"
+    );
+  } else if (
+    texto.includes("tráfico") ||
+    texto.includes("entorpecente")
+  ) {
+    setTipo("Entorpecentes");
+  } else if (
+    texto.includes("arma")
+  ) {
+    setTipo("Porte de Arma");
+  } else if (
+    texto.includes("dano")
+  ) {
+    setTipo(
+      "Dano ao Patrimônio"
+    );
+  }
+
+  const bairroMatch =
+    narrativaSIGIA.match(
+      /bairro[:\s]+([^\n,.]+)/i
+    );
+
+  if (bairroMatch) {
+    setBairro(
+      bairroMatch[1].trim()
+    );
+  }
+
+  const localMatch =
+    narrativaSIGIA.match(
+      /local[:\s]+([^\n]+)/i
+    );
+
+  if (localMatch) {
+    setLocal(
+      localMatch[1].trim()
+    );
+  }
+
+  const numeroMatch =
+    narrativaSIGIA.match(
+      /n[ºo°]?\s*[:\-]?\s*(\d+)/i
+    );
+
+  if (numeroMatch) {
+    setNumero(numeroMatch[1]);
+  }
+
+  const placaMatch =
+    narrativaSIGIA.match(
+      /\b[A-Z]{3}[0-9][A-Z0-9][0-9]{2}\b/i
+    );
+
+  if (placaMatch) {
+    const marcaMatch =
+      narrativaSIGIA.match(
+        /marca[:\s]+([^\n,]+)/i
       );
 
-    return () => {
-      for (
-        const timer of timers
-      ) {
-        if (timer !== null) {
-          window.clearTimeout(
-            timer
-          );
-        }
+    const modeloMatch =
+      narrativaSIGIA.match(
+        /modelo[:\s]+([^\n,]+)/i
+      );
+
+    const corMatch =
+      narrativaSIGIA.match(
+        /cor[:\s]+([^\n,]+)/i
+      );
+
+    const anoMatch =
+      narrativaSIGIA.match(
+        /ano[:\s]+(\d{4})/i
+      );
+
+    setMostrarVeiculos(true);
+
+    setVeiculosEnvolvidos(
+      (lista) => {
+        const copia = [...lista];
+
+        copia[0] = {
+          ...copia[0],
+          placa:
+            placaMatch[0].toUpperCase(),
+          marca:
+            marcaMatch?.[1]?.trim() ||
+            copia[0].marca,
+          modelo:
+            modeloMatch?.[1]?.trim() ||
+            copia[0].modelo,
+          cor:
+            corMatch?.[1]?.trim() ||
+            copia[0].cor,
+          ano:
+            anoMatch?.[1] ||
+            copia[0].ano,
+        };
+
+        return copia;
       }
-    };
-  }, [
-    municipioId,
-    usuarioAtual?.perfil,
-    envolvidos
-      .map(
-        (pessoa) =>
-          `${pessoa.tipo_documento}:${pessoa.documento}`
-      )
-      .join("|"),
-  ]);
+    );
+  }
+
+  const cpfMatch =
+    narrativaSIGIA.match(
+      /\d{3}\.?\d{3}\.?\d{3}\-?\d{2}/
+    );
+
+  const nomeMatch =
+    narrativaSIGIA.match(
+      /nome[:\s]+([^\n]+)/i
+    );
+
+const tipoEnvolvidoMatch =
+  narrativaSIGIA.match(
+    /(?:tipo|qualificação)[:\s]+([^\n,.;]+)/i
+  );
+
+  const telefoneMatch =
+    narrativaSIGIA.match(
+      /\(?\d{2}\)?\s?9?\d{4}\-?\d{4}/
+    );
+
+  const enderecoMatch =
+    narrativaSIGIA.match(
+      /endereço[:\s]+([^\n]+)/i
+    );
+
+  if (
+    cpfMatch ||
+    nomeMatch ||
+    telefoneMatch ||
+    enderecoMatch
+  ) {
+    setEnvolvidos((lista) => {
+      const copia = [...lista];
+
+copia[0] = {
+  ...copia[0],
+
+  nome:
+    nomeMatch?.[1]?.trim() ||
+    copia[0].nome,
+
+  documento:
+    cpfMatch?.[0] ||
+    copia[0].documento,
+
+  telefone:
+    telefoneMatch?.[0] ||
+    copia[0].telefone,
+
+  endereco:
+    enderecoMatch?.[1]?.trim() ||
+    copia[0].endereco,
+
+  tipo:
+    tipoEnvolvidoMatch?.[1]?.trim() ||
+    copia[0].tipo,
+};
+
+      return copia;
+    });
+  }
+
+  sessionStorage.removeItem(
+    "sigia_ocorrencia"
+  );
+}, []);
+
+useEffect(() => {
+  if (
+    !municipioId ||
+    !usuarioAtual?.perfil
+  ) {
+    return;
+  }
+
+  const timers =
+    envolvidos.map(
+      (pessoa, index) => {
+        if (
+          !documentoPessoaValidoParaAlerta(
+            pessoa.tipo_documento,
+            pessoa.documento
+          )
+        ) {
+          return null;
+        }
+
+        return window.setTimeout(
+          () => {
+            void consultarAlertaPessoaIntermunicipal(
+              index,
+              pessoa.tipo_documento,
+              pessoa.documento
+            );
+          },
+          700
+        );
+      }
+    );
+
+  return () => {
+    for (const timer of timers) {
+      if (timer !== null) {
+        window.clearTimeout(
+          timer
+        );
+      }
+    }
+  };
+}, [
+  municipioId,
+  usuarioAtual?.perfil,
+  envolvidos
+    .map(
+      (pessoa) =>
+        `${pessoa.tipo_documento}:${pessoa.documento}`
+    )
+    .join("|"),
+]);
 
   function selecionarGuarda(nome: string) {
     if (guardasSelecionados.includes(nome)) {
@@ -599,21 +804,20 @@ cep_proprietario: "",
     }
   }
 
-  function adicionarEnvolvido() {
-    setEnvolvidos([
-      ...envolvidos,
-      {
-        nome: "",
-        tipo_documento: "CPF",
-        documento: "",
-        telefone: "",
-        endereco: "",
-        tipo: "Vítima",
-        observacao: "",
-      },
-    ]);
-  }
-
+function adicionarEnvolvido() {
+  setEnvolvidos([
+    ...envolvidos,
+    {
+      nome: "",
+      tipo_documento: "CPF",
+      documento: "",
+      telefone: "",
+      endereco: "",
+      tipo: "Vítima",
+      observacao: "",
+    },
+  ]);
+}
   function removerEnvolvido(index: number) {
     if (envolvidos.length === 1) {
       alert("É necessário manter pelo menos um campo de envolvido.");

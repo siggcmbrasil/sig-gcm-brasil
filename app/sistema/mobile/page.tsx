@@ -7,14 +7,11 @@ import {
   Bell,
   Car,
   ChevronRight,
-  Clock3,
   Map,
-  MapPin,
   QrCode,
   RefreshCw,
   Route,
   ShieldAlert,
-  Users,
   WifiOff,
 } from "lucide-react";
 import { Geolocation } from "@capacitor/geolocation";
@@ -23,6 +20,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import MobileGuarnicaoCard from "@/components/mobile/MobileGuarnicaoCard";
 import MobileHeader from "@/components/mobile/MobileHeader";
 import MobileStats from "@/components/mobile/MobileStats";
+import MobileStatusBar from "@/components/mobile/MobileStatusBar";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 import { supabase } from "@/lib/supabase";
@@ -40,6 +38,14 @@ type PatrulhamentoAtivo = {
   status: string | null;
   iniciado_em: string | null;
   distancia_km: number | null;
+};
+
+type ResumoMobile = {
+  ocorrencias: number;
+  chamados: number;
+  visitas: number;
+  notificacoes: number;
+  sos: number;
 };
 
 const perfisPermitidos = [
@@ -88,7 +94,7 @@ export default function MobilePage() {
   const [online, setOnline] = useState(true);
   const [carregando, setCarregando] = useState(true);
   const [enviandoSOS, setEnviandoSOS] = useState(false);
-  const [resumo, setResumo] = useState({
+  const [resumo, setResumo] = useState<ResumoMobile>({
     ocorrencias: 0,
     chamados: 0,
     visitas: 0,
@@ -98,6 +104,7 @@ export default function MobilePage() {
 
   const saudacao = useMemo(() => {
     const hora = new Date().getHours();
+
     if (hora < 12) return "Bom dia";
     if (hora < 18) return "Boa tarde";
     return "Boa noite";
@@ -124,6 +131,7 @@ export default function MobilePage() {
     void carregar(atual);
 
     const atualizarOnline = () => setOnline(navigator.onLine);
+
     window.addEventListener("online", atualizarOnline);
     window.addEventListener("offline", atualizarOnline);
 
@@ -167,15 +175,18 @@ export default function MobilePage() {
           .order("id", { ascending: false })
           .limit(1)
           .maybeSingle(),
+
         supabase
           .from("guarnicoes")
           .select("*")
           .eq("municipio_id", atual.municipio_id)
           .eq("ativa", true),
+
         supabase
           .from("guardas")
           .select("id,nome")
           .eq("municipio_id", atual.municipio_id),
+
         supabase
           .from("viaturas")
           .select("*")
@@ -246,20 +257,24 @@ export default function MobilePage() {
         .select("id", { count: "exact", head: true })
         .eq("municipio_id", atual.municipio_id)
         .gte("data", hoje),
+
       supabase
         .from("chamados")
         .select("id", { count: "exact", head: true })
         .eq("municipio_id", atual.municipio_id),
+
       supabase
         .from("visitas")
         .select("id", { count: "exact", head: true })
         .eq("municipio_id", atual.municipio_id)
         .gte("data", hoje),
+
       supabase
         .from("notificacoes")
         .select("id", { count: "exact", head: true })
         .eq("municipio_id", atual.municipio_id)
         .eq("lida", false),
+
       supabase
         .from("alertas_sos")
         .select("id", { count: "exact", head: true })
@@ -349,8 +364,10 @@ export default function MobilePage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#02060f] px-3 pb-28 pt-3 text-white">
-      <div className="mx-auto flex max-w-md flex-col gap-3">
+    <main className="relative min-h-screen overflow-x-hidden bg-[#02060f] pb-28 text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,#0d3b66_0%,transparent_36%),linear-gradient(180deg,#06111f_0%,#02060f_55%)] opacity-90" />
+
+      <div className="relative z-10 mx-auto flex max-w-md flex-col gap-3 px-3 pb-4 pt-3">
         <MobileHeader
           usuario={usuario}
           online={online}
@@ -358,99 +375,49 @@ export default function MobilePage() {
           notificacoes={resumo.notificacoes}
         />
 
+        <MobileStatusBar
+          online={online}
+          gpsAtivo={Boolean(patrulhamento)}
+          sincronizando={carregando}
+        />
+
         {!online ? (
-          <div className="flex items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-3">
-            <WifiOff className="h-5 w-5 text-amber-300" />
-            <p className="text-sm font-bold text-amber-100">
-              Modo offline ativo
-            </p>
+          <div className="flex items-center gap-3 rounded-2xl border border-amber-300/40 bg-amber-400/15 p-3 shadow-lg">
+            <WifiOff className="h-5 w-5 shrink-0 text-amber-200" />
+            <div>
+              <p className="text-sm font-black text-white">
+                Modo offline
+              </p>
+              <p className="text-xs text-amber-100/80">
+                Os registros serão sincronizados quando a conexão voltar.
+              </p>
+            </div>
           </div>
         ) : null}
 
         {resumo.sos > 0 ? (
           <Link
             href="/sistema/central-sos"
-            className="flex items-center gap-3 rounded-3xl border border-red-500/40 bg-red-600/15 p-4"
+            className="flex items-center gap-3 rounded-3xl border border-red-400/50 bg-red-600/20 p-4 shadow-[0_0_30px_rgba(220,38,38,.2)]"
           >
-            <ShieldAlert className="h-8 w-8 text-red-300" />
-            <div className="flex-1">
-              <p className="font-black">SOS ATIVO</p>
-              <p className="text-sm text-red-100/80">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-red-600">
+              <ShieldAlert className="h-7 w-7 text-white" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black uppercase tracking-wider text-red-200">
+                SOS ativo
+              </p>
+              <p className="mt-1 text-base font-black text-white">
                 {resumo.sos} alerta(s) aguardando atendimento
               </p>
             </div>
-            <ChevronRight className="h-5 w-5" />
+
+            <ChevronRight className="h-6 w-6 text-red-200" />
           </Link>
         ) : null}
 
         <MobileGuarnicaoCard guarnicaoDia={guarnicaoDia} />
-
-        {patrulhamento ? (
-          <Link
-            href="/sistema/patrulhamento"
-            className="rounded-3xl border border-cyan-400/30 bg-cyan-400/[0.08] p-4"
-          >
-            <div className="flex items-center gap-3">
-              <Route className="h-8 w-8 text-cyan-300" />
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-black uppercase text-cyan-300">
-                  Patrulhamento ativo
-                </p>
-                <p className="mt-1 text-xl font-black">
-                  {tempoDesde(patrulhamento.iniciado_em)}
-                </p>
-                <p className="mt-1 text-sm text-slate-400">
-                  {Number(patrulhamento.distancia_km || 0).toFixed(1)} km
-                </p>
-              </div>
-              <ChevronRight className="h-6 w-6 text-cyan-300" />
-            </div>
-          </Link>
-        ) : null}
-
-        <Link
-          href="/sistema/ocorrencias/expressa"
-          className="flex min-h-28 items-center gap-4 rounded-3xl border border-red-400/30 bg-red-600 p-5 shadow-xl active:scale-[0.99]"
-        >
-          <AlertTriangle className="h-12 w-12 shrink-0" />
-          <div>
-            <p className="text-2xl font-black">NOVA OCORRÊNCIA</p>
-            <p className="mt-1 text-sm text-red-100">
-              Registro rápido em campo
-            </p>
-          </div>
-        </Link>
-
-        <section className="grid grid-cols-2 gap-3">
-          <Acao
-            href="/sistema/chamados"
-            icone={Bell}
-            titulo="Chamados"
-            detalhe={`${resumo.chamados} registros`}
-          />
-          <Acao
-            href={
-              patrulhamento
-                ? "/sistema/patrulhamento"
-                : "/sistema/patrulhamento/novo"
-            }
-            icone={Car}
-            titulo={patrulhamento ? "Continuar" : "Patrulhar"}
-            detalhe={patrulhamento ? "GPS ativo" : "Iniciar GPS"}
-          />
-          <Acao
-            href="/sistema/visitas/ler-qrcode"
-            icone={QrCode}
-            titulo="Visitas"
-            detalhe={`${resumo.visitas} hoje`}
-          />
-          <Acao
-            href="/sistema/mapa-operacional"
-            icone={Map}
-            titulo="Mapa"
-            detalhe="Operação ao vivo"
-          />
-        </section>
 
         <MobileStats
           ocorrencias={resumo.ocorrencias}
@@ -459,30 +426,123 @@ export default function MobilePage() {
           notificacoes={resumo.notificacoes}
         />
 
+        <Link
+          href="/sistema/ocorrencias/expressa"
+          className="group flex min-h-32 items-center gap-4 rounded-[28px] border border-red-300/40 bg-gradient-to-br from-red-500 to-red-700 p-5 shadow-[0_18px_55px_rgba(220,38,38,.28)] transition active:scale-[0.985]"
+        >
+          <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-white/15 ring-1 ring-white/20">
+            <AlertTriangle className="h-9 w-9 text-white" />
+          </div>
+
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.18em] text-red-100">
+              Ação prioritária
+            </p>
+            <p className="mt-1 text-2xl font-black leading-tight text-white">
+              Nova ocorrência
+            </p>
+            <p className="mt-1 text-sm font-medium text-red-100">
+              Registro rápido em campo
+            </p>
+          </div>
+
+          <ChevronRight className="h-7 w-7 text-white/80 transition group-active:translate-x-1" />
+        </Link>
+
+        <Link
+          href={
+            patrulhamento
+              ? "/sistema/patrulhamento"
+              : "/sistema/patrulhamento/novo"
+          }
+          className="rounded-[28px] border border-cyan-300/30 bg-gradient-to-br from-cyan-500/15 via-blue-500/10 to-slate-950 p-5 shadow-xl transition active:scale-[0.985]"
+        >
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/15 ring-1 ring-cyan-300/20">
+              <Route className="h-8 w-8 text-cyan-200" />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                {patrulhamento
+                  ? "Patrulhamento em andamento"
+                  : "Patrulhamento"}
+              </p>
+
+              <p className="mt-1 text-xl font-black text-white">
+                {patrulhamento
+                  ? tempoDesde(patrulhamento.iniciado_em)
+                  : "Iniciar patrulhamento"}
+              </p>
+
+              <p className="mt-1 text-sm text-slate-300">
+                {patrulhamento
+                  ? `${Number(
+                      patrulhamento.distancia_km || 0
+                    ).toFixed(1)} km percorridos`
+                  : "Ativar GPS e iniciar serviço"}
+              </p>
+            </div>
+
+            <ChevronRight className="h-6 w-6 text-cyan-200" />
+          </div>
+        </Link>
+
+        <section className="space-y-2">
+          <AcaoLista
+            href="/sistema/chamados"
+            icone={Bell}
+            titulo="Chamados"
+            detalhe="Visualizar demandas operacionais"
+            badge={resumo.chamados}
+            destaque={resumo.chamados > 0}
+          />
+
+          <AcaoLista
+            href="/sistema/visitas/ler-qrcode"
+            icone={QrCode}
+            titulo="Visitas e QR Code"
+            detalhe="Confirmar presença em pontos"
+            badge={resumo.visitas}
+          />
+
+          <AcaoLista
+            href="/sistema/mapa-operacional"
+            icone={Map}
+            titulo="Mapa operacional"
+            detalhe="Acompanhar equipes e ocorrências"
+          />
+
+          <AcaoLista
+            href="/sistema/patrulhamento"
+            icone={Car}
+            titulo="Operação"
+            detalhe="Patrulhamento, rota e equipe"
+          />
+        </section>
+
         <button
           type="button"
-          onClick={() =>
-            usuario && void carregar(usuario)
-          }
+          onClick={() => usuario && void carregar(usuario)}
           disabled={carregando}
-          className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 font-bold text-slate-300"
+          className="flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-slate-700/80 bg-slate-900/85 text-sm font-black text-slate-200 shadow-lg transition active:scale-[0.99] disabled:opacity-50"
         >
           <RefreshCw
             className={`h-5 w-5 ${
               carregando ? "animate-spin" : ""
             }`}
           />
-          Atualizar dados
+          Atualizar painel
         </button>
 
         <button
           type="button"
           onClick={() => void acionarSOS()}
           disabled={enviandoSOS}
-          className="fixed bottom-24 right-4 z-50 flex h-16 w-16 items-center justify-center rounded-full border-2 border-red-200/30 bg-red-600 shadow-[0_0_35px_rgba(220,38,38,.55)] disabled:opacity-60"
+          className="fixed bottom-24 right-4 z-50 flex h-17 w-17 items-center justify-center rounded-full border-2 border-red-100/40 bg-red-600 shadow-[0_0_38px_rgba(220,38,38,.62)] transition active:scale-95 disabled:opacity-60"
           aria-label="Acionar SOS"
         >
-          <AlertTriangle className="h-8 w-8" />
+          <AlertTriangle className="h-8 w-8 text-white" />
         </button>
 
         <MobileBottomNav />
@@ -491,25 +551,62 @@ export default function MobilePage() {
   );
 }
 
-function Acao({
+function AcaoLista({
   href,
   icone: Icone,
   titulo,
   detalhe,
+  badge,
+  destaque = false,
 }: {
   href: string;
   icone: typeof Bell;
   titulo: string;
   detalhe: string;
+  badge?: number;
+  destaque?: boolean;
 }) {
   return (
     <Link
       href={href}
-      className="min-h-28 rounded-3xl border border-slate-800 bg-slate-900/90 p-4 active:scale-[0.99]"
+      className={`flex min-h-20 items-center gap-4 rounded-3xl border p-4 shadow-lg transition active:scale-[0.99] ${
+        destaque
+          ? "border-amber-300/35 bg-amber-400/10"
+          : "border-slate-800 bg-slate-900/85"
+      }`}
     >
-      <Icone className="h-8 w-8 text-cyan-300" />
-      <p className="mt-3 text-lg font-black">{titulo}</p>
-      <p className="mt-1 text-sm text-slate-500">{detalhe}</p>
+      <div
+        className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl ${
+          destaque
+            ? "bg-amber-400/15 text-amber-200"
+            : "bg-cyan-400/10 text-cyan-200"
+        }`}
+      >
+        <Icone className="h-6 w-6" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-black text-white">
+          {titulo}
+        </p>
+        <p className="mt-1 truncate text-sm text-slate-400">
+          {detalhe}
+        </p>
+      </div>
+
+      {typeof badge === "number" ? (
+        <span
+          className={`flex min-w-9 items-center justify-center rounded-full px-2.5 py-1 text-xs font-black ${
+            destaque
+              ? "bg-amber-400 text-slate-950"
+              : "bg-slate-800 text-slate-200"
+          }`}
+        >
+          {badge}
+        </span>
+      ) : (
+        <ChevronRight className="h-5 w-5 text-slate-500" />
+      )}
     </Link>
   );
 }

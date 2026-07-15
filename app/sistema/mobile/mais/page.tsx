@@ -1,134 +1,210 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import MobileBottomNav from "@/components/MobileBottomNav";
-
 import {
-  ArrowLeft,
   Bell,
-  Bot,
   BookOpen,
-  Car,
+  CalendarDays,
+  CarFront,
+  ChevronRight,
   ClipboardList,
   FileText,
-  Flame,
-  LogOut,
+  Map,
+  Search,
+  Smartphone,
+  Star,
+  MessageCircle,
+  QrCode,
   Settings,
   ShieldAlert,
-  UserRound,
   Users,
-  WifiOff,
 } from "lucide-react";
 
-const itens = [
-  { titulo: "Ativar Push", icone: Bell, href: "/sistema/perfil", },
-  { titulo: "Meu Perfil", icone: UserRound, href: "/sistema/perfil" },
-  { titulo: "Notificações", icone: Bell, href: "/sistema/notificacoes" },
-  { titulo: "Central SOS", icone: ShieldAlert, href: "/sistema/central-sos" },
-  { titulo: "Guardas", icone: Users, href: "/sistema/guardas" },
-  { titulo: "Viaturas", icone: Car, href: "/sistema/viaturas" },
-  { titulo: "Relatórios", icone: ClipboardList, href: "/sistema/relatorios" },
-  { titulo: "IA Operacional", icone: Bot, href: "/sistema/ia" },
-  { titulo: "Legislação", icone: BookOpen, href: "/sistema/legislacao" },
-  { titulo: "Ofícios", icone: FileText, href: "/sistema/oficios" },
-  { titulo: "Offline", icone: WifiOff, href: "/sistema/ocorrencias/offline" },
-  { titulo: "Configurações", icone: Settings, href: "/sistema/configuracoes" },
+import MobileBottomNav from "@/components/MobileBottomNav";
+
+const grupos = [
   {
-    titulo: "Mancha Criminal",
-    icone: Flame,
-    href: "/sistema/mobile/mancha-criminal",
+    titulo: "Operacional",
+    itens: [
+      {
+        href: "/sistema/mobile/favoritos",
+        titulo: "Meus atalhos",
+        descricao: "Personalizar acessos rápidos",
+        icone: Star,
+      },
+      {
+        href: "/sistema/mobile/plantao",
+        titulo: "Meu plantão",
+        descricao: "Equipe, viatura e situação operacional",
+        icone: CalendarDays,
+      },
+      {
+        href: "/sistema/mobile/busca",
+        titulo: "Pesquisa operacional",
+        descricao: "Pessoas, veículos, ocorrências e locais",
+        icone: Search,
+      },
+      {
+        href: "/sistema/mobile/offline",
+        titulo: "Central offline",
+        descricao: "Pendências e sincronização local",
+        icone: Smartphone,
+      },
+      {
+        href: "/sistema/chamados",
+        titulo: "Chamados",
+        descricao: "Demandas operacionais abertas",
+        icone: Bell,
+      },
+      {
+        href: "/sistema/visitas/ler-qrcode",
+        titulo: "Visitas e QR Code",
+        descricao: "Confirmar presença em pontos",
+        icone: QrCode,
+      },
+      {
+        href: "/sistema/mapa-operacional",
+        titulo: "Mapa operacional",
+        descricao: "Equipes, alertas e ocorrências",
+        icone: Map,
+      },
+      {
+        href: "/sistema/central-sos",
+        titulo: "Central SOS",
+        descricao: "Alertas de emergência",
+        icone: ShieldAlert,
+      },
+    ],
+  },
+  {
+    titulo: "Equipe e serviço",
+    itens: [
+      {
+        href: "/sistema/mobile/guarnicao",
+        titulo: "Minha guarnição",
+        descricao: "Comandante, viatura e equipe",
+        icone: Users,
+      },
+      {
+        href: "/sistema/escalas",
+        titulo: "Escalas",
+        descricao: "Plantões e serviços",
+        icone: CalendarDays,
+      },
+      {
+        href: "/sistema/viaturas",
+        titulo: "Viaturas",
+        descricao: "Frota disponível",
+        icone: CarFront,
+      },
+      {
+        href: "/sistema/relatorio-plantao",
+        titulo: "Relatório de plantão",
+        descricao: "Registrar o serviço do dia",
+        icone: ClipboardList,
+      },
+    ],
+  },
+  {
+    titulo: "Comunicação",
+    itens: [
+      {
+        href: "/sistema/feed-sig",
+        titulo: "Rede Interna SIG",
+        descricao: "Publicações da Guarda",
+        icone: MessageCircle,
+      },
+      {
+        href: "/sistema/notificacoes",
+        titulo: "Notificações",
+        descricao: "Avisos e atualizações",
+        icone: Bell,
+      },
+      {
+        href: "/sistema/central-legislacao",
+        titulo: "Legislação",
+        descricao: "Consulta jurídica rápida",
+        icone: BookOpen,
+      },
+      {
+        href: "/sistema/central-relatorios",
+        titulo: "Relatórios",
+        descricao: "Consultas e documentos",
+        icone: FileText,
+      },
+    ],
   },
 ];
 
-export default function MaisPage() {
-  const [usuario, setUsuario] = useState<any>(null);
-
-  useEffect(() => {
-    const salvo = localStorage.getItem("usuarioLogado");
-
-    if (!salvo) {
-      window.location.href = "/login";
-      return;
-    }
-
-    const dados = JSON.parse(salvo);
-
-    if (!dados?.id || !dados?.municipio_id) {
-      window.location.href = "/login";
-      return;
-    }
-
-    setUsuario(dados);
-  }, []);
-
-  function sair() {
-    localStorage.removeItem("usuarioLogado");
-    window.location.href = "/login";
-  }
-
+export default function MobileMaisPage() {
   return (
-    <main className="min-h-screen bg-[#02060f] text-white p-5 pb-28">
-      <button
-        type="button"
-        onClick={() => window.history.back()}
-        className="mb-5 bg-slate-900 border border-slate-800 px-4 py-2 rounded-2xl flex items-center gap-2 active:scale-95"
-      >
-        <ArrowLeft className="w-5 h-5" />
-        Voltar
-      </button>
+    <main className="relative min-h-screen overflow-x-hidden bg-[#02060f] pb-28 text-white">
+      <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(circle_at_top,#0d3b66_0%,transparent_36%),linear-gradient(180deg,#06111f_0%,#02060f_55%)] opacity-90" />
 
-      <section className="mb-6 rounded-3xl border border-slate-800 bg-slate-900 p-5">
-        <p className="text-xs text-blue-400 font-bold">
-          SIG-GCM Brasil Mobile
-        </p>
-
-        <h1 className="text-3xl font-black mt-1">Mais Opções</h1>
-
-        <p className="text-slate-400 mt-2">
-          Ferramentas e módulos adicionais do sistema.
-        </p>
-
-        {usuario && (
-          <p className="mt-3 text-sm text-slate-500">
-            {usuario.nome || "Usuário"} • {usuario.perfil || "Perfil"}
+      <div className="relative z-10 mx-auto max-w-md px-3 pb-4 pt-3">
+        <header className="rounded-[28px] border border-white/10 bg-gradient-to-br from-slate-900 via-slate-950 to-blue-950/80 p-5 shadow-2xl">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
+            Aplicativo SIG
           </p>
-        )}
-      </section>
 
-      <div className="grid grid-cols-2 gap-4">
-        {itens.map((item) => {
-          const Icone = item.icone;
+          <h1 className="mt-2 text-2xl font-black text-white">
+            Mais recursos
+          </h1>
 
-          return (
-            <Link
-              key={item.titulo}
-              href={item.href}
-              className="bg-slate-900 border border-slate-800 rounded-3xl p-5 flex flex-col items-center justify-center text-center min-h-36 active:scale-95"
-            >
-              <div className="w-14 h-14 rounded-2xl bg-blue-600/20 flex items-center justify-center mb-3">
-                <Icone className="w-7 h-7 text-blue-400" />
+          <p className="mt-2 text-sm leading-6 text-slate-400">
+            Acesse rapidamente os módulos usados durante o serviço.
+          </p>
+        </header>
+
+        <div className="mt-4 space-y-5">
+          {grupos.map((grupo) => (
+            <section key={grupo.titulo}>
+              <h2 className="mb-2 px-1 text-xs font-black uppercase tracking-[0.16em] text-slate-500">
+                {grupo.titulo}
+              </h2>
+
+              <div className="space-y-2">
+                {grupo.itens.map((item) => {
+                  const Icone = item.icone;
+
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="flex min-h-20 items-center gap-4 rounded-3xl border border-slate-800 bg-slate-900/85 p-4 shadow-lg transition active:scale-[0.99]"
+                    >
+                      <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-cyan-400/10 text-cyan-200">
+                        <Icone className="h-6 w-6" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-black text-white">
+                          {item.titulo}
+                        </p>
+                        <p className="mt-1 truncate text-sm text-slate-400">
+                          {item.descricao}
+                        </p>
+                      </div>
+
+                      <ChevronRight className="h-5 w-5 text-slate-500" />
+                    </Link>
+                  );
+                })}
               </div>
+            </section>
+          ))}
 
-              <span className="font-bold">{item.titulo}</span>
-            </Link>
-          );
-        })}
+          <Link
+            href="/sistema/configuracoes"
+            className="flex min-h-14 items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-900/85 text-sm font-black text-slate-200"
+          >
+            <Settings className="h-5 w-5" />
+            Configurações do sistema
+          </Link>
+        </div>
 
-        <button
-          type="button"
-          onClick={sair}
-          className="bg-red-950/60 border border-red-800 rounded-3xl p-5 flex flex-col items-center justify-center text-center min-h-36 active:scale-95"
-        >
-          <div className="w-14 h-14 rounded-2xl bg-red-600/20 flex items-center justify-center mb-3">
-            <LogOut className="w-7 h-7 text-red-400" />
-          </div>
-
-          <span className="font-bold text-red-300">Sair</span>
-        </button>
+        <MobileBottomNav />
       </div>
-
-      <MobileBottomNav />
     </main>
   );
 }

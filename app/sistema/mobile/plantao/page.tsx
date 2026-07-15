@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   CarFront,
   ChevronLeft,
+  Clock3,
   Loader2,
+  MapPin,
   ShieldCheck,
   UserRound,
   Users,
@@ -16,6 +18,8 @@ import { calcularGuarnicaoDia } from "@/lib/guarnicaoDia";
 import { supabase } from "@/lib/supabase";
 
 type UsuarioLogado = {
+  id?: string | number;
+  nome?: string;
   municipio_id?: number;
 };
 
@@ -34,22 +38,31 @@ function lerUsuario(): UsuarioLogado {
   }
 }
 
-export default function MobileGuarnicaoPage() {
+export default function MobilePlantaoPage() {
+  const [usuario] = useState<UsuarioLogado>(() => lerUsuario());
   const [guarnicao, setGuarnicao] = useState<any>(null);
   const [membros, setMembros] = useState<Guarda[]>([]);
+  const [patrulhamento, setPatrulhamento] = useState<any>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
-  async function carregar() {
-    const usuario = lerUsuario();
+  const horarioAtual = useMemo(
+    () =>
+      new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    []
+  );
 
+  async function carregar() {
     if (!usuario.municipio_id) {
       setErro("Município não identificado.");
       setCarregando(false);
       return;
     }
 
-    const [config, guarnicoes, guardas, viaturas] =
+    const [config, guarnicoes, guardas, viaturas, patrulhamentoResposta] =
       await Promise.all([
         supabase
           .from("escala_operacional_config")
@@ -75,6 +88,15 @@ export default function MobileGuarnicaoPage() {
           .from("viaturas")
           .select("*")
           .eq("municipio_id", usuario.municipio_id),
+
+        supabase
+          .from("patrulhamentos")
+          .select("id,status,iniciado_em,distancia_km")
+          .eq("municipio_id", usuario.municipio_id)
+          .in("status", ["EM_ANDAMENTO", "PAUSADO"])
+          .order("id", { ascending: false })
+          .limit(1)
+          .maybeSingle(),
       ]);
 
     if (!config.data?.ordem_guarnicoes?.length) {
@@ -89,18 +111,21 @@ export default function MobileGuarnicaoPage() {
     );
 
     if (!atual) {
-      setErro("Não foi possível identificar a guarnição do dia.");
+      setErro("Não foi possível identificar o plantão atual.");
       setCarregando(false);
       return;
     }
 
     const listaGuardas = (guardas.data || []) as Guarda[];
+
     const comandante = listaGuardas.find(
-      (item) => Number(item.id) === Number(atual.comandante_id)
+      (item) =>
+        Number(item.id) === Number(atual.comandante_id)
     );
 
     const viatura = (viaturas.data || []).find(
-      (item: any) => Number(item.id) === Number(atual.viatura_id)
+      (item: any) =>
+        Number(item.id) === Number(atual.viatura_id)
     );
 
     const membrosResposta = await supabase
@@ -113,14 +138,24 @@ export default function MobileGuarnicaoPage() {
     );
 
     setMembros(
-      listaGuardas.filter((item) => ids.includes(Number(item.id)))
+      listaGuardas.filter((item) =>
+        ids.includes(Number(item.id))
+      )
     );
 
     setGuarnicao({
       nome: atual.nome || "Guarnição",
       comandante: comandante?.nome || "Não informado",
       viatura: viatura?.prefixo || "Sem VTR",
+      inicio: config.data.hora_inicio || "07:00",
+      fim: config.data.hora_fim || "07:00",
     });
+
+    setPatrulhamento(
+      patrulhamentoResposta.error
+        ? null
+        : patrulhamentoResposta.data
+    );
 
     setCarregando(false);
   }
@@ -152,30 +187,42 @@ export default function MobileGuarnicaoPage() {
           </div>
         ) : (
           <>
-            <header className="rounded-[28px] border border-blue-300/25 bg-gradient-to-br from-blue-600/18 via-slate-900 to-slate-950 p-5 shadow-2xl">
+            <header className="rounded-[28px] border border-cyan-300/25 bg-gradient-to-br from-cyan-500/15 via-slate-900 to-slate-950 p-5 shadow-2xl">
               <div className="flex items-center gap-4">
-                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-blue-400/15 ring-1 ring-blue-300/20">
-                  <ShieldCheck className="h-9 w-9 text-blue-200" />
+                <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-cyan-400/15 ring-1 ring-cyan-300/20">
+                  <ShieldCheck className="h-9 w-9 text-cyan-200" />
                 </div>
 
-                <div>
-                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-blue-300">
-                    Guarnição do dia
+                <div className="min-w-0">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-cyan-300">
+                    Meu plantão
                   </p>
-                  <h1 className="mt-1 text-2xl font-black">
+                  <h1 className="mt-1 truncate text-2xl font-black">
                     {guarnicao.nome}
                   </h1>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Agora: {horarioAtual}
+                  </p>
                 </div>
               </div>
             </header>
 
-            <section className="mt-4 grid gap-3">
+            <section className="mt-4 grid grid-cols-2 gap-3">
+              <Info
+                icone={Clock3}
+                titulo="Início"
+                valor={guarnicao.inicio}
+              />
+              <Info
+                icone={Clock3}
+                titulo="Fim"
+                valor={guarnicao.fim}
+              />
               <Info
                 icone={UserRound}
                 titulo="Comandante"
                 valor={guarnicao.comandante}
               />
-
               <Info
                 icone={CarFront}
                 titulo="Viatura"
@@ -184,13 +231,61 @@ export default function MobileGuarnicaoPage() {
             </section>
 
             <section className="mt-4 rounded-3xl border border-slate-800 bg-slate-900/85 p-4">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                <div className="flex items-center gap-3">
+                  <MapPin className="h-6 w-6 text-cyan-300" />
+                  <div>
+                    <h2 className="font-black">Situação operacional</h2>
+                    <p className="text-xs text-slate-500">
+                      Status atual do serviço
+                    </p>
+                  </div>
+                </div>
+
+                <span
+                  className={`rounded-full px-3 py-1 text-[10px] font-black ${
+                    patrulhamento
+                      ? "bg-emerald-400/15 text-emerald-300"
+                      : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {patrulhamento
+                    ? String(patrulhamento.status).replaceAll("_", " ")
+                    : "AGUARDANDO"}
+                </span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3">
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">
+                    Distância
+                  </p>
+                  <p className="mt-2 text-2xl font-black">
+                    {Number(
+                      patrulhamento?.distancia_km || 0
+                    ).toFixed(1)}{" "}
+                    km
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                  <p className="text-xs font-black uppercase text-slate-500">
+                    Integrantes
+                  </p>
+                  <p className="mt-2 text-2xl font-black">
+                    {membros.length}
+                  </p>
+                </div>
+              </div>
+            </section>
+
+            <section className="mt-4 rounded-3xl border border-slate-800 bg-slate-900/85 p-4">
               <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
                 <Users className="h-6 w-6 text-cyan-300" />
-
                 <div>
-                  <h2 className="font-black">Integrantes</h2>
+                  <h2 className="font-black">Equipe do plantão</h2>
                   <p className="text-xs text-slate-500">
-                    {membros.length} guarda(s)
+                    Integrantes vinculados
                   </p>
                 </div>
               </div>
@@ -232,24 +327,19 @@ function Info({
   titulo,
   valor,
 }: {
-  icone: typeof UserRound;
+  icone: typeof Clock3;
   titulo: string;
   valor: string;
 }) {
   return (
-    <div className="flex min-h-20 items-center gap-4 rounded-3xl border border-slate-800 bg-slate-900/85 p-4 shadow-lg">
-      <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-cyan-400/10">
-        <Icone className="h-6 w-6 text-cyan-300" />
-      </div>
-
-      <div>
-        <p className="text-xs font-black uppercase tracking-wider text-slate-500">
-          {titulo}
-        </p>
-        <p className="mt-1 text-lg font-black text-white">
-          {valor}
-        </p>
-      </div>
+    <div className="rounded-3xl border border-slate-800 bg-slate-900/85 p-4 shadow-lg">
+      <Icone className="h-5 w-5 text-cyan-300" />
+      <p className="mt-3 text-[10px] font-black uppercase tracking-wider text-slate-500">
+        {titulo}
+      </p>
+      <p className="mt-1 truncate text-base font-black text-white">
+        {valor}
+      </p>
     </div>
   );
 }
