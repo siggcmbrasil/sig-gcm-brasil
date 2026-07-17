@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { TIPOS_OCORRENCIA } from "@/lib/modelosOcorrencia";
@@ -388,6 +388,9 @@ export default function NovaOcorrencia() {
   const [descricao, setDescricao] = useState("");
   const [fotos, setFotos] = useState<File[]>([]);
   const [salvando, setSalvando] = useState(false);
+  const [rascunhoRestaurado, setRascunhoRestaurado] = useState(false);
+  const [ultimaGravacaoLocal, setUltimaGravacaoLocal] = useState<string | null>(null);
+  const [painelRevisaoAberto, setPainelRevisaoAberto] = useState(true);
   const [carregandoInicial, setCarregandoInicial] = useState(true);
   const [erroInicial, setErroInicial] = useState("");
   const [municipioId, setMunicipioId] = useState<number | null>(null);
@@ -501,6 +504,82 @@ cep_proprietario: "",
     situacao_consulta: "",
   },
 ]);
+
+const CHAVE_RASCUNHO_LOCAL = "sig_ocorrencia_rascunho_v1";
+
+  const itensObrigatorios = useMemo(
+    () => [
+      { chave: "tipo", rotulo: "Tipo da ocorrência", concluido: Boolean(tipo.trim()) },
+      { chave: "local", rotulo: "Localização cadastrada", concluido: Boolean(localId) },
+      { chave: "descricao", rotulo: "Narrativa da ocorrência", concluido: descricao.trim().length >= 20 },
+      { chave: "guarnicao", rotulo: "Guarnição ou responsável", concluido: Boolean(guarnicaoId || guardaResponsavelId) },
+    ],
+    [tipo, localId, descricao, guarnicaoId, guardaResponsavelId]
+  );
+
+  const percentualPreenchimento = useMemo(() => {
+    const concluidos = itensObrigatorios.filter((item) => item.concluido).length;
+    return Math.round((concluidos / itensObrigatorios.length) * 100);
+  }, [itensObrigatorios]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || rascunhoRestaurado) return;
+
+    try {
+      const bruto = localStorage.getItem(CHAVE_RASCUNHO_LOCAL);
+      if (bruto) {
+        const rascunho = JSON.parse(bruto) as Record<string, unknown>;
+        if (!tipo && typeof rascunho.tipo === "string") setTipo(rascunho.tipo);
+        if (!localId && typeof rascunho.localId === "string") setLocalId(rascunho.localId);
+        if (!local && typeof rascunho.local === "string") setLocal(rascunho.local);
+        if (!bairro && typeof rascunho.bairro === "string") setBairro(rascunho.bairro);
+        if (!numero && typeof rascunho.numero === "string") setNumero(rascunho.numero);
+        if (!descricao && typeof rascunho.descricao === "string") setDescricao(rascunho.descricao);
+        if (typeof rascunho.status === "string") setStatus(rascunho.status);
+        if (typeof rascunho.prioridade === "string") setPrioridade(rascunho.prioridade);
+        if (typeof rascunho.guarnicaoId === "string") setGuarnicaoId(rascunho.guarnicaoId);
+        if (typeof rascunho.guardaResponsavelId === "string") setGuardaResponsavelId(rascunho.guardaResponsavelId);
+        if (typeof rascunho.viaturaId === "string") setViaturaId(rascunho.viaturaId);
+        if (Array.isArray(rascunho.guardasSelecionados)) setGuardasSelecionados(rascunho.guardasSelecionados.filter((v): v is string => typeof v === "string"));
+        if (Array.isArray(rascunho.envolvidos) && rascunho.envolvidos.length > 0) setEnvolvidos(rascunho.envolvidos as Envolvido[]);
+        if (Array.isArray(rascunho.veiculosEnvolvidos) && rascunho.veiculosEnvolvidos.length > 0) setVeiculosEnvolvidos(rascunho.veiculosEnvolvidos as VeiculoEnvolvido[]);
+        if (Array.isArray(rascunho.itensOcorrencia) && rascunho.itensOcorrencia.length > 0) setItensOcorrencia(rascunho.itensOcorrencia as ItemOcorrencia[]);
+        setMostrarVeiculos(Boolean(rascunho.mostrarVeiculos));
+        setMostrarObjetos(Boolean(rascunho.mostrarObjetos));
+      }
+    } catch (error) {
+      console.warn("Não foi possível restaurar o rascunho local:", error);
+    } finally {
+      setRascunhoRestaurado(true);
+    }
+  }, [rascunhoRestaurado]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !rascunhoRestaurado || salvando) return;
+
+    const temporizador = window.setTimeout(() => {
+      try {
+        localStorage.setItem(
+          CHAVE_RASCUNHO_LOCAL,
+          JSON.stringify({
+            tipo, status, prioridade, bairro, local, localId, numero, descricao,
+            guarnicaoId, guardaResponsavelId, viaturaId, guardasSelecionados,
+            envolvidos, veiculosEnvolvidos, itensOcorrencia, mostrarVeiculos, mostrarObjetos,
+            atualizadoEm: new Date().toISOString(),
+          })
+        );
+        setUltimaGravacaoLocal(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }));
+      } catch (error) {
+        console.warn("Não foi possível salvar o rascunho local:", error);
+      }
+    }, 1200);
+
+    return () => window.clearTimeout(temporizador);
+  }, [
+    rascunhoRestaurado, salvando, tipo, status, prioridade, bairro, local, localId, numero,
+    descricao, guarnicaoId, guardaResponsavelId, viaturaId, guardasSelecionados, envolvidos,
+    veiculosEnvolvidos, itensOcorrencia, mostrarVeiculos, mostrarObjetos,
+  ]);
 
 useEffect(() => {
   const narrativaSIGIA =
@@ -1277,6 +1356,8 @@ function adicionarEnvolvido() {
           : dados.mensagem ||
               "Ocorrência salva com sucesso."
       );
+
+      localStorage.removeItem(CHAVE_RASCUNHO_LOCAL);
 
       router.push(
         `/sistema/ocorrencias/${dados.ocorrencia.id}`
@@ -2570,18 +2651,32 @@ if (erroInicial) {
   return (
   <ProtecaoModulo modulo="ocorrencias">
   <>
-    <div className="hidden md:block min-h-screen bg-[#07152E] p-6 md:p-8">
-<header className="mb-8 border-b border-[#d6a93b] pb-6">
-  <h1 className="text-4xl font-black text-white">
-    Nova Ocorrência
-  </h1>
+    <div className="hidden min-h-screen bg-slate-950 md:block">
+      <header className="sticky top-0 z-40 border-b border-slate-800 bg-slate-950/95 px-6 py-4 backdrop-blur-xl md:px-8">
+        <div className="mx-auto flex max-w-[1700px] items-center justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-3">
+              <span className="rounded-full border border-blue-500/30 bg-blue-500/10 px-3 py-1 text-xs font-black uppercase tracking-[0.18em] text-blue-300">Registro operacional</span>
+              <span className="text-xs font-semibold text-slate-500">Preenchimento {percentualPreenchimento}%</span>
+            </div>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-white">Nova ocorrência</h1>
+            <p className="mt-1 text-sm text-slate-400">Cadastro completo, auditável e protegido contra perda de dados.</p>
+          </div>
 
-  <p className="mt-2 text-slate-300">
-    Preencha os dados para registrar uma nova ocorrência no sistema.
-  </p>
-</header>
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right xl:block">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Rascunho automático</p>
+              <p className="text-sm font-bold text-emerald-400">{ultimaGravacaoLocal ? `Salvo às ${ultimaGravacaoLocal}` : "Proteção ativa"}</p>
+            </div>
+            <button type="button" onClick={() => router.push("/sistema/ocorrencias")} className="rounded-xl border border-slate-700 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-900">Cancelar</button>
+            <button type="button" onClick={() => salvarOcorrencia("RASCUNHO")} disabled={salvando} className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-4 py-2.5 text-sm font-black text-blue-300 transition hover:bg-blue-500/20 disabled:opacity-50">Salvar rascunho</button>
+            <button type="button" onClick={() => salvarOcorrencia()} disabled={salvando} className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-black text-white shadow-lg shadow-blue-950/40 transition hover:bg-blue-500 disabled:opacity-50">{salvando ? "Salvando..." : "Registrar ocorrência"}</button>
+          </div>
+        </div>
+      </header>
 
-<form className="w-full max-w-full overflow-hidden rounded-2xl border border-[#C9A227] bg-[#0D1B34] p-8 space-y-8">
+      <div className="mx-auto grid max-w-[1700px] grid-cols-[minmax(0,1fr)_320px] gap-6 p-6 md:p-8">
+<form className="min-w-0 space-y-6 overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/60 p-6 shadow-2xl shadow-black/20 xl:p-8">
         
   <DadosOcorrencia>
 
@@ -3872,11 +3967,11 @@ let valor = formatarTelefone(e.target.value);
   )}
 </SecaoOcorrencia>
 
-<div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-[#C9A227] pt-6">
+<div className="mt-8 flex flex-wrap items-center justify-between gap-4 border-t border-slate-800 pt-6">
   <button
     type="button"
     onClick={() => router.push("/sistema/ocorrencias")}
-    className="rounded-lg border border-[#C9A227] px-6 py-3 font-semibold text-white hover:bg-[#C9A227]/10"
+    className="rounded-xl border border-slate-700 px-6 py-3 font-semibold text-white hover:bg-slate-800"
   >
     Cancelar
   </button>
@@ -3889,7 +3984,7 @@ let valor = formatarTelefone(e.target.value);
         salvarOcorrencia("RASCUNHO");
       }}
       disabled={salvando}
-      className="rounded-lg border border-[#C9A227] px-6 py-3 font-semibold text-white hover:bg-[#C9A227]/10 disabled:opacity-50"
+      className="rounded-xl border border-blue-500/40 bg-blue-500/10 px-6 py-3 font-semibold text-blue-300 hover:bg-blue-500/20 disabled:opacity-50"
     >
       Salvar Rascunho
     </button>
@@ -3898,13 +3993,57 @@ let valor = formatarTelefone(e.target.value);
       type="button"
       onClick={() => salvarOcorrencia()}
       disabled={salvando}
-      className="rounded-lg bg-[#C9A227] px-6 py-3 font-bold text-[#07152E] hover:bg-[#D9B64A] disabled:opacity-50"
+      className="rounded-xl bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-500 disabled:opacity-50"
     >
       {salvando ? "Salvando..." : "Salvar Registro"}
     </button>
   </div>
 </div>
 </form>
+
+        <aside className="self-start sticky top-28 space-y-4">
+          <section className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-900/80 shadow-xl shadow-black/20">
+            <button type="button" onClick={() => setPainelRevisaoAberto((valor) => !valor)} className="flex w-full items-center justify-between px-5 py-4 text-left">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-blue-400">Revisão inteligente</p>
+                <h2 className="mt-1 text-lg font-black text-white">Pronto para registrar?</h2>
+              </div>
+              <span className="text-slate-400">{painelRevisaoAberto ? "−" : "+"}</span>
+            </button>
+
+            {painelRevisaoAberto ? (
+              <div className="border-t border-slate-800 px-5 py-5">
+                <div className="h-2 overflow-hidden rounded-full bg-slate-800">
+                  <div className="h-full rounded-full bg-blue-500 transition-all duration-500" style={{ width: `${percentualPreenchimento}%` }} />
+                </div>
+                <div className="mt-5 space-y-3">
+                  {itensObrigatorios.map((item) => (
+                    <div key={item.chave} className="flex items-center gap-3">
+                      <span className={`grid h-7 w-7 place-items-center rounded-full text-xs font-black ${item.concluido ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-300"}`}>{item.concluido ? "✓" : "!"}</span>
+                      <span className={`text-sm font-semibold ${item.concluido ? "text-slate-300" : "text-slate-100"}`}>{item.rotulo}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="rounded-3xl border border-slate-800 bg-slate-900/80 p-5">
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">Resumo do registro</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-slate-950/70 p-3"><p className="text-2xl font-black text-white">{envolvidos.filter((item) => item.nome.trim()).length}</p><p className="text-xs font-semibold text-slate-500">Envolvidos</p></div>
+              <div className="rounded-2xl bg-slate-950/70 p-3"><p className="text-2xl font-black text-white">{mostrarVeiculos ? veiculosEnvolvidos.filter((item) => item.placa.trim()).length : 0}</p><p className="text-xs font-semibold text-slate-500">Veículos</p></div>
+              <div className="rounded-2xl bg-slate-950/70 p-3"><p className="text-2xl font-black text-white">{mostrarObjetos ? itensOcorrencia.filter((item) => item.categoria.trim()).length : 0}</p><p className="text-xs font-semibold text-slate-500">Objetos</p></div>
+              <div className="rounded-2xl bg-slate-950/70 p-3"><p className="text-2xl font-black text-white">{fotos.length}</p><p className="text-xs font-semibold text-slate-500">Anexos</p></div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-blue-500/20 bg-blue-500/5 p-5">
+            <p className="text-sm font-bold text-blue-200">Proteção contra perda de dados</p>
+            <p className="mt-2 text-xs leading-5 text-slate-400">O formulário é salvo automaticamente neste dispositivo. Após o registro oficial, o rascunho local é removido.</p>
+          </section>
+        </aside>
+      </div>
     </div>
 
     <div className="block md:hidden">

@@ -63,7 +63,12 @@ type Permuta = {
   escala_troca_id: number | null;
   guarda_solicitante_id: number;
   guarda_substituto_id: number;
+  tipo_solicitacao: string;
+  categoria_motivo: string | null;
   motivo: string | null;
+  detalhes_acordo: string | null;
+  data_prevista_compensacao: string | null;
+  termos_aceitos: boolean;
   observacao: string | null;
   status: string;
   resposta_substituto: string | null;
@@ -99,6 +104,34 @@ type RetornoApi = {
 };
 
 type Aba = "SOLICITAR" | "PENDENCIAS" | "HISTORICO" | "MANUAL";
+
+const TIPOS_SOLICITACAO = [
+  { valor: "PERMUTA", rotulo: "Permuta com devolução" },
+  { valor: "PLANTAO_PAGO", rotulo: "Cobertura remunerada" },
+  { valor: "COBERTURA_VOLUNTARIA", rotulo: "Cobertura voluntária" },
+  { valor: "BANCO_HORAS", rotulo: "Compensação em banco de horas" },
+  { valor: "TROCA_DEFINITIVA", rotulo: "Troca definitiva" },
+];
+
+const MOTIVOS_SOLICITACAO = [
+  { valor: "COMPROMISSO_PESSOAL", rotulo: "Compromisso pessoal" },
+  { valor: "SAUDE", rotulo: "Saúde" },
+  { valor: "ESTUDO", rotulo: "Curso / estudo" },
+  { valor: "VIAGEM", rotulo: "Viagem" },
+  { valor: "NECESSIDADE_FAMILIAR", rotulo: "Necessidade familiar" },
+  { valor: "COMPROMISSO_INSTITUCIONAL", rotulo: "Compromisso institucional" },
+  { valor: "SERVICO_EXTRAORDINARIO", rotulo: "Serviço extraordinário" },
+  { valor: "DESCANSO", rotulo: "Descanso" },
+  { valor: "OUTRO", rotulo: "Outro" },
+];
+
+function rotuloTipo(tipo?: string | null) {
+  return TIPOS_SOLICITACAO.find((item) => item.valor === tipo)?.rotulo || "Permuta";
+}
+
+function rotuloMotivo(categoria?: string | null) {
+  return MOTIVOS_SOLICITACAO.find((item) => item.valor === categoria)?.rotulo || "Não informado";
+}
 
 function lerUsuarioLocal(): UsuarioLocal | null {
   if (typeof window === "undefined") {
@@ -194,9 +227,14 @@ export default function PermutasPage() {
   const [aba, setAba] = useState<Aba>("SOLICITAR");
 
   const [busca, setBusca] = useState("");
+  const [tipoSolicitacao, setTipoSolicitacao] = useState("PERMUTA");
   const [escalaOrigemId, setEscalaOrigemId] = useState("");
   const [escalaTrocaId, setEscalaTrocaId] = useState("");
+  const [guardaSubstitutoId, setGuardaSubstitutoId] = useState("");
+  const [categoriaMotivo, setCategoriaMotivo] = useState("");
   const [motivo, setMotivo] = useState("");
+  const [detalhesAcordo, setDetalhesAcordo] = useState("");
+  const [dataPrevistaCompensacao, setDataPrevistaCompensacao] = useState("");
 
   const [manualOrigemId, setManualOrigemId] = useState("");
   const [manualTrocaId, setManualTrocaId] = useState("");
@@ -396,15 +434,25 @@ export default function PermutasPage() {
   async function solicitar() {
     const sucesso = await executar({
       acao: "SOLICITAR",
+      tipo_solicitacao: tipoSolicitacao,
       escala_origem_id: Number(escalaOrigemId),
-      escala_troca_id: Number(escalaTrocaId),
+      escala_troca_id: escalaTrocaId ? Number(escalaTrocaId) : null,
+      guarda_substituto_id: guardaSubstitutoId ? Number(guardaSubstitutoId) : null,
+      categoria_motivo: categoriaMotivo,
       motivo,
+      detalhes_acordo: detalhesAcordo || null,
+      data_prevista_compensacao: dataPrevistaCompensacao || null,
     });
 
     if (sucesso) {
+      setTipoSolicitacao("PERMUTA");
       setEscalaOrigemId("");
       setEscalaTrocaId("");
+      setGuardaSubstitutoId("");
+      setCategoriaMotivo("");
       setMotivo("");
+      setDetalhesAcordo("");
+      setDataPrevistaCompensacao("");
       setAba("PENDENCIAS");
     }
   }
@@ -633,39 +681,118 @@ export default function PermutasPage() {
                 </div>
               ) : (
                 <div className="mt-6 space-y-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">
+                      Tipo da solicitação
+                    </label>
+                    <select
+                      value={tipoSolicitacao}
+                      onChange={(evento) => {
+                        setTipoSolicitacao(evento.target.value);
+                        setEscalaTrocaId("");
+                        setGuardaSubstitutoId("");
+                      }}
+                      className="min-h-12 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 text-white outline-none focus:border-cyan-400"
+                    >
+                      {TIPOS_SOLICITACAO.map((item) => (
+                        <option key={item.valor} value={item.valor}>{item.rotulo}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {tipoSolicitacao === "PLANTAO_PAGO" ? (
+                    <div className="rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-100">
+                      O sistema registra apenas que existe um acordo particular entre os envolvidos. Nenhum valor, forma de pagamento ou comprovante será armazenado.
+                    </div>
+                  ) : null}
+
                   <CampoSelecao
                     label="Meu plantão"
                     value={escalaOrigemId}
                     onChange={setEscalaOrigemId}
                     opcoes={minhasEscalas}
                     descrever={descricaoEscala}
-                    placeholder="Selecione o plantão que será trocado"
+                    placeholder="Selecione o seu plantão"
                   />
 
-                  <CampoSelecao
-                    label="Plantão do guarda substituto"
-                    value={escalaTrocaId}
-                    onChange={setEscalaTrocaId}
-                    opcoes={escalasTroca}
-                    descrever={descricaoEscala}
-                    placeholder="Selecione o plantão do outro guarda"
-                  />
+                  {tipoSolicitacao === "PERMUTA" || tipoSolicitacao === "TROCA_DEFINITIVA" ? (
+                    <CampoSelecao
+                      label="Plantão do outro guarda"
+                      value={escalaTrocaId}
+                      onChange={setEscalaTrocaId}
+                      opcoes={escalasTroca}
+                      descrever={descricaoEscala}
+                      placeholder="Selecione o plantão que será trocado"
+                    />
+                  ) : (
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">
+                        Guarda que assumirá o plantão
+                      </label>
+                      <select
+                        value={guardaSubstitutoId}
+                        onChange={(evento) => setGuardaSubstitutoId(evento.target.value)}
+                        className="min-h-12 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 text-white outline-none focus:border-cyan-400"
+                      >
+                        <option value="">Selecione o guarda substituto</option>
+                        {guardas.filter((guarda) => guarda.id !== guardaAtual?.id).map((guarda) => (
+                          <option key={guarda.id} value={guarda.id}>
+                            {guarda.nome}{guarda.matricula ? ` • ${guarda.matricula}` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   <div>
-                    <label className="mb-2 block text-sm font-bold text-slate-300">
-                      Motivo da solicitação
-                    </label>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">Categoria do motivo</label>
+                    <select
+                      value={categoriaMotivo}
+                      onChange={(evento) => setCategoriaMotivo(evento.target.value)}
+                      className="min-h-12 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 text-white outline-none focus:border-cyan-400"
+                    >
+                      <option value="">Selecione o motivo</option>
+                      {MOTIVOS_SOLICITACAO.map((item) => (
+                        <option key={item.valor} value={item.valor}>{item.rotulo}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">Descrição resumida</label>
                     <textarea
                       value={motivo}
                       onChange={(evento) => setMotivo(evento.target.value)}
-                      rows={4}
+                      rows={3}
                       maxLength={500}
-                      placeholder="Explique de forma objetiva o motivo da permuta."
+                      placeholder="Descreva de forma objetiva a necessidade da substituição."
                       className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-950/70 p-4 text-white outline-none transition focus:border-cyan-400"
                     />
-                    <p className="mt-1 text-right text-xs text-slate-600">
-                      {motivo.length}/500
-                    </p>
+                    <p className="mt-1 text-right text-xs text-slate-600">{motivo.length}/500</p>
+                  </div>
+
+                  {(tipoSolicitacao === "PERMUTA" || tipoSolicitacao === "BANCO_HORAS") ? (
+                    <div>
+                      <label className="mb-2 block text-sm font-bold text-slate-300">Data prevista para compensação</label>
+                      <input
+                        type="date"
+                        value={dataPrevistaCompensacao}
+                        onChange={(evento) => setDataPrevistaCompensacao(evento.target.value)}
+                        className="min-h-12 w-full rounded-2xl border border-slate-700 bg-slate-950/70 px-4 text-white outline-none focus:border-cyan-400"
+                      />
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <label className="mb-2 block text-sm font-bold text-slate-300">Observações do acordo</label>
+                    <textarea
+                      value={detalhesAcordo}
+                      onChange={(evento) => setDetalhesAcordo(evento.target.value)}
+                      rows={2}
+                      maxLength={500}
+                      placeholder="Opcional. Não informe valores ou dados financeiros."
+                      className="w-full resize-none rounded-2xl border border-slate-700 bg-slate-950/70 p-4 text-white outline-none transition focus:border-cyan-400"
+                    />
                   </div>
 
                   <button
@@ -674,8 +801,11 @@ export default function PermutasPage() {
                     disabled={
                       processando ||
                       !escalaOrigemId ||
-                      !escalaTrocaId ||
-                      motivo.trim().length < 3
+                      !categoriaMotivo ||
+                      motivo.trim().length < 3 ||
+                      ((tipoSolicitacao === "PERMUTA" || tipoSolicitacao === "TROCA_DEFINITIVA")
+                        ? !escalaTrocaId
+                        : !guardaSubstitutoId)
                     }
                     className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 px-5 font-black text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
@@ -1077,6 +1207,23 @@ function PermutaCard({
           funcao={troca?.funcao || null}
         />
       </div>
+
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="rounded-2xl border border-cyan-400/20 bg-cyan-400/5 p-4">
+          <p className="text-xs font-black uppercase tracking-wider text-slate-500">Modalidade</p>
+          <p className="mt-2 font-black text-cyan-200">{rotuloTipo(permuta.tipo_solicitacao)}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+          <p className="text-xs font-black uppercase tracking-wider text-slate-500">Categoria</p>
+          <p className="mt-2 font-bold text-slate-200">{rotuloMotivo(permuta.categoria_motivo)}</p>
+        </div>
+      </div>
+
+      {permuta.tipo_solicitacao === "PLANTAO_PAGO" ? (
+        <div className="mt-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">
+          Acordo particular entre os envolvidos. O SIG-GCM Brasil não registra valores nem dados financeiros.
+        </div>
+      ) : null}
 
       {permuta.motivo ? (
         <div className="mt-4 rounded-2xl border border-slate-800 bg-slate-950/40 p-4">

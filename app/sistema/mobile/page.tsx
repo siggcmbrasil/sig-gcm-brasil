@@ -427,7 +427,7 @@ export default function MobilePage() {
         />
 
         <Link
-          href="/sistema/ocorrencias/expressa"
+          href="/sistema/ocorrencias/nova"
           className="group flex min-h-32 items-center gap-4 rounded-[28px] border border-red-300/40 bg-gradient-to-br from-red-500 to-red-700 p-5 shadow-[0_18px_55px_rgba(220,38,38,.28)] transition active:scale-[0.985]"
         >
           <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-3xl bg-white/15 ring-1 ring-white/20">

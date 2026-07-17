@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import Script from "next/script";
+import ClarityEvents from "@/components/analytics/ClarityEvents";
 
 export const metadata: Metadata = {
   title: "SIG-GCM Brasil",
@@ -23,6 +24,8 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         {children}
+
+         <ClarityEvents />
 
         <footer className="text-center text-sm text-gray-500 py-4 border-t mt-8">
           <p>SIG-GCM Brasil © 2026</p>

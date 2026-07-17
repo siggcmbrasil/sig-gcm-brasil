@@ -51,7 +51,7 @@ type EscalaServico = {
 
 type RegistroStatus = {
   id: number;
-  status: string | null;
+  status?: string | null;
   data_inicio?: string | null;
   data_fim?: string | null;
 };
@@ -76,15 +76,15 @@ const cards = [
   { titulo: "Novo Guarda", icone: UserPlus, href: "/sistema/guardas/novo", descricao: "Cadastro de novo guarda municipal.", detalhe: "Cadastrar servidor" },
   { titulo: "Guardas", icone: Users, href: "/sistema/guardas", descricao: "Lista, consulta e gestão completa do efetivo.", detalhe: "Gerenciar efetivo" },
   { titulo: "Escalas", icone: CalendarDays, href: "/sistema/escalas", descricao: "Escalas de serviço, modelos e configurações.", detalhe: "Abrir escalas" },
-  { titulo: "Guarnições", icone: ShieldCheck, href: "/sistema/guarnicoes", descricao: "Gestão das equipes e guarnições de serviço.", detalhe: "Gerenciar equipes" },
-  { titulo: "Gestão Funcional", icone: Medal, href: "/sistema/rh/gestao-funcional", descricao: "Elogios, advertências, cursos, avaliações e condecorações.", detalhe: "Abrir gestão funcional" },
+  { titulo: "Guarnições", icone: ShieldCheck, href: "/sistema/escalas/guarnicoes", descricao: "Gestão das equipes e guarnições de serviço.", detalhe: "Gerenciar equipes" },
+  { titulo: "Gestão Funcional", icone: Medal, href: "/sistema/central-rh/gestao-funcional", descricao: "Elogios, advertências, cursos, avaliações e condecorações.", detalhe: "Abrir gestão funcional" },
   { titulo: "Registro de Ponto", icone: Clock3, href: "/sistema/registro-ponto", descricao: "Controle de frequência e ponto funcional.", detalhe: "Abrir frequência" },
   { titulo: "Banco de Horas", icone: Clock3, href: "/sistema/banco-horas", descricao: "Controle de saldo, extras e compensações.", detalhe: "Consultar saldos" },
   { titulo: "Atestados", icone: HeartPulse, href: "/sistema/atestados", descricao: "Registro e acompanhamento de atestados médicos.", detalhe: "Gerenciar atestados" },
   { titulo: "Férias e Licenças", icone: CalendarDays, href: "/sistema/ferias-licencas", descricao: "Controle de férias, licenças e afastamentos.", detalhe: "Gerenciar afastamentos" },
-  { titulo: "Documentos do Guarda", icone: FileText, href: "/sistema/documentos-guardas", descricao: "CNH, RG, certificados e documentos funcionais.", detalhe: "Abrir documentos" },
-  { titulo: "Datas Institucionais", icone: CalendarDays, href: "/sistema/rh/datas", descricao: "Aniversários, campanhas e datas comemorativas.", detalhe: "Ver calendário" },
-  { titulo: "Estatísticas de RH", icone: BarChart3, href: "/sistema/rh/estatisticas", descricao: "Indicadores do efetivo, férias, licenças e banco de horas.", detalhe: "Abrir indicadores" },
+  { titulo: "Documentos do Guarda", icone: FileText, href: "/sistema/central-rh/documentos", descricao: "CNH, RG, certificados e documentos funcionais.", detalhe: "Abrir documentos" },
+  { titulo: "Datas Institucionais", icone: CalendarDays, href: "/sistema/central-rh/datas", descricao: "Aniversários, campanhas e datas comemorativas.", detalhe: "Ver calendário" },
+  { titulo: "Estatísticas de RH", icone: BarChart3, href: "/sistema/central-rh/estatisticas", descricao: "Indicadores do efetivo, férias, licenças e banco de horas.", detalhe: "Abrir indicadores" },
 ];
 
 function dataBahia() {
@@ -144,7 +144,7 @@ export default function CentralRHPage() {
         supabase.from("municipios").select("nome").eq("id", municipioId).maybeSingle(),
         supabase.from("guardas").select("id,nome,status,ativo,data_nascimento").eq("municipio_id", municipioId).order("nome"),
         supabase.from("escalas_servico").select("id,guarda_nome,equipe,funcao").eq("municipio_id", municipioId).eq("data_servico", hoje).order("equipe").order("guarda_nome"),
-        supabase.from("atestados").select("id,status,data_inicio,data_fim").eq("municipio_id", municipioId).order("id", { ascending: false }).limit(100),
+       supabase.from("atestados").select("id,data_inicio,data_fim").eq("municipio_id", municipioId).order("id", { ascending: false }).limit(100),
         supabase.from("ferias_licencas").select("id,status,data_inicio,data_fim").eq("municipio_id", municipioId).order("id", { ascending: false }).limit(100),
         supabase.from("permutas_plantao").select("id,status").eq("municipio_id", municipioId).order("id", { ascending: false }).limit(100),
       ]);
@@ -231,12 +231,12 @@ if (falhas.length > 0) {
         (!item.data_fim || item.data_fim >= hoje);
     }).length;
 
-    const atestadosAtivos = dados.atestados.filter((item) => {
-      const status = normalizar(item.status);
-      return !["CANCELADO", "ENCERRADO", "FINALIZADO"].includes(status) &&
-        (!item.data_inicio || item.data_inicio <= hoje) &&
-        (!item.data_fim || item.data_fim >= hoje);
-    }).length;
+const atestadosAtivos = dados.atestados.filter((item) => {
+  return (
+    (!item.data_inicio || item.data_inicio <= hoje) &&
+    (!item.data_fim || item.data_fim >= hoje)
+  );
+}).length;
 
     const permutasPendentes = dados.permutas.filter((item) =>
       ["AGUARDANDO_SUBSTITUTO", "ACEITA_PELO_SUBSTITUTO"].includes(normalizar(item.status))

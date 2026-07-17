@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  BadgeCheck,
+  BarChart3,
   Building2,
+  Check,
   CheckCircle2,
+  CircleDollarSign,
   CreditCard,
   Crown,
   Plus,
   Save,
   Search,
+  Settings2,
   ShieldCheck,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
+
+import { MODULOS_SISTEMA } from "@/lib/config/modulosSistema";
 import { supabase } from "@/lib/supabase";
+
+type Aba = "geral" | "planos" | "assinaturas" | "comparador";
 
 type Plano = {
   id: string;
@@ -24,6 +32,13 @@ type Plano = {
   valor_implantacao: number;
   limite_usuarios: number | null;
   recursos: string[] | null;
+  ativo: boolean;
+};
+
+type PlanoModulo = {
+  id: number;
+  plano_id: string;
+  modulo: string;
   ativo: boolean;
 };
 
@@ -45,23 +60,102 @@ type Assinatura = {
   planos_sistema?: Plano;
 };
 
-const statusClasses: Record<string, string> = {
-  ATIVA: "bg-emerald-500/15 text-emerald-300 border-emerald-500/30",
-  PENDENTE: "bg-yellow-500/15 text-yellow-300 border-yellow-500/30",
-  VENCIDA: "bg-red-500/15 text-red-300 border-red-500/30",
-  CANCELADA: "bg-slate-500/15 text-slate-300 border-slate-500/30",
+type PlanoForm = {
+  nome: string;
+  descricao: string;
+  valor_mensal: string;
+  valor_implantacao: string;
+  limite_usuarios: string;
 };
+
+type AssinaturaForm = {
+  municipio_id: string;
+  plano_id: string;
+  status: string;
+  data_vencimento: string;
+  valor_mensal: string;
+  observacoes: string;
+};
+
+const STATUS_CLASSES: Record<string, string> = {
+  ATIVA: "border-emerald-500/30 bg-emerald-500/15 text-emerald-300",
+  PENDENTE: "border-amber-500/30 bg-amber-500/15 text-amber-300",
+  VENCIDA: "border-red-500/30 bg-red-500/15 text-red-300",
+  CANCELADA: "border-slate-500/30 bg-slate-500/15 text-slate-300",
+};
+
+const PLANO_VAZIO: PlanoForm = {
+  nome: "",
+  descricao: "",
+  valor_mensal: "",
+  valor_implantacao: "",
+  limite_usuarios: "",
+};
+
+const ASSINATURA_VAZIA: AssinaturaForm = {
+  municipio_id: "",
+  plano_id: "",
+  status: "ATIVA",
+  data_vencimento: "",
+  valor_mensal: "",
+  observacoes: "",
+};
+
+function todosOsModulos() {
+  return MODULOS_SISTEMA.flatMap((categoria) =>
+    categoria.itens.map((item) => item.slug),
+  );
+}
+
+function corPlano(plano: Plano, indice: number) {
+  const nome = plano.nome.toLowerCase();
+
+  if (nome.includes("premium")) {
+    return {
+      borda: "border-violet-500/30",
+      fundo: "from-violet-500/15 via-[#10271f] to-[#0b1f17]",
+      destaque: "text-violet-300",
+      botao: "bg-violet-400 text-violet-950 hover:bg-violet-300",
+    };
+  }
+
+  if (nome.includes("profissional") || nome.includes("pro")) {
+    return {
+      borda: "border-cyan-500/30",
+      fundo: "from-cyan-500/15 via-[#10271f] to-[#0b1f17]",
+      destaque: "text-cyan-300",
+      botao: "bg-cyan-400 text-cyan-950 hover:bg-cyan-300",
+    };
+  }
+
+  if (indice % 3 === 1) {
+    return {
+      borda: "border-blue-500/30",
+      fundo: "from-blue-500/15 via-[#10271f] to-[#0b1f17]",
+      destaque: "text-blue-300",
+      botao: "bg-blue-400 text-blue-950 hover:bg-blue-300",
+    };
+  }
+
+  return {
+    borda: "border-emerald-500/30",
+    fundo: "from-emerald-500/15 via-[#10271f] to-[#0b1f17]",
+    destaque: "text-emerald-300",
+    botao: "bg-emerald-400 text-[#062015] hover:bg-emerald-300",
+  };
+}
 
 export default function PlanosAssinaturasPage() {
   const [planos, setPlanos] = useState<Plano[]>([]);
   const [municipios, setMunicipios] = useState<Municipio[]>([]);
   const [assinaturas, setAssinaturas] = useState<Assinatura[]>([]);
+  const [modulosPlano, setModulosPlano] = useState<PlanoModulo[]>([]);
+  const [modulosSelecionados, setModulosSelecionados] = useState<string[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [salvandoPlano, setSalvandoPlano] = useState(false);
+  const [salvandoAssinatura, setSalvandoAssinatura] = useState(false);
 
-  const [aba, setAba] = useState<"geral" | "planos" | "assinaturas">(
-    "assinaturas"
-  );
-
+  const [aba, setAba] = useState<Aba>("geral");
   const [busca, setBusca] = useState("");
   const [statusFiltro, setStatusFiltro] = useState("TODOS");
 
@@ -69,56 +163,51 @@ export default function PlanosAssinaturasPage() {
   const [modalAssinatura, setModalAssinatura] = useState(false);
   const [editandoPlanoId, setEditandoPlanoId] = useState<string | null>(null);
 
-  const [planoForm, setPlanoForm] = useState({
-    nome: "",
-    descricao: "",
-    valor_mensal: "",
-    valor_implantacao: "",
-    limite_usuarios: "",
-    recursos: "",
-  });
-
-  const [assinaturaForm, setAssinaturaForm] = useState({
-    municipio_id: "",
-    plano_id: "",
-    status: "ATIVA",
-    data_vencimento: "",
-    valor_mensal: "",
-    observacoes: "",
-  });
+  const [planoForm, setPlanoForm] = useState<PlanoForm>(PLANO_VAZIO);
+  const [assinaturaForm, setAssinaturaForm] =
+    useState<AssinaturaForm>(ASSINATURA_VAZIA);
 
   useEffect(() => {
-    carregarDados();
+    void carregarDados();
   }, []);
 
   async function carregarDados() {
     setCarregando(true);
 
-    const { data: planosData } = await supabase
-      .from("planos_sistema")
-      .select("*")
-      .order("valor_mensal", { ascending: true });
+    try {
+      const [
+        planosResposta,
+        municipiosResposta,
+        modulosResposta,
+        assinaturasResposta,
+      ] = await Promise.all([
+        supabase
+          .from("planos_sistema")
+          .select("*")
+          .order("valor_mensal", { ascending: true }),
+        supabase.from("municipios").select("id,nome").order("nome"),
+        supabase.from("planos_modulos").select("id,plano_id,modulo,ativo"),
+        supabase
+          .from("assinaturas_municipios")
+          .select(`*, municipios(id,nome), planos_sistema(*)`)
+          .order("criado_em", { ascending: false }),
+      ]);
 
-    const { data: municipiosData } = await supabase
-      .from("municipios")
-      .select("id, nome")
-      .order("nome", { ascending: true });
+      if (planosResposta.error) throw planosResposta.error;
+      if (municipiosResposta.error) throw municipiosResposta.error;
+      if (modulosResposta.error) throw modulosResposta.error;
+      if (assinaturasResposta.error) throw assinaturasResposta.error;
 
-    const { data: assinaturasData } = await supabase
-      .from("assinaturas_municipios")
-      .select(
-        `
-        *,
-        municipios(id, nome),
-        planos_sistema(*)
-      `
-      )
-      .order("criado_em", { ascending: false });
-
-    setPlanos(planosData || []);
-    setMunicipios(municipiosData || []);
-    setAssinaturas(assinaturasData || []);
-    setCarregando(false);
+      setPlanos((planosResposta.data || []) as Plano[]);
+      setMunicipios((municipiosResposta.data || []) as Municipio[]);
+      setModulosPlano((modulosResposta.data || []) as PlanoModulo[]);
+      setAssinaturas((assinaturasResposta.data || []) as Assinatura[]);
+    } catch (error) {
+      console.error("Erro ao carregar planos e assinaturas:", error);
+      alert("Não foi possível carregar os planos e assinaturas.");
+    } finally {
+      setCarregando(false);
+    }
   }
 
   function moeda(valor: number | null | undefined) {
@@ -130,24 +219,68 @@ export default function PlanosAssinaturasPage() {
 
   function dataBR(data: string | null) {
     if (!data) return "Sem vencimento";
-    return new Date(data + "T00:00:00").toLocaleDateString("pt-BR");
+    return new Date(`${data}T12:00:00`).toLocaleDateString("pt-BR");
   }
 
-  const receitaMensal = assinaturas
-    .filter((a) => a.status === "ATIVA")
-    .reduce((total, a) => total + Number(a.valor_mensal || 0), 0);
+  function quantidadeModulos(planoId: string) {
+    return modulosPlano.filter(
+      (item) => item.plano_id === planoId && item.ativo,
+    ).length;
+  }
 
-  const assinaturasAtivas = assinaturas.filter((a) => a.status === "ATIVA");
+  function nomesModulos(planoId: string) {
+    const slugs = new Set(
+      modulosPlano
+        .filter((item) => item.plano_id === planoId && item.ativo)
+        .map((item) => item.modulo),
+    );
+
+    return MODULOS_SISTEMA.flatMap((categoria) => categoria.itens)
+      .filter((item) => slugs.has(item.slug))
+      .map((item) => item.nome);
+  }
+
+  const assinaturasAtivas = useMemo(
+    () => assinaturas.filter((item) => item.status === "ATIVA"),
+    [assinaturas],
+  );
+
+  const receitaMensal = useMemo(
+    () =>
+      assinaturasAtivas.reduce(
+        (total, item) => total + Number(item.valor_mensal || 0),
+        0,
+      ),
+    [assinaturasAtivas],
+  );
+
+  const receitaAnual = receitaMensal * 12;
+  const ticketMedio = assinaturasAtivas.length
+    ? receitaMensal / assinaturasAtivas.length
+    : 0;
+
+  const vencendoEm7Dias = useMemo(() => {
+    const hoje = new Date();
+    const limite = new Date();
+    limite.setDate(limite.getDate() + 7);
+
+    return assinaturas.filter((item) => {
+      if (!item.data_vencimento || item.status !== "ATIVA") return false;
+      const vencimento = new Date(`${item.data_vencimento}T12:00:00`);
+      return vencimento >= hoje && vencimento <= limite;
+    }).length;
+  }, [assinaturas]);
 
   const assinaturasFiltradas = useMemo(() => {
-    return assinaturas.filter((a) => {
-      const texto = busca.toLowerCase();
-      const municipio = a.municipios?.nome?.toLowerCase() || "";
-      const plano = a.planos_sistema?.nome?.toLowerCase() || "";
+    const termo = busca.trim().toLowerCase();
 
-      const bateBusca = municipio.includes(texto) || plano.includes(texto);
+    return assinaturas.filter((item) => {
+      const municipio = item.municipios?.nome?.toLowerCase() || "";
+      const plano = item.planos_sistema?.nome?.toLowerCase() || "";
+      const bateBusca =
+        !termo || municipio.includes(termo) || plano.includes(termo);
       const bateStatus =
-        statusFiltro === "TODOS" ? true : a.status === statusFiltro;
+        statusFiltro === "TODOS" || item.status === statusFiltro;
 
       return bateBusca && bateStatus;
     });
@@ -155,14 +288,8 @@ export default function PlanosAssinaturasPage() {
 
   function limparPlano() {
     setEditandoPlanoId(null);
-    setPlanoForm({
-      nome: "",
-      descricao: "",
-      valor_mensal: "",
-      valor_implantacao: "",
-      limite_usuarios: "",
-      recursos: "",
-    });
+    setPlanoForm(PLANO_VAZIO);
+    setModulosSelecionados([]);
   }
 
   function abrirNovoPlano() {
@@ -172,105 +299,140 @@ export default function PlanosAssinaturasPage() {
 
   function editarPlano(plano: Plano) {
     setEditandoPlanoId(plano.id);
-
     setPlanoForm({
       nome: plano.nome || "",
       descricao: plano.descricao || "",
       valor_mensal: String(plano.valor_mensal || ""),
       valor_implantacao: String(plano.valor_implantacao || ""),
       limite_usuarios: String(plano.limite_usuarios || ""),
-      recursos: plano.recursos?.join(", ") || "",
     });
-
+    setModulosSelecionados(
+      modulosPlano
+        .filter((item) => item.plano_id === plano.id && item.ativo)
+        .map((item) => item.modulo),
+    );
     setModalPlano(true);
   }
 
   async function salvarPlano() {
-    if (!planoForm.nome || !planoForm.valor_mensal) {
+    if (!planoForm.nome.trim() || !planoForm.valor_mensal) {
       alert("Informe o nome e o valor mensal do plano.");
       return;
     }
 
-    const payload = {
-      nome: planoForm.nome,
-      descricao: planoForm.descricao,
-      valor_mensal: Number(planoForm.valor_mensal),
-      valor_implantacao: Number(planoForm.valor_implantacao || 0),
-      limite_usuarios: planoForm.limite_usuarios
-        ? Number(planoForm.limite_usuarios)
-        : null,
-      recursos: planoForm.recursos
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean),
-    };
+    setSalvandoPlano(true);
 
-    if (editandoPlanoId) {
-      await supabase
-        .from("planos_sistema")
-        .update(payload)
-        .eq("id", editandoPlanoId);
-    } else {
-      await supabase.from("planos_sistema").insert(payload);
+    try {
+      const payload = {
+        nome: planoForm.nome.trim(),
+        descricao: planoForm.descricao.trim(),
+        valor_mensal: Number(planoForm.valor_mensal),
+        valor_implantacao: Number(planoForm.valor_implantacao || 0),
+        limite_usuarios: planoForm.limite_usuarios
+          ? Number(planoForm.limite_usuarios)
+          : null,
+        recursos: [],
+      };
+
+      let planoId = editandoPlanoId;
+
+      if (planoId) {
+        const { error } = await supabase
+          .from("planos_sistema")
+          .update(payload)
+          .eq("id", planoId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await supabase
+          .from("planos_sistema")
+          .insert(payload)
+          .select("id")
+          .single();
+        if (error) throw error;
+        planoId = data?.id || null;
+      }
+
+      if (!planoId)
+        throw new Error("Plano não identificado após o salvamento.");
+
+      const { error: excluirError } = await supabase
+        .from("planos_modulos")
+        .delete()
+        .eq("plano_id", planoId);
+      if (excluirError) throw excluirError;
+
+      if (modulosSelecionados.length > 0) {
+        const { error: modulosError } = await supabase
+          .from("planos_modulos")
+          .insert(
+            Array.from(new Set(modulosSelecionados)).map((modulo) => ({
+              plano_id: planoId,
+              modulo,
+              ativo: true,
+            })),
+          );
+        if (modulosError) throw modulosError;
+      }
+
+      setModalPlano(false);
+      limparPlano();
+      await carregarDados();
+    } catch (error) {
+      console.error("Erro ao salvar plano:", error);
+      alert(error instanceof Error ? error.message : "Erro ao salvar o plano.");
+    } finally {
+      setSalvandoPlano(false);
     }
-
-    setModalPlano(false);
-    limparPlano();
-    carregarDados();
   }
 
   async function alternarPlano(plano: Plano) {
-    await supabase
+    const { error } = await supabase
       .from("planos_sistema")
       .update({ ativo: !plano.ativo })
       .eq("id", plano.id);
 
-    carregarDados();
+    if (error) {
+      alert(`Erro ao atualizar plano: ${error.message}`);
+      return;
+    }
+
+    await carregarDados();
   }
 
   async function excluirPlano(plano: Plano) {
-  const confirmar = confirm(
-    `Deseja realmente excluir o plano "${plano.nome}"?`
-  );
+    if (!confirm(`Deseja realmente excluir o plano "${plano.nome}"?`)) return;
 
-  if (!confirmar) return;
+    const { data: vinculadas, error: consultaError } = await supabase
+      .from("assinaturas_municipios")
+      .select("id")
+      .eq("plano_id", plano.id)
+      .limit(1);
 
-  const { data: assinaturasVinculadas } = await supabase
-    .from("assinaturas_municipios")
-    .select("id")
-    .eq("plano_id", plano.id)
-    .limit(1);
+    if (consultaError) {
+      alert(consultaError.message);
+      return;
+    }
 
-  if (assinaturasVinculadas && assinaturasVinculadas.length > 0) {
-    alert(
-      "Este plano possui assinatura vinculada. Cancele ou exclua as assinaturas antes de apagar o plano."
-    );
-    return;
+    if (vinculadas?.length) {
+      alert("Este plano possui assinatura vinculada.");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("planos_sistema")
+      .delete()
+      .eq("id", plano.id);
+
+    if (error) {
+      alert(`Erro ao excluir plano: ${error.message}`);
+      return;
+    }
+
+    await carregarDados();
   }
-
-  const { error } = await supabase
-    .from("planos_sistema")
-    .delete()
-    .eq("id", plano.id);
-
-  if (error) {
-    alert("Erro ao excluir plano: " + error.message);
-    return;
-  }
-
-  carregarDados();
-}
 
   function abrirNovaAssinatura() {
-    setAssinaturaForm({
-      municipio_id: "",
-      plano_id: "",
-      status: "ATIVA",
-      data_vencimento: "",
-      valor_mensal: "",
-      observacoes: "",
-    });
-
+    setAssinaturaForm(ASSINATURA_VAZIA);
     setModalAssinatura(true);
   }
 
@@ -280,377 +442,394 @@ export default function PlanosAssinaturasPage() {
       return;
     }
 
-    const plano = planos.find((p) => p.id === assinaturaForm.plano_id);
+    setSalvandoAssinatura(true);
 
-    await supabase.from("assinaturas_municipios").insert({
-      municipio_id: Number(assinaturaForm.municipio_id),
-      plano_id: assinaturaForm.plano_id,
-      status: assinaturaForm.status,
-      data_vencimento: assinaturaForm.data_vencimento || null,
-      valor_mensal: assinaturaForm.valor_mensal
-        ? Number(assinaturaForm.valor_mensal)
-        : plano?.valor_mensal || 0,
-      observacoes: assinaturaForm.observacoes,
-    });
+    try {
+      const plano = planos.find((item) => item.id === assinaturaForm.plano_id);
 
-    setModalAssinatura(false);
-    carregarDados();
+      const { error } = await supabase.from("assinaturas_municipios").insert({
+        municipio_id: Number(assinaturaForm.municipio_id),
+        plano_id: assinaturaForm.plano_id,
+        status: assinaturaForm.status,
+        data_vencimento: assinaturaForm.data_vencimento || null,
+        valor_mensal: assinaturaForm.valor_mensal
+          ? Number(assinaturaForm.valor_mensal)
+          : plano?.valor_mensal || 0,
+        observacoes: assinaturaForm.observacoes.trim(),
+      });
+
+      if (error) throw error;
+
+      setModalAssinatura(false);
+      await carregarDados();
+    } catch (error) {
+      console.error("Erro ao criar assinatura:", error);
+      alert(
+        error instanceof Error ? error.message : "Erro ao criar assinatura.",
+      );
+    } finally {
+      setSalvandoAssinatura(false);
+    }
   }
 
   async function atualizarStatus(id: string, status: string) {
-    await supabase
+    const { error } = await supabase
       .from("assinaturas_municipios")
       .update({ status })
       .eq("id", id);
 
-    carregarDados();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await carregarDados();
   }
 
   async function excluirAssinatura(id: string) {
     if (!confirm("Deseja excluir esta assinatura?")) return;
 
-    await supabase.from("assinaturas_municipios").delete().eq("id", id);
+    const { error } = await supabase
+      .from("assinaturas_municipios")
+      .delete()
+      .eq("id", id);
 
-    carregarDados();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+
+    await carregarDados();
   }
 
   return (
-    <div className="min-h-screen w-full bg-[#06130d] p-4 md:p-6 pb-24 text-white">
-      <div className="w-full space-y-6">
-        <header className="w-full overflow-hidden rounded-[28px] border border-emerald-500/20 bg-gradient-to-r from-[#07150f] via-[#0b2a1e] to-[#047857] shadow-2xl">
-          <div className="relative p-6 md:p-8">
+    <main className="min-h-screen bg-[#06130d] p-3 pb-24 text-white md:p-6">
+      <div className="space-y-5">
+        <header className="overflow-hidden rounded-[28px] border border-emerald-500/20 bg-gradient-to-r from-[#07150f] via-[#0b2a1e] to-[#047857] shadow-2xl">
+          <div className="relative p-5 md:p-8">
             <div className="absolute right-0 top-0 h-56 w-56 rounded-full bg-emerald-400/20 blur-3xl" />
-            <div className="absolute bottom-0 left-1/2 h-44 w-44 rounded-full bg-green-300/10 blur-3xl" />
-
-            <div className="relative flex flex-col gap-8 xl:flex-row xl:items-center xl:justify-between">
+            <div className="relative flex flex-col gap-6 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300">
-                  <ShieldCheck size={17} />
-                  SIG-GCM Brasil
+                <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-300">
+                  <ShieldCheck size={17} /> SIG-GCM Brasil
                 </div>
-
-                <h1 className="text-4xl font-black tracking-tight md:text-6xl">
+                <h1 className="text-3xl font-black tracking-tight md:text-6xl">
                   Planos e Assinaturas
                 </h1>
-
-                <p className="mt-4 max-w-4xl text-lg text-emerald-50/80">
-                  Controle os planos comerciais, assinaturas municipais,
-                  vencimentos, status e receita recorrente do sistema.
+                <p className="mt-3 max-w-4xl text-sm text-emerald-50/80 md:text-lg">
+                  Controle comercial, licenciamento por módulos e assinaturas
+                  municipais.
                 </p>
               </div>
 
-              <div className="flex flex-col gap-4 sm:flex-row">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <button
                   onClick={abrirNovoPlano}
-                  className="inline-flex min-w-[230px] items-center justify-center gap-3 rounded-2xl border border-emerald-400/30 bg-white/10 px-8 py-4 text-lg font-black text-white hover:bg-white/15"
+                  className="btn-topo-secundario"
                 >
-                  <Plus size={22} />
-                  Novo Plano
+                  <Plus size={20} /> Novo Plano
                 </button>
-
                 <button
                   onClick={abrirNovaAssinatura}
-                  className="inline-flex min-w-[280px] items-center justify-center gap-3 rounded-2xl bg-emerald-400 px-8 py-4 text-lg font-black text-[#062015] hover:bg-emerald-300"
+                  className="btn-topo-principal"
                 >
-                  <CreditCard size={22} />
-                  Nova Assinatura
+                  <CreditCard size={20} /> Nova Assinatura
                 </button>
               </div>
             </div>
           </div>
         </header>
 
-        <section className="grid grid-cols-1 gap-6 md:grid-cols-2 2xl:grid-cols-4">
+        <section className="grid grid-cols-2 gap-3 xl:grid-cols-4">
           <CardResumo
-            titulo="Receita Mensal"
+            titulo="Receita mensal"
             valor={moeda(receitaMensal)}
             texto="Receita recorrente ativa"
-            icone={<CreditCard />}
+            icone={<CircleDollarSign />}
           />
-
           <CardResumo
-            titulo="Assinaturas Ativas"
+            titulo="Receita anual"
+            valor={moeda(receitaAnual)}
+            texto="Projeção das assinaturas"
+            icone={<BarChart3 />}
+          />
+          <CardResumo
+            titulo="Municípios ativos"
             valor={String(assinaturasAtivas.length)}
-            texto="Municípios com acesso ativo"
-            icone={<CheckCircle2 />}
-          />
-
-          <CardResumo
-            titulo="Planos"
-            valor={String(planos.length)}
-            texto="Planos comerciais cadastrados"
-            icone={<Crown />}
-          />
-
-          <CardResumo
-            titulo="Municípios"
-            valor={String(municipios.length)}
-            texto="Municípios no sistema"
+            texto="Assinaturas com acesso"
             icone={<Building2 />}
+          />
+          <CardResumo
+            titulo="Ticket médio"
+            valor={moeda(ticketMedio)}
+            texto={`${vencendoEm7Dias} vencendo em 7 dias`}
+            icone={<CreditCard />}
           />
         </section>
 
-        <section className="w-full overflow-hidden rounded-[28px] border border-emerald-500/20 bg-[#0d2419] shadow-2xl">
-          <nav className="flex flex-wrap gap-2 border-b border-emerald-500/20 bg-[#0a1c14] p-3">
-            {[
-              ["geral", "Visão Geral"],
-              ["planos", "Planos"],
-              ["assinaturas", "Assinaturas"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setAba(id as any)}
-                className={`rounded-2xl px-8 py-4 text-base font-black transition ${
-                  aba === id
-                    ? "bg-emerald-400 text-[#062015] shadow"
-                    : "text-emerald-100/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+        <section className="overflow-hidden rounded-[28px] border border-emerald-500/20 bg-[#0d2419] shadow-2xl">
+          <nav className="flex gap-2 overflow-x-auto border-b border-emerald-500/20 bg-[#0a1c14] p-3">
+            <AbaBotao
+              ativo={aba === "geral"}
+              onClick={() => setAba("geral")}
+              icone={<BarChart3 size={18} />}
+              texto="Dashboard"
+            />
+            <AbaBotao
+              ativo={aba === "planos"}
+              onClick={() => setAba("planos")}
+              icone={<Crown size={18} />}
+              texto="Planos"
+            />
+            <AbaBotao
+              ativo={aba === "assinaturas"}
+              onClick={() => setAba("assinaturas")}
+              icone={<CreditCard size={18} />}
+              texto="Assinaturas"
+            />
+            <AbaBotao
+              ativo={aba === "comparador"}
+              onClick={() => setAba("comparador")}
+              icone={<Settings2 size={18} />}
+              texto="Comparador"
+            />
           </nav>
 
           {aba === "geral" && (
-            <div className="grid grid-cols-1 gap-6 p-6 xl:grid-cols-3">
-              <div className="xl:col-span-2 rounded-3xl border border-emerald-500/20 bg-[#102b20] p-6">
-                <h2 className="text-3xl font-black text-white">
-                  Distribuição por Plano
-                </h2>
-
-                <p className="mt-1 text-emerald-100/70">
-                  Quantidade de municípios por plano contratado.
+            <div className="grid gap-5 p-4 xl:grid-cols-[1fr_360px] xl:p-6">
+              <section className="rounded-3xl border border-emerald-500/20 bg-[#102b20] p-5">
+                <h2 className="text-2xl font-black">Distribuição por plano</h2>
+                <p className="mt-1 text-sm text-emerald-100/60">
+                  Municípios vinculados a cada plano.
                 </p>
-
-                <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
-                  {planos.length === 0 ? (
-                    <div className="rounded-3xl border border-dashed border-emerald-500/20 bg-[#07150f] p-10 text-center text-emerald-100/70 md:col-span-3">
-                      Nenhum plano cadastrado ainda.
-                    </div>
-                  ) : (
-                    planos.map((plano) => {
-                      const total = assinaturas.filter(
-                        (a) => a.plano_id === plano.id
-                      ).length;
-
-                      const percentual = assinaturas.length
-                        ? Math.min((total / assinaturas.length) * 100, 100)
-                        : 0;
-
-                      return (
-                        <div
-                          key={plano.id}
-                          className="rounded-3xl border border-emerald-500/20 bg-[#07150f] p-6"
-                        >
-                          <p className="text-sm font-bold text-emerald-100/70">
-                            {plano.nome}
-                          </p>
-
-                          <p className="mt-2 text-5xl font-black text-white">
-                            {total}
-                          </p>
-
-                          <p className="mt-1 text-sm text-emerald-100/60">
-                            assinatura(s)
-                          </p>
-
-                          <div className="mt-5 h-3 rounded-full bg-black/30">
-                            <div
-                              className="h-3 rounded-full bg-emerald-400"
-                              style={{ width: `${percentual}%` }}
-                            />
-                          </div>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {planos.map((plano, indice) => {
+                    const total = assinaturas.filter(
+                      (item) => item.plano_id === plano.id,
+                    ).length;
+                    const cor = corPlano(plano, indice);
+                    return (
+                      <div
+                        key={plano.id}
+                        className={`rounded-3xl border bg-gradient-to-br p-5 ${cor.borda} ${cor.fundo}`}
+                      >
+                        <p className={`font-black ${cor.destaque}`}>
+                          {plano.nome}
+                        </p>
+                        <p className="mt-2 text-5xl font-black">{total}</p>
+                        <p className="text-sm text-emerald-100/60">
+                          município(s)
+                        </p>
+                        <div className="mt-4 flex items-center justify-between text-xs text-emerald-100/60">
+                          <span>{quantidadeModulos(plano.id)} módulos</span>
+                          <span>{plano.limite_usuarios || "∞"} usuários</span>
                         </div>
-                      );
-                    })
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <aside className="space-y-4 rounded-3xl border border-emerald-500/20 bg-[#102b20] p-5">
+                <h2 className="text-2xl font-black">Resumo comercial</h2>
+                <ResumoLinha
+                  titulo="Planos cadastrados"
+                  valor={String(planos.length)}
+                />
+                <ResumoLinha
+                  titulo="Municípios no sistema"
+                  valor={String(municipios.length)}
+                />
+                <ResumoLinha
+                  titulo="Assinaturas pendentes"
+                  valor={String(
+                    assinaturas.filter((item) => item.status === "PENDENTE")
+                      .length,
                   )}
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-emerald-500/20 bg-[#102b20] p-6">
-                <h2 className="text-3xl font-black text-white">Alertas</h2>
-
-                <p className="mt-1 mb-6 text-emerald-100/70">
-                  Pendências comerciais importantes.
-                </p>
-
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-base font-bold text-emerald-300">
-                  Nenhuma assinatura vencida.
-                </div>
-
-                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-[#07150f] p-5 text-base text-emerald-100/80">
-                  Receita ativa atual:{" "}
-                  <strong className="text-white">{moeda(receitaMensal)}</strong>
-                </div>
-              </div>
+                />
+                <ResumoLinha
+                  titulo="Assinaturas vencidas"
+                  valor={String(
+                    assinaturas.filter((item) => item.status === "VENCIDA")
+                      .length,
+                  )}
+                  destaque="text-red-300"
+                />
+              </aside>
             </div>
           )}
 
           {aba === "planos" && (
-            <div className="p-6">
-              <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+            <div className="p-4 xl:p-6">
+              <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <h2 className="text-3xl font-black text-white">
-                    Planos Comerciais
-                  </h2>
-
-                  <p className="text-emerald-100/70">
-                    Cadastre e edite os planos vendidos aos municípios.
+                  <h2 className="text-3xl font-black">Planos comerciais</h2>
+                  <p className="text-emerald-100/60">
+                    Valores, limites e módulos liberados.
                   </p>
                 </div>
-
-                <button
-                  onClick={abrirNovoPlano}
-                  className="inline-flex min-w-[230px] items-center justify-center gap-3 rounded-2xl bg-emerald-400 px-8 py-4 text-lg font-black text-[#062015] hover:bg-emerald-300"
-                >
-                  <Plus size={22} />
-                  Novo Plano
+                <button onClick={abrirNovoPlano} className="btn-topo-principal">
+                  <Plus size={20} /> Novo Plano
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-                {planos.map((plano) => (
-                  <div
-                    key={plano.id}
-                    className="rounded-3xl border border-emerald-500/20 bg-[#102b20] p-6 shadow-lg"
-                  >
-                    <div className="mb-5 flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-2xl font-black text-white">
-                          {plano.nome}
-                        </h3>
-
-                        <p className="mt-1 text-sm text-emerald-100/70">
-                          {plano.descricao || "Sem descrição cadastrada."}
-                        </p>
-                      </div>
-
-                      <span
-                        className={`rounded-full border px-3 py-1 text-xs font-black ${
-                          plano.ativo
-                            ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300"
-                            : "border-red-500/30 bg-red-500/15 text-red-300"
-                        }`}
+              {carregando ? (
+                <Carregando />
+              ) : planos.length === 0 ? (
+                <Vazio
+                  icone={<Crown size={72} />}
+                  titulo="Nenhum plano cadastrado"
+                  texto="Crie o primeiro plano comercial do SIG-GCM Brasil."
+                />
+              ) : (
+                <div className="grid gap-5 lg:grid-cols-2 2xl:grid-cols-3">
+                  {planos.map((plano, indice) => {
+                    const cor = corPlano(plano, indice);
+                    const modulos = nomesModulos(plano.id);
+                    const municipiosPlano = assinaturas.filter(
+                      (item) => item.plano_id === plano.id,
+                    ).length;
+                    return (
+                      <article
+                        key={plano.id}
+                        className={`overflow-hidden rounded-3xl border bg-gradient-to-br shadow-xl ${cor.borda} ${cor.fundo}`}
                       >
-                        {plano.ativo ? "ATIVO" : "INATIVO"}
-                      </span>
-                    </div>
+                        <div className="p-5">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p
+                                className={`text-sm font-black uppercase tracking-wider ${cor.destaque}`}
+                              >
+                                Plano
+                              </p>
+                              <h3 className="mt-1 text-3xl font-black">
+                                {plano.nome}
+                              </h3>
+                              <p className="mt-2 min-h-10 text-sm text-emerald-100/60">
+                                {plano.descricao || "Sem descrição cadastrada."}
+                              </p>
+                            </div>
+                            <span
+                              className={`rounded-full border px-3 py-1 text-xs font-black ${plano.ativo ? "border-emerald-500/30 bg-emerald-500/15 text-emerald-300" : "border-red-500/30 bg-red-500/15 text-red-300"}`}
+                            >
+                              {plano.ativo ? "ATIVO" : "INATIVO"}
+                            </span>
+                          </div>
 
-                    <div className="mb-5 rounded-2xl border border-emerald-500/20 bg-[#07150f] p-5">
-                      <p className="text-sm text-emerald-100/60">
-                        Mensalidade
-                      </p>
+                          <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4">
+                            <p className="text-sm text-emerald-100/60">
+                              Mensalidade
+                            </p>
+                            <p
+                              className={`text-4xl font-black ${cor.destaque}`}
+                            >
+                              {moeda(plano.valor_mensal)}
+                            </p>
+                          </div>
 
-                      <p className="text-4xl font-black text-emerald-300">
-                        {moeda(plano.valor_mensal)}
-                      </p>
-                    </div>
+                          <div className="mt-4 grid grid-cols-3 gap-2">
+                            <MiniInfo
+                              titulo="Módulos"
+                              valor={String(modulos.length)}
+                            />
+                            <MiniInfo
+                              titulo="Usuários"
+                              valor={
+                                plano.limite_usuarios
+                                  ? String(plano.limite_usuarios)
+                                  : "∞"
+                              }
+                            />
+                            <MiniInfo
+                              titulo="Municípios"
+                              valor={String(municipiosPlano)}
+                            />
+                          </div>
 
-                    <div className="mb-5 grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl border border-emerald-500/20 bg-[#0d2419] p-4">
-                        <p className="text-xs font-bold text-emerald-100/60">
-                          Implantação
-                        </p>
+                          <div className="mt-5 space-y-2">
+                            {modulos.slice(0, 5).map((modulo) => (
+                              <p
+                                key={modulo}
+                                className="flex items-center gap-2 text-sm text-emerald-50/80"
+                              >
+                                <CheckCircle2
+                                  size={16}
+                                  className={cor.destaque}
+                                />{" "}
+                                {modulo}
+                              </p>
+                            ))}
+                            {modulos.length > 5 && (
+                              <p
+                                className={`text-sm font-black ${cor.destaque}`}
+                              >
+                                + {modulos.length - 5} módulos
+                              </p>
+                            )}
+                            {modulos.length === 0 && (
+                              <p className="text-sm text-amber-300">
+                                Nenhum módulo configurado.
+                              </p>
+                            )}
+                          </div>
+                        </div>
 
-                        <p className="font-black text-white">
-                          {moeda(plano.valor_implantacao)}
-                        </p>
-                      </div>
-
-                      <div className="rounded-2xl border border-emerald-500/20 bg-[#0d2419] p-4">
-                        <p className="text-xs font-bold text-emerald-100/60">
-                          Usuários
-                        </p>
-
-                        <p className="font-black text-white">
-                          {plano.limite_usuarios || "Ilimitado"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mb-5 space-y-2">
-                      {(plano.recursos || []).slice(0, 6).map((recurso) => (
-                        <p
-                          key={recurso}
-                          className="flex gap-2 text-sm text-emerald-100/80"
-                        >
-                          <CheckCircle2
-                            size={16}
-                            className="mt-0.5 shrink-0 text-emerald-300"
-                          />
-                          {recurso}
-                        </p>
-                      ))}
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-  <button
-    onClick={() => editarPlano(plano)}
-    className="rounded-2xl border border-emerald-500/20 bg-white/10 px-4 py-4 font-black text-white hover:bg-white/15"
-  >
-    Editar
-  </button>
-
-  <button
-    onClick={() => alternarPlano(plano)}
-    className="rounded-2xl bg-emerald-400 px-4 py-4 font-black text-[#062015] hover:bg-emerald-300"
-  >
-    {plano.ativo ? "Desativar" : "Ativar"}
-  </button>
-
-  <button
-    onClick={() => excluirPlano(plano)}
-    className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-4 font-black text-red-300 hover:bg-red-500/15"
-  >
-    <Trash2 size={18} />
-    Apagar
-  </button>
-</div>
-                  </div>
-                ))}
-              </div>
+                        <div className="grid grid-cols-3 gap-2 border-t border-white/10 bg-black/10 p-4">
+                          <button
+                            onClick={() => editarPlano(plano)}
+                            className="acao-card"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => void alternarPlano(plano)}
+                            className={`${cor.botao} rounded-2xl px-3 py-3 text-sm font-black`}
+                          >
+                            {plano.ativo ? "Desativar" : "Ativar"}
+                          </button>
+                          <button
+                            onClick={() => void excluirPlano(plano)}
+                            className="rounded-2xl border border-red-500/30 bg-red-500/10 px-3 py-3 text-sm font-black text-red-300 hover:bg-red-500/20"
+                          >
+                            Apagar
+                          </button>
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 
           {aba === "assinaturas" && (
-            <div className="p-6">
-              <div className="mb-6 flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-300">
-                    <CreditCard size={34} />
-                  </div>
-
-                  <div>
-                    <h2 className="text-3xl font-black text-white">
-                      Assinaturas Municipais
-                    </h2>
-
-                    <p className="text-emerald-100/70">
-                      Controle o plano, valor, vencimento e status de cada
-                      município.
-                    </p>
-                  </div>
+            <div className="p-4 xl:p-6">
+              <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-3xl font-black">
+                    Assinaturas municipais
+                  </h2>
+                  <p className="text-emerald-100/60">
+                    Plano, vencimento, valor e situação comercial.
+                  </p>
                 </div>
-
-                <div className="flex flex-col gap-4 md:flex-row">
+                <div className="flex flex-col gap-3 md:flex-row">
                   <div className="relative">
                     <Search
-                      size={22}
-                      className="absolute left-4 top-4 text-emerald-100/50"
+                      className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-100/40"
+                      size={20}
                     />
-
                     <input
                       value={busca}
-                      onChange={(e) => setBusca(e.target.value)}
+                      onChange={(event) => setBusca(event.target.value)}
                       placeholder="Buscar município ou plano..."
-                      className="w-full rounded-2xl border border-emerald-500/20 bg-[#07150f] py-4 pl-12 pr-4 text-white outline-none placeholder:text-emerald-100/40 md:w-[360px]"
+                      className="campo pl-12 md:w-[340px]"
                     />
                   </div>
-
                   <select
                     value={statusFiltro}
-                    onChange={(e) => setStatusFiltro(e.target.value)}
-                    className="rounded-2xl border border-emerald-500/20 bg-[#07150f] px-6 py-4 text-white outline-none"
+                    onChange={(event) => setStatusFiltro(event.target.value)}
+                    className="campo md:w-44"
                   >
                     <option value="TODOS">Todos</option>
                     <option value="ATIVA">Ativas</option>
@@ -658,44 +837,85 @@ export default function PlanosAssinaturasPage() {
                     <option value="VENCIDA">Vencidas</option>
                     <option value="CANCELADA">Canceladas</option>
                   </select>
-
                   <button
                     onClick={abrirNovaAssinatura}
-                    className="inline-flex min-w-[240px] items-center justify-center gap-3 rounded-2xl bg-emerald-400 px-8 py-4 text-lg font-black text-[#062015] hover:bg-emerald-300"
+                    className="btn-topo-principal"
                   >
-                    <Plus size={22} />
-                    Nova Assinatura
+                    <Plus size={20} /> Nova Assinatura
                   </button>
                 </div>
               </div>
 
               {carregando ? (
-                <p className="text-emerald-100/70">Carregando...</p>
+                <Carregando />
               ) : assinaturasFiltradas.length === 0 ? (
-                <div className="flex min-h-[440px] flex-col items-center justify-center rounded-3xl border border-dashed border-emerald-500/20 bg-[#07150f] p-10 text-center">
-                  <CreditCard size={90} className="mb-6 text-emerald-400" />
-
-                  <h3 className="mb-3 text-3xl font-black text-white">
-                    Nenhuma assinatura encontrada
-                  </h3>
-
-                  <p className="mb-8 max-w-xl text-lg text-emerald-100/70">
-                    Cadastre a primeira assinatura do sistema e vincule um
-                    município a um plano comercial.
-                  </p>
-
-                  <button
-                    onClick={abrirNovaAssinatura}
-                    className="rounded-2xl bg-emerald-400 px-10 py-5 text-lg font-black text-[#062015] hover:bg-emerald-300"
-                  >
-                    + Nova Assinatura
-                  </button>
-                </div>
+                <Vazio
+                  icone={<CreditCard size={72} />}
+                  titulo="Nenhuma assinatura encontrada"
+                  texto="Vincule um município a um plano comercial."
+                />
               ) : (
-                <div className="overflow-hidden rounded-3xl border border-emerald-500/20">
-                  <div className="overflow-x-auto">
+                <>
+                  <div className="grid gap-4 md:hidden">
+                    {assinaturasFiltradas.map((assinatura) => (
+                      <article
+                        key={assinatura.id}
+                        className="rounded-3xl border border-emerald-500/20 bg-[#102b20] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h3 className="text-xl font-black">
+                              {assinatura.municipios?.nome || "Município"}
+                            </h3>
+                            <p className="text-sm text-emerald-300">
+                              {assinatura.planos_sistema?.nome ||
+                                "Plano não encontrado"}
+                            </p>
+                          </div>
+                          <Status status={assinatura.status} />
+                        </div>
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          <MiniInfo
+                            titulo="Valor"
+                            valor={moeda(assinatura.valor_mensal)}
+                          />
+                          <MiniInfo
+                            titulo="Vencimento"
+                            valor={dataBR(assinatura.data_vencimento)}
+                          />
+                        </div>
+                        <div className="mt-4 grid grid-cols-[1fr_auto] gap-2">
+                          <select
+                            value={assinatura.status}
+                            onChange={(event) =>
+                              void atualizarStatus(
+                                assinatura.id,
+                                event.target.value,
+                              )
+                            }
+                            className="campo"
+                          >
+                            <option value="ATIVA">ATIVA</option>
+                            <option value="PENDENTE">PENDENTE</option>
+                            <option value="VENCIDA">VENCIDA</option>
+                            <option value="CANCELADA">CANCELADA</option>
+                          </select>
+                          <button
+                            onClick={() =>
+                              void excluirAssinatura(assinatura.id)
+                            }
+                            className="rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-red-300"
+                          >
+                            <Trash2 size={20} />
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+
+                  <div className="hidden overflow-x-auto rounded-3xl border border-emerald-500/20 md:block">
                     <table className="w-full text-sm">
-                      <thead className="bg-[#07150f] text-emerald-100/70">
+                      <thead className="bg-[#07150f] text-emerald-100/60">
                         <tr>
                           <th className="p-5 text-left">Município</th>
                           <th className="p-5 text-left">Plano</th>
@@ -705,52 +925,36 @@ export default function PlanosAssinaturasPage() {
                           <th className="p-5 text-right">Ações</th>
                         </tr>
                       </thead>
-
                       <tbody className="divide-y divide-emerald-500/10 bg-[#0d2419]">
-                        {assinaturasFiltradas.map((a) => (
-                          <tr key={a.id} className="hover:bg-white/[0.03]">
-                            <td className="p-5">
-                              <div className="flex items-center gap-3">
-                                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/15 text-emerald-300">
-                                  <Building2 size={22} />
-                                </div>
-
-                                <div>
-                                  <p className="font-black text-white">
-                                    {a.municipios?.nome ||
-                                      "Município não encontrado"}
-                                  </p>
-
-                                  <p className="text-xs text-emerald-100/50">
-                                    ID {a.municipio_id}
-                                  </p>
-                                </div>
-                              </div>
+                        {assinaturasFiltradas.map((assinatura) => (
+                          <tr
+                            key={assinatura.id}
+                            className="hover:bg-white/[0.03]"
+                          >
+                            <td className="p-5 font-black">
+                              {assinatura.municipios?.nome ||
+                                "Município não encontrado"}
                             </td>
-
-                            <td className="p-5 font-bold text-emerald-100/80">
-                              {a.planos_sistema?.nome ||
+                            <td className="p-5 text-emerald-100/80">
+                              {assinatura.planos_sistema?.nome ||
                                 "Plano não encontrado"}
                             </td>
-
                             <td className="p-5 font-black text-emerald-300">
-                              {moeda(a.valor_mensal)}
+                              {moeda(assinatura.valor_mensal)}
                             </td>
-
                             <td className="p-5 text-emerald-100/80">
-                              {dataBR(a.data_vencimento)}
+                              {dataBR(assinatura.data_vencimento)}
                             </td>
-
                             <td className="p-5">
                               <select
-                                value={a.status}
-                                onChange={(e) =>
-                                  atualizarStatus(a.id, e.target.value)
+                                value={assinatura.status}
+                                onChange={(event) =>
+                                  void atualizarStatus(
+                                    assinatura.id,
+                                    event.target.value,
+                                  )
                                 }
-                                className={`rounded-full border px-4 py-3 text-xs font-black outline-none ${
-                                  statusClasses[a.status] ||
-                                  statusClasses.PENDENTE
-                                }`}
+                                className={`rounded-full border px-4 py-3 text-xs font-black outline-none ${STATUS_CLASSES[assinatura.status] || STATUS_CLASSES.PENDENTE}`}
                               >
                                 <option value="ATIVA">ATIVA</option>
                                 <option value="PENDENTE">PENDENTE</option>
@@ -758,14 +962,14 @@ export default function PlanosAssinaturasPage() {
                                 <option value="CANCELADA">CANCELADA</option>
                               </select>
                             </td>
-
                             <td className="p-5 text-right">
                               <button
-                                onClick={() => excluirAssinatura(a.id)}
-                                className="inline-flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3 font-bold text-red-300 hover:bg-red-500/15"
+                                onClick={() =>
+                                  void excluirAssinatura(assinatura.id)
+                                }
+                                className="inline-flex items-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3 font-bold text-red-300 hover:bg-red-500/20"
                               >
-                                <Trash2 size={18} />
-                                Excluir
+                                <Trash2 size={18} /> Excluir
                               </button>
                             </td>
                           </tr>
@@ -773,6 +977,82 @@ export default function PlanosAssinaturasPage() {
                       </tbody>
                     </table>
                   </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {aba === "comparador" && (
+            <div className="p-4 xl:p-6">
+              <div className="mb-5">
+                <h2 className="text-3xl font-black">Comparador de planos</h2>
+                <p className="text-emerald-100/60">
+                  Veja rapidamente quais módulos pertencem a cada plano.
+                </p>
+              </div>
+
+              {planos.length === 0 ? (
+                <Vazio
+                  icone={<Settings2 size={72} />}
+                  titulo="Sem planos para comparar"
+                  texto="Cadastre os planos e selecione seus módulos."
+                />
+              ) : (
+                <div className="overflow-x-auto rounded-3xl border border-emerald-500/20">
+                  <table className="min-w-[900px] w-full text-sm">
+                    <thead className="bg-[#07150f]">
+                      <tr>
+                        <th className="sticky left-0 z-10 bg-[#07150f] p-4 text-left">
+                          Módulo
+                        </th>
+                        {planos.map((plano) => (
+                          <th
+                            key={plano.id}
+                            className="min-w-44 p-4 text-center"
+                          >
+                            <p className="font-black">{plano.nome}</p>
+                            <p className="text-xs text-emerald-300">
+                              {moeda(plano.valor_mensal)}
+                            </p>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-emerald-500/10 bg-[#0d2419]">
+                      {MODULOS_SISTEMA.flatMap((categoria) =>
+                        categoria.itens.map((item) => (
+                          <tr key={item.slug}>
+                            <td className="sticky left-0 z-10 bg-[#0d2419] p-4 font-bold">
+                              {item.nome}
+                            </td>
+                            {planos.map((plano) => {
+                              const possui = modulosPlano.some(
+                                (modulo) =>
+                                  modulo.plano_id === plano.id &&
+                                  modulo.modulo === item.slug &&
+                                  modulo.ativo,
+                              );
+                              return (
+                                <td key={plano.id} className="p-4 text-center">
+                                  {possui ? (
+                                    <CheckCircle2
+                                      className="mx-auto text-emerald-300"
+                                      size={22}
+                                    />
+                                  ) : (
+                                    <X
+                                      className="mx-auto text-slate-600"
+                                      size={20}
+                                    />
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        )),
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </div>
@@ -782,81 +1062,173 @@ export default function PlanosAssinaturasPage() {
 
       {modalPlano && (
         <Modal
-          titulo={editandoPlanoId ? "Editar Plano" : "Novo Plano"}
+          titulo={editandoPlanoId ? "Editar plano" : "Novo plano"}
           onClose={() => setModalPlano(false)}
+          maximo="max-w-6xl"
         >
-          <div className="space-y-4">
-            <input
-              className="campo"
-              placeholder="Nome do plano"
-              value={planoForm.nome}
-              onChange={(e) =>
-                setPlanoForm({ ...planoForm, nome: e.target.value })
-              }
-            />
-
-            <textarea
-              className="campo min-h-24"
-              placeholder="Descrição do plano"
-              value={planoForm.descricao}
-              onChange={(e) =>
-                setPlanoForm({ ...planoForm, descricao: e.target.value })
-              }
-            />
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+          <div className="space-y-5">
+            <section className="grid gap-4 md:grid-cols-2">
+              <input
+                className="campo"
+                placeholder="Nome do plano"
+                value={planoForm.nome}
+                onChange={(event) =>
+                  setPlanoForm((atual) => ({
+                    ...atual,
+                    nome: event.target.value,
+                  }))
+                }
+              />
               <input
                 className="campo"
                 type="number"
                 placeholder="Valor mensal"
                 value={planoForm.valor_mensal}
-                onChange={(e) =>
-                  setPlanoForm({ ...planoForm, valor_mensal: e.target.value })
+                onChange={(event) =>
+                  setPlanoForm((atual) => ({
+                    ...atual,
+                    valor_mensal: event.target.value,
+                  }))
                 }
               />
-
+              <textarea
+                className="campo min-h-24 md:col-span-2"
+                placeholder="Descrição do plano"
+                value={planoForm.descricao}
+                onChange={(event) =>
+                  setPlanoForm((atual) => ({
+                    ...atual,
+                    descricao: event.target.value,
+                  }))
+                }
+              />
               <input
                 className="campo"
                 type="number"
-                placeholder="Implantação"
+                placeholder="Valor de implantação"
                 value={planoForm.valor_implantacao}
-                onChange={(e) =>
-                  setPlanoForm({
-                    ...planoForm,
-                    valor_implantacao: e.target.value,
-                  })
+                onChange={(event) =>
+                  setPlanoForm((atual) => ({
+                    ...atual,
+                    valor_implantacao: event.target.value,
+                  }))
                 }
               />
-
               <input
                 className="campo"
                 type="number"
                 placeholder="Limite de usuários"
                 value={planoForm.limite_usuarios}
-                onChange={(e) =>
-                  setPlanoForm({
-                    ...planoForm,
-                    limite_usuarios: e.target.value,
-                  })
+                onChange={(event) =>
+                  setPlanoForm((atual) => ({
+                    ...atual,
+                    limite_usuarios: event.target.value,
+                  }))
                 }
               />
-            </div>
+            </section>
 
-            <textarea
-              className="campo min-h-28"
-              placeholder="Recursos separados por vírgula"
-              value={planoForm.recursos}
-              onChange={(e) =>
-                setPlanoForm({ ...planoForm, recursos: e.target.value })
-              }
-            />
+            <section className="overflow-hidden rounded-3xl border border-emerald-500/20 bg-[#07150f]">
+              <div className="flex flex-col gap-4 border-b border-emerald-500/20 p-5 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <h3 className="text-xl font-black">Módulos liberados</h3>
+                  <p className="text-sm text-emerald-100/60">
+                    {modulosSelecionados.length} selecionado(s)
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setModulosSelecionados(todosOsModulos())}
+                    className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-black text-[#062015]"
+                  >
+                    Marcar todos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setModulosSelecionados([])}
+                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold"
+                  >
+                    Limpar
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-4 p-4 md:p-5">
+                {MODULOS_SISTEMA.map((categoria) => {
+                  const slugs = categoria.itens.map((item) => item.slug);
+                  const todosMarcados = slugs.every((slug) =>
+                    modulosSelecionados.includes(slug),
+                  );
+                  return (
+                    <div
+                      key={categoria.categoria}
+                      className="rounded-2xl border border-emerald-500/15 bg-[#0d2419] p-4"
+                    >
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <h4 className="font-black text-emerald-300">
+                          {categoria.categoria}
+                        </h4>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setModulosSelecionados((atuais) =>
+                              todosMarcados
+                                ? atuais.filter((slug) => !slugs.includes(slug))
+                                : Array.from(new Set([...atuais, ...slugs])),
+                            )
+                          }
+                          className="rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-300"
+                        >
+                          {todosMarcados ? "Desmarcar" : "Marcar categoria"}
+                        </button>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {categoria.itens.map((item) => {
+                          const selecionado = modulosSelecionados.includes(
+                            item.slug,
+                          );
+                          return (
+                            <label
+                              key={item.slug}
+                              className={`flex cursor-pointer items-center gap-3 rounded-2xl border p-3 transition ${selecionado ? "border-emerald-400/40 bg-emerald-400/10" : "border-white/10 bg-white/[0.03] hover:border-emerald-400/25"}`}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={selecionado}
+                                onChange={(event) =>
+                                  setModulosSelecionados((atuais) =>
+                                    event.target.checked
+                                      ? Array.from(
+                                          new Set([...atuais, item.slug]),
+                                        )
+                                      : atuais.filter(
+                                          (slug) => slug !== item.slug,
+                                        ),
+                                  )
+                                }
+                                className="h-5 w-5 accent-emerald-400"
+                              />
+                              <span className="text-sm font-bold">
+                                {item.nome}
+                              </span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
             <button
-              onClick={salvarPlano}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-[#062015] hover:bg-emerald-300"
+              disabled={salvandoPlano}
+              onClick={() => void salvarPlano()}
+              className="sticky bottom-0 flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 text-lg font-black text-[#062015] shadow-2xl disabled:opacity-50"
             >
-              <Save size={18} />
-              Salvar Plano
+              <Save size={19} />{" "}
+              {salvandoPlano ? "Salvando..." : "Salvar plano"}
             </button>
           </div>
         </Modal>
@@ -864,57 +1236,60 @@ export default function PlanosAssinaturasPage() {
 
       {modalAssinatura && (
         <Modal
-          titulo="Nova Assinatura"
+          titulo="Nova assinatura"
           onClose={() => setModalAssinatura(false)}
         >
           <div className="space-y-4">
             <select
               className="campo"
               value={assinaturaForm.municipio_id}
-              onChange={(e) =>
-                setAssinaturaForm({
-                  ...assinaturaForm,
-                  municipio_id: e.target.value,
-                })
+              onChange={(event) =>
+                setAssinaturaForm((atual) => ({
+                  ...atual,
+                  municipio_id: event.target.value,
+                }))
               }
             >
               <option value="">Selecione o município</option>
-              {municipios.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome}
+              {municipios.map((municipio) => (
+                <option key={municipio.id} value={municipio.id}>
+                  {municipio.nome}
                 </option>
               ))}
             </select>
-
             <select
               className="campo"
               value={assinaturaForm.plano_id}
-              onChange={(e) =>
-                setAssinaturaForm({
-                  ...assinaturaForm,
-                  plano_id: e.target.value,
-                })
-              }
+              onChange={(event) => {
+                const planoId = event.target.value;
+                const plano = planos.find((item) => item.id === planoId);
+                setAssinaturaForm((atual) => ({
+                  ...atual,
+                  plano_id: planoId,
+                  valor_mensal: plano
+                    ? String(plano.valor_mensal)
+                    : atual.valor_mensal,
+                }));
+              }}
             >
               <option value="">Selecione o plano</option>
               {planos
-                .filter((p) => p.ativo)
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome} - {moeda(p.valor_mensal)}
+                .filter((plano) => plano.ativo)
+                .map((plano) => (
+                  <option key={plano.id} value={plano.id}>
+                    {plano.nome} — {moeda(plano.valor_mensal)}
                   </option>
                 ))}
             </select>
-
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="grid gap-4 md:grid-cols-3">
               <select
                 className="campo"
                 value={assinaturaForm.status}
-                onChange={(e) =>
-                  setAssinaturaForm({
-                    ...assinaturaForm,
-                    status: e.target.value,
-                  })
+                onChange={(event) =>
+                  setAssinaturaForm((atual) => ({
+                    ...atual,
+                    status: event.target.value,
+                  }))
                 }
               >
                 <option value="ATIVA">ATIVA</option>
@@ -922,51 +1297,48 @@ export default function PlanosAssinaturasPage() {
                 <option value="VENCIDA">VENCIDA</option>
                 <option value="CANCELADA">CANCELADA</option>
               </select>
-
               <input
                 type="date"
                 className="campo"
                 value={assinaturaForm.data_vencimento}
-                onChange={(e) =>
-                  setAssinaturaForm({
-                    ...assinaturaForm,
-                    data_vencimento: e.target.value,
-                  })
+                onChange={(event) =>
+                  setAssinaturaForm((atual) => ({
+                    ...atual,
+                    data_vencimento: event.target.value,
+                  }))
                 }
               />
-
               <input
                 type="number"
                 className="campo"
                 placeholder="Valor mensal"
                 value={assinaturaForm.valor_mensal}
-                onChange={(e) =>
-                  setAssinaturaForm({
-                    ...assinaturaForm,
-                    valor_mensal: e.target.value,
-                  })
+                onChange={(event) =>
+                  setAssinaturaForm((atual) => ({
+                    ...atual,
+                    valor_mensal: event.target.value,
+                  }))
                 }
               />
             </div>
-
             <textarea
               className="campo min-h-24"
               placeholder="Observações"
               value={assinaturaForm.observacoes}
-              onChange={(e) =>
-                setAssinaturaForm({
-                  ...assinaturaForm,
-                  observacoes: e.target.value,
-                })
+              onChange={(event) =>
+                setAssinaturaForm((atual) => ({
+                  ...atual,
+                  observacoes: event.target.value,
+                }))
               }
             />
-
             <button
-              onClick={salvarAssinatura}
-              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-[#062015] hover:bg-emerald-300"
+              disabled={salvandoAssinatura}
+              onClick={() => void salvarAssinatura()}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-400 px-5 py-4 font-black text-[#062015] disabled:opacity-50"
             >
-              <Save size={18} />
-              Criar Assinatura
+              <Save size={18} />{" "}
+              {salvandoAssinatura ? "Criando..." : "Criar assinatura"}
             </button>
           </div>
         </Modal>
@@ -982,22 +1354,51 @@ export default function PlanosAssinaturasPage() {
           color: white;
           outline: none;
         }
-
         .campo::placeholder {
-          color: rgba(209, 250, 229, 0.45);
+          color: rgba(209, 250, 229, 0.42);
         }
-
         .campo:focus {
           border-color: #34d399;
-          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.15);
+          box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.14);
         }
-
+        .btn-topo-principal {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.65rem;
+          border-radius: 1rem;
+          background: #34d399;
+          padding: 0.9rem 1.4rem;
+          font-weight: 900;
+          color: #062015;
+        }
+        .btn-topo-secundario {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.65rem;
+          border-radius: 1rem;
+          border: 1px solid rgba(52, 211, 153, 0.3);
+          background: rgba(255, 255, 255, 0.08);
+          padding: 0.9rem 1.4rem;
+          font-weight: 900;
+          color: white;
+        }
+        .acao-card {
+          border-radius: 1rem;
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.06);
+          padding: 0.75rem;
+          font-size: 0.875rem;
+          font-weight: 900;
+          color: white;
+        }
         option {
           background: #07150f;
           color: white;
         }
       `}</style>
-    </div>
+    </main>
   );
 }
 
@@ -1010,27 +1411,108 @@ function CardResumo({
   titulo: string;
   valor: string;
   texto: string;
-  icone: React.ReactNode;
+  icone: ReactNode;
 }) {
   return (
-    <div className="min-h-[180px] rounded-3xl border border-emerald-500/20 bg-[#0d2419] p-7 shadow-lg">
-      <div className="mb-5 flex items-center justify-between">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-500/15 text-emerald-300">
-          {icone}
-        </div>
-
-        <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-black text-emerald-300">
-          SIG
-        </span>
+    <div className="rounded-3xl border border-emerald-500/20 bg-[#0d2419] p-4 shadow-lg md:p-6">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-emerald-400/30 bg-emerald-500/15 text-emerald-300 md:h-14 md:w-14">
+        {icone}
       </div>
-
-      <p className="text-base font-bold uppercase tracking-wide text-emerald-100/70">
+      <p className="text-xs font-black uppercase tracking-wide text-emerald-100/60 md:text-sm">
         {titulo}
       </p>
+      <p className="mt-1 text-2xl font-black md:text-4xl">{valor}</p>
+      <p className="mt-2 text-xs text-emerald-100/50 md:text-sm">{texto}</p>
+    </div>
+  );
+}
 
-      <p className="mt-2 text-4xl font-black text-white">{valor}</p>
+function AbaBotao({
+  ativo,
+  onClick,
+  icone,
+  texto,
+}: {
+  ativo: boolean;
+  onClick: () => void;
+  icone: ReactNode;
+  texto: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex shrink-0 items-center gap-2 rounded-2xl px-5 py-3 text-sm font-black transition ${ativo ? "bg-emerald-400 text-[#062015]" : "text-emerald-100/65 hover:bg-white/10 hover:text-white"}`}
+    >
+      {icone}
+      {texto}
+    </button>
+  );
+}
 
-      <p className="mt-3 text-base text-emerald-100/60">{texto}</p>
+function MiniInfo({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/15 p-3 text-center">
+      <p className="text-[10px] font-black uppercase text-emerald-100/45">
+        {titulo}
+      </p>
+      <p className="mt-1 truncate font-black">{valor}</p>
+    </div>
+  );
+}
+
+function ResumoLinha({
+  titulo,
+  valor,
+  destaque = "text-white",
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: string;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/15 p-4">
+      <span className="text-sm text-emerald-100/60">{titulo}</span>
+      <span className={`text-xl font-black ${destaque}`}>{valor}</span>
+    </div>
+  );
+}
+
+function Status({ status }: { status: string }) {
+  return (
+    <span
+      className={`rounded-full border px-3 py-1 text-[10px] font-black ${STATUS_CLASSES[status] || STATUS_CLASSES.PENDENTE}`}
+    >
+      {status}
+    </span>
+  );
+}
+
+function Carregando() {
+  return (
+    <div className="grid min-h-80 place-items-center text-emerald-100/60">
+      Carregando...
+    </div>
+  );
+}
+
+function Vazio({
+  icone,
+  titulo,
+  texto,
+}: {
+  icone: ReactNode;
+  titulo: string;
+  texto: string;
+}) {
+  return (
+    <div className="grid min-h-96 place-items-center rounded-3xl border border-dashed border-emerald-500/20 bg-[#07150f] p-8 text-center">
+      <div>
+        <div className="mx-auto flex justify-center text-emerald-400">
+          {icone}
+        </div>
+        <h3 className="mt-5 text-2xl font-black">{titulo}</h3>
+        <p className="mt-2 text-emerald-100/60">{texto}</p>
+      </div>
     </div>
   );
 }
@@ -1039,26 +1521,28 @@ function Modal({
   titulo,
   children,
   onClose,
+  maximo = "max-w-3xl",
 }: {
   titulo: string;
-  children: React.ReactNode;
+  children: ReactNode;
   onClose: () => void;
+  maximo?: string;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl rounded-3xl border border-emerald-500/20 bg-[#0f241b] p-6 shadow-2xl">
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-2xl font-black text-white">{titulo}</h2>
-
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm">
+      <div
+        className={`flex max-h-[94dvh] w-full flex-col overflow-hidden rounded-3xl border border-emerald-500/20 bg-[#0f241b] shadow-2xl ${maximo}`}
+      >
+        <div className="flex shrink-0 items-center justify-between border-b border-emerald-500/20 px-5 py-4 md:px-6">
+          <h2 className="text-2xl font-black">{titulo}</h2>
           <button
             onClick={onClose}
-            className="rounded-2xl border border-white/10 bg-white/10 p-3 text-white hover:bg-white/15"
+            className="rounded-2xl border border-white/10 bg-white/10 p-3 hover:bg-white/15"
           >
             <X size={20} />
           </button>
         </div>
-
-        {children}
+        <div className="flex-1 overflow-y-auto p-4 md:p-6">{children}</div>
       </div>
     </div>
   );

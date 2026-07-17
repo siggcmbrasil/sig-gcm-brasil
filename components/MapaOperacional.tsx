@@ -596,7 +596,7 @@ export default function MapaOperacional({
 
   if (!pronto) {
     return (
-      <div className="h-full w-full rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-400">
+      <div className="h-full w-full bg-slate-950 flex items-center justify-center text-slate-400">
         Carregando mapa...
       </div>
     );
@@ -611,7 +611,7 @@ export default function MapaOperacional({
       zoom={zoomCalculado}
       scrollWheelZoom={true}
       style={{ width: "100%", height: "100%", minHeight: "100%" }}
-      className="rounded-2xl z-0"
+      className="z-0 bg-slate-100"
     >
       {sosMaisRecente && (
         <CentralizarMapa
@@ -622,7 +622,7 @@ export default function MapaOperacional({
 
       <TileLayer
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        attribution="OpenStreetMap"
+        attribution="&copy; OpenStreetMap contributors"
       />
 
       {possuiBaseMunicipio && (

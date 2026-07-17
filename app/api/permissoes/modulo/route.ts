@@ -163,6 +163,172 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const hoje = new Date();
+hoje.setHours(0, 0, 0, 0);
+
+const {
+  data: assinatura,
+  error: assinaturaError,
+} = await supabaseAdmin
+  .from("assinaturas_municipios")
+  .select(
+    "id, plano_id, status, data_inicio, data_vencimento"
+  )
+  .eq("municipio_id", municipioId)
+  .eq("status", "ATIVA")
+  .order("data_inicio", {
+    ascending: false,
+  })
+  .limit(1)
+  .maybeSingle();
+
+if (assinaturaError) {
+  console.error(
+    "Erro ao verificar assinatura do município:",
+    {
+      message: assinaturaError.message,
+      municipio_id: municipioId,
+      modulo,
+    }
+  );
+
+  return responder(
+    {
+      ok: false,
+      permitido: false,
+      erro: "Não foi possível verificar a assinatura do município.",
+    },
+    500
+  );
+}
+
+if (!assinatura?.plano_id) {
+  return responder(
+    {
+      ok: true,
+      permitido: false,
+      motivo: "ASSINATURA_INATIVA",
+      erro:
+        "O município não possui uma assinatura ativa.",
+    },
+    200
+  );
+}
+
+if (assinatura.data_vencimento) {
+  const vencimento = new Date(
+    `${assinatura.data_vencimento}T23:59:59`
+  );
+
+  if (
+    Number.isFinite(vencimento.getTime()) &&
+    vencimento < hoje
+  ) {
+    return responder(
+      {
+        ok: true,
+        permitido: false,
+        motivo: "ASSINATURA_VENCIDA",
+        erro:
+          "A assinatura do município está vencida.",
+      },
+      200
+    );
+  }
+}
+
+const {
+  data: plano,
+  error: planoError,
+} = await supabaseAdmin
+  .from("planos_sistema")
+  .select("id, nome, ativo")
+  .eq("id", assinatura.plano_id)
+  .maybeSingle();
+
+if (planoError) {
+  console.error(
+    "Erro ao verificar plano contratado:",
+    {
+      message: planoError.message,
+      municipio_id: municipioId,
+      plano_id: assinatura.plano_id,
+      modulo,
+    }
+  );
+
+  return responder(
+    {
+      ok: false,
+      permitido: false,
+      erro:
+        "Não foi possível verificar o plano contratado.",
+    },
+    500
+  );
+}
+
+if (!plano || plano.ativo !== true) {
+  return responder(
+    {
+      ok: true,
+      permitido: false,
+      motivo: "PLANO_INATIVO",
+      erro:
+        "O plano contratado está inativo.",
+    },
+    200
+  );
+}
+
+const {
+  data: moduloPlano,
+  error: moduloPlanoError,
+} = await supabaseAdmin
+  .from("planos_modulos")
+  .select("id, ativo")
+  .eq("plano_id", assinatura.plano_id)
+  .eq("modulo", modulo)
+  .eq("ativo", true)
+  .maybeSingle();
+
+if (moduloPlanoError) {
+  console.error(
+    "Erro ao verificar módulo contratado:",
+    {
+      message: moduloPlanoError.message,
+      municipio_id: municipioId,
+      plano_id: assinatura.plano_id,
+      modulo,
+    }
+  );
+
+  return responder(
+    {
+      ok: false,
+      permitido: false,
+      erro:
+        "Não foi possível verificar os módulos do plano.",
+    },
+    500
+  );
+}
+
+if (!moduloPlano) {
+  return responder(
+    {
+      ok: true,
+      permitido: false,
+      motivo: "MODULO_NAO_CONTRATADO",
+      modulo,
+      plano: plano.nome,
+      erro:
+        "Este módulo não está incluído no plano contratado.",
+    },
+    200
+  );
+}
+
     const {
       data: permissao,
       error: permissaoError,

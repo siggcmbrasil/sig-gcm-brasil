@@ -426,6 +426,12 @@ export async function POST(request: NextRequest) {
     unknown
   >[] = [];
 
+  const bloqueadosRH: {
+  guarda: string;
+  data: string;
+  motivo: string;
+}[] = [];
+
   for (const registro of novosRegistros) {
     const guarnicao = guarnicoesPorNome.get(
       registro.equipe.trim().toUpperCase()
@@ -450,6 +456,42 @@ export async function POST(request: NextRequest) {
         continue;
       }
 
+      const {
+  data: validacaoRH,
+  error: erroRH,
+} = await supabaseAdmin.rpc(
+  "rh_pode_assumir_servico",
+  {
+    p_guarda_id: guarda.id,
+    p_data_servico: registro.data_servico,
+    p_tipo_servico: "REGULAR",
+  }
+);
+
+if (erroRH) {
+  console.error(
+    "Erro RH",
+    erroRH
+  );
+
+  continue;
+}
+
+const resultadoRH = Array.isArray(validacaoRH)
+  ? validacaoRH[0]
+  : validacaoRH;
+
+if (!resultadoRH?.permitido) {
+
+  bloqueadosRH.push({
+    guarda: guarda.nome,
+    data: registro.data_servico,
+    motivo: resultadoRH.mensagem,
+  });
+
+  continue;
+}
+
       registrosServico.push({
         municipio_id: municipioId,
         data_servico: registro.data_servico,
@@ -472,15 +514,35 @@ export async function POST(request: NextRequest) {
         .insert(registrosServico);
 
     if (insertServicoError) {
-      return responder(
-        {
-          ok: false,
-          erro:
-            "A escala mensal foi gerada, mas ocorreu erro ao gerar a escala operacional.",
-        },
-        500
-      );
+  console.error(
+    "Erro ao inserir escalas_servico:",
+    {
+      message: insertServicoError.message,
+      code: insertServicoError.code,
+      details: insertServicoError.details,
+      hint: insertServicoError.hint,
+      total_registros: registrosServico.length,
+      primeiro_registro:
+        registrosServico[0] || null,
     }
+  );
+
+  return responder(
+    {
+      ok: false,
+      erro:
+        insertServicoError.message ||
+        "A escala mensal foi gerada, mas ocorreu erro ao gerar a escala operacional.",
+      codigo:
+        insertServicoError.code ||
+        null,
+      detalhes:
+        insertServicoError.details ||
+        null,
+    },
+    500
+  );
+}
   }
 
   const { error: auditoriaError } =
@@ -521,6 +583,10 @@ export async function POST(request: NextRequest) {
       total_dias: novosRegistros.length,
       total_plantões:
         registrosServico.length,
+
+      bloqueados: bloqueadosRH,
+      total_bloqueados: bloqueadosRH.length,
+        
     },
     201
   );

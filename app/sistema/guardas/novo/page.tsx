@@ -9,6 +9,11 @@ import ProtecaoModulo from "@/components/ProtecaoModulo";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import { registrarAuditoria } from "@/lib/auditoria";
+import {
+  criarPreviewFoto,
+  liberarPreviewFoto,
+  prepararFotoGuarda,
+} from "@/components/guardas";
 
 function formatarCPF(valor: string) {
   return valor
@@ -88,6 +93,7 @@ export default function NovoGuardaPage() {
   const [foto, setFoto] = useState<File | null>(null);
   const [fotoUrl, setFotoUrl] = useState("");
   const [previewFoto, setPreviewFoto] = useState("");
+  const [processandoFoto, setProcessandoFoto] = useState(false);
   const [salvando, setSalvando] = useState(false);
 
   const idade = calcularAnos(dataNascimento);
@@ -147,6 +153,47 @@ export default function NovoGuardaPage() {
     setObservacao(data.observacao || "");
     setLotacao(data.lotacao || "");
   }
+
+  async function handleFotoChange(
+  event: React.ChangeEvent<HTMLInputElement>
+) {
+  const arquivoOriginal =
+    event.target.files?.[0];
+
+  if (!arquivoOriginal) {
+    return;
+  }
+
+  setProcessandoFoto(true);
+
+  try {
+    const fotoPreparada =
+      await prepararFotoGuarda(
+        arquivoOriginal
+      );
+
+    liberarPreviewFoto(
+      previewFoto
+    );
+
+    const novaPreview =
+      criarPreviewFoto(
+        fotoPreparada
+      );
+
+    setFoto(fotoPreparada);
+    setPreviewFoto(novaPreview);
+  } catch (error) {
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Erro ao preparar a imagem."
+    );
+  } finally {
+    setProcessandoFoto(false);
+    event.target.value = "";
+  }
+}
 
   async function salvarGuarda() {
     if (!municipioId) {
@@ -217,28 +264,6 @@ export default function NovoGuardaPage() {
 
     setSalvando(true);
 
-    let urlFoto = fotoUrl;
-
-    if (foto) {
-      const nomeArquivo = `${municipioId}/${Date.now()}-${foto.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("fotos-guardas")
-        .upload(nomeArquivo, foto);
-
-      if (uploadError) {
-        setSalvando(false);
-        alert("Erro ao enviar foto.");
-        return;
-      }
-
-      const { data } = supabase.storage
-        .from("fotos-guardas")
-        .getPublicUrl(nomeArquivo);
-
-      urlFoto = data.publicUrl;
-    }
-
     const payload = {
       municipio_id: municipioId,
       matricula: matricula.trim(),
@@ -261,7 +286,7 @@ export default function NovoGuardaPage() {
       validade_cnh: validadeCnh || null,
       data_admissao: dataAdmissao || null,
       data_nascimento: dataNascimento || null,
-      foto_url: urlFoto,
+      foto_url: fotoUrl || null,
       observacao: observacao.trim() || null,
       lotacao: lotacao?.toUpperCase() || null,
     };
@@ -279,10 +304,86 @@ export default function NovoGuardaPage() {
     const novoId = data?.id;
 
     if (error) {
-      setSalvando(false);
-      alert(error.message);
-      return;
-    }
+  setSalvando(false);
+  alert(error.message);
+  return;
+}
+
+if (foto && novoId) {
+  const caminhoFoto =
+    `${municipioId}/guardas/${novoId}.webp`;
+
+  const { error: uploadError } =
+    await supabase.storage
+      .from("fotos-guardas")
+      .upload(
+        caminhoFoto,
+        foto,
+{
+  upsert: true,
+  cacheControl: "0",
+  contentType: "image/webp",
+}
+      );
+
+  if (uploadError) {
+    setSalvando(false);
+    alert(
+      `O guarda foi salvo, mas ocorreu erro ao enviar a foto: ${uploadError.message}`
+    );
+    return;
+  }
+
+  const { data: urlData } =
+    supabase.storage
+      .from("fotos-guardas")
+      .getPublicUrl(caminhoFoto);
+
+  const novaFotoUrl =
+    urlData.publicUrl;
+
+const {
+  data: guardaAtualizado,
+  error: fotoUpdateError,
+} = await supabase
+  .from("guardas")
+  .update({
+    foto_url: novaFotoUrl,
+  })
+  .eq("id", novoId)
+  .eq(
+    "municipio_id",
+    municipioId
+  )
+  .select("id, foto_url")
+  .single();
+
+  if (fotoUpdateError) {
+    setSalvando(false);
+    alert(
+      `A foto foi enviada, mas não foi vinculada ao guarda: ${fotoUpdateError.message}`
+    );
+    return;
+  }
+
+  if (!guardaAtualizado?.foto_url) {
+  setSalvando(false);
+
+  alert(
+    "A foto foi enviada, mas o endereço não foi salvo no cadastro do guarda."
+  );
+
+  return;
+}
+
+  liberarPreviewFoto(previewFoto);
+
+  setFoto(null);
+  setPreviewFoto("");
+  setFotoUrl(
+  `${guardaAtualizado.foto_url}?v=${Date.now()}`
+);
+}
 
     setSalvando(false);
 
@@ -622,26 +723,63 @@ export default function NovoGuardaPage() {
             <Bloco titulo="Identificação">
               <div className="grid md:grid-cols-2 gap-4">
                 <Campo label="Foto do Guarda">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="input"
-                    onChange={(e) => {
-                      const arquivo = e.target.files?.[0];
+<input
+  type="file"
+  accept="image/*"
+  capture="environment"
+  className="input"
+  disabled={processandoFoto}
+  onChange={async (e) => {
+    const arquivo =
+      e.target.files?.[0];
 
-                      if (!arquivo) return;
+    if (!arquivo) return;
 
-                      setFoto(arquivo);
-                      setPreviewFoto(URL.createObjectURL(arquivo));
-                    }}
-                  />
+    setProcessandoFoto(true);
+
+    try {
+      const fotoPreparada =
+        await prepararFotoGuarda(
+          arquivo
+        );
+
+      liberarPreviewFoto(
+        previewFoto
+      );
+
+      const preview =
+        criarPreviewFoto(
+          fotoPreparada
+        );
+
+      setFoto(fotoPreparada);
+      setPreviewFoto(preview);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Erro ao processar a foto."
+      );
+    } finally {
+      setProcessandoFoto(false);
+      e.target.value = "";
+    }
+  }}
+/>
                 </Campo>
 
                 {(previewFoto || fotoUrl) && (
                   <div>
                     <label className="label">Foto atual</label>
                     <img
-                      src={previewFoto || fotoUrl}
+                      src={
+  previewFoto ||
+  (fotoUrl
+    ? `${fotoUrl}${
+        fotoUrl.includes("?") ? "&" : "?"
+      }v=${Date.now()}`
+    : "")
+}
                       alt="Foto do guarda"
                       className="w-24 h-24 rounded-full object-cover border border-cyan-500/30"
                     />

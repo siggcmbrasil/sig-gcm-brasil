@@ -4,6 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
 import {
+  podeReceberArmamento,
+} from "@/lib/rh/motorRegras";
+import {
   ClipboardList,
   CheckCircle,
   AlertTriangle,
@@ -73,14 +76,17 @@ async function carregar(usuarioAtual: any) {
     })
     .range(0, 499);
 
-  const { data: listaGuardas } = await supabase
-    .from("guardas")
-    .select(`
-      id,
-      nome,
-      matricula,
-      status
-    `)
+const { data: listaGuardas } = await supabase
+  .from("vw_guardas_disponibilidade_operacional")
+  .select(`
+    id,
+    nome,
+    matricula,
+    status_cadastrado,
+    situacao_funcional,
+    pode_receber_armamento,
+    motivo_bloqueio
+  `)
     .eq(
       "municipio_id",
       usuarioAtual.municipio_id
@@ -190,6 +196,11 @@ async function carregar(usuarioAtual: any) {
     (a) => String(a.id) === String(armamentoId)
   );
 
+  const guardaAtual = guardas.find(
+  (g) => String(g.id) === String(guardaId)
+);
+
+
   const cautelasFiltradas = cautelas.filter((item) => {
     const texto = `
       ${item.tipo || ""}
@@ -268,6 +279,29 @@ if (
 ) {
   alert("Este armamento já está cautelado.");
   return;
+}
+
+if (tipo === "RETIRADA") {
+
+  const resultadoRH =
+    await podeReceberArmamento({
+      guardaId: Number(guardaId),
+      data: new Date()
+        .toISOString()
+        .slice(0, 10),
+    });
+
+  if (!resultadoRH.permitido) {
+
+    alert(
+`🚫 ENTREGA BLOQUEADA
+
+${resultadoRH.mensagem}`
+    );
+
+    return;
+  }
+
 }
 
 if (Number(quantidadeMunicao || 0) < 0) {
@@ -434,12 +468,62 @@ await carregar(usuario);
               >
                 <option value="">Selecione o guarda</option>
 
-                {guardas.map((g) => (
-                  <option key={g.id} value={g.id}>
-                    {g.nome} - {g.matricula || "S/M"}
-                  </option>
-                ))}
+{guardas.map((g) => (
+  <option key={g.id} value={g.id}>
+    {g.pode_receber_armamento
+      ? "🟢"
+      : "🔴"}{" "}
+    {g.nome} - {g.matricula || "S/M"} •{" "}
+    {g.situacao_funcional || "NÃO INFORMADO"}
+  </option>
+))}
               </select>
+
+{guardaAtual && (
+  <div
+    className={`mt-3 rounded-2xl border p-4 ${
+      guardaAtual.pode_receber_armamento
+        ? "border-emerald-500/30 bg-emerald-500/10"
+        : "border-red-500/30 bg-red-500/10"
+    }`}
+  >
+    <div className="flex items-center justify-between">
+
+      <h3
+        className={`font-black ${
+          guardaAtual.pode_receber_armamento
+            ? "text-emerald-300"
+            : "text-red-300"
+        }`}
+      >
+        {guardaAtual.pode_receber_armamento
+          ? "🟢 LIBERADO"
+          : "🔴 BLOQUEADO"}
+      </h3>
+
+      <span className="text-xs bg-slate-900 px-3 py-1 rounded-full">
+        {guardaAtual.situacao_funcional}
+      </span>
+
+    </div>
+
+    {!guardaAtual.pode_receber_armamento && (
+
+      <div className="mt-3">
+
+        <p className="text-red-200 text-sm font-semibold">
+
+          {guardaAtual.motivo_bloqueio}
+
+        </p>
+
+      </div>
+
+    )}
+
+  </div>
+)}
+
             </div>
 
             <div>
@@ -547,12 +631,23 @@ await carregar(usuario);
             </div>
 
             <button
-              onClick={salvar}
-              disabled={salvando}
-              className="sig-btn-gold w-full disabled:opacity-50"
-            >
-              {salvando ? "Salvando..." : "Registrar Cautela"}
-            </button>
+  onClick={salvar}
+  disabled={
+    salvando ||
+    (tipo === "RETIRADA" &&
+      guardaAtual &&
+      !guardaAtual.pode_receber_armamento)
+  }
+  className="sig-btn-gold w-full disabled:opacity-40 disabled:cursor-not-allowed"
+>
+  {salvando
+    ? "Salvando..."
+    : tipo === "RETIRADA" &&
+      guardaAtual &&
+      !guardaAtual.pode_receber_armamento
+    ? "🚫 Entrega bloqueada pelo RH"
+    : "Registrar Cautela"}
+</button>
           </div>
         </div>
 

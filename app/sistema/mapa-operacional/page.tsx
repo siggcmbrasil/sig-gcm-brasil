@@ -1,37 +1,148 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+// SIG MAPA OPERACIONAL TELA CHEIA V4 - PONTOS HISTORICOS + ATUALIZACAO 5 MIN - 2026-07-17
+
 import dynamic from "next/dynamic";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   CalendarDays,
-  CheckCircle,
+  ChevronLeft,
   Crosshair,
   Eye,
   EyeOff,
-  Map,
+  Filter,
+  Layers3,
+  Maximize2,
+  Minimize2,
   RefreshCw,
   Shield,
   Siren,
   Truck,
+  X,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
-import SigPageHeader from "@/components/sig/SigPageHeader";
-import SigCard from "@/components/sig/SigCard";
-import SigButton from "@/components/sig/SigButton";
 import { obterMunicipioIdEfetivo } from "@/lib/contextoMunicipio";
 
-const MapaOperacional = dynamic(
-  () => import("@/components/MapaOperacional"),
-  { ssr: false }
-);
+const MapaOperacional = dynamic(() => import("@/components/MapaOperacional"), {
+  ssr: false,
+});
+
+type Camadas = {
+  ocorrencias: boolean;
+  viaturas: boolean;
+  gps: boolean;
+  blitzes: boolean;
+  barreiras: boolean;
+  operacoes: boolean;
+  sos: boolean;
+};
+
+const CAMADAS_INICIAIS: Camadas = {
+  ocorrencias: true,
+  viaturas: true,
+  gps: true,
+  blitzes: true,
+  barreiras: true,
+  operacoes: true,
+  sos: true,
+};
+
+function hojeLocal() {
+  const deslocamento = new Date().getTimezoneOffset() * 60000;
+  return new Date(Date.now() - deslocamento).toISOString().split("T")[0];
+}
+
+function pegarUsuario() {
+  if (typeof window === "undefined") return null;
+
+  try {
+    const salvo = localStorage.getItem("usuarioLogado");
+    if (!salvo) return null;
+
+    const usuario = JSON.parse(salvo);
+    const municipioId = obterMunicipioIdEfetivo({
+      perfil: usuario?.perfil,
+      municipioIdUsuario: usuario?.municipio_id,
+    });
+
+    if (!usuario?.id || !municipioId) return null;
+
+    return { ...usuario, municipio_id: municipioId };
+  } catch {
+    return null;
+  }
+}
+
+function filtrarPorData(lista: any[], dataFiltro: string, campos: string[]) {
+  if (!dataFiltro) return lista;
+
+  return lista.filter((item) =>
+    campos.some((campo) => {
+      const valor = item?.[campo];
+      return valor && String(valor).split("T")[0] === dataFiltro;
+    })
+  );
+}
+
+function filtrarGpsAtivo(lista: any[]) {
+  const agora = Date.now();
+
+  return lista.filter((item) => {
+    const data = item.atualizado_em || item.created_at;
+    if (!data) return false;
+    return (agora - new Date(data).getTime()) / 60000 <= 5;
+  });
+}
+
+async function carregarAlertasSOSMapa(municipioId: number) {
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+
+  const token = session?.access_token;
+  if (sessionError || !token) {
+    return { data: [], error: new Error("Sua sessão expirou.") };
+  }
+
+  try {
+    const resposta = await fetch(`/api/sos/mapa?municipio_id=${municipioId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
+    });
+    const corpo = await resposta.json().catch(() => null);
+
+    if (!resposta.ok || !corpo?.ok) {
+      return {
+        data: [],
+        error: new Error(corpo?.erro || "Não foi possível carregar os alertas SOS."),
+      };
+    }
+
+    return { data: Array.isArray(corpo.alertas) ? corpo.alertas : [], error: null };
+  } catch (error) {
+    return {
+      data: [],
+      error: error instanceof Error ? error : new Error("Erro ao carregar SOS."),
+    };
+  }
+}
 
 export default function MapaOperacionalPage() {
-  const hoje = useMemo(() => {
-    const tzoffset = new Date().getTimezoneOffset() * 60000;
-    return new Date(Date.now() - tzoffset).toISOString().split("T")[0];
-  }, []);
+  const hoje = useMemo(() => hojeLocal(), []);
+  const [dataFiltro, setDataFiltro] = useState("");
+  const [camadas, setCamadas] = useState<Camadas>(CAMADAS_INICIAIS);
+  const [painelAberto, setPainelAberto] = useState(true);
+  const [legendaAberta, setLegendaAberta] = useState(true);
+  const [telaCheia, setTelaCheia] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
+  const primeiraCargaRef = useRef(true);
+  const [erro, setErro] = useState("");
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState("");
 
   const [ocorrencias, setOcorrencias] = useState<any[]>([]);
   const [viaturas, setViaturas] = useState<any[]>([]);
@@ -41,160 +152,7 @@ export default function MapaOperacionalPage() {
   const [operacoesEspeciais, setOperacoesEspeciais] = useState<any[]>([]);
   const [alertasSOS, setAlertasSOS] = useState<any[]>([]);
 
-  const [carregando, setCarregando] = useState(true);
-  const [erro, setErro] = useState("");
-  const [dataFiltro, setDataFiltro] = useState(hoje);
-  const [ultimaAtualizacao, setUltimaAtualizacao] = useState("");
-
-  const [mostrar, setMostrar] = useState({
-    ocorrencias: true,
-    viaturas: true,
-    gps: true,
-    blitzes: true,
-    barreiras: true,
-    operacoes: true,
-    sos: true,
-  });
-
-  function pegarUsuario() {
-    if (
-      typeof window === "undefined"
-    ) {
-      return null;
-    }
-
-    try {
-      const salvo =
-        localStorage.getItem(
-          "usuarioLogado"
-        );
-
-      if (!salvo) {
-        return null;
-      }
-
-      const usuario =
-        JSON.parse(salvo);
-
-      const municipioId =
-        obterMunicipioIdEfetivo({
-          perfil:
-            usuario?.perfil,
-          municipioIdUsuario:
-            usuario?.municipio_id,
-        });
-
-      if (
-        !usuario?.id ||
-        !municipioId
-      ) {
-        return null;
-      }
-
-      return {
-        ...usuario,
-        municipio_id:
-          municipioId,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  function filtrarPorData(lista: any[], campos: string[]) {
-    if (!dataFiltro) return lista;
-
-    return lista.filter((item) =>
-      campos.some((campo) => {
-        const valor = item?.[campo];
-        if (!valor) return false;
-        return String(valor).split("T")[0] === dataFiltro;
-      })
-    );
-  }
-
-  function filtrarGpsAtivo(lista: any[]) {
-    const agora = Date.now();
-    const limiteMinutos = 5;
-
-    return lista.filter((item) => {
-      const data = item.atualizado_em || item.created_at;
-      if (!data) return false;
-
-      const diferencaMinutos = (agora - new Date(data).getTime()) / 60000;
-      return diferencaMinutos <= limiteMinutos;
-    });
-  }
-
-async function carregarAlertasSOSMapa(
-  municipioId: number
-) {
-  const {
-    data: { session },
-    error: sessionError,
-  } = await supabase.auth.getSession();
-
-  const accessToken = session?.access_token;
-
-  if (sessionError || !accessToken) {
-    return {
-      data: [],
-      error: new Error(
-        "Sua sessão expirou. Entre novamente no sistema."
-      ),
-    };
-  }
-
-  try {
-    const parametros = new URLSearchParams({
-      municipio_id: String(municipioId),
-    });
-
-    const resposta = await fetch(
-      `/api/sos/mapa?${parametros.toString()}`,
-      {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-        cache: "no-store",
-      }
-    );
-
-    const corpo = await resposta
-      .json()
-      .catch(() => null);
-
-    if (!resposta.ok || !corpo?.ok) {
-      return {
-        data: [],
-        error: new Error(
-          corpo?.erro ||
-            "Não foi possível carregar os alertas SOS."
-        ),
-      };
-    }
-
-    return {
-      data: Array.isArray(corpo.alertas)
-        ? corpo.alertas
-        : [],
-      error: null,
-    };
-  } catch (error) {
-    return {
-      data: [],
-      error:
-        error instanceof Error
-          ? error
-          : new Error(
-              "Erro ao carregar os alertas SOS."
-            ),
-    };
-  }
-}
-
-  async function carregarDados() {
+  const carregarDados = useCallback(async () => {
     const usuario = pegarUsuario();
 
     if (!usuario?.id || !usuario?.municipio_id) {
@@ -204,72 +162,53 @@ async function carregarAlertasSOSMapa(
     }
 
     try {
-      setCarregando(true);
+      if (primeiraCargaRef.current) {
+        setCarregando(true);
+      }
+      setAtualizando(true);
       setErro("");
+      const municipioId = Number(usuario.municipio_id);
 
-      const municipioId = usuario.municipio_id;
-
-      const [
-        ocorrenciasRes,
-        viaturasRes,
-        gpsRes,
-        blitzesRes,
-        barreirasRes,
-        operacoesRes,
-        sosRes,
-      ] = await Promise.all([
-        supabase
-          .from("ocorrencias")
-          .select(`
-            *,
-            locais:local_id (
-              id,
-              nome,
-              latitude,
-              longitude
-            )
-          `)
-          .eq("municipio_id", municipioId)
-          .order("id", { ascending: false }),
-
-        supabase
-          .from("viaturas")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .order("id", { ascending: false }),
-
-        supabase
-          .from("localizacoes_tempo_real")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .order("atualizado_em", { ascending: false }),
-
-        supabase
-          .from("blitzes")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("barreiras")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .order("created_at", { ascending: false }),
-
-        supabase
-          .from("operacoes_especiais")
-          .select("*")
-          .eq("municipio_id", municipioId)
-          .not("latitude", "is", null)
-          .not("longitude", "is", null)
-          .order("created_at", { ascending: false }),
-
-        carregarAlertasSOSMapa(municipioId),
-      ]);
+      const [ocorrenciasRes, viaturasRes, gpsRes, blitzesRes, barreirasRes, operacoesRes, sosRes] =
+        await Promise.all([
+          supabase
+            .from("ocorrencias")
+            .select("*, locais:local_id(id,nome,latitude,longitude)")
+            .eq("municipio_id", municipioId)
+            .order("id", { ascending: false }),
+          supabase
+            .from("viaturas")
+            .select("*")
+            .eq("municipio_id", municipioId)
+            .order("id", { ascending: false }),
+          supabase
+            .from("localizacoes_tempo_real")
+            .select("*")
+            .eq("municipio_id", municipioId)
+            .order("atualizado_em", { ascending: false }),
+          supabase
+            .from("blitzes")
+            .select("*")
+            .eq("municipio_id", municipioId)
+            .not("latitude", "is", null)
+            .not("longitude", "is", null)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("barreiras")
+            .select("*")
+            .eq("municipio_id", municipioId)
+            .not("latitude", "is", null)
+            .not("longitude", "is", null)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("operacoes_especiais")
+            .select("*")
+            .eq("municipio_id", municipioId)
+            .not("latitude", "is", null)
+            .not("longitude", "is", null)
+            .order("created_at", { ascending: false }),
+          carregarAlertasSOSMapa(municipioId),
+        ]);
 
       if (ocorrenciasRes.error) throw ocorrenciasRes.error;
       if (viaturasRes.error) throw viaturasRes.error;
@@ -280,363 +219,353 @@ async function carregarAlertasSOSMapa(
       if (sosRes.error) throw sosRes.error;
 
       setOcorrencias(
-        filtrarPorData(ocorrenciasRes.data || [], [
-          "data",
-          "criado_em",
-          "created_at",
-        ])
+        filtrarPorData(ocorrenciasRes.data || [], dataFiltro, ["data", "criado_em", "created_at"])
       );
-
-      setViaturas(
-        filtrarPorData(viaturasRes.data || [], [
-          "updated_at",
-          "atualizado_em",
-          "criado_em",
-          "created_at",
-        ])
-      );
-
+      setViaturas(viaturasRes.data || []);
       setLocalizacoes(
         filtrarGpsAtivo(
-          filtrarPorData(gpsRes.data || [], ["atualizado_em", "created_at"])
+          filtrarPorData(gpsRes.data || [], dataFiltro, ["atualizado_em", "created_at"])
         )
       );
-
       setBlitzes(
-        filtrarPorData(blitzesRes.data || [], [
-          "data",
-          "created_at",
-          "criado_em",
-        ])
+        filtrarPorData(blitzesRes.data || [], dataFiltro, ["data", "created_at", "criado_em"])
       );
-
       setBarreiras(
-        filtrarPorData(barreirasRes.data || [], [
-          "data",
-          "created_at",
-          "criado_em",
-        ])
+        filtrarPorData(barreirasRes.data || [], dataFiltro, ["data", "created_at", "criado_em"])
       );
-
       setOperacoesEspeciais(
-        filtrarPorData(operacoesRes.data || [], [
-          "data",
-          "created_at",
-          "criado_em",
-        ])
+        filtrarPorData(operacoesRes.data || [], dataFiltro, ["data", "created_at", "criado_em"])
       );
-
       setAlertasSOS(sosRes.data || []);
       setUltimaAtualizacao(new Date().toLocaleTimeString("pt-BR"));
     } catch (error) {
       console.error("Erro ao carregar mapa operacional:", error);
-      setErro("Erro ao carregar dados do mapa operacional.");
+      setErro("Erro ao carregar os dados do mapa operacional.");
     } finally {
+      primeiraCargaRef.current = false;
       setCarregando(false);
+      setAtualizando(false);
+    }
+  }, [dataFiltro]);
+
+  useEffect(() => {
+    void carregarDados();
+
+    // Atualização automática discreta a cada 5 minutos.
+    // O mapa permanece montado para evitar piscar, perder zoom ou reposicionar a tela.
+    const intervalo = window.setInterval(() => {
+      void carregarDados();
+    }, 300000);
+
+    return () => {
+      window.clearInterval(intervalo);
+    };
+  }, [carregarDados]);
+
+  useEffect(() => {
+    const aoAlterarTelaCheia = () => setTelaCheia(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", aoAlterarTelaCheia);
+    return () => document.removeEventListener("fullscreenchange", aoAlterarTelaCheia);
+  }, []);
+
+  async function alternarTelaCheia() {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch {
+      setTelaCheia((valor) => !valor);
     }
   }
 
-  useEffect(() => {
-    carregarDados();
-
-    const usuario = pegarUsuario();
-    if (!usuario?.municipio_id) return;
-
-    const canal = supabase
-      .channel(`mapa-operacional-${usuario.municipio_id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "ocorrencias",
-          filter:
-            `municipio_id=eq.${usuario.municipio_id}`,
-        },
-        carregarDados
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table:
-            "localizacoes_tempo_real",
-          filter:
-            `municipio_id=eq.${usuario.municipio_id}`,
-        },
-        carregarDados
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "viaturas",
-          filter:
-            `municipio_id=eq.${usuario.municipio_id}`,
-        },
-        carregarDados
-      )
-      .subscribe();
-
-    const intervalo = setInterval(carregarDados, 15000);
-
-    return () => {
-      clearInterval(intervalo);
-      supabase.removeChannel(canal);
-    };
-  }, [dataFiltro]);
-
-  const ocorrenciasVisiveis = mostrar.ocorrencias ? ocorrencias : [];
-  const viaturasVisiveis = mostrar.viaturas ? viaturas : [];
-  const gpsVisiveis = mostrar.gps ? localizacoes : [];
-  const blitzesVisiveis = mostrar.blitzes ? blitzes : [];
-  const barreirasVisiveis = mostrar.barreiras ? barreiras : [];
-  const operacoesVisiveis = mostrar.operacoes ? operacoesEspeciais : [];
-  const sosVisiveis = mostrar.sos ? alertasSOS : [];
-
-  const ocorrenciasHoje = ocorrencias.filter(
-    (o) => o.data?.split("T")[0] === hoje
-  ).length;
-
-  const abertas = ocorrencias.filter(
-    (o) => o.status === "Aberta" || o.status === "ABERTA"
-  ).length;
-
-  const finalizadas = ocorrencias.filter(
-    (o) => o.status === "Finalizada" || o.status === "FINALIZADA"
-  ).length;
-
-  const totalPontos =
-    ocorrenciasVisiveis.length +
-    viaturasVisiveis.length +
-    gpsVisiveis.length +
-    blitzesVisiveis.length +
-    barreirasVisiveis.length +
-    operacoesVisiveis.length +
-    sosVisiveis.length;
-
-  function alternarCamada(camada: keyof typeof mostrar) {
-    setMostrar((atual) => ({
-      ...atual,
-      [camada]: !atual[camada],
-    }));
+  function alternarCamada(nome: keyof Camadas) {
+    setCamadas((atual) => ({ ...atual, [nome]: !atual[nome] }));
   }
 
-  return (
-    <div className="p-4 md:p-6 pb-24 space-y-6">
-      <SigPageHeader
-        titulo="Mapa Operacional"
-        subtitulo="Centro de comando em tempo real com ocorrências, GPS, viaturas, blitzes, barreiras, operações especiais e alertas SOS."
-        icone={Map}
-      />
+  const abertas = ocorrencias.filter((item) =>
+    ["ABERTA", "Aberta", "EM ANDAMENTO", "Em andamento"].includes(item.status)
+  ).length;
 
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-9 gap-3">
-        <CardInfo titulo="Pontos" valor={totalPontos} icone={Crosshair} />
-        <CardInfo titulo="Ocorrências" valor={ocorrencias.length} icone={AlertTriangle} />
-        <CardInfo titulo="Hoje" valor={ocorrenciasHoje} icone={CalendarDays} />
-        <CardInfo titulo="Abertas" valor={abertas} icone={Siren} />
-        <CardInfo titulo="Finalizadas" valor={finalizadas} icone={CheckCircle} />
-        <CardInfo titulo="Viaturas" valor={viaturas.length} icone={Truck} />
-        <CardInfo titulo="GPS ativo" valor={localizacoes.length} icone={Shield} />
-        <CardInfo
-          titulo="Operações"
-          valor={operacoesEspeciais.length + blitzes.length + barreiras.length}
-          icone={Map}
-        />
-        <CardInfo titulo="SOS" valor={alertasSOS.length} icone={Siren} />
+  const pontosAtivos =
+    ocorrencias.length +
+    viaturas.length +
+    localizacoes.length +
+    blitzes.length +
+    barreiras.length +
+    operacoesEspeciais.length +
+    alertasSOS.length;
+
+  return (
+    <main className="fixed inset-0 z-[80] overflow-hidden bg-[#020617] text-white">
+      <div className="absolute inset-0">
+        {carregando ? (
+          <div className="flex h-full items-center justify-center bg-[#020617]">
+            <div className="text-center">
+              <RefreshCw className="mx-auto h-10 w-10 animate-spin text-cyan-400" />
+              <p className="mt-4 text-sm font-semibold text-slate-300">Carregando mapa operacional...</p>
+            </div>
+          </div>
+        ) : (
+          <MapaOperacional
+            ocorrencias={camadas.ocorrencias ? ocorrencias : []}
+            viaturas={camadas.viaturas ? viaturas : []}
+            localizacoes={camadas.gps ? localizacoes : []}
+            blitzes={camadas.blitzes ? blitzes : []}
+            barreiras={camadas.barreiras ? barreiras : []}
+            operacoesEspeciais={camadas.operacoes ? operacoesEspeciais : []}
+            alertasSOS={camadas.sos ? alertasSOS : []}
+          />
+        )}
       </div>
 
-      <SigCard>
-        <div className="flex flex-col xl:flex-row xl:items-center xl:justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-black text-white">Filtros do mapa</h2>
-            <p className="text-sm text-slate-400">
-              Última atualização: {ultimaAtualizacao || "aguardando..."}
-            </p>
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[500] p-3 md:p-4">
+        <div className="pointer-events-auto flex items-center justify-between gap-3 rounded-2xl border border-cyan-500/20 bg-slate-950/88 px-3 py-2 shadow-2xl shadow-black/50 backdrop-blur-xl md:px-4">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link
+              href="/sistema"
+              className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 transition hover:border-cyan-500/50 hover:text-cyan-300"
+              title="Voltar"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
+
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-500/15 text-cyan-300">
+              <Crosshair className="h-5 w-5" />
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="truncate text-sm font-black uppercase tracking-[0.16em] text-white md:text-base">
+                Central de Mapa Operacional
+              </h1>
+              <p className="truncate text-[11px] text-slate-400 md:text-xs">
+                Atualização automática a cada 5 minutos • Última atualização: {ultimaAtualizacao || "--:--:--"}
+              </p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <input
-              type="date"
-              className="input-premium max-w-[220px]"
-              value={dataFiltro}
-              onChange={(e) => setDataFiltro(e.target.value)}
-            />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => void carregarDados()}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500/50 hover:text-cyan-300"
+              title="Atualizar"
+            >
+              <RefreshCw className={`h-4 w-4 ${atualizando ? "animate-spin" : ""}`} />
+            </button>
 
-            <SigButton type="green" onClick={() => setDataFiltro(hoje)}>
-              Hoje
-            </SigButton>
+            <button
+              type="button"
+              onClick={() => setPainelAberto((valor) => !valor)}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500/50 hover:text-cyan-300"
+              title="Camadas"
+            >
+              <Layers3 className="h-4 w-4" />
+            </button>
 
-            <SigButton type="gray" onClick={() => setDataFiltro("")}>
-              Todos
-            </SigButton>
-
-            <SigButton type="blue" onClick={carregarDados}>
-              <RefreshCw className="w-4 h-4" />
-              Atualizar
-            </SigButton>
+            <button
+              type="button"
+              onClick={() => void alternarTelaCheia()}
+              className="grid h-10 w-10 place-items-center rounded-xl border border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500/50 hover:text-cyan-300"
+              title="Tela cheia"
+            >
+              {telaCheia ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </button>
           </div>
         </div>
-      </SigCard>
+      </div>
 
-      <SigCard>
-        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-7 gap-3">
-          <BotaoCamada ativo={mostrar.ocorrencias} titulo="Ocorrências" onClick={() => alternarCamada("ocorrencias")} />
-          <BotaoCamada ativo={mostrar.viaturas} titulo="Viaturas" onClick={() => alternarCamada("viaturas")} />
-          <BotaoCamada ativo={mostrar.gps} titulo="GPS" onClick={() => alternarCamada("gps")} />
-          <BotaoCamada ativo={mostrar.blitzes} titulo="Blitzes" onClick={() => alternarCamada("blitzes")} />
-          <BotaoCamada ativo={mostrar.barreiras} titulo="Barreiras" onClick={() => alternarCamada("barreiras")} />
-          <BotaoCamada ativo={mostrar.operacoes} titulo="Operações" onClick={() => alternarCamada("operacoes")} />
-          <BotaoCamada ativo={mostrar.sos} titulo="SOS" onClick={() => alternarCamada("sos")} />
-        </div>
-      </SigCard>
+      <div className="pointer-events-none absolute left-3 top-24 z-[500] flex max-w-[calc(100vw-1.5rem)] gap-2 overflow-x-auto md:left-4">
+        <MiniIndicador icone={Crosshair} rotulo="Pontos" valor={pontosAtivos} />
+        <MiniIndicador icone={AlertTriangle} rotulo="Ocorrências" valor={ocorrencias.length} />
+        <MiniIndicador icone={Siren} rotulo="Abertas" valor={abertas} destaque={abertas > 0} />
+        <MiniIndicador icone={Truck} rotulo="GPS ativo" valor={localizacoes.length} />
+        <MiniIndicador icone={Shield} rotulo="SOS" valor={alertasSOS.length} alerta={alertasSOS.length > 0} />
+      </div>
+
+      {painelAberto && (
+        <aside className="pointer-events-auto absolute right-3 top-24 z-[510] w-[min(340px,calc(100vw-1.5rem))] rounded-2xl border border-slate-700/80 bg-slate-950/92 shadow-2xl shadow-black/60 backdrop-blur-xl md:right-4">
+          <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+            <div>
+              <h2 className="flex items-center gap-2 text-sm font-black uppercase tracking-wide text-white">
+                <Filter className="h-4 w-4 text-cyan-400" /> Camadas do mapa
+              </h2>
+              <p className="mt-1 text-[11px] text-slate-500">Ative ou oculte os pontos operacionais. O modo padrão exibe todo o histórico.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setPainelAberto(false)}
+              className="grid h-8 w-8 place-items-center rounded-lg text-slate-400 hover:bg-slate-800 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="space-y-3 p-4">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] gap-2">
+              <input
+                type="date"
+                value={dataFiltro}
+                onChange={(evento) => setDataFiltro(evento.target.value)}
+                className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-white outline-none focus:border-cyan-500"
+              />
+              <button
+                type="button"
+                onClick={() => setDataFiltro(hoje)}
+                className={`rounded-xl border px-3 text-xs font-bold transition ${
+                  dataFiltro === hoje
+                    ? "border-cyan-400 bg-cyan-500/20 text-cyan-200"
+                    : "border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500/50"
+                }`}
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
+                onClick={() => setDataFiltro("")}
+                className={`rounded-xl border px-3 text-xs font-bold transition ${
+                  !dataFiltro
+                    ? "border-cyan-400 bg-cyan-500/20 text-cyan-200"
+                    : "border-slate-700 bg-slate-900 text-slate-200 hover:border-cyan-500/50"
+                }`}
+              >
+                Todos
+              </button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <CamadaBotao ativo={camadas.ocorrencias} nome="Ocorrências" ponto="bg-red-500" onClick={() => alternarCamada("ocorrencias")} />
+              <CamadaBotao ativo={camadas.viaturas} nome="Viaturas" ponto="bg-emerald-400" onClick={() => alternarCamada("viaturas")} />
+              <CamadaBotao ativo={camadas.gps} nome="GPS ativo" ponto="bg-cyan-400" onClick={() => alternarCamada("gps")} />
+              <CamadaBotao ativo={camadas.blitzes} nome="Blitzes" ponto="bg-amber-400" onClick={() => alternarCamada("blitzes")} />
+              <CamadaBotao ativo={camadas.barreiras} nome="Barreiras" ponto="bg-violet-400" onClick={() => alternarCamada("barreiras")} />
+              <CamadaBotao ativo={camadas.operacoes} nome="Operações" ponto="bg-fuchsia-400" onClick={() => alternarCamada("operacoes")} />
+              <CamadaBotao ativo={camadas.sos} nome="Alertas SOS" ponto="bg-red-600" onClick={() => alternarCamada("sos")} />
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCamadas(CAMADAS_INICIAIS)}
+              className="w-full rounded-xl border border-cyan-500/30 bg-cyan-500/10 py-2 text-xs font-black uppercase tracking-wide text-cyan-300 hover:bg-cyan-500/15"
+            >
+              Exibir todas as camadas
+            </button>
+          </div>
+        </aside>
+      )}
+
+      <div className="pointer-events-none absolute bottom-4 left-3 z-[500] md:left-4">
+        {legendaAberta ? (
+          <div className="pointer-events-auto w-[min(310px,calc(100vw-1.5rem))] rounded-2xl border border-slate-700/80 bg-slate-950/92 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-[0.15em] text-white">Legenda operacional</h3>
+              <button
+                type="button"
+                onClick={() => setLegendaAberta(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <EyeOff className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-[11px] text-slate-300">
+              <LegendaItem simbolo="●" classe="text-red-500" texto="Ocorrência aberta" />
+              <LegendaItem simbolo="●" classe="text-amber-400" texto="Em andamento" />
+              <LegendaItem simbolo="●" classe="text-emerald-400" texto="Finalizada" />
+              <LegendaItem simbolo="🚓" texto="Viatura / GPS" />
+              <LegendaItem simbolo="🚧" texto="Blitz" />
+              <LegendaItem simbolo="🛡️" texto="Barreira" />
+              <LegendaItem simbolo="⭐" texto="Operação especial" />
+              <LegendaItem simbolo="🚨" texto="Alerta SOS" />
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setLegendaAberta(true)}
+            className="pointer-events-auto flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/92 px-3 py-2 text-xs font-bold text-white shadow-xl backdrop-blur-xl"
+          >
+            <Eye className="h-4 w-4 text-cyan-400" /> Legenda
+          </button>
+        )}
+      </div>
 
       {erro && (
-        <div className="rounded-2xl border border-red-800 bg-red-950/60 p-4 text-red-300">
+        <div className="absolute bottom-4 right-4 z-[600] max-w-md rounded-xl border border-red-500/30 bg-red-950/90 px-4 py-3 text-sm text-red-200 shadow-xl">
           {erro}
         </div>
       )}
-
-      {carregando ? (
-        <SigCard>
-          <div className="h-[65vh] min-h-[420px] flex items-center justify-center text-slate-400">
-            Carregando mapa operacional...
-          </div>
-        </SigCard>
-      ) : (
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-5">
-          <section className="xl:col-span-9">
-            <SigCard className="p-3 h-[70vh] min-h-[460px] overflow-hidden">
-              <MapaOperacional
-                ocorrencias={ocorrenciasVisiveis}
-                viaturas={viaturasVisiveis}
-                localizacoes={gpsVisiveis}
-                blitzes={blitzesVisiveis}
-                barreiras={barreirasVisiveis}
-                operacoesEspeciais={operacoesVisiveis}
-                alertasSOS={sosVisiveis}
-              />
-            </SigCard>
-          </section>
-
-          <aside className="xl:col-span-3 space-y-4">
-            <PainelLista
-              titulo="🚨 SOS Ativos"
-              vazio="Nenhum SOS ativo."
-              itens={sosVisiveis}
-            />
-
-            <PainelLista
-              titulo="🚧 Blitzes e Barreiras"
-              vazio="Nenhuma blitz ou barreira com GPS."
-              itens={[...blitzesVisiveis, ...barreirasVisiveis]}
-            />
-
-            <PainelLista
-              titulo="⭐ Operações Especiais"
-              vazio="Nenhuma operação especial com GPS."
-              itens={operacoesVisiveis}
-            />
-
-            <PainelLista
-              titulo="🚓 GPS Ativo"
-              vazio="Nenhum GPS ativo nos últimos 5 minutos."
-              itens={gpsVisiveis}
-            />
-          </aside>
-        </div>
-      )}
-    </div>
+    </main>
   );
 }
 
-function CardInfo({
-  titulo,
-  valor,
+function MiniIndicador({
   icone: Icone,
+  rotulo,
+  valor,
+  destaque = false,
+  alerta = false,
 }: {
-  titulo: string;
-  valor: number;
   icone: any;
+  rotulo: string;
+  valor: number;
+  destaque?: boolean;
+  alerta?: boolean;
 }) {
   return (
-    <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
-          {titulo}
-        </p>
-        <Icone className="w-5 h-5 text-slate-400" />
+    <div
+      className={`pointer-events-auto flex shrink-0 items-center gap-2 rounded-xl border px-3 py-2 shadow-xl backdrop-blur-xl ${
+        alerta
+          ? "border-red-500/50 bg-red-950/90"
+          : destaque
+          ? "border-amber-500/40 bg-slate-950/92"
+          : "border-slate-700/80 bg-slate-950/88"
+      }`}
+    >
+      <Icone className={`h-4 w-4 ${alerta ? "text-red-400" : destaque ? "text-amber-400" : "text-cyan-400"}`} />
+      <div>
+        <p className="text-[9px] font-bold uppercase tracking-wide text-slate-500">{rotulo}</p>
+        <p className="text-sm font-black leading-none text-white">{valor}</p>
       </div>
-
-      <h3 className="mt-3 text-3xl font-black text-white">{valor}</h3>
     </div>
   );
 }
 
-function BotaoCamada({
+function CamadaBotao({
   ativo,
-  titulo,
+  nome,
+  ponto,
   onClick,
 }: {
   ativo: boolean;
-  titulo: string;
+  nome: string;
+  ponto: string;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-xl border px-4 py-3 text-sm font-bold flex items-center justify-center gap-2 ${
+      className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left text-xs font-bold transition ${
         ativo
-          ? "border-cyan-500/40 bg-cyan-500/10 text-cyan-300"
-          : "border-slate-800 bg-slate-950/60 text-slate-500"
+          ? "border-cyan-500/30 bg-cyan-500/10 text-white"
+          : "border-slate-800 bg-slate-900/70 text-slate-500"
       }`}
     >
-      {ativo ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-      {titulo}
+      <span className="flex items-center gap-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${ponto} ${ativo ? "shadow-[0_0_10px_currentColor]" : "opacity-30"}`} />
+        {nome}
+      </span>
+      {ativo ? <Eye className="h-3.5 w-3.5 text-cyan-300" /> : <EyeOff className="h-3.5 w-3.5" />}
     </button>
   );
 }
 
-function PainelLista({
-  titulo,
-  vazio,
-  itens,
-}: {
-  titulo: string;
-  vazio: string;
-  itens: any[];
-}) {
+function LegendaItem({ simbolo, texto, classe = "" }: { simbolo: string; texto: string; classe?: string }) {
   return (
-    <SigCard>
-      <h2 className="font-black mb-4 text-white">{titulo}</h2>
-
-      <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
-        {itens.length === 0 ? (
-          <p className="text-slate-400 text-sm">{vazio}</p>
-        ) : (
-          itens.slice(0, 8).map((item) => (
-            <div
-              key={`${item.id}-${item.nome || item.prefixo || item.nome_usuario || "registro"}`}
-              className="rounded-xl border border-slate-800 bg-slate-950/60 p-3"
-            >
-              <p className="font-bold text-white">
-                {item.nome || item.prefixo || item.nome_usuario || "Registro"}
-              </p>
-
-              <p className="text-sm text-slate-400">
-                {item.local || item.observacao || item.status || "Local não informado"}
-              </p>
-
-              <p className="text-xs text-slate-500 mt-1">
-                {item.status || "Sem status"}
-              </p>
-            </div>
-          ))
-        )}
-      </div>
-    </SigCard>
+    <div className="flex items-center gap-2">
+      <span className={`w-5 text-center text-sm ${classe}`}>{simbolo}</span>
+      <span>{texto}</span>
+    </div>
   );
 }

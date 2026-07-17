@@ -234,243 +234,344 @@ function calcularTempoServico(data?: string) {
 }
 
   return (
-    <div className="p-6 text-white space-y-6">
-      <Link href="/sistema/guardas" className="text-blue-400 font-bold">
-        ← Voltar para Guardas
-      </Link>
-
-      <div className="painel-premium p-6 flex flex-col md:flex-row gap-6 items-center md:items-start">
-        <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-yellow-500 bg-slate-800 flex items-center justify-center text-6xl">
-          {guarda.foto_url ? (
-            <img src={guarda.foto_url} className="w-full h-full object-cover" />
-          ) : (
-            "👮"
-          )}
-        </div>
-
-        <div className="flex-1">
-          <h1 className="text-4xl font-black">👮 {guarda.nome}</h1>
-
-          <p className="text-slate-400 mt-2">
-            Matrícula: {guarda.matricula || "-"}
-          </p>
-
-          <p className="text-slate-400">
-            Status: {guarda.status || "Não informado"}
-          </p>
-
-          <p className="text-slate-400">
-            E-mail: {guarda.email || "-"}
-          </p>
-
-          <p className="text-slate-400">
-            Telefone: {guarda.telefone || "-"}
-          </p>
-        </div>
-      </div>
-
-      <div className="painel-premium p-6">
-  <h2 className="text-2xl font-black mb-4">
-    📋 Dados Funcionais
-  </h2>
-
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-
-    <Info titulo="Cargo" valor={guarda.cargo} />
-
-    <Info titulo="CPF" valor={guarda.cpf} />
-
-    <Info titulo="RG" valor={guarda.rg} />
-
-    <Info titulo="CNH" valor={guarda.cnh} />
-
-    <Info
-      titulo="Categoria CNH"
-      valor={guarda.categoria_cnh}
-    />
-
-    <Info
-      titulo="Validade CNH"
-      valor={guarda.validade_cnh}
-    />
-
-    <Info
-      titulo="Data de Admissão"
-      valor={guarda.data_admissao}
-    />
-
-    <Info
-  titulo="Tempo de Serviço"
-  valor={calcularTempoServico(
-    guarda.data_admissao
-  )}
-/>
-
-    <Info
-      titulo="Nascimento"
-      valor={guarda.data_nascimento}
-    />
-
-  </div>
-</div>
-
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
-        <MiniStat icone="📄" titulo="Documentos" valor={stats.documentos} />
-        <MiniStat icone="🎓" titulo="Cursos" valor={stats.cursos} />
-        <MiniStat  icone="🚔" titulo="Ocorrências"  valor={stats.ocorrencias}  />
-        <MiniStat icone="📍" titulo="Patrulhamentos" valor={stats.patrulhamentos} />
-        <MiniStat icone="🏆" titulo="Elogios" valor={stats.elogios} />
-        <MiniStat icone="⚠️" titulo="Advertências" valor={stats.advertencias} />
-        <MiniStat
-  icone="🏖️"
-  titulo="Férias"
-  valor={stats.ferias}
-/>
-
-<MiniStat
-  icone="📄"
-  titulo="Licenças"
-  valor={stats.licencas}
-/>
-      </div>
-
-      <div className="grid md:grid-cols-2 gap-5">
-  <div className="painel-premium p-6">
-    <h2 className="text-2xl font-black mb-4">
-      🚔 Últimas Ocorrências
-    </h2>
-
-    {ocorrenciasGuarda.length === 0 ? (
-      <p className="text-slate-400">
-        Nenhuma ocorrência vinculada a este guarda.
-      </p>
-    ) : (
-      <div className="space-y-3">
-        {ocorrenciasGuarda.map((oc) => (
+  <main className="min-h-screen bg-[#020b1c] p-4 pb-24 text-white md:p-6">
+    <div className="mx-auto max-w-7xl space-y-5">
+      <header className="flex flex-col gap-4 border-b border-slate-800 pb-5 md:flex-row md:items-center md:justify-between">
+        <div>
           <Link
-            key={oc.id}
-            href={`/sistema/ocorrencias/${oc.id}`}
-            className="block border border-slate-700 rounded-xl p-4 hover:bg-slate-900"
+            href="/sistema/guardas"
+            className="text-sm font-semibold text-slate-400 transition hover:text-white"
           >
-            <p className="font-bold text-blue-400">
-              {oc.protocolo}
-            </p>
-
-            <p>{oc.tipo}</p>
-
-            <p className="text-sm text-slate-400">
-              {oc.data} • {oc.status}
-            </p>
+            ← Voltar para o efetivo
           </Link>
-        ))}
-      </div>
-    )}
-  </div>
 
-  <div className="painel-premium p-6">
-    <h2 className="text-2xl font-black mb-4">
-      🛣️ Últimos Patrulhamentos
-    </h2>
+          <p className="mt-4 text-xs font-bold uppercase tracking-[0.18em] text-cyan-400">
+            Recursos Humanos
+          </p>
 
-    {patrulhamentosGuarda.length === 0 ? (
-      <p className="text-slate-400">
-        Nenhum patrulhamento encontrado.
-      </p>
-    ) : (
-      <div className="space-y-3">
-        {patrulhamentosGuarda.map((item) => (
-          <div
-            key={item.id}
-            className="border border-slate-700 rounded-xl p-4"
+          <h1 className="mt-1 text-3xl font-black md:text-4xl">
+            Dossiê Funcional
+          </h1>
+
+          <p className="mt-2 text-sm text-slate-400">
+            Informações funcionais, administrativas e operacionais do servidor.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/sistema/guardas/${id}/documentos`}
+            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-bold text-slate-200 hover:border-cyan-500/40"
           >
-            <p className="font-bold">
-              {item.data}
-            </p>
+            Documentos
+          </Link>
 
-            <p className="text-slate-400">
-              {item.status || "Concluído"}
-            </p>
+          <Link
+            href={`/sistema/guardas/${id}/historico`}
+            className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-bold text-slate-200 hover:border-cyan-500/40"
+          >
+            Histórico
+          </Link>
+        </div>
+      </header>
+
+      <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 md:p-6">
+        <div className="flex flex-col gap-5 md:flex-row md:items-center">
+          <div className="flex h-28 w-28 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-slate-700 bg-slate-900 text-5xl">
+            {guarda.foto_url ? (
+              <img
+                src={guarda.foto_url}
+                alt={guarda.nome}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              "👮"
+            )}
           </div>
-        ))}
-      </div>
-    )}
-  </div>
-</div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <CardDossie
-  titulo="Cursos"
-  icone={<GraduationCap size={48} />}
-  href={`/sistema/guardas/${id}/cursos`}
-/>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-2xl font-black md:text-3xl">
+                {guarda.nome}
+              </h2>
 
-<CardDossie
-  titulo="Histórico Profissional"
-  icone={<Shield size={48} />}
-  href={`/sistema/guardas/${id}/historico`}
-/>
+              <span className="rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-300">
+                {guarda.status || "NÃO INFORMADO"}
+              </span>
+            </div>
 
-<CardDossie
-  titulo="Documentos"
-  icone={<FileText size={48} />}
-  href={`/sistema/guardas/${id}/documentos`}
-/>
+            <p className="mt-2 font-bold text-cyan-300">
+              Matrícula {guarda.matricula || "-"}
+            </p>
 
-<CardDossie
-  titulo="Férias e Licenças"
-  icone={<HeartPulse size={48} />}
-  href={`/sistema/guardas/${id}/ferias-licencas`}
-/>
+            <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-2 lg:grid-cols-4">
+              <p>
+                <span className="block text-xs uppercase text-slate-600">
+                  Cargo
+                </span>
+                <strong className="text-slate-300">
+                  {guarda.cargo || "-"}
+                </strong>
+              </p>
 
-<CardDossie
-  titulo="Escalas"
-  icone={<CalendarDays size={48} />}
-  href={`/sistema/guardas/${id}/escalas`}
-/>
+              <p>
+                <span className="block text-xs uppercase text-slate-600">
+                  Tempo de serviço
+                </span>
+                <strong className="text-slate-300">
+                  {calcularTempoServico(guarda.data_admissao)}
+                </strong>
+              </p>
 
-<CardDossie
-  titulo="Ocorrências"
-  icone={<Siren size={48} />}
-  href={`/sistema/guardas/${id}/ocorrencias`}
-/>
+              <p>
+                <span className="block text-xs uppercase text-slate-600">
+                  Telefone
+                </span>
+                <strong className="text-slate-300">
+                  {guarda.telefone || "-"}
+                </strong>
+              </p>
 
-<CardDossie
-  titulo="Patrulhamentos"
-  icone={<MapPinned size={48} />}
-  href={`/sistema/guardas/${id}/patrulhamentos`}
-/>
+              <p>
+                <span className="block text-xs uppercase text-slate-600">
+                  E-mail
+                </span>
+                <strong className="break-all text-slate-300">
+                  {guarda.email || "-"}
+                </strong>
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
 
-<CardDossie
-  titulo="Elogios"
-  icone={<Award size={48} />}
-  href={`/sistema/guardas/${id}/elogios`}
-/>
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
+        <Indicador titulo="Documentos" valor={stats.documentos} />
+        <Indicador titulo="Cursos" valor={stats.cursos} />
+        <Indicador titulo="Ocorrências" valor={stats.ocorrencias} />
+        <Indicador titulo="Patrulhamentos" valor={stats.patrulhamentos} />
+        <Indicador titulo="Elogios" valor={stats.elogios} />
+        <Indicador titulo="Advertências" valor={stats.advertencias} />
+        <Indicador titulo="Férias" valor={stats.ferias} />
+        <Indicador titulo="Licenças" valor={stats.licencas} />
+      </section>
 
-<CardDossie
-  titulo="Advertências"
-  icone={<TriangleAlert size={48} />}
-  href={`/sistema/guardas/${id}/advertencias`}
-/>
+      <section className="grid gap-5 xl:grid-cols-12">
+        <div className="space-y-5 xl:col-span-5">
+          <Painel titulo="Dados pessoais e funcionais">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Info titulo="CPF" valor={guarda.cpf} />
+              <Info titulo="RG" valor={guarda.rg} />
+              <Info titulo="Data de nascimento" valor={guarda.data_nascimento} />
+              <Info titulo="Data de admissão" valor={guarda.data_admissao} />
+              <Info titulo="CNH" valor={guarda.cnh} />
+              <Info titulo="Categoria CNH" valor={guarda.categoria_cnh} />
+              <Info titulo="Validade CNH" valor={guarda.validade_cnh} />
+              <Info
+                titulo="Tempo de serviço"
+                valor={calcularTempoServico(guarda.data_admissao)}
+              />
+            </div>
+          </Painel>
 
-<CardDossie
-  titulo="Estatísticas"
-  icone={<BarChart3 size={48} />}
-  href={`/sistema/guardas/${id}/estatisticas`}
-/>
+          <Painel titulo="Disponibilidade funcional">
+            <div className="divide-y divide-slate-800">
+              <LinkLinha
+                titulo="Férias e licenças"
+                descricao={`${stats.ferias + stats.licencas} registro(s) funcional(is)`}
+                href={`/sistema/guardas/${id}/ferias-licencas`}
+              />
 
-<CardDossie
-  titulo="Banco de Horas"
-  icone={<CalendarDays size={48} />}
-  href={`/sistema/guardas/${id}/banco-horas`}
-/>
+              <LinkLinha
+                titulo="Atestados médicos"
+                descricao="Consultar documentos e períodos de afastamento"
+                href={`/sistema/atestados?guarda_id=${id}`}
+              />
 
-<CardDossie
-  titulo="Cautelas"
-  icone={<Shield size={48} />}
-  href={`/sistema/guardas/${id}/cautelas`}
-/>
-      </div>
+              <LinkLinha
+                titulo="Banco de horas"
+                descricao="Créditos, débitos e compensações"
+                href={`/sistema/guardas/${id}/banco-horas`}
+              />
+            </div>
+          </Painel>
+        </div>
+
+        <div className="space-y-5 xl:col-span-7">
+          <Painel
+            titulo="Últimas ocorrências"
+            acao={
+              <Link
+                href={`/sistema/guardas/${id}/ocorrencias`}
+                className="text-sm font-bold text-cyan-300"
+              >
+                Ver todas
+              </Link>
+            }
+          >
+            <div className="space-y-3">
+              {ocorrenciasGuarda.length === 0 ? (
+                <EstadoVazio texto="Nenhuma ocorrência vinculada." />
+              ) : (
+                ocorrenciasGuarda.map((oc) => (
+                  <Link
+                    key={oc.id}
+                    href={`/sistema/ocorrencias/${oc.id}`}
+                    className="block rounded-xl border border-slate-800 bg-slate-900/40 p-4 transition hover:border-slate-600"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-bold text-white">
+                        {oc.protocolo || `Ocorrência #${oc.id}`}
+                      </p>
+
+                      <span className="text-xs text-slate-500">
+                        {oc.status || "-"}
+                      </span>
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-300">
+                      {oc.tipo || "Tipo não informado"}
+                    </p>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      {oc.data || "Data não informada"}
+                    </p>
+                  </Link>
+                ))
+              )}
+            </div>
+          </Painel>
+
+          <Painel
+            titulo="Últimos patrulhamentos"
+            acao={
+              <Link
+                href={`/sistema/guardas/${id}/patrulhamentos`}
+                className="text-sm font-bold text-cyan-300"
+              >
+                Ver todos
+              </Link>
+            }
+          >
+            <div className="space-y-3">
+              {patrulhamentosGuarda.length === 0 ? (
+                <EstadoVazio texto="Nenhum patrulhamento encontrado." />
+              ) : (
+                patrulhamentosGuarda.map((item) => (
+                  <div
+                    key={item.id}
+                    className="rounded-xl border border-slate-800 bg-slate-900/40 p-4"
+                  >
+                    <p className="font-bold text-white">
+                      {item.data || "Data não informada"}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-400">
+                      {item.status || "Concluído"}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+          </Painel>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-3">
+          <h2 className="text-xl font-black">
+            Áreas do dossiê
+          </h2>
+
+          <p className="mt-1 text-sm text-slate-400">
+            Acesso aos registros completos do servidor.
+          </p>
+        </div>
+
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          <ModuloDossie
+            titulo="Documentos"
+            descricao="Documentação funcional"
+            href={`/sistema/guardas/${id}/documentos`}
+            icone={FileText}
+          />
+
+          <ModuloDossie
+            titulo="Histórico"
+            descricao="Vida funcional"
+            href={`/sistema/guardas/${id}/historico`}
+            icone={BarChart3}
+          />
+
+          <ModuloDossie
+            titulo="Cursos"
+            descricao="Capacitações"
+            href={`/sistema/guardas/${id}/cursos`}
+            icone={GraduationCap}
+          />
+
+          <ModuloDossie
+            titulo="Escalas"
+            descricao="Plantões e serviços"
+            href={`/sistema/guardas/${id}/escalas`}
+            icone={CalendarDays}
+          />
+
+          <ModuloDossie
+            titulo="Elogios"
+            descricao="Reconhecimentos"
+            href={`/sistema/guardas/${id}/elogios`}
+            icone={Award}
+          />
+
+          <ModuloDossie
+            titulo="Advertências"
+            descricao="Registros disciplinares"
+            href={`/sistema/guardas/${id}/advertencias`}
+            icone={TriangleAlert}
+          />
+
+          <ModuloDossie
+            titulo="Cautelas"
+            descricao="Materiais e equipamentos"
+            href={`/sistema/guardas/${id}/cautelas`}
+            icone={Shield}
+          />
+
+          <ModuloDossie
+            titulo="Atestados"
+            descricao="Afastamentos médicos"
+            href={`/sistema/atestados?guarda_id=${id}`}
+            icone={HeartPulse}
+          />
+        </div>
+      </section>
     </div>
+  </main>
+);
+}
+
+function Painel({
+  titulo,
+  children,
+  acao,
+}: {
+  titulo: string;
+  children: React.ReactNode;
+  acao?: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5">
+      <div className="mb-4 flex items-center justify-between gap-3 border-b border-slate-800 pb-4">
+        <h2 className="text-lg font-black text-white">
+          {titulo}
+        </h2>
+
+        {acao}
+      </div>
+
+      {children}
+    </section>
   );
 }
 
@@ -482,46 +583,110 @@ function Info({
   valor?: string | null;
 }) {
   return (
-    <div className="border border-slate-700 rounded-xl p-3">
-      <p className="text-slate-500 text-sm">
+    <div className="rounded-lg border border-slate-800 bg-slate-900/30 p-3">
+      <p className="text-xs uppercase tracking-wide text-slate-500">
         {titulo}
       </p>
 
-      <p className="font-semibold">
+      <p className="mt-1 font-semibold text-slate-200">
         {valor || "-"}
       </p>
     </div>
   );
 }
 
-function MiniStat({ icone, titulo, valor }: any) {
+function Indicador({
+  titulo,
+  valor,
+}: {
+  titulo: string;
+  valor: number;
+}) {
   return (
-    <div className="painel-premium p-4 text-center">
-      <div className="text-3xl">{icone}</div>
-      <h2 className="text-3xl font-black mt-2">{valor}</h2>
-      <p className="text-slate-400 text-sm">{titulo}</p>
+    <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4">
+      <p className="text-2xl font-black text-white">
+        {valor}
+      </p>
+
+      <p className="mt-1 text-xs font-semibold text-slate-500">
+        {titulo}
+      </p>
     </div>
   );
 }
 
-function CardDossie({
+function LinkLinha({
   titulo,
-  icone,
+  descricao,
   href,
 }: {
   titulo: string;
-  icone: React.ReactNode;
+  descricao: string;
   href: string;
 }) {
   return (
     <Link
       href={href}
-      className="painel-premium p-6 hover:scale-105 transition block"
+      className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0"
     >
-      <div className="mb-4 text-blue-400">
-  {icone}
-</div>
-      <h2 className="text-xl font-black">{titulo}</h2>
+      <div>
+        <p className="font-bold text-slate-200">
+          {titulo}
+        </p>
+
+        <p className="mt-1 text-sm text-slate-500">
+          {descricao}
+        </p>
+      </div>
+
+      <span className="text-slate-600">
+        →
+      </span>
     </Link>
+  );
+}
+
+function ModuloDossie({
+  titulo,
+  descricao,
+  href,
+  icone: Icone,
+}: {
+  titulo: string;
+  descricao: string;
+  href: string;
+  icone: typeof FileText;
+}) {
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-3 rounded-xl border border-slate-800 bg-slate-950/70 p-4 transition hover:border-slate-600 hover:bg-slate-900/70"
+    >
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-slate-900 text-cyan-300">
+        <Icone className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0">
+        <p className="font-bold text-white">
+          {titulo}
+        </p>
+
+        <p className="mt-1 text-xs text-slate-500">
+          {descricao}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function EstadoVazio({
+  texto,
+}: {
+  texto: string;
+}) {
+  return (
+    <div className="rounded-xl border border-dashed border-slate-700 p-6 text-center text-sm text-slate-500">
+      {texto}
+    </div>
   );
 }

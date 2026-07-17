@@ -4,11 +4,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { registrarAuditoria } from "@/lib/auditoria";
 import { ativarPushMobile } from "@/lib/push-mobile";
+import {
+  adicionarVersaoFoto,
+  prepararFotoGuarda,
+} from "@/components/guardas";
 
 export default function PerfilPage() {
   const [usuario, setUsuario] = useState<any>(null);
   const [foto, setFoto] = useState<File | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [versaoFoto, setVersaoFoto] = useState(Date.now());
+
 
   useEffect(() => {
     const dados = localStorage.getItem("usuarioLogado");
@@ -19,96 +25,156 @@ export default function PerfilPage() {
   }, []);
 
   async function salvarFoto() {
-    if (!usuario?.id || !usuario?.municipio_id) {
-  alert("Usuário inválido ou sem município. Faça login novamente.");
-  return;
-}
+  if (!usuario?.id || !usuario?.municipio_id) {
+    alert(
+      "Usuário inválido ou sem município. Faça login novamente."
+    );
+    return;
+  }
 
-    if (!foto) {
-      alert("Selecione uma foto primeiro.");
-      return;
-    }
+  if (!foto) {
+    alert("Selecione uma foto primeiro.");
+    return;
+  }
 
-    if (!foto.type.startsWith("image/")) {
-  alert("Selecione apenas arquivos de imagem.");
-  return;
-}
+  setSalvando(true);
 
-if (foto.size > 5 * 1024 * 1024) {
-  alert("A foto deve ter no máximo 5MB.");
-  return;
-}
+  try {
+    const fotoPreparada =
+      await prepararFotoGuarda(foto);
 
-    setSalvando(true);
+    const caminhoUsuario =
+      `${usuario.municipio_id}/usuarios/${usuario.id}.webp`;
 
-    const nomeSeguro = foto.name
-  .normalize("NFD")
-  .replace(/[\u0300-\u036f]/g, "")
-  .replace(/[^a-zA-Z0-9.]/g, "-");
-
-const nomeArquivo = `${usuario.municipio_id}/${usuario.id}-${Date.now()}-${nomeSeguro}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("usuarios-fotos")
-      .upload(nomeArquivo, foto);
+    const { error: uploadError } =
+      await supabase.storage
+        .from("usuarios-fotos")
+        .upload(
+          caminhoUsuario,
+          fotoPreparada,
+          {
+            upsert: true,
+            cacheControl: "0",
+            contentType: "image/webp",
+          }
+        );
 
     if (uploadError) {
-      console.error(uploadError);
-      alert("Erro ao enviar foto.");
-      setSalvando(false);
-      return;
+      throw new Error(
+        `Erro ao enviar foto: ${uploadError.message}`
+      );
     }
 
-    const { data } = supabase.storage
-      .from("usuarios-fotos")
-      .getPublicUrl(nomeArquivo);
+    const { data: urlData } =
+      supabase.storage
+        .from("usuarios-fotos")
+        .getPublicUrl(caminhoUsuario);
 
-    const novaFotoUrl = data.publicUrl;
+    const novaFotoUrl =
+      urlData.publicUrl;
 
-    const { error } = await supabase
-  .from("usuarios")
-  .update({ foto_url: novaFotoUrl })
-  .eq("id", usuario.id)
-.eq("municipio_id", usuario.municipio_id);
-
-    if (error) {
-      console.error(error);
-      alert("Erro ao salvar foto no perfil.");
-      setSalvando(false);
-      return;
-    }
-
-    const usuarioSalvo = JSON.parse(
-  localStorage.getItem("usuarioLogado") || "{}"
+  const {
+  data: resultadoFoto,
+  error: fotoRpcError,
+} = await supabase.rpc(
+  "atualizar_minha_foto",
+  {
+    p_foto_url: novaFotoUrl,
+  }
 );
 
-const usuarioAtualizado = {
-  ...usuarioSalvo,
-  ...usuario,
-  foto_url: novaFotoUrl,
-  municipio_nome:
-    usuarioSalvo?.municipio_nome ||
-    usuario?.municipio_nome ||
-    "",
+if (fotoRpcError) {
+  throw new Error(
+    `Erro ao atualizar foto: ${fotoRpcError.message}`
+  );
+}
+
+if (!resultadoFoto?.ok) {
+  throw new Error(
+    "A foto foi enviada, mas não foi vinculada ao perfil."
+  );
+}
+
+const usuarioAtualizadoBanco = {
+  id: resultadoFoto.usuario_id,
+  municipio_id: resultadoFoto.municipio_id,
+  foto_url: resultadoFoto.foto_url,
 };
 
-localStorage.setItem(
-  "usuarioLogado",
-  JSON.stringify(usuarioAtualizado)
-);
-await registrarAuditoria({
-  modulo: "PERFIL",
-  acao: "ATUALIZAR_FOTO",
-  descricao: "Atualizou a foto do perfil.",
-  registro_id: String(usuario.id),
-});
+const guardaVinculado = {
+  id: resultadoFoto.guarda_id ?? null,
+};
 
-setUsuario(usuarioAtualizado);
-setFoto(null);
-setSalvando(false);
+    const usuarioSalvo =
+      JSON.parse(
+        localStorage.getItem(
+          "usuarioLogado"
+        ) || "{}"
+      );
 
-alert("Foto atualizada com sucesso!");
+    const usuarioAtualizado = {
+      ...usuarioSalvo,
+      ...usuario,
+      ...usuarioAtualizadoBanco,
+      foto_url: novaFotoUrl,
+      municipio_nome:
+        usuarioSalvo?.municipio_nome ||
+        usuario?.municipio_nome ||
+        "",
+    };
+
+    localStorage.setItem(
+      "usuarioLogado",
+      JSON.stringify(
+        usuarioAtualizado
+      )
+    );
+
+    await registrarAuditoria({
+      modulo: "PERFIL",
+      acao: "ATUALIZAR_FOTO",
+      descricao:
+        "Atualizou a foto do perfil e sincronizou com o cadastro funcional.",
+      registro_id: String(
+        usuario.id
+      ),
+      detalhes: {
+        foto_url: novaFotoUrl,
+        guarda_id:
+          guardaVinculado?.id ||
+          null,
+      },
+    });
+
+    setUsuario(
+      usuarioAtualizado
+    );
+
+    setFoto(null);
+    setVersaoFoto(
+      Date.now()
+    );
+
+    alert(
+      guardaVinculado?.id
+        ? "Foto atualizada e sincronizada com o dossiê!"
+        : "Foto atualizada. Nenhum guarda está vinculado a este usuário."
+    );
+  } catch (error) {
+    console.error(
+      "Erro ao atualizar foto:",
+      error
+    );
+
+    alert(
+      error instanceof Error
+        ? error.message
+        : "Não foi possível atualizar a foto."
+    );
+  } finally {
+    setSalvando(false);
   }
+}
 
 async function ativarNotificacoes() {
   if (!("serviceWorker" in navigator)) {
@@ -196,11 +262,23 @@ function urlBase64ToUint8Array(base64String: string) {
           <div className="flex flex-col md:flex-row gap-6 items-center mb-8 bg-slate-950/50 border border-slate-800 rounded-xl p-5">
             <div className="w-28 h-28 rounded-full overflow-hidden border-2 border-blue-500 bg-slate-800 flex items-center justify-center">
               {usuario?.foto_url ? (
-                <img
-                  src={usuario.foto_url}
-                  alt={usuario.nome}
-                  className="w-full h-full object-cover"
-                />
+              <img
+                src={adicionarVersaoFoto(
+                  usuario.foto_url,
+                  versaoFoto
+                )}
+                alt={usuario.nome}
+                className="h-full w-full object-cover"
+                onError={(event) => {
+                  console.error(
+                    "Erro ao carregar foto:",
+                    usuario.foto_url
+                  );
+
+                  event.currentTarget.style.display =
+                    "none";
+                }}
+              />
               ) : (
                 <span className="text-5xl">👤</span>
               )}
@@ -212,7 +290,12 @@ function urlBase64ToUint8Array(base64String: string) {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setFoto(e.target.files?.[0] || null)}
+                onChange={(event) => {
+                  setFoto(
+                    event.target.files?.[0] ||
+                      null
+                  );
+                }}
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-sm"
               />
 

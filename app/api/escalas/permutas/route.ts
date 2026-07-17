@@ -665,229 +665,164 @@ const {
         return responder(
           {
             ok: false,
-            erro:
-              "Seu usuário não está vinculado a um guarda.",
+            erro: "Seu usuário não está vinculado a um guarda.",
           },
           422
         );
       }
 
-      const escalaOrigemId =
-        numeroId(
-          corpo.escala_origem_id
-        );
-      const escalaTrocaId =
-        numeroId(
-          corpo.escala_troca_id
-        );
-      const motivo = texto(
-        corpo.motivo
-      );
+      const tipoSolicitacao = normalizar(corpo.tipo_solicitacao || "PERMUTA");
+      const tiposPermitidos = new Set([
+        "PERMUTA",
+        "PLANTAO_PAGO",
+        "COBERTURA_VOLUNTARIA",
+        "BANCO_HORAS",
+        "TROCA_DEFINITIVA",
+      ]);
+      const tiposComTroca = new Set(["PERMUTA", "TROCA_DEFINITIVA"]);
+      const categoriasPermitidas = new Set([
+        "COMPROMISSO_PESSOAL",
+        "SAUDE",
+        "ESTUDO",
+        "VIAGEM",
+        "NECESSIDADE_FAMILIAR",
+        "COMPROMISSO_INSTITUCIONAL",
+        "SERVICO_EXTRAORDINARIO",
+        "DESCANSO",
+        "OUTRO",
+      ]);
 
-      if (
-        !escalaOrigemId ||
-        !escalaTrocaId
-      ) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Selecione os dois plantões da permuta.",
-          },
-          422
-        );
+      const escalaOrigemId = numeroId(corpo.escala_origem_id);
+      const escalaTrocaId = numeroId(corpo.escala_troca_id);
+      const guardaSubstitutoId = numeroId(corpo.guarda_substituto_id);
+      const categoriaMotivo = normalizar(corpo.categoria_motivo);
+      const motivo = texto(corpo.motivo);
+      const detalhesAcordo = texto(corpo.detalhes_acordo);
+      const dataPrevistaCompensacao = texto(corpo.data_prevista_compensacao) || null;
+
+      if (!tiposPermitidos.has(tipoSolicitacao)) {
+        return responder({ ok: false, erro: "Tipo de solicitação inválido." }, 422);
       }
 
-      if (
-        escalaOrigemId ===
-        escalaTrocaId
-      ) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Selecione plantões diferentes.",
-          },
-          422
-        );
+      if (!categoriasPermitidas.has(categoriaMotivo)) {
+        return responder({ ok: false, erro: "Selecione o motivo da solicitação." }, 422);
       }
 
-      if (motivo.length < 5) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Informe o motivo da permuta.",
-          },
-          422
-        );
+      if (!escalaOrigemId) {
+        return responder({ ok: false, erro: "Selecione o seu plantão." }, 422);
       }
 
-      const {
-        data: escalas,
-        error: escalasError,
-      } = await supabaseAdmin
+      if (motivo.length < 3) {
+        return responder({ ok: false, erro: "Descreva resumidamente o motivo." }, 422);
+      }
+
+      const { data: origemData, error: origemError } = await supabaseAdmin
         .from("escalas_servico")
-        .select(
-          "id,data_servico,turno,guarda_id,guarda_nome,matricula"
-        )
-        .eq(
-          "municipio_id",
-          municipioId
-        )
-        .in("id", [
-          escalaOrigemId,
-          escalaTrocaId,
-        ]);
-
-      if (escalasError) {
-        throw escalasError;
-      }
-
-      const origem = (
-        escalas || []
-      ).find(
-        (item) =>
-          item.id ===
-          escalaOrigemId
-      ) as
-        | EscalaServico
-        | undefined;
-
-      const troca = (
-        escalas || []
-      ).find(
-        (item) =>
-          item.id ===
-          escalaTrocaId
-      ) as
-        | EscalaServico
-        | undefined;
-
-      if (!origem || !troca) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Um dos plantões não foi encontrado.",
-          },
-          404
-        );
-      }
-
-      if (
-        origem.guarda_id !==
-        guardaAtual.id
-      ) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "O plantão original precisa pertencer ao solicitante.",
-          },
-          403
-        );
-      }
-
-      if (
-        !troca.guarda_id ||
-        troca.guarda_id ===
-          guardaAtual.id
-      ) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Selecione o plantão de outro guarda.",
-          },
-          422
-        );
-      }
-
-      if (
-        origem.data_servico ===
-        troca.data_servico
-      ) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Os plantões precisam ocorrer em datas diferentes.",
-          },
-          422
-        );
-      }
-
-      const {
-        data: conflito,
-        error: conflitoError,
-      } = await supabaseAdmin
-        .from("permutas_plantao")
-        .select("id")
-        .eq(
-          "municipio_id",
-          municipioId
-        )
-        .in("status", [
-          "AGUARDANDO_SUBSTITUTO",
-          "ACEITA_PELO_SUBSTITUTO",
-        ])
-        .or(
-          `escala_origem_id.in.(${escalaOrigemId},${escalaTrocaId}),escala_troca_id.in.(${escalaOrigemId},${escalaTrocaId})`
-        )
-        .limit(1)
+        .select("id,data_servico,turno,guarda_id,guarda_nome,matricula")
+        .eq("municipio_id", municipioId)
+        .eq("id", escalaOrigemId)
         .maybeSingle();
 
-      if (conflitoError) {
-        throw conflitoError;
+      if (origemError) throw origemError;
+      const origem = origemData as EscalaServico | null;
+
+      if (!origem) {
+        return responder({ ok: false, erro: "O plantão original não foi encontrado." }, 404);
       }
 
+      if (origem.guarda_id !== guardaAtual.id) {
+        return responder({ ok: false, erro: "O plantão original precisa pertencer ao solicitante." }, 403);
+      }
+
+      let troca: EscalaServico | null = null;
+      let substitutoId: number | null = null;
+      let dataTroca = origem.data_servico;
+
+      if (tiposComTroca.has(tipoSolicitacao)) {
+        if (!escalaTrocaId) {
+          return responder({ ok: false, erro: "Selecione o plantão do outro guarda." }, 422);
+        }
+        if (escalaTrocaId === escalaOrigemId) {
+          return responder({ ok: false, erro: "Selecione plantões diferentes." }, 422);
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from("escalas_servico")
+          .select("id,data_servico,turno,guarda_id,guarda_nome,matricula")
+          .eq("municipio_id", municipioId)
+          .eq("id", escalaTrocaId)
+          .maybeSingle();
+        if (error) throw error;
+        troca = data as EscalaServico | null;
+
+        if (!troca || !troca.guarda_id || troca.guarda_id === guardaAtual.id) {
+          return responder({ ok: false, erro: "Selecione o plantão de outro guarda." }, 422);
+        }
+        if (origem.data_servico === troca.data_servico) {
+          return responder({ ok: false, erro: "Os plantões precisam ocorrer em datas diferentes." }, 422);
+        }
+        substitutoId = troca.guarda_id;
+        dataTroca = troca.data_servico;
+      } else {
+        if (!guardaSubstitutoId || guardaSubstitutoId === guardaAtual.id) {
+          return responder({ ok: false, erro: "Selecione o guarda que assumirá o plantão." }, 422);
+        }
+
+        const { data: substituto, error } = await supabaseAdmin
+          .from("guardas")
+          .select("id")
+          .eq("municipio_id", municipioId)
+          .eq("id", guardaSubstitutoId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!substituto) {
+          return responder({ ok: false, erro: "Guarda substituto não encontrado." }, 404);
+        }
+        substitutoId = guardaSubstitutoId;
+      }
+
+      const idsConflito = [escalaOrigemId, troca?.id].filter(Boolean).join(",");
+      let consultaConflito = supabaseAdmin
+        .from("permutas_plantao")
+        .select("id")
+        .eq("municipio_id", municipioId)
+        .in("status", ["AGUARDANDO_SUBSTITUTO", "ACEITA_PELO_SUBSTITUTO"]);
+
+      consultaConflito = tiposComTroca.has(tipoSolicitacao)
+        ? consultaConflito.or(`escala_origem_id.in.(${idsConflito}),escala_troca_id.in.(${idsConflito})`)
+        : consultaConflito.eq("escala_origem_id", escalaOrigemId);
+
+      const { data: conflito, error: conflitoError } = await consultaConflito.limit(1).maybeSingle();
+      if (conflitoError) throw conflitoError;
       if (conflito) {
-        return responder(
-          {
-            ok: false,
-            erro:
-              "Um dos plantões já está envolvido em outra permuta pendente.",
-          },
-          409
-        );
+        return responder({ ok: false, erro: "O plantão já está envolvido em outra solicitação pendente." }, 409);
       }
 
-      const {
-        data: criada,
-        error: inserirError,
-      } = await supabaseAdmin
+      const { data: criada, error: inserirError } = await supabaseAdmin
         .from("permutas_plantao")
         .insert({
-          municipio_id:
-            municipioId,
-          tipo_solicitacao:
-            "PERMUTA",
+          municipio_id: municipioId,
+          tipo_solicitacao: tipoSolicitacao,
           origem: "SOLICITADA",
-          data_original:
-            origem.data_servico,
-          data_troca:
-            troca.data_servico,
-          escala_origem_id:
-            origem.id,
-          escala_troca_id:
-            troca.id,
-          guarda_solicitante_id:
-            origem.guarda_id,
-          guarda_substituto_id:
-            troca.guarda_id,
+          data_original: origem.data_servico,
+          data_troca: dataTroca,
+          escala_origem_id: origem.id,
+          escala_troca_id: troca?.id || null,
+          guarda_solicitante_id: origem.guarda_id,
+          guarda_substituto_id: substitutoId,
+          categoria_motivo: categoriaMotivo,
           motivo,
-          status:
-            "AGUARDANDO_SUBSTITUTO",
-          criado_por_usuario_id:
-            usuario.id,
+          detalhes_acordo: detalhesAcordo || null,
+          data_prevista_compensacao: dataPrevistaCompensacao,
+          valor_acordado: null,
+          forma_pagamento: null,
+          status: "AGUARDANDO_SUBSTITUTO",
+          criado_por_usuario_id: usuario.id,
         })
-        .select("id,status")
+        .select("id,status,tipo_solicitacao")
         .single();
 
-      if (inserirError) {
-        throw inserirError;
-      }
+      if (inserirError) throw inserirError;
 
       await auditarPermuta({
         request,
@@ -895,13 +830,15 @@ const {
         perfil,
         municipioId,
         acao: "SOLICITAR",
-        descricao: `Criou a solicitação de permuta ${criada.id}.`,
+        descricao: `Criou a solicitação ${criada.id} (${tipoSolicitacao}).`,
         registroId: numeroId(criada.id),
         detalhes: {
+          tipo_solicitacao: tipoSolicitacao,
           escala_origem_id: origem.id,
-          escala_troca_id: troca.id,
+          escala_troca_id: troca?.id || null,
           guarda_solicitante_id: origem.guarda_id,
-          guarda_substituto_id: troca.guarda_id,
+          guarda_substituto_id: substitutoId,
+          categoria_motivo: categoriaMotivo,
           motivo,
           status: "AGUARDANDO_SUBSTITUTO",
         },
@@ -910,8 +847,7 @@ const {
       return responder(
         {
           ok: true,
-          mensagem:
-            "Solicitação enviada ao guarda substituto.",
+          mensagem: "Solicitação enviada ao guarda substituto.",
           permuta: criada,
         },
         201
@@ -1047,6 +983,12 @@ const {
             resposta === "RECUSADA"
               ? motivo
               : null,
+          termos_aceitos:
+            resposta === "ACEITA",
+          termos_aceitos_em:
+            resposta === "ACEITA"
+              ? new Date().toISOString()
+              : null,
         })
         .eq("id", permutaId)
         .eq(
@@ -1173,33 +1115,95 @@ const {
         );
       }
 
-      const {
-        data,
-        error,
-      } = await supabaseAdmin.rpc(
-        "processar_decisao_permuta",
-        {
-          p_permuta_id:
-            permutaId,
-          p_usuario_id:
-            usuario.id,
-          p_municipio_id:
-            municipioId,
-          p_aprovar:
-            decisao === "APROVAR",
-          p_motivo:
-            motivo || null,
-        }
-      );
+      const permuta = await buscarPermuta(permutaId, municipioId);
 
-      if (error) {
+      if (!permuta) {
+        return responder({ ok: false, erro: "Solicitação não encontrada." }, 404);
+      }
+
+      if (permuta.status !== "ACEITA_PELO_SUBSTITUTO") {
         return responder(
-          {
-            ok: false,
-            erro: error.message,
-          },
+          { ok: false, erro: "A solicitação precisa ser aceita pelo substituto antes da decisão do comando." },
           409
         );
+      }
+
+      const tipoSolicitacao = normalizar(permuta.tipo_solicitacao || "PERMUTA");
+      const coberturaDireta = [
+        "PLANTAO_PAGO",
+        "COBERTURA_VOLUNTARIA",
+        "BANCO_HORAS",
+      ].includes(tipoSolicitacao);
+
+      let data: unknown = null;
+
+      if (decisao === "APROVAR" && coberturaDireta) {
+        const escalaOrigemId = numeroId(permuta.escala_origem_id);
+        const substitutoId = numeroId(permuta.guarda_substituto_id);
+
+        if (!escalaOrigemId || !substitutoId) {
+          return responder({ ok: false, erro: "Dados operacionais incompletos para realizar a cobertura." }, 422);
+        }
+
+        const { data: substituto, error: substitutoError } = await supabaseAdmin
+          .from("guardas")
+          .select("id,nome,matricula")
+          .eq("municipio_id", municipioId)
+          .eq("id", substitutoId)
+          .maybeSingle();
+
+        if (substitutoError) throw substitutoError;
+        if (!substituto) {
+          return responder({ ok: false, erro: "Guarda substituto não encontrado." }, 404);
+        }
+
+        const { error: escalaError } = await supabaseAdmin
+          .from("escalas_servico")
+          .update({
+            guarda_id: substituto.id,
+            guarda_nome: substituto.nome,
+            matricula: substituto.matricula,
+          })
+          .eq("id", escalaOrigemId)
+          .eq("municipio_id", municipioId);
+
+        if (escalaError) throw escalaError;
+
+        const agora = new Date().toISOString();
+        const { data: atualizada, error: atualizarError } = await supabaseAdmin
+          .from("permutas_plantao")
+          .update({
+            status: "APROVADA",
+            aprovado_por: usuario.nome || usuario.email || "Comando",
+            aprovado_por_usuario_id: usuario.id,
+            data_aprovacao: agora,
+            decidido_em: agora,
+            motivo_decisao_comando: motivo || null,
+            atualizado_em: agora,
+          })
+          .eq("id", permutaId)
+          .eq("municipio_id", municipioId)
+          .select("id,status,tipo_solicitacao")
+          .single();
+
+        if (atualizarError) throw atualizarError;
+        data = atualizada;
+      } else {
+        const { data: resultadoRpc, error } = await supabaseAdmin.rpc(
+          "processar_decisao_permuta",
+          {
+            p_permuta_id: permutaId,
+            p_usuario_id: usuario.id,
+            p_municipio_id: municipioId,
+            p_aprovar: decisao === "APROVAR",
+            p_motivo: motivo || null,
+          }
+        );
+
+        if (error) {
+          return responder({ ok: false, erro: error.message }, 409);
+        }
+        data = resultadoRpc;
       }
 
       await auditarPermuta({
@@ -1219,7 +1223,7 @@ const {
         detalhes: {
           decisao,
           motivo: motivo || null,
-          resultado_rpc: data,
+          resultado_operacao: data,
         },
       });
 
@@ -1328,7 +1332,7 @@ const {
           escala_troca_id: escalaTrocaId,
           motivo,
           observacao: observacao || null,
-          resultado_rpc: data,
+          resultado_operacao: data,
         },
       });
 

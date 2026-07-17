@@ -156,6 +156,62 @@ const CHAVE_ATIVO =
 const CHAVE_ULTIMO =
   "patrulhamento_v2_ultimo_ponto";
 
+const INTERVALO_MINIMO_MS = 8000;
+const DISTANCIA_MINIMA_METROS = 8;
+const PRECISAO_MAXIMA_METROS = 50;
+
+type PontoFila = {
+  latitude: number;
+  longitude: number;
+  precisao: number | null;
+  velocidade: number | null;
+  tipo: "AUTOMATICO";
+  observacao: string;
+  criado_em: string;
+};
+
+type EstadoGps =
+  | "INATIVO"
+  | "BUSCANDO"
+  | "ATIVO"
+  | "IMPRECISO"
+  | "SEM_PERMISSAO"
+  | "ERRO";
+
+function chaveFila(patrulhamentoId: number) {
+  return `sig_rastreamento_fila_${patrulhamentoId}`;
+}
+
+function lerFila(patrulhamentoId: number): PontoFila[] {
+  try {
+    const valor = localStorage.getItem(chaveFila(patrulhamentoId));
+    if (!valor) return [];
+    const fila = JSON.parse(valor);
+    return Array.isArray(fila) ? fila : [];
+  } catch {
+    return [];
+  }
+}
+
+function salvarFila(patrulhamentoId: number, fila: PontoFila[]) {
+  localStorage.setItem(chaveFila(patrulhamentoId), JSON.stringify(fila.slice(-2000)));
+}
+
+function distanciaEntre(
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number }
+) {
+  const raio = 6371000;
+  const p1 = (a.latitude * Math.PI) / 180;
+  const p2 = (b.latitude * Math.PI) / 180;
+  const dp = ((b.latitude - a.latitude) * Math.PI) / 180;
+  const dl = ((b.longitude - a.longitude) * Math.PI) / 180;
+  const h =
+    Math.sin(dp / 2) ** 2 +
+    Math.cos(p1) * Math.cos(p2) * Math.sin(dl / 2) ** 2;
+  return raio * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 function texto(valor: unknown) {
   return String(valor ?? "").trim();
 }
@@ -462,6 +518,14 @@ export default function DetalhePatrulhamentoPage() {
   const id = Number(parametroId || 0);
 
   const requisicaoEmAndamento = useRef(false);
+  const enviandoGpsRef = useRef(false);
+  const ultimoPontoRef = useRef<PontoFila | null>(null);
+
+  const [estadoGps, setEstadoGps] = useState<EstadoGps>("INATIVO");
+  const [precisaoAtual, setPrecisaoAtual] = useState<number | null>(null);
+  const [velocidadeAtual, setVelocidadeAtual] = useState<number | null>(null);
+  const [pontosPendentes, setPontosPendentes] = useState(0);
+  const [ultimaGravacao, setUltimaGravacao] = useState<string | null>(null);
 
   const [contexto, setContexto] =
     useState<Contexto | null>(null);
@@ -633,6 +697,155 @@ export default function DetalhePatrulhamentoPage() {
 
     return dados;
   }
+
+  async function enviarFilaGps(patrulhamentoId: number) {
+    if (enviandoGpsRef.current || !navigator.onLine) return;
+
+    const fila = lerFila(patrulhamentoId);
+    setPontosPendentes(fila.length);
+    if (fila.length === 0) return;
+
+    enviandoGpsRef.current = true;
+    try {
+      const accessToken = await obterAccessToken();
+      const lote = fila.slice(0, 200);
+      const resposta = await fetch("/api/patrulhamento/gps", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        cache: "no-store",
+        body: JSON.stringify({
+          patrulhamento_id: patrulhamentoId,
+          pontos: lote,
+        }),
+      });
+
+      const dados = await resposta.json().catch(() => null);
+      if (!resposta.ok || !dados?.ok) {
+        throw new Error(dados?.erro || "Falha ao sincronizar o GPS.");
+      }
+
+      const restante = fila.slice(lote.length);
+      salvarFila(patrulhamentoId, restante);
+      setPontosPendentes(restante.length);
+      setUltimaGravacao(lote[lote.length - 1]?.criado_em || null);
+
+      if (restante.length > 0) {
+        window.setTimeout(() => void enviarFilaGps(patrulhamentoId), 300);
+      } else {
+        void carregarDados(true);
+      }
+    } catch (error) {
+      console.error("Erro ao sincronizar fila GPS:", error);
+    } finally {
+      enviandoGpsRef.current = false;
+    }
+  }
+
+  function adicionarPontoFila(patrulhamentoId: number, ponto: PontoFila) {
+    const fila = lerFila(patrulhamentoId);
+    fila.push(ponto);
+    salvarFila(patrulhamentoId, fila);
+    setPontosPendentes(fila.length);
+    localStorage.setItem(CHAVE_ULTIMO, JSON.stringify(ponto));
+    ultimoPontoRef.current = ponto;
+    void enviarFilaGps(patrulhamentoId);
+  }
+
+  function processarPosicao(patrulhamentoId: number, position: GeolocationPosition) {
+    const latitude = position.coords.latitude;
+    const longitude = position.coords.longitude;
+    const precisao = Number.isFinite(position.coords.accuracy)
+      ? position.coords.accuracy
+      : null;
+    const velocidade = typeof position.coords.speed === "number" &&
+      Number.isFinite(position.coords.speed)
+      ? position.coords.speed
+      : null;
+
+    setPrecisaoAtual(precisao);
+    setVelocidadeAtual(velocidade);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+      setEstadoGps("ERRO");
+      return;
+    }
+
+    if (precisao !== null && precisao > PRECISAO_MAXIMA_METROS) {
+      setEstadoGps("IMPRECISO");
+      return;
+    }
+
+    setEstadoGps("ATIVO");
+
+    const agora = Date.now();
+    const anterior = ultimoPontoRef.current;
+    const distancia = anterior
+      ? distanciaEntre(anterior, { latitude, longitude })
+      : Number.POSITIVE_INFINITY;
+    const tempo = anterior
+      ? agora - new Date(anterior.criado_em).getTime()
+      : Number.POSITIVE_INFINITY;
+
+    if (distancia < DISTANCIA_MINIMA_METROS && tempo < INTERVALO_MINIMO_MS) {
+      return;
+    }
+
+    adicionarPontoFila(patrulhamentoId, {
+      latitude,
+      longitude,
+      precisao,
+      velocidade,
+      tipo: "AUTOMATICO",
+      observacao: navigator.onLine ? "Rastreamento automático" : "Capturado offline",
+      criado_em: new Date(position.timestamp || agora).toISOString(),
+    });
+  }
+
+  useEffect(() => {
+    if (!patrulhamento || estaFinalizado(patrulhamento.status) || !permissoes?.pode_editar) {
+      setEstadoGps("INATIVO");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      setEstadoGps("ERRO");
+      return;
+    }
+
+    const patrulhamentoId = patrulhamento.id;
+    const ultimoSalvo = localStorage.getItem(CHAVE_ULTIMO);
+    if (ultimoSalvo) {
+      try { ultimoPontoRef.current = JSON.parse(ultimoSalvo); } catch { ultimoPontoRef.current = null; }
+    }
+
+    setPontosPendentes(lerFila(patrulhamentoId).length);
+    setEstadoGps("BUSCANDO");
+    localStorage.setItem(CHAVE_ATIVO, String(patrulhamentoId));
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => processarPosicao(patrulhamentoId, position),
+      (error) => {
+        if (error.code === error.PERMISSION_DENIED) setEstadoGps("SEM_PERMISSAO");
+        else setEstadoGps("ERRO");
+      },
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 20000 }
+    );
+
+    localStorage.setItem(CHAVE_WATCH, String(watchId));
+    const sincronizar = () => void enviarFilaGps(patrulhamentoId);
+    window.addEventListener("online", sincronizar);
+    const intervaloGps = window.setInterval(sincronizar, 10000);
+    void enviarFilaGps(patrulhamentoId);
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      window.removeEventListener("online", sincronizar);
+      window.clearInterval(intervaloGps);
+    };
+  }, [patrulhamento?.id, patrulhamento?.status, permissoes?.pode_editar]);
 
   async function carregarDados(
     silencioso: boolean
@@ -1099,7 +1312,7 @@ export default function DetalhePatrulhamentoPage() {
 
           {patrulhamento && (
             <>
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 <StatCard
                   titulo="Pontos GPS"
                   valor={String(
@@ -1109,6 +1322,19 @@ export default function DetalhePatrulhamentoPage() {
                   icone={
                     <MapPin className="h-5 w-5" />
                   }
+                />
+
+                <StatCard
+                  titulo="GPS ao vivo"
+                  valor={
+                    estadoGps === "ATIVO" ? "Ativo" :
+                    estadoGps === "BUSCANDO" ? "Buscando" :
+                    estadoGps === "IMPRECISO" ? "Sinal fraco" :
+                    estadoGps === "SEM_PERMISSAO" ? "Sem permissão" :
+                    estadoGps === "ERRO" ? "Erro" : "Inativo"
+                  }
+                  subtitulo={`${precisaoAtual !== null ? `Precisão ${Math.round(precisaoAtual)} m` : "Sem precisão"} • ${velocidadeAtual !== null ? `${Math.round(velocidadeAtual * 3.6)} km/h` : "0 km/h"} • ${pontosPendentes} pendente(s)${ultimaGravacao ? ` • ${new Date(ultimaGravacao).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : ""}`}
+                  icone={<Crosshair className="h-5 w-5" />}
                 />
 
                 <StatCard

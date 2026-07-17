@@ -117,12 +117,18 @@ export default function EscalaMensalPage() {
 
     setMunicipioSelecionado(municipioData as Municipio);
 
-    const { data: guarnicoesData, error: erroGuarnicoes } = await supabase
-      .from("guarnicoes")
-      .select("id, nome, ativa, municipio_id")
-      .eq("municipio_id", Number(municipioId))
-      .eq("ativa", true)
-      .order("nome");
+const { data: guarnicoesData, error: erroGuarnicoes } = await supabase
+  .from("escala_estruturas")
+  .select(`
+    id,
+    nome,
+    ativa,
+    municipio_id
+  `)
+  .eq("municipio_id", Number(municipioId))
+  .eq("categoria", "EQUIPE_OPERACIONAL")
+  .eq("ativa", true)
+  .order("nome");
 
 const { data: configData } = await supabase
   .from("escala_operacional_config")
@@ -149,29 +155,166 @@ if (erroGuardas) {
     }
     
 
-    const { data: escalaData, error: erroEscala } = await supabase
-      .from("escala_mensal")
-      .select("*")
-      .eq("municipio_id", Number(municipioId))
-      .eq("mes", mes)
-      .eq("ano", ano)
-      .order("data_servico", { ascending: true });
+const primeiroDiaMes =
+  `${ano}-${mes}-01`;
 
-    if (erroEscala) {
-      console.error(erroEscala);
-      alert("Erro ao carregar escala mensal.");
-    }
+const ultimoDiaMes =
+  `${ano}-${mes}-${String(
+    new Date(
+      Number(ano),
+      Number(mes),
+      0
+    ).getDate()
+  ).padStart(2, "0")}`;
 
-    const { data: membrosData, error: erroMembros } = await supabase
-  .from("guarnicao_membros")
-  .select("*")
-  .eq("municipio_id", Number(municipioId));
+const {
+  data: escalaServicoData,
+  error: erroEscala,
+} = await supabase
+  .from("escalas_servico")
+  .select(`
+    id,
+    municipio_id,
+    data_servico,
+    guarda_nome,
+    matricula,
+    turno,
+    equipe,
+    observacao
+  `)
+  .eq(
+    "municipio_id",
+    Number(municipioId)
+  )
+  .gte(
+    "data_servico",
+    primeiroDiaMes
+  )
+  .lte(
+    "data_servico",
+    ultimoDiaMes
+  )
+  .order("data_servico", {
+    ascending: true,
+  })
+  .order("equipe", {
+    ascending: true,
+  });
 
-if (erroMembros) {
-  console.error(erroMembros);
+if (erroEscala) {
+  console.error(erroEscala);
+  alert(
+    "Erro ao carregar os plantões mensais."
+  );
 }
 
-setMembrosGuarnicao(membrosData || []);
+const mapaRegistros =
+  new Map<string, RegistroEscala>();
+
+for (
+  const item of escalaServicoData || []
+) {
+  const chave =
+    `${item.data_servico}-${item.equipe || "SEM_EQUIPE"}`;
+
+  if (!mapaRegistros.has(chave)) {
+    mapaRegistros.set(chave, {
+      id: Number(item.id),
+      municipio_id:
+        Number(item.municipio_id),
+      mes,
+      ano,
+      data_servico:
+        item.data_servico,
+      guarda_nome:
+        item.guarda_nome ||
+        item.equipe ||
+        "Sem escala",
+      matricula:
+        item.matricula || null,
+      tipo: "Plantão",
+      turno:
+        item.turno || null,
+      equipe:
+        item.equipe || null,
+      observacao:
+        item.observacao || null,
+    });
+  }
+}
+
+const escalaData =
+  Array.from(
+    mapaRegistros.values()
+  ).sort((a, b) =>
+    a.data_servico.localeCompare(
+      b.data_servico
+    )
+  );
+
+const mapaMembros =
+  new Map<string, any>();
+
+for (
+  const item of escalaServicoData || []
+) {
+  let detalhes: any = {};
+
+  try {
+    detalhes =
+      typeof item.observacao ===
+        "string"
+        ? JSON.parse(
+            item.observacao
+          )
+        : item.observacao || {};
+  } catch {
+    detalhes = {};
+  }
+
+  const estruturaId =
+    Number(
+      detalhes?.estrutura_id
+    );
+
+  const guardaId =
+    Number(
+      detalhes?.guarda_id
+    );
+
+  const funcao =
+    String(
+      detalhes?.funcao || ""
+    ).toUpperCase();
+
+  if (
+    !estruturaId ||
+    !guardaId
+  ) {
+    continue;
+  }
+
+  const chave =
+    `${estruturaId}-${guardaId}-${funcao}`;
+
+  if (!mapaMembros.has(chave)) {
+    mapaMembros.set(chave, {
+      guarnicao_id:
+        estruturaId,
+      guarda_id:
+        guardaId,
+      funcao:
+        funcao ||
+        "PATRULHEIRO",
+    });
+  }
+}
+
+setMembrosGuarnicao(
+  Array.from(
+    mapaMembros.values()
+  )
+);
 
     setGuarnicoes(guarnicoesData || []);
     setRegistros(escalaData || []);
@@ -242,181 +385,41 @@ const diasCalendario = useMemo(() => {
   return "bg-slate-700";
 }
 
-  async function gerarEscalaAutomatica() {
-  if (!municipioId) {
-    alert("Selecione o município.");
-    return;
-  }
+async function gerarEscalaAutomatica() {
+  await carregarDados();
 
-  if (guarnicoes.length === 0) {
-    alert("Nenhuma guarnição ativa cadastrada.");
-    return;
-  }
-
-  const confirmar = window.confirm(
-    `Gerar escala ${tipoEscala} para ${mes}/${ano}?`
+  alert(
+    "A escala mensal foi atualizada com os plantões já criados nas guarnições."
   );
-
-  if (!confirmar) {
-    return;
-  }
-
-  setCarregando(true);
-
-  try {
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (
-      sessionError ||
-      !session?.access_token
-    ) {
-      alert(
-        "Sessão expirada. Entre novamente no sistema."
-      );
-      return;
-    }
-
-    const resposta = await fetch(
-      "/api/escalas/gerar",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          municipio_id: Number(municipioId),
-          mes,
-          ano,
-          turno: horarioPadrao,
-          tipo_escala: tipoEscala,
-          guarnicao_inicial_id:
-            guarnicaoInicialId
-              ? Number(guarnicaoInicialId)
-              : null,
-        }),
-      }
-    );
-
-    const retorno = await resposta
-      .json()
-      .catch(() => null);
-
-    if (!resposta.ok || !retorno?.ok) {
-      alert(
-        retorno?.erro ||
-          "Não foi possível gerar a escala."
-      );
-      return;
-    }
-
-    alert(
-      `${retorno.mensagem}\n\n` +
-        `${retorno.total_dias} dias gerados.\n` +
-        `${retorno.total_plantões} plantões individuais gerados.`
-    );
-
-    await carregarDados();
-  } catch (error) {
-    console.error(
-      "Erro ao gerar escala:",
-      error
-    );
-
-    alert(
-      "Não foi possível gerar a escala."
-    );
-  } finally {
-    setCarregando(false);
-  }
-}
-
-async function sincronizarEscalasServico(
-  escalaGerada: any[]
-) {
-  const municipio = Number(municipioId);
-
-  await supabase
-    .from("escalas_servico")
-    .delete()
-    .eq("municipio_id", municipio)
-    .gte("data_servico", `${ano}-${mes}-01`)
-    .lte("data_servico", `${ano}-${mes}-31`);
-
-  const registrosServico = [];
-
-  for (const dia of escalaGerada) {
-    const guarnicao = guarnicoes.find(
-      (g) => g.nome === dia.equipe
-    );
-
-    if (!guarnicao) continue;
-
-    const membros = membrosGuarnicao.filter(
-      (m) => Number(m.guarnicao_id) === Number(guarnicao.id)
-    );
-
-    for (const membro of membros) {
-      const guarda = guardas.find(
-        (g) => Number(g.id) === Number(membro.guarda_id)
-      );
-
-      if (!guarda) continue;
-
-      registrosServico.push({
-        municipio_id: municipio,
-
-        data_servico: dia.data_servico,
-
-        turno: dia.turno,
-
-        guarda_id: guarda.id,
-
-        guarda_nome: guarda.nome,
-
-        matricula: guarda.matricula,
-
-        equipe: guarnicao.nome,
-
-        funcao: membro.funcao,
-
-        observacao:
-          "Gerado automaticamente pela Escala Mensal",
-      });
-    }
-  }
-
-  if (registrosServico.length === 0) return;
-
-  const { error } = await supabase
-    .from("escalas_servico")
-    .insert(registrosServico);
-
-  if (error) {
-    console.error(
-      "Erro sincronizando escalas_servico",
-      error
-    );
-
-    alert(
-      "Escala Mensal gerada, porém ocorreu erro ao gerar a Escala Operacional."
-    );
-  }
 }
 
   async function excluirRegistro(id: number) {
     if (!confirm("Excluir este registro?")) return;
 
-    const registro = registros.find((r) => r.id === id);
+const registro = registros.find(
+  (item) => item.id === id
+);
 
-    const { error } = await supabase
-      .from("escala_mensal")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", Number(municipioId));
+if (!registro) {
+  alert("Registro não localizado.");
+  return;
+}
+
+const { error } = await supabase
+  .from("escalas_servico")
+  .delete()
+  .eq(
+    "municipio_id",
+    Number(municipioId)
+  )
+  .eq(
+    "data_servico",
+    registro.data_servico
+  )
+  .eq(
+    "equipe",
+    registro.equipe
+  );
 
     if (error) {
       console.error(error);
@@ -823,12 +826,9 @@ async function sincronizarEscalasServico(
 
       if (diaNumero >= 1 && diaNumero <= diasNoMes) {
         const data = `${ano}-${mes}-${String(diaNumero).padStart(2, "0")}`;
-        const registro = registros.find(
-          (item) => item.data_servico === data
-        );
-        const nome =
-          registro?.equipe || registro?.guarda_nome || "Sem escala";
-        const cor = corPDF(nome);
+const registrosDoDia = registros.filter(
+  (item) => item.data_servico === data
+);
 
         pdf.setTextColor(coluna === 0 ? 200 : 5, 25, 45);
         pdf.setFont("helvetica", "bold");
@@ -839,23 +839,138 @@ async function sincronizarEscalasServico(
           y + 6
         );
 
-        pdf.setTextColor(...cor);
-        pdf.setFontSize(6.5);
+if (registrosDoDia.length === 0) {
+  pdf.setTextColor(100, 116, 139);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(5.8);
+  pdf.text(
+    "Sem escala",
+    x + 3,
+    y + 12,
+    {
+      maxWidth: cellW - 6,
+    }
+  );
 
-        const linhasEquipe = pdf
-          .splitTextToSize(nome, cellW - 6)
-          .slice(0, 2);
+  pdf.setTextColor(...navy);
+  pdf.setFontSize(5.2);
+  pdf.text(
+    horarioPadrao,
+    x + 3,
+    y + 21,
+    {
+      maxWidth: cellW - 6,
+    }
+  );
+} else {
+  const maximoExibido = 4;
 
-        pdf.text(linhasEquipe, x + 3, y + 12);
+  const registrosVisiveis =
+    registrosDoDia.slice(
+      0,
+      maximoExibido
+    );
 
-        pdf.setTextColor(...navy);
-        pdf.setFontSize(5.7);
-        pdf.text(
-          registro?.turno || horarioPadrao,
-          x + 3,
-          y + 21,
-          { maxWidth: cellW - 6 }
-        );
+  const espacoDisponivel = 15;
+
+  const alturaLinha = Math.min(
+    4,
+    espacoDisponivel /
+      registrosVisiveis.length
+  );
+
+  let posicaoY = y + 11;
+
+  registrosVisiveis.forEach(
+    (registroDia) => {
+      const nomeEquipe =
+        registroDia.equipe ||
+        registroDia.guarda_nome ||
+        "Sem identificação";
+
+      const cor =
+        corPDF(nomeEquipe);
+
+      pdf.setTextColor(...cor);
+      pdf.setFont(
+        "helvetica",
+        "bold"
+      );
+
+      pdf.setFontSize(
+        registrosVisiveis.length >= 4
+          ? 4.8
+          : registrosVisiveis.length === 3
+            ? 5.2
+            : 5.8
+      );
+
+      const nomeCurto =
+        nomeEquipe
+          .replace(
+            /guarnição/gi,
+            ""
+          )
+          .trim()
+          .toUpperCase();
+
+      pdf.text(
+        nomeCurto,
+        x + 3,
+        posicaoY,
+        {
+          maxWidth:
+            cellW - 6,
+        }
+      );
+
+      pdf.setTextColor(
+        ...navy
+      );
+      pdf.setFont(
+        "helvetica",
+        "normal"
+      );
+      pdf.setFontSize(4.3);
+
+      pdf.text(
+        registroDia.turno ||
+          horarioPadrao,
+        x + cellW - 3,
+        posicaoY,
+        {
+          align: "right",
+          maxWidth: 10,
+        }
+      );
+
+      posicaoY +=
+        alturaLinha;
+    }
+  );
+
+  if (
+    registrosDoDia.length >
+    maximoExibido
+  ) {
+    pdf.setTextColor(
+      100,
+      116,
+      139
+    );
+    pdf.setFont(
+      "helvetica",
+      "bold"
+    );
+    pdf.setFontSize(4.5);
+
+    pdf.text(
+      `+${registrosDoDia.length - maximoExibido} serviço(s)`,
+      x + 3,
+      y + 23
+    );
+  }
+}
       }
     }
 
@@ -1143,7 +1258,7 @@ const hojeISO = `${hojeLocal.getFullYear()}-${String(
 
           <div className="flex flex-col md:flex-row gap-3 mt-5">
             <button onClick={gerarEscalaAutomatica} className="btn-primary">
-              Gerar Escala Automática
+              Atualizar Escala Mensal
             </button>
 
             <button onClick={gerarPDF} className="btn-secondary">

@@ -13,6 +13,9 @@ import { supabase } from "@/lib/supabase";
 import SigPageHeader from "@/components/sig/SigPageHeader";
 import SigCard from "@/components/sig/SigCard";
 import { registrarAuditoria } from "@/lib/auditoria";
+import {
+  podeIntegrarGuarnicao,
+} from "@/lib/rh/motorRegras";
 
 type Guarnicao = {
   id: number;
@@ -31,6 +34,11 @@ type Guarda = {
   matricula: string;
   cargo: string;
   status: string;
+  situacao_funcional: string;
+  pode_servico_regular: boolean;
+  pode_extra: boolean;
+  pode_apoio: boolean;
+  motivo_bloqueio: string | null;
 };
 
 type Viatura = {
@@ -81,8 +89,19 @@ export default function GuarnicoesPage() {
       .order("id", { ascending: true });
 
     const { data: guardasData, error: erroGuardas } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula, cargo, status")
+      .from("vw_guardas_disponibilidade_operacional")
+.select(`
+  id,
+  nome,
+  matricula,
+  cargo,
+  status_cadastrado,
+  situacao_funcional,
+  pode_servico_regular,
+  pode_extra,
+  pode_apoio,
+  motivo_bloqueio
+`)
       .eq("municipio_id", municipioId)
       .order("nome", { ascending: true });
 
@@ -123,15 +142,6 @@ export default function GuarnicoesPage() {
     }
 
     setGuarnicoes(guarnicoesData || []);
-
-    setGuardas(
-      (guardasData || []).filter(
-        (g) =>
-          g.status !== "Férias" &&
-          g.status !== "Afastado" &&
-          g.status !== "INATIVO"
-      )
-    );
 
     setViaturas(
       (viaturasData || []).filter((v) => v.status !== "BAIXADA")
@@ -215,6 +225,42 @@ export default function GuarnicoesPage() {
       return;
     }
 
+    const guarnicao = guarnicoes.find(
+  (g) => g.id === guarnicaoId
+);
+
+const tipoGuarnicao =
+  (
+    guarnicao?.tipo_guarnicao ||
+    "REGULAR"
+  ).toUpperCase();
+
+const resultadoRH =
+  await podeIntegrarGuarnicao({
+    guardaId: Number(guardaId),
+    data: new Date()
+      .toISOString()
+      .slice(0, 10),
+    tipoGuarnicao:
+      tipoGuarnicao.includes(
+        "EXTRA"
+      )
+        ? "EXTRA"
+        : tipoGuarnicao.includes(
+            "APOIO"
+          )
+        ? "APOIO"
+        : "REGULAR",
+  });
+
+if (!resultadoRH.permitido) {
+  alert(
+    `🚫 ${resultadoRH.mensagem}`
+  );
+
+  return;
+}
+
     const jaExiste = membros.some((m) => m.guarda_id === Number(guardaId));
 
     if (jaExiste) {
@@ -235,7 +281,6 @@ export default function GuarnicoesPage() {
     }
 
     const guarda = guardas.find((g) => g.id === Number(guardaId));
-    const guarnicao = guarnicoes.find((g) => g.id === guarnicaoId);
 
     await registrarAuditoria({
       modulo: "Guarnições",
@@ -515,7 +560,7 @@ export default function GuarnicoesPage() {
                       <option value="">Selecione um guarda</option>
                       {guardasLivres.map((g) => (
                         <option key={g.id} value={g.id}>
-                          {g.nome} • {g.matricula} • {g.status}
+                          {g.nome} • {g.matricula} • {g.situacao_funcional}
                         </option>
                       ))}
                     </select>

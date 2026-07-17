@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   FileText,
   AlertTriangle,
@@ -15,6 +15,15 @@ import {
   Trash2,
   Check,
   Play,
+  RefreshCw,
+  Zap,
+  Map,
+  BarChart3,
+  Clock,
+  MapPin,
+  Car,
+  Users,
+  User,
 } from "lucide-react";
 
 import { supabase } from "@/lib/supabase";
@@ -117,6 +126,8 @@ export default function Ocorrencias() {
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [erroTela, setErroTela] = useState("");
+  const [atualizando, setAtualizando] = useState(false);
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
 
   const [guarnicoes, setGuarnicoes] = useState<Guarnicao[]>([]);
   const [viaturas, setViaturas] = useState<Viatura[]>([]);
@@ -154,8 +165,9 @@ export default function Ocorrencias() {
     return session.access_token;
   }
 
-  async function carregarSistema() {
-    setCarregando(true);
+  async function carregarSistema(silencioso = false) {
+    if (silencioso) setAtualizando(true);
+    else setCarregando(true);
     setErroTela("");
 
     try {
@@ -236,6 +248,7 @@ export default function Ocorrencias() {
       setGuarnicoes(dados.guarnicoes || []);
       setViaturas(dados.viaturas || []);
       setGuardas(dados.guardas || []);
+      setUltimaAtualizacao(new Date());
 
       if (!acessoRegistradoRef.current) {
         acessoRegistradoRef.current = true;
@@ -266,12 +279,19 @@ export default function Ocorrencias() {
       setErroTela(mensagem);
       setOcorrencias([]);
     } finally {
-      setCarregando(false);
+      if (silencioso) setAtualizando(false);
+      else setCarregando(false);
     }
   }
 
   useEffect(() => {
     void carregarSistema();
+
+    const intervalo = window.setInterval(() => {
+      void carregarSistema(true);
+    }, 15000);
+
+    return () => window.clearInterval(intervalo);
   }, []);
 
   async function excluirOcorrencia(id: number) {
@@ -575,25 +595,32 @@ return (
             )}
           </div>
 
-          {podeCriar && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 xl:w-[760px]">
-              <Link
-                href="/sistema/ocorrencias/nova"
-                className="rounded-2xl bg-gradient-to-r from-blue-700 to-blue-500 hover:from-blue-600 hover:to-blue-400 hover:scale-[1.02] transition p-5"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-white/10 flex items-center justify-center text-4xl">
-                    ➕
-                  </div>
-
-                  <div>
-                    <h3 className="font-black text-xl">Nova Ocorrência</h3>
-                    <p className="text-blue-100 text-sm">Registro completo</p>
-                  </div>
-                </div>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:w-[720px]">
+            {podeCriar && (
+              <Link href="/sistema/ocorrencias/nova" className="rounded-2xl bg-blue-600 p-4 transition hover:bg-blue-500 hover:-translate-y-0.5">
+                <FileText className="h-6 w-6" />
+                <p className="mt-3 font-black">Nova</p>
+                <p className="text-xs text-blue-100">Registro completo</p>
               </Link>
-            </div>
-          )}
+            )}
+            {podeCriar && (
+              <Link href="/sistema/ocorrencias/expressa" className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-amber-100 transition hover:bg-amber-500/20 hover:-translate-y-0.5">
+                <Zap className="h-6 w-6" />
+                <p className="mt-3 font-black">Expressa</p>
+                <p className="text-xs text-amber-200/70">Registro rápido</p>
+              </Link>
+            )}
+            <Link href="/sistema/mapa-operacional" className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-cyan-100 transition hover:bg-cyan-500/20 hover:-translate-y-0.5">
+              <Map className="h-6 w-6" />
+              <p className="mt-3 font-black">Mapa</p>
+              <p className="text-xs text-cyan-200/70">Visão territorial</p>
+            </Link>
+            <Link href="/sistema/ocorrencias/relatorios" className="rounded-2xl border border-violet-500/30 bg-violet-500/10 p-4 text-violet-100 transition hover:bg-violet-500/20 hover:-translate-y-0.5">
+              <BarChart3 className="h-6 w-6" />
+              <p className="mt-3 font-black">Relatórios</p>
+              <p className="text-xs text-violet-200/70">Análise operacional</p>
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -979,7 +1006,7 @@ return (
 
 
       <section className="painel-premium p-6">
-        <div className="flex items-center justify-between gap-4 mb-5">
+        <div className="flex flex-col gap-4 mb-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <List className="w-7 h-7 text-blue-400" />
             <div>
@@ -988,6 +1015,16 @@ return (
                 Exibindo {ocorrenciasFiltradas.length} ocorrência(s)
               </p>
             </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500">
+              {ultimaAtualizacao ? `Atualizado às ${ultimaAtualizacao.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}` : "Aguardando atualização"}
+            </span>
+            <button type="button" onClick={() => void carregarSistema(true)} disabled={atualizando} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-bold text-blue-300 hover:bg-slate-800 disabled:opacity-60">
+              <RefreshCw className={`h-4 w-4 ${atualizando ? "animate-spin" : ""}`} />
+              Atualizar
+            </button>
           </div>
         </div>
 
@@ -1021,149 +1058,71 @@ return (
   excluirOcorrencia={excluirOcorrencia}
 />
 
-            <div className="hidden md:block overflow-x-auto border border-slate-800 rounded-2xl">
-              <table className="w-full text-sm">
-                <thead className="bg-slate-950/50 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="text-left py-4 px-4">Protocolo</th>
-                    <th className="text-left py-4 px-4">Data/Hora</th>
-                    <th className="text-left py-4 px-4">Tipo</th>
-                    <th className="text-left py-4 px-4">Prioridade</th>
-                    <th className="text-left py-4 px-4">Local</th>
-                    <th className="text-left py-4 px-4">Guarnição</th>
-                    <th className="text-left py-4 px-4">Viatura</th>
-                    <th className="text-left py-4 px-4">Responsável</th>
-                    <th className="text-left py-4 px-4">Status</th>
-                    <th className="text-right py-4 px-4">Ações</th>
-                  </tr>
-                </thead>
+            <div className="hidden grid-cols-1 gap-4 md:grid xl:grid-cols-2 2xl:grid-cols-3">
+              {ocorrenciasFiltradas.map((ocorrencia) => {
+                const finalizada = ocorrencia.status === "Finalizada";
+                const cancelada = ocorrencia.status === "Cancelada";
 
-                <tbody>
-                  {ocorrenciasFiltradas.map((ocorrencia) => (
-                    <tr
-                      key={ocorrencia.id}
-                      className="border-b border-slate-800 hover:bg-slate-900/50 transition"
-                    >
-                      <td className="py-4 px-4 text-blue-400 font-black">
-                        {ocorrencia.protocolo}
-                      </td>
-
-                      <td className="py-4 px-4 text-slate-300">
-                        <div>{ocorrencia.data}</div>
-                        <div className="text-slate-500 text-xs">
-                          {ocorrencia.hora || "--:--"}
+                return (
+                  <article key={ocorrencia.id} className={`group overflow-hidden rounded-3xl border bg-slate-950/55 shadow-xl transition hover:-translate-y-1 hover:border-blue-500/40 ${ocorrencia.prioridade === "ALTA" ? "border-red-500/40" : "border-slate-800"}`}>
+                    <div className="border-b border-slate-800 p-5">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-black tracking-wide text-blue-400">{ocorrencia.protocolo}</p>
+                          <h3 className="mt-1 break-words text-xl font-black uppercase text-white">{ocorrencia.tipo}</h3>
                         </div>
-                      </td>
-
-                      <td className="py-4 px-4 font-semibold">
-                        {ocorrencia.tipo}
-                      </td>
-
-                      <td className="py-4 px-4">
                         <Prioridade prioridade={ocorrencia.prioridade} />
-                      </td>
-
-                      <td className="py-4 px-4 text-slate-400">
-                        <div>{ocorrencia.local}</div>
-                        <div className="text-slate-500 text-xs">
-                          {ocorrencia.bairro || "-"}
-                        </div>
-                      </td>
-
-                      <td className="py-4 px-4">
-                        {nomeGuarnicao(ocorrencia.guarnicao_id)}
-                      </td>
-
-                      <td className="py-4 px-4">
-                        {prefixoViatura(ocorrencia.viatura_id)}
-                      </td>
-
-                      <td className="py-4 px-4">
-                        {nomeGuarda(ocorrencia.guarda_responsavel_id)}
-                      </td>
-
-                      <td className="py-4 px-4">
+                      </div>
+                      <div className="mt-4 flex items-center justify-between gap-3">
                         <Status status={ocorrencia.status} />
-                      </td>
+                        <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-400"><Clock className="h-4 w-4" />{ocorrencia.data} • {ocorrencia.hora || "--:--"}</span>
+                      </div>
+                    </div>
 
-                      <td className="py-4 px-4">
-                        <div className="flex justify-end gap-2">
-                          <Link
-                            href={`/sistema/ocorrencias/${ocorrencia.id}`}
-                            className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-blue-700 flex items-center justify-center"
-                            title="Ver"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </Link>
+                    <div className="grid gap-3 p-5 text-sm">
+                      <InfoOperacional icone={<MapPin className="h-4 w-4" />} rotulo="Local" valor={[ocorrencia.local, ocorrencia.bairro].filter(Boolean).join(" • ")} />
+                      <InfoOperacional icone={<Users className="h-4 w-4" />} rotulo="Guarnição" valor={nomeGuarnicao(ocorrencia.guarnicao_id)} />
+                      <InfoOperacional icone={<Car className="h-4 w-4" />} rotulo="Viatura" valor={prefixoViatura(ocorrencia.viatura_id)} />
+                      <InfoOperacional icone={<User className="h-4 w-4" />} rotulo="Responsável" valor={nomeGuarda(ocorrencia.guarda_responsavel_id)} />
+                    </div>
 
-                          {podeEditar && (
-                            <Link
-                              href={`/sistema/ocorrencias/${ocorrencia.id}/editar`}
-                              onClick={(e) => {
-                                if (ocorrencia.status === "Finalizada") {
-                                  e.preventDefault();
-                                  alert(
-                                    "Ocorrências finalizadas não podem ser editadas."
-                                  );
-                                }
-                              }}
-                              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-yellow-700 flex items-center justify-center"
-                              title="Editar"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Link>
-                          )}
-
-                          {podeEditar &&
-                            ocorrencia.status === "Aberta" && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  alterarStatus(ocorrencia.id, "Em andamento")
-                                }
-                                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-purple-700 flex items-center justify-center"
-                                title="Aceitar"
-                              >
-                                <Play className="w-4 h-4" />
-                              </button>
-                            )}
-
-                          {podeEditar &&
-                            ocorrencia.status === "Em andamento" && (
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  alterarStatus(ocorrencia.id, "Finalizada")
-                                }
-                                className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-green-700 flex items-center justify-center"
-                                title="Finalizar"
-                              >
-                                <Check className="w-4 h-4" />
-                              </button>
-                            )}
-
-                          {podeExcluir && (
-                            <button
-                              type="button"
-                              onClick={() => excluirOcorrencia(ocorrencia.id)}
-                              className="w-9 h-9 rounded-xl bg-slate-800 hover:bg-red-700 flex items-center justify-center"
-                              title="Excluir"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                    <div className="grid grid-cols-2 gap-2 border-t border-slate-800 p-4">
+                      <Link href={`/sistema/ocorrencias/${ocorrencia.id}`} className="col-span-2 inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 px-4 py-3 font-black text-white hover:bg-blue-500"><Eye className="h-4 w-4" />Visualizar</Link>
+                      {podeEditar && !finalizada && !cancelada && (
+                        <Link href={`/sistema/ocorrencias/${ocorrencia.id}/editar`} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-amber-500/25 bg-amber-500/10 px-3 py-3 font-bold text-amber-200 hover:bg-amber-500/20"><Edit className="h-4 w-4" />Editar</Link>
+                      )}
+                      {podeEditar && ocorrencia.status === "Aberta" && (
+                        <button type="button" onClick={() => void alterarStatus(ocorrencia.id, "Em andamento")} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-500/25 bg-violet-500/10 px-3 py-3 font-bold text-violet-200 hover:bg-violet-500/20"><Play className="h-4 w-4" />Assumir</button>
+                      )}
+                      {podeEditar && ocorrencia.status === "Em andamento" && (
+                        <button type="button" onClick={() => void alterarStatus(ocorrencia.id, "Finalizada")} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-3 font-bold text-emerald-200 hover:bg-emerald-500/20"><Check className="h-4 w-4" />Finalizar</button>
+                      )}
+                      {podeExcluir && !finalizada && (
+                        <button type="button" onClick={() => void excluirOcorrencia(ocorrencia.id)} className="inline-flex items-center justify-center gap-2 rounded-2xl border border-red-500/25 bg-red-500/10 px-3 py-3 font-bold text-red-200 hover:bg-red-500/20"><Trash2 className="h-4 w-4" />Excluir</button>
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
             </div>
           </>
         )}
       </section>
     </div>
   </ProtecaoModulo>
+  );
+}
+
+
+function InfoOperacional({ icone, rotulo, valor }: { icone: ReactNode; rotulo: string; valor: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-slate-800 bg-slate-900/60 p-3">
+      <span className="mt-0.5 text-blue-400">{icone}</span>
+      <div className="min-w-0">
+        <p className="text-[11px] font-black uppercase tracking-wider text-slate-500">{rotulo}</p>
+        <p className="mt-0.5 break-words font-semibold text-slate-200">{valor || "-"}</p>
+      </div>
+    </div>
   );
 }
 
