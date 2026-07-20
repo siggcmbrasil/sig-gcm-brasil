@@ -1,0 +1,22 @@
+SIG-GCM BRASIL — CENTRAL DE MÓDULOS E SIG TRÂNSITO
+
+Copie o conteúdo deste pacote para a raiz do projeto.
+A estrutura existente foi preservada.
+
+NOVOS ACESSOS:
+- /sistema/central-modulos
+- /sistema/transito
+- /sistema/ambiental
+- /sistema/ronda-escolar
+- /sistema/violencia-domestica
+- /sistema/videomonitoramento
+- /sistema/defesa-civil
+- /sistema/canil
+- /sistema/drones
+- /sistema/eventos-publicos
+
+BANCO DO SIG TRÂNSITO:
+Execute apenas quando desejar ativar os cadastros de trânsito:
+- supabase/025_SIG_TRANSITO_BASE.sql
+
+Os novos módulos estratégicos foram adicionados como centrais organizadas e expansíveis, evitando alterações profundas nas páginas existentes.

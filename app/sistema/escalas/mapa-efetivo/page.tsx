@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Users, ShieldCheck, Building2, Star, Umbrella } from "lucide-react";
 
@@ -87,6 +88,15 @@ export default function MapaEfetivoPage() {
         subtitulo="Visão geral do efetivo disponível, escalado, administrativo, extra e afastado."
         icone={Users}
       />
+
+      <div className="flex justify-end">
+        <Link
+          href="/sistema/mapa-estrategico-efetivo"
+          className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300"
+        >
+          Abrir mapa estratégico do efetivo
+        </Link>
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Resumo titulo="Efetivo" valor={guardas.length} icone={Users} />

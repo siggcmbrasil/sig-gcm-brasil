@@ -62,7 +62,7 @@ export default function ViaturasMobilePage() {
 
       <div className="grid grid-cols-2 gap-4">
         <Link
-          href="/sistema/viaturas"
+          href="/sistema/central-frota/viaturas"
           className="rounded-3xl bg-green-600 p-5 min-h-36 flex flex-col items-center justify-center text-center active:scale-95"
         >
           <Car className="w-12 h-12 mb-3" />
@@ -70,7 +70,7 @@ export default function ViaturasMobilePage() {
         </Link>
 
         <Link
-          href="/sistema/abastecimentos"
+          href="/sistema/central-frota/abastecimentos"
           className="rounded-3xl bg-slate-900 border border-slate-800 p-5 min-h-36 flex flex-col items-center justify-center text-center active:scale-95"
         >
           <Fuel className="w-12 h-12 mb-3 text-yellow-400" />
@@ -78,7 +78,7 @@ export default function ViaturasMobilePage() {
         </Link>
 
         <Link
-          href="/sistema/manutencoes"
+          href="/sistema/central-frota/manutencoes"
           className="rounded-3xl bg-slate-900 border border-slate-800 p-5 min-h-36 flex flex-col items-center justify-center text-center active:scale-95"
         >
           <Wrench className="w-12 h-12 mb-3 text-orange-400" />

@@ -2,14 +2,39 @@
 
 import Link from "next/link";
 import {
+  Accessibility,
+  Award,
+  BadgeDollarSign,
   Bell,
   Brain,
+  HardHat,
+  HandHeart,
   Building2,
   CreditCard,
+  Clock3,
+  CalendarDays,
+  CalendarClock,
+  Calculator,
+  FileSpreadsheet,
+  BarChart3,
+  Fingerprint,
+  GraduationCap,
+  UserRoundCheck,
+  HeartPulse,
+  Gauge,
+  GitBranch,
   Landmark,
+  MapPinned,
+  Map,
+  PackageCheck,
   RefreshCw,
   Settings,
   Shield,
+  ShieldAlert,
+  Target,
+  TimerReset,
+  UsersRound,
+  TriangleAlert,
   Users,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -48,6 +73,211 @@ const grupos = [
         descricao:
           "Criar, configurar e administrar os municípios cadastrados no SIG-GCM Brasil.",
         detalhe: "Gerenciar municípios",
+      },
+      {
+        titulo: "Dimensionamento do Efetivo",
+        icone: Calculator,
+        href: "/sistema/dimensionamento-efetivo",
+        descricao:
+          "Projetar concursos, convocações, aposentadorias, custos e recomposição do quadro.",
+        detalhe: "Abrir dimensionamento",
+      },
+      {
+        titulo: "Mapa Estratégico do Efetivo",
+        icone: Map,
+        href: "/sistema/mapa-estrategico-efetivo",
+        descricao:
+          "Analisar cobertura, déficit por área, afastamentos e prioridades operacionais.",
+        detalhe: "Abrir mapa estratégico",
+      },
+      {
+        titulo: "Quadro de Vagas e Lotação",
+        icone: MapPinned,
+        href: "/sistema/quadro-vagas",
+        descricao:
+          "Controlar vagas previstas, ocupação, déficit, excedente e movimentações do efetivo.",
+        detalhe: "Abrir quadro de lotação",
+      },
+      {
+        titulo: "Controle de EPI e EPC",
+        icone: PackageCheck,
+        href: "/sistema/epi-epc",
+        descricao: "Gerenciar catálogo, estoque, CA, validade, entregas, devoluções e termos.",
+        detalhe: "Abrir EPI e EPC",
+      },
+      {
+        titulo: "Acidentes e CAT",
+        icone: TriangleAlert,
+        href: "/sistema/acidentes-cat",
+        descricao: "Registrar acidentes, incidentes, quase acidentes, CAT, investigações e medidas corretivas.",
+        detalhe: "Abrir acidentes e CAT",
+      },
+      {
+        titulo: "Segurança do Trabalho",
+        icone: HardHat,
+        href: "/sistema/seguranca-trabalho",
+        descricao:
+          "Gerenciar riscos ocupacionais, inspeções, acidentes, CAT, EPI e planos preventivos.",
+        detalhe: "Abrir segurança do trabalho",
+      },
+      {
+        titulo: "Saúde Mental e Apoio Psicossocial",
+        icone: Brain,
+        href: "/sistema/saude-mental",
+        descricao:
+          "Acompanhar acolhimentos, encaminhamentos, ocorrências críticas, campanhas e qualidade de vida.",
+        detalhe: "Abrir saúde mental",
+      },
+      {
+        titulo: "Previdência e Aposentadoria",
+        icone: TimerReset,
+        href: "/sistema/previdencia-aposentadoria",
+        descricao:
+          "Controlar tempo de serviço, averbações, certidões, simulações e processos previdenciários.",
+        detalhe: "Abrir previdência",
+      },
+      {
+        titulo: "Pensionistas e Dependentes",
+        icone: UsersRound,
+        href: "/sistema/pensionistas-dependentes",
+        descricao:
+          "Gerenciar vínculos familiares, pensionistas, dependentes, documentos, vigências e benefícios.",
+        detalhe: "Abrir pensionistas e dependentes",
+      },
+      {
+        titulo: "Benefícios do Servidor",
+        icone: BadgeDollarSign,
+        href: "/sistema/beneficios-servidor",
+        descricao:
+          "Controlar auxílios, solicitações, análise, vigência, pagamentos, renovação e histórico.",
+        detalhe: "Abrir benefícios",
+      },
+      {
+        titulo: "Assistência Social",
+        icone: HandHeart,
+        href: "/sistema/assistencia-social",
+        descricao:
+          "Acompanhar atendimentos sociais, visitas, encaminhamentos, benefícios e apoio familiar.",
+        detalhe: "Abrir assistência social",
+      },
+      {
+        titulo: "Readaptação Funcional",
+        icone: Accessibility,
+        href: "/sistema/readaptacao-funcional",
+        descricao:
+          "Controlar limitações, atividades compatíveis, setor de destino, reavaliações e retorno ao trabalho.",
+        detalhe: "Abrir readaptação funcional",
+      },
+      {
+        titulo: "Saúde Ocupacional",
+        icone: HeartPulse,
+        href: "/sistema/saude-ocupacional",
+        descricao:
+          "Controlar exames, aptidão funcional, restrições, afastamentos, ASO e readaptações.",
+        detalhe: "Abrir saúde ocupacional",
+      },
+      {
+        titulo: "Estágio Probatório",
+        icone: UserRoundCheck,
+        href: "/sistema/estagio-probatorio",
+        descricao:
+          "Acompanhar avaliações, prazos, suspensões, recursos, efetivação e exoneração.",
+        detalhe: "Abrir estágio probatório",
+      },
+      {
+        titulo: "Plano de Carreira",
+        icone: GitBranch,
+        href: "/sistema/plano-carreira",
+        descricao: "Gerenciar cargos, critérios, promoções, progressões, comissões e homologações.",
+        detalhe: "Abrir plano de carreira",
+      },
+      {
+        titulo: "Competências e Habilidades",
+        icone: Gauge,
+        href: "/sistema/competencias",
+        descricao:
+          "Mapear níveis, lacunas, evidências e desenvolvimento profissional do efetivo.",
+        detalhe: "Abrir matriz de competências",
+      },
+      {
+        titulo: "Treinamentos Obrigatórios",
+        icone: ShieldAlert,
+        href: "/sistema/treinamentos-obrigatorios",
+        descricao:
+          "Controlar exigências, reciclagens, pendências, vencimentos e dispensas.",
+        detalhe: "Abrir conformidade profissional",
+      },
+      {
+        titulo: "Cursos e Capacitações",
+        icone: GraduationCap,
+        href: "/sistema/capacitacoes",
+        descricao:
+          "Gerenciar catálogo, turmas, inscrições, frequência, notas e certificados.",
+        detalhe: "Abrir formação profissional",
+      },
+      {
+        titulo: "Plano de Desenvolvimento Individual",
+        icone: Target,
+        href: "/sistema/pdi",
+        descricao:
+          "Definir metas, competências, cursos, prazos e acompanhar evolução funcional.",
+        detalhe: "Abrir planos individuais",
+      },
+      {
+        titulo: "Avaliação de Desempenho",
+        icone: Award,
+        href: "/sistema/avaliacoes-desempenho",
+        descricao:
+          "Avaliar competências, registrar ciência e acompanhar planos de melhoria.",
+        detalhe: "Abrir avaliações funcionais",
+      },
+      {
+        titulo: "Frequência e Produtividade",
+        icone: BarChart3,
+        href: "/sistema/relatorios/frequencia-produtividade",
+        descricao:
+          "Cruzar frequência, ocorrências, patrulhamentos, visitas e escalas extras.",
+        detalhe: "Abrir relatório gerencial",
+      },
+      {
+        titulo: "Folha de Ponto",
+        icone: FileSpreadsheet,
+        href: "/sistema/folha-ponto",
+        descricao:
+          "Gerar espelhos mensais, fechar competências, assinar e exportar frequência.",
+        detalhe: "Abrir folhas de ponto",
+      },
+      {
+        titulo: "Ponto Eletrônico",
+        icone: Fingerprint,
+        href: "/sistema/ponto-eletronico/gestao",
+        descricao:
+          "Controlar jornadas, atrasos, justificativas e frequência dos servidores.",
+        detalhe: "Abrir gestão de frequência",
+      },
+      {
+        titulo: "Escalas Extraordinárias",
+        icone: CalendarClock,
+        href: "/sistema/escalas/extras",
+        descricao:
+          "Criar eventos, convocar efetivo, registrar presença e gerar horas extras.",
+        detalhe: "Abrir escalas extraordinárias",
+      },
+      {
+        titulo: "Férias e Licenças",
+        icone: CalendarDays,
+        href: "/sistema/escalas/ferias-licencas",
+        descricao:
+          "Programar férias, licenças, afastamentos e bloqueios de escala.",
+        detalhe: "Abrir gestão de afastamentos",
+      },
+      {
+        titulo: "Banco de Horas",
+        icone: Clock3,
+        href: "/sistema/banco-horas",
+        descricao:
+          "Controlar créditos, débitos, compensações e solicitações dos servidores.",
+        detalhe: "Abrir banco de horas",
       },
       {
         titulo: "Usuários",

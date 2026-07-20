@@ -5,9 +5,11 @@ import {
   ChevronLeft,
   ChevronRight,
   CloudSun,
+  Droplets,
   ExternalLink,
   Newspaper,
   RefreshCw,
+  Wind,
 } from "lucide-react";
 
 type Noticia = {
@@ -71,9 +73,7 @@ export default function CardNoticiasClima() {
 
   function anterior() {
     if (noticias.length === 0) return;
-    setIndice((atual) =>
-      atual === 0 ? noticias.length - 1 : atual - 1
-    );
+    setIndice((atual) => (atual === 0 ? noticias.length - 1 : atual - 1));
   }
 
   function proxima() {
@@ -82,116 +82,95 @@ export default function CardNoticiasClima() {
   }
 
   return (
-    <section className="painel-premium h-full p-4 text-white">
-      <div className="mb-3 flex items-center justify-between">
-        <div>
-          <p className="text-xs font-black uppercase tracking-[0.25em] text-[#C9A227]">
-            Tempo real
-          </p>
-
-          <h2 className="mt-1 flex items-center gap-2 text-xl font-black">
-            <Newspaper className="text-[#C9A227]" size={22} />
-            Notícias e Clima
-          </h2>
+    <section className="bg-[linear-gradient(145deg,rgba(8,24,46,.98),rgba(3,12,27,.98))] p-3 text-white">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10 text-cyan-300">
+            <Newspaper className="h-4 w-4" />
+          </div>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-[0.18em] text-cyan-300">
+              Tempo real
+            </p>
+            <h2 className="text-sm font-black">Clima e notícias</h2>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={carregar}
-          className="rounded-xl border border-white/10 p-2 text-slate-300 hover:border-[#C9A227] hover:text-[#C9A227]"
+          className="rounded-xl border border-white/10 p-2 text-slate-400 transition hover:border-cyan-400/30 hover:text-cyan-300"
+          title="Atualizar"
         >
-          <RefreshCw size={17} />
+          <RefreshCw className={`h-4 w-4 ${carregando ? "animate-spin" : ""}`} />
         </button>
       </div>
 
       {carregando ? (
-        <p className="text-sm text-slate-400">Carregando informações...</p>
+        <div className="flex h-[112px] items-center justify-center text-xs text-slate-500">
+          Carregando informações...
+        </div>
       ) : (
-        <div className="grid h-[170px] grid-cols-1 gap-3 xl:grid-cols-[0.35fr_0.65fr]">
-          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-950/20 p-4">
-            <div className="flex items-center gap-3">
-              <CloudSun className="text-cyan-300" size={28} />
-
+        <div className="grid min-h-[112px] grid-cols-1 gap-2 xl:grid-cols-[220px_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.05] p-3">
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-slate-400">Clima local</p>
-
-                <h3 className="text-3xl font-black text-white">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-500">
+                  Clima local
+                </p>
+                <p className="mt-1 text-2xl font-black text-white">
                   {clima?.temperature_2m ?? "-"}°C
-                </h3>
+                </p>
               </div>
+              <CloudSun className="h-7 w-7 text-cyan-300" />
             </div>
 
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-              <p>Umidade: {clima?.relative_humidity_2m ?? "-"}%</p>
-              <p>Vento: {clima?.wind_speed_10m ?? "-"} km/h</p>
-              <p>Chuva: {clima?.precipitation ?? "0"} mm</p>
-              <p>Código: {clima?.weather_code ?? "-"}</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-[10px] text-slate-400">
+              <span className="flex items-center gap-1"><Droplets className="h-3 w-3" />{clima?.relative_humidity_2m ?? "-"}%</span>
+              <span className="flex items-center gap-1"><Wind className="h-3 w-3" />{clima?.wind_speed_10m ?? "-"}</span>
+              <span>{clima?.precipitation ?? "0"} mm</span>
             </div>
           </div>
 
-          <div className="relative rounded-2xl border border-white/10 bg-slate-950/70 p-4 overflow-hidden">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#020817]/75 p-3">
             {!noticiaAtual ? (
-              <p className="text-sm text-slate-400">
-                Nenhuma notícia encontrada agora.
-              </p>
+              <p className="text-xs text-slate-500">Nenhuma notícia encontrada agora.</p>
             ) : (
               <>
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-[#C9A227]">
-                  Segurança Pública
-                </p>
+                <div className="pr-20">
+                  <p className="text-[9px] font-black uppercase tracking-[0.16em] text-cyan-300">
+                    Segurança Pública
+                  </p>
+                  <h3 className="mt-1 line-clamp-2 text-sm font-black leading-5 text-white">
+                    {noticiaAtual.titulo}
+                  </h3>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    {noticiaAtual.fonte || "Notícias"}
+                    {noticiaAtual.data_publicacao
+                      ? ` • ${new Date(noticiaAtual.data_publicacao).toLocaleDateString("pt-BR")}`
+                      : ""}
+                  </p>
+                </div>
 
-                <h3 className="mt-2 line-clamp-2 text-lg font-black text-white">
-                  {noticiaAtual.titulo}
-                </h3>
-
-                <p className="mt-2 text-xs text-slate-400">
-                  {noticiaAtual.fonte || "Notícias"}
-                  {noticiaAtual.data_publicacao
-                    ? ` • ${new Date(
-                        noticiaAtual.data_publicacao
-                      ).toLocaleDateString("pt-BR")}`
-                    : ""}
-                </p>
-
-                <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between gap-3">
-                  <button
-                    type="button"
-                    onClick={anterior}
-                    className="rounded-lg border border-white/10 p-2 hover:border-[#C9A227]"
-                  >
-                    <ChevronLeft size={16} />
-                  </button>
+                <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
+                  <div className="flex gap-1">
+                    <button type="button" onClick={anterior} className="rounded-lg border border-white/10 p-1.5 hover:border-cyan-400/30">
+                      <ChevronLeft className="h-3.5 w-3.5" />
+                    </button>
+                    <button type="button" onClick={proxima} className="rounded-lg border border-white/10 p-1.5 hover:border-cyan-400/30">
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
 
                   <a
                     href={noticiaAtual.link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-[#C9A227]/50 px-4 py-2 text-xs font-black text-[#C9A227] hover:bg-[#C9A227]/10"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-400/30 px-3 py-1.5 text-[10px] font-black text-cyan-300 hover:bg-cyan-400/10"
                   >
-                    Ler notícia
-                    <ExternalLink size={14} />
+                    Ler
+                    <ExternalLink className="h-3 w-3" />
                   </a>
-
-                  <button
-                    type="button"
-                    onClick={proxima}
-                    className="rounded-lg border border-white/10 p-2 hover:border-[#C9A227]"
-                  >
-                    <ChevronRight size={16} />
-                  </button>
-                </div>
-
-                <div className="absolute right-4 top-4 flex gap-1">
-                  {noticias.slice(0, 8).map((_, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setIndice(i)}
-                      className={`h-2 w-2 rounded-full ${
-                        i === indice ? "bg-[#C9A227]" : "bg-slate-600"
-                      }`}
-                    />
-                  ))}
                 </div>
               </>
             )}

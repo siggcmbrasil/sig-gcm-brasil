@@ -1,723 +1,509 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
 import {
+  ArrowLeft,
   CalendarDays,
-  Send,
+  Loader2,
+  Save,
   XCircle,
 } from "lucide-react";
-import {
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
-import {
-  useParams,
-} from "next/navigation";
 
-import { supabase } from "@/lib/supabase";
-import { registrarAuditoria } from "@/lib/auditoria";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
+import { registrarAuditoria } from "@/lib/auditoria";
+import { supabase } from "@/lib/supabase";
+import {
+  formatarDataFeriasLicencas,
+  lerUsuarioFeriasLicencas,
+  nomeTipoFeriasLicencas,
+  normalizarFeriasLicencas,
+  podeGerenciarFeriasLicencas,
+} from "@/lib/feriasLicencas";
+
+type Guarda = {
+  id: number;
+  nome: string;
+  matricula: string | null;
+  usuario_id: number | null;
+};
 
 type Registro = {
   id: number;
   tipo: string;
-  status: string;
   data_inicio: string;
   data_fim: string;
+  quantidade_dias: number | null;
   motivo: string | null;
   observacao: string | null;
-  permite_extra_apoio: boolean;
-  aprovado_em: string | null;
+  status: string;
+  bloqueia_escala: boolean;
+  decisao_observacao: string | null;
   criado_em: string;
-  pode_cancelar: boolean;
 };
 
-const tiposPermitidos = [
-  {
-    valor: "FERIAS",
-    nome: "Férias",
-  },
-  {
-    valor: "LICENCA_MEDICA",
-    nome: "Licença médica",
-  },
-  {
-    valor: "LICENCA_PREMIO",
-    nome: "Licença-prêmio",
-  },
-  {
-    valor: "CURSO",
-    nome: "Curso",
-  },
-  {
-    valor: "OUTROS",
-    nome: "Outros",
-  },
-];
-
-function formatarData(
-  data?: string | null
-) {
-  if (!data) {
-    return "-";
-  }
-
-  return new Date(
-    `${data}T12:00:00`
-  ).toLocaleDateString("pt-BR");
-}
-
-function nomeTipo(tipo: string) {
-  return (
-    tiposPermitidos.find(
-      (item) =>
-        item.valor === tipo
-    )?.nome ||
-    tipo.replaceAll("_", " ")
-  );
-}
-
-function corStatus(status: string) {
-  switch (
-    String(status || "")
-      .toUpperCase()
-  ) {
-    case "APROVADO":
-    case "ATIVO":
-      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-300";
-
-    case "NEGADO":
-    case "CANCELADO":
-      return "border-red-500/30 bg-red-500/10 text-red-300";
-
-    case "FINALIZADO":
-      return "border-slate-500/30 bg-slate-500/10 text-slate-400";
-
-    default:
-      return "border-yellow-500/30 bg-yellow-500/10 text-yellow-300";
-  }
+function hoje() {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bahia",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export default function FeriasLicencasGuardaPage() {
-  const parametros = useParams();
+  const params = useParams();
+  const router = useRouter();
+  const guardaId = Number(params.id);
+  const [usuario] = useState(() => lerUsuarioFeriasLicencas());
+  const [guarda, setGuarda] = useState<Guarda | null>(null);
+  const [registros, setRegistros] = useState<Registro[]>([]);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [form, setForm] = useState({
+    tipo: "FERIAS",
+    data_inicio: hoje(),
+    data_fim: hoje(),
+    motivo: "",
+    observacao: "",
+  });
 
-  const guardaId = Number(
-    parametros.id
-  );
+  const gerencia = usuario ? podeGerenciarFeriasLicencas(usuario.perfil) : false;
+  const proprioGuarda =
+    !!usuario &&
+    !!guarda &&
+    (Number(guarda.usuario_id) === Number(usuario.id) ||
+      (!!usuario.matricula && guarda.matricula === usuario.matricula) ||
+      normalizarFeriasLicencas(guarda.nome) ===
+        normalizarFeriasLicencas(usuario.nome));
 
-  const [
-    registros,
-    setRegistros,
-  ] = useState<Registro[]>([]);
-
-  const [tipo, setTipo] =
-    useState("FERIAS");
-
-  const [
-    dataInicio,
-    setDataInicio,
-  ] = useState("");
-
-  const [dataFim, setDataFim] =
-    useState("");
-
-  const [motivo, setMotivo] =
-    useState("");
-
-  const [
-    observacao,
-    setObservacao,
-  ] = useState("");
-
-  const [
-    carregando,
-    setCarregando,
-  ] = useState(true);
-
-  const [
-    salvando,
-    setSalvando,
-  ] = useState(false);
-
-  const [
-    podeSolicitar,
-    setPodeSolicitar,
-  ] = useState(false);
-
-  const usuario = useMemo(() => {
-    if (
-      typeof window ===
-      "undefined"
-    ) {
-      return {};
-    }
-
-    try {
-      return JSON.parse(
-        localStorage.getItem(
-          "usuarioLogado"
-        ) || "{}"
-      );
-    } catch {
-      return {};
-    }
-  }, []);
-
-  useEffect(() => {
-    void carregar();
-  }, [guardaId]);
-
-  async function carregar() {
-    if (
-      !Number.isSafeInteger(
-        guardaId
-      ) ||
-      guardaId <= 0
-    ) {
-      setCarregando(false);
-      return;
-    }
+  const carregar = useCallback(async () => {
+    if (!usuario?.municipio_id || !guardaId) return;
 
     setCarregando(true);
+    setErro("");
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase.rpc(
-        "rh_listar_afastamentos_dossie",
-        {
-          p_guarda_id:
-            guardaId,
+      const [guardaResposta, registrosResposta] = await Promise.all([
+        supabase
+          .from("guardas")
+          .select("id,nome,matricula,usuario_id")
+          .eq("municipio_id", usuario.municipio_id)
+          .eq("id", guardaId)
+          .single(),
+        supabase
+          .from("ferias_licencas")
+          .select("*")
+          .eq("municipio_id", usuario.municipio_id)
+          .eq("guarda_id", guardaId)
+          .order("data_inicio", { ascending: false })
+          .order("id", { ascending: false }),
+      ]);
+
+      const primeiroErro = guardaResposta.error || registrosResposta.error;
+      if (primeiroErro) {
+        if (primeiroErro.code === "42P01" || primeiroErro.code === "42703") {
+          throw new Error("Execute primeiro supabase/FERIAS_LICENCAS.sql.");
         }
-      );
-
-      if (error) {
-        throw new Error(
-          error.message
-        );
+        throw primeiroErro;
       }
 
-      const lista =
-        (data || []) as Registro[];
-
-      setRegistros(lista);
-
-      const temRegistroCancelavel =
-        lista.some(
-          (item) =>
-            item.pode_cancelar
-        );
-
-      const perfil =
-        String(
-          usuario?.perfil || ""
-        ).toUpperCase();
-
-      const perfilAdministrativo =
-        [
-          "DESENVOLVEDOR",
-          "ADMIN",
-          "COMANDANTE",
-          "DIRETOR",
-          "CMT_GUARNICAO",
-        ].includes(perfil);
-
-      /*
-       * Quando o retorno possui uma solicitação
-       * cancelável, já sabemos que este é o próprio
-       * guarda. Para quem ainda não possui registros,
-       * confirmamos o vínculo abaixo.
-       */
-      if (temRegistroCancelavel) {
-        setPodeSolicitar(true);
-        return;
-      }
-
-      const {
-        data: guarda,
-        error: guardaError,
-      } = await supabase
-        .from("guardas")
-        .select("id,usuario_id")
-        .eq("id", guardaId)
-        .maybeSingle();
-
-      if (guardaError) {
-        throw new Error(
-          guardaError.message
-        );
-      }
-
-      setPodeSolicitar(
-        Number(
-          guarda?.usuario_id
-        ) ===
-          Number(
-            usuario?.id
-          ) &&
-          !perfilAdministrativo
-      );
+      setGuarda(guardaResposta.data as Guarda);
+      setRegistros((registrosResposta.data as Registro[] | null) || []);
     } catch (error) {
-      console.error(
-        "Erro ao carregar férias e licenças:",
-        error
-      );
-
-      alert(
+      setErro(
         error instanceof Error
           ? error.message
-          : "Não foi possível carregar os registros."
+          : "Não foi possível carregar os afastamentos."
       );
     } finally {
       setCarregando(false);
     }
-  }
+  }, [guardaId, usuario]);
+
+  useEffect(() => {
+    void carregar();
+  }, [carregar]);
 
   async function solicitar() {
-    if (salvando) {
+    if (!usuario?.municipio_id || !guarda) return;
+
+    if (!gerencia && !proprioGuarda) {
+      setErro("Você não pode solicitar afastamento para outro servidor.");
       return;
     }
 
-    if (!podeSolicitar) {
-      alert(
-        "Esta área permite solicitações apenas pelo próprio guarda."
-      );
+    if (!form.data_inicio || !form.data_fim) {
+      setErro("Preencha as datas.");
       return;
     }
 
-    if (
-      !dataInicio ||
-      !dataFim
-    ) {
-      alert(
-        "Informe a data inicial e a data final."
-      );
-      return;
-    }
-
-    if (dataFim < dataInicio) {
-      alert(
-        "A data final não pode ser anterior à data inicial."
-      );
-      return;
-    }
-
-    if (!motivo.trim()) {
-      alert(
-        "Informe o motivo da solicitação."
-      );
+    if (form.data_fim < form.data_inicio) {
+      setErro("A data final não pode ser anterior à inicial.");
       return;
     }
 
     setSalvando(true);
+    setErro("");
 
     try {
-      const {
-        data,
-        error,
-      } = await supabase.rpc(
-        "rh_solicitar_meu_afastamento",
-        {
-          p_tipo: tipo,
-          p_data_inicio:
-            dataInicio,
-          p_data_fim:
-            dataFim,
-          p_motivo:
-            motivo.trim(),
-          p_observacao:
-            observacao.trim() ||
-            null,
-        }
-      );
+      const status = gerencia ? "APROVADO" : "PENDENTE";
 
-      if (error) {
-        throw new Error(
-          error.message
-        );
-      }
+      const { data, error } = await supabase
+        .from("ferias_licencas")
+        .insert({
+          municipio_id: usuario.municipio_id,
+          guarda_id: guarda.id,
+          guarda_nome: guarda.nome,
+          matricula: guarda.matricula,
+          tipo: form.tipo,
+          modalidade: "INTEGRAL",
+          data_inicio: form.data_inicio,
+          data_fim: form.data_fim,
+          motivo: form.motivo.trim() || null,
+          observacao: form.observacao.trim() || null,
+          status,
+          origem: gerencia ? "CADASTRO_ADMINISTRATIVO" : "SOLICITACAO",
+          bloqueia_escala: true,
+          solicitado_por: Number(usuario.id),
+          solicitado_por_nome: usuario.nome,
+          aprovado_por: gerencia ? Number(usuario.id) : null,
+          aprovado_por_nome: gerencia ? usuario.nome : null,
+          aprovado_em: gerencia ? new Date().toISOString() : null,
+        })
+        .select("id")
+        .single();
 
-      await registrarAuditoria({
-        modulo:
-          "Dossiê do Guarda",
-        acao:
-          "SOLICITAR_AFASTAMENTO",
-        tabela:
-          "rh_afastamentos",
-        registro_id:
-          String(data?.id || ""),
-        descricao:
-          `Solicitou ${nomeTipo(
-            tipo
-          )}, de ${formatarData(
-            dataInicio
-          )} até ${formatarData(
-            dataFim
-          )}.`,
-        detalhes: {
-          guarda_id:
-            guardaId,
-          tipo,
-          data_inicio:
-            dataInicio,
-          data_fim:
-            dataFim,
-          status:
-            "PENDENTE",
-        },
+      if (error) throw error;
+
+      await supabase.from("ferias_licencas_historico").insert({
+        municipio_id: usuario.municipio_id,
+        registro_id: data.id,
+        guarda_id: guarda.id,
+        usuario_id: Number(usuario.id),
+        usuario_nome: usuario.nome,
+        acao: gerencia ? "REGISTRO_CRIADO" : "SOLICITACAO_CRIADA",
+        descricao: `${nomeTipoFeriasLicencas(form.tipo)} para ${guarda.nome}.`,
       });
 
-      setTipo("FERIAS");
-      setDataInicio("");
-      setDataFim("");
-      setMotivo("");
-      setObservacao("");
+      await registrarAuditoria({
+        modulo: "Férias e Licenças",
+        acao: gerencia ? "CRIAR" : "SOLICITAR",
+        tabela: "ferias_licencas",
+        registro_id: data.id,
+        descricao: `${gerencia ? "Registrou" : "Solicitou"} ${nomeTipoFeriasLicencas(form.tipo)} para ${guarda.nome}.`,
+      });
 
-      alert(
-        "Solicitação enviada para análise do Comando/RH."
-      );
+      setForm({
+        tipo: "FERIAS",
+        data_inicio: hoje(),
+        data_fim: hoje(),
+        motivo: "",
+        observacao: "",
+      });
 
       await carregar();
     } catch (error) {
-      console.error(
-        "Erro ao solicitar férias ou licença:",
-        error
-      );
-
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível enviar a solicitação."
+      setErro(
+        error instanceof Error ? error.message : "Não foi possível solicitar."
       );
     } finally {
       setSalvando(false);
     }
   }
 
-  async function cancelar(
-    registro: Registro
-  ) {
-    if (
-      !registro.pode_cancelar
-    ) {
-      return;
-    }
+  async function cancelar(registro: Registro) {
+    if (!usuario?.municipio_id || (!gerencia && !proprioGuarda)) return;
 
-    if (
-      !confirm(
-        "Cancelar esta solicitação pendente?"
-      )
-    ) {
-      return;
-    }
+    const motivo = window.prompt("Informe o motivo do cancelamento:");
+    if (!motivo) return;
+
+    setSalvando(true);
 
     try {
-      const {
-        error,
-      } = await supabase.rpc(
-        "rh_cancelar_minha_solicitacao",
-        {
-          p_afastamento_id:
-            registro.id,
-        }
-      );
+      const { error } = await supabase
+        .from("ferias_licencas")
+        .update({
+          status: "CANCELADO",
+          cancelado_por: Number(usuario.id),
+          cancelado_por_nome: usuario.nome,
+          cancelado_em: new Date().toISOString(),
+          cancelamento_motivo: motivo,
+        })
+        .eq("id", registro.id)
+        .eq("municipio_id", usuario.municipio_id);
 
-      if (error) {
-        throw new Error(
-          error.message
-        );
-      }
+      if (error) throw error;
 
       await registrarAuditoria({
-        modulo:
-          "Dossiê do Guarda",
-        acao:
-          "CANCELAR_SOLICITACAO_AFASTAMENTO",
-        tabela:
-          "rh_afastamentos",
-        registro_id:
-          String(registro.id),
-        descricao:
-          `Cancelou solicitação de ${nomeTipo(
-            registro.tipo
-          )}.`,
-        detalhes: {
-          guarda_id:
-            guardaId,
-          afastamento_id:
-            registro.id,
-        },
+        modulo: "Férias e Licenças",
+        acao: "CANCELAR",
+        tabela: "ferias_licencas",
+        registro_id: registro.id,
+        descricao: `Cancelou ${nomeTipoFeriasLicencas(registro.tipo)} de ${guarda?.nome}.`,
       });
-
-      alert(
-        "Solicitação cancelada."
-      );
 
       await carregar();
     } catch (error) {
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível cancelar a solicitação."
+      setErro(
+        error instanceof Error ? error.message : "Não foi possível cancelar."
       );
+    } finally {
+      setSalvando(false);
     }
+  }
+
+  if (carregando) {
+    return (
+      <main className="flex min-h-[70vh] items-center justify-center">
+        <Loader2 className="h-10 w-10 animate-spin text-cyan-300" />
+      </main>
+    );
   }
 
   return (
     <ProtecaoModulo modulo="guardas">
-      <div className="space-y-6 p-4 pb-24 text-white md:p-6">
-        <div className="painel-premium p-6">
-          <h1 className="text-3xl font-black">
-            Férias e Licenças
-          </h1>
+      <main className="min-h-screen bg-[#020b1c] px-4 py-5 text-white lg:px-7">
+        <div className="mx-auto max-w-[1400px] space-y-5">
+          <header className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-[#07182f] to-[#020b1c] p-5 lg:p-7">
+            <button
+              onClick={() => router.back()}
+              className="mb-4 inline-flex items-center gap-2 text-sm font-black text-slate-400"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Voltar
+            </button>
 
-          <p className="mt-2 text-slate-400">
-            Consulte o histórico e acompanhe solicitações de férias, licenças e cursos.
-          </p>
-        </div>
+            <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+              Férias e licenças
+            </p>
+            <h1 className="mt-1 text-2xl font-black lg:text-3xl">
+              {guarda?.nome || "Servidor"}
+            </h1>
+            <p className="mt-2 text-sm text-slate-400">
+              Matrícula: {guarda?.matricula || "Não informada"}
+            </p>
+          </header>
 
-        {podeSolicitar && (
-          <div className="painel-premium p-6">
-            <div className="mb-5">
-              <h2 className="text-xl font-black text-white">
-                Nova solicitação
+          {erro ? (
+            <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-200">
+              {erro}
+            </div>
+          ) : null}
+
+          {(gerencia || proprioGuarda) ? (
+            <section className="rounded-2xl border border-slate-800 bg-[#061326] p-5">
+              <h2 className="font-black">
+                {gerencia ? "Novo registro" : "Nova solicitação"}
               </h2>
 
-              <p className="mt-1 text-sm text-slate-400">
-                A solicitação será enviada com status PENDENTE e dependerá da aprovação do Comando/RH.
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="label">
-                  Tipo
-                </label>
-
-                <select
-                  className="input"
-                  value={tipo}
-                  disabled={salvando}
-                  onChange={(event) =>
-                    setTipo(
-                      event.target.value
-                    )
+              <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <Select
+                  label="Tipo"
+                  value={form.tipo}
+                  onChange={(valor) =>
+                    setForm((atual) => ({ ...atual, tipo: valor }))
                   }
-                >
-                  {tiposPermitidos.map(
-                    (item) => (
-                      <option
-                        key={
-                          item.valor
-                        }
-                        value={
-                          item.valor
-                        }
-                      >
-                        {item.nome}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
+                  options={[
+                    "FERIAS",
+                    "LICENCA_MEDICA",
+                    "LICENCA_PREMIO",
+                    "LICENCA_MATERNIDADE",
+                    "LICENCA_PATERNIDADE",
+                    "ATESTADO",
+                    "CURSO",
+                    "AFASTAMENTO",
+                    "OUTROS",
+                  ]}
+                />
 
-              <div>
-                <label className="label">
-                  Data inicial
-                </label>
-
-                <input
+                <Campo
+                  label="Data inicial"
                   type="date"
-                  className="input"
-                  value={dataInicio}
-                  disabled={salvando}
-                  onChange={(event) =>
-                    setDataInicio(
-                      event.target.value
-                    )
+                  value={form.data_inicio}
+                  onChange={(valor) =>
+                    setForm((atual) => ({ ...atual, data_inicio: valor }))
                   }
                 />
-              </div>
 
-              <div>
-                <label className="label">
-                  Data final
-                </label>
-
-                <input
+                <Campo
+                  label="Data final"
                   type="date"
-                  className="input"
-                  min={
-                    dataInicio ||
-                    undefined
+                  value={form.data_fim}
+                  onChange={(valor) =>
+                    setForm((atual) => ({ ...atual, data_fim: valor }))
                   }
-                  value={dataFim}
-                  disabled={salvando}
-                  onChange={(event) =>
-                    setDataFim(
-                      event.target.value
-                    )
+                />
+
+                <Campo
+                  label="Motivo"
+                  value={form.motivo}
+                  onChange={(valor) =>
+                    setForm((atual) => ({ ...atual, motivo: valor }))
                   }
                 />
               </div>
 
-              <div>
-                <label className="label">
-                  Motivo
-                </label>
-
-                <input
-                  className="input"
-                  value={motivo}
-                  disabled={salvando}
-                  placeholder="Informe o motivo da solicitação"
-                  onChange={(event) =>
-                    setMotivo(
-                      event.target.value
-                    )
-                  }
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="label">
+              <label className="mt-4 block">
+                <span className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
                   Observações
-                </label>
-
+                </span>
                 <textarea
-                  className="input min-h-28 resize-none"
-                  value={observacao}
-                  disabled={salvando}
-                  placeholder="Informações complementares..."
+                  rows={4}
+                  value={form.observacao}
                   onChange={(event) =>
-                    setObservacao(
-                      event.target.value
-                    )
+                    setForm((atual) => ({
+                      ...atual,
+                      observacao: event.target.value,
+                    }))
                   }
+                  className="w-full rounded-xl border border-slate-700 bg-slate-950/60 p-4 outline-none"
                 />
+              </label>
+
+              <button
+                onClick={() => void solicitar()}
+                disabled={salvando}
+                className="mt-4 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-5 py-3 font-black text-slate-950 disabled:opacity-50"
+              >
+                {salvando ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5" />
+                )}
+                {gerencia ? "Salvar registro" : "Enviar solicitação"}
+              </button>
+            </section>
+          ) : null}
+
+          <section className="grid gap-4 xl:grid-cols-2">
+            {registros.length === 0 ? (
+              <div className="col-span-full rounded-3xl border border-dashed border-slate-700 p-12 text-center text-slate-500">
+                Nenhum afastamento registrado.
               </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() =>
-                void solicitar()
-              }
-              disabled={salvando}
-              className="btn-primary mt-5 inline-flex items-center gap-2 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Send className="h-5 w-5" />
-
-              {salvando
-                ? "Enviando..."
-                : "Enviar solicitação"}
-            </button>
-          </div>
-        )}
-
-        {!podeSolicitar && (
-          <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-slate-300">
-            Esta área está em modo de consulta. Solicitações somente podem ser realizadas pelo próprio guarda vinculado ao usuário.
-          </div>
-        )}
-
-        <div className="space-y-4">
-          {carregando ? (
-            <div className="painel-premium p-6">
-              <p className="text-slate-400">
-                Carregando registros...
-              </p>
-            </div>
-          ) : registros.length === 0 ? (
-            <div className="painel-premium p-8 text-center">
-              <CalendarDays className="mx-auto mb-3 h-10 w-10 text-slate-500" />
-
-              <p className="text-slate-400">
-                Nenhum registro encontrado.
-              </p>
-            </div>
-          ) : (
-            registros.map(
-              (item) => (
-                <div
+            ) : (
+              registros.map((item) => (
+                <article
                   key={item.id}
-                  className="painel-premium p-5"
+                  className="rounded-2xl border border-slate-800 bg-[#061326] p-5"
                 >
-                  <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-xl font-black text-white">
-                        {nomeTipo(
-                          item.tipo
-                        )}
+                      <h2 className="font-black">
+                        {nomeTipoFeriasLicencas(item.tipo)}
                       </h2>
-
-                      <p className="mt-1 text-slate-400">
-                        {formatarData(
-                          item.data_inicio
-                        )}{" "}
-                        até{" "}
-                        {formatarData(
-                          item.data_fim
-                        )}
+                      <p className="mt-1 text-xs text-slate-500">
+                        {formatarDataFeriasLicencas(item.data_inicio)} até{" "}
+                        {formatarDataFeriasLicencas(item.data_fim)} •{" "}
+                        {item.quantidade_dias || "--"} dia(s)
                       </p>
                     </div>
-
-                    <span
-                      className={`w-fit rounded-full border px-3 py-1 text-xs font-black ${corStatus(
-                        item.status
-                      )}`}
-                    >
-                      {item.status}
-                    </span>
+                    <Status status={item.status} />
                   </div>
 
-                  {item.motivo && (
-                    <div className="mt-4">
-                      <p className="text-xs font-black uppercase tracking-wide text-slate-500">
-                        Motivo
-                      </p>
+                  {item.motivo ? (
+                    <p className="mt-4 text-sm text-slate-300">{item.motivo}</p>
+                  ) : null}
 
-                      <p className="mt-1 text-slate-300">
-                        {item.motivo}
-                      </p>
-                    </div>
-                  )}
-
-                  {item.observacao && (
-                    <div className="mt-4 border-t border-slate-800 pt-4">
-                      <p className="whitespace-pre-wrap text-slate-400">
-                        {item.observacao}
-                      </p>
-                    </div>
-                  )}
-
-                  {item.permite_extra_apoio && (
-                    <p className="mt-4 text-sm font-bold text-yellow-300">
-                      Serviço EXTRA/APOIO autorizado pelo Comando.
+                  {item.decisao_observacao ? (
+                    <p className="mt-3 text-xs text-slate-500">
+                      Decisão: {item.decisao_observacao}
                     </p>
-                  )}
+                  ) : null}
 
-                  {item.pode_cancelar && (
+                  {!["CANCELADO", "NEGADO", "FINALIZADO"].includes(
+                    normalizarFeriasLicencas(item.status)
+                  ) &&
+                  (gerencia || proprioGuarda) ? (
                     <button
-                      type="button"
-                      onClick={() =>
-                        void cancelar(
-                          item
-                        )
-                      }
-                      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 font-bold text-red-300 hover:bg-red-500/20"
+                      onClick={() => void cancelar(item)}
+                      disabled={salvando}
+                      className="mt-5 inline-flex items-center gap-2 rounded-xl border border-rose-400/25 bg-rose-400/10 px-4 py-3 text-sm font-black text-rose-300"
                     >
                       <XCircle className="h-4 w-4" />
-                      Cancelar solicitação
+                      Cancelar
                     </button>
-                  )}
-                </div>
-              )
-            )
-          )}
+                  ) : null}
+                </article>
+              ))
+            )}
+          </section>
         </div>
-      </div>
+      </main>
     </ProtecaoModulo>
+  );
+}
+
+function Campo({
+  label,
+  value,
+  onChange,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+  type?: string;
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      <input
+        type={type}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 outline-none"
+      />
+    </label>
+  );
+}
+
+function Select({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (valor: string) => void;
+  options: string[];
+}) {
+  return (
+    <label>
+      <span className="mb-2 block text-xs font-black uppercase tracking-wider text-slate-500">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-12 w-full rounded-xl border border-slate-700 bg-slate-950/60 px-4 outline-none"
+      >
+        {options.map((item) => (
+          <option key={item} value={item}>
+            {item.replaceAll("_", " ")}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function Status({ status }: { status: string }) {
+  const normalizado = normalizarFeriasLicencas(status);
+  const classe =
+    normalizado === "APROVADO"
+      ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+      : normalizado === "NEGADO" || normalizado === "CANCELADO"
+        ? "border-rose-400/25 bg-rose-400/10 text-rose-300"
+        : "border-amber-400/25 bg-amber-400/10 text-amber-300";
+
+  return (
+    <span className={`rounded-full border px-3 py-1 text-[10px] font-black ${classe}`}>
+      {status}
+    </span>
   );
 }

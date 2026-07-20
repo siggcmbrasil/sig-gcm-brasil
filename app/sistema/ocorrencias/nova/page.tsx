@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import "./formulario-premium.css";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { TIPOS_OCORRENCIA } from "@/lib/modelosOcorrencia";
@@ -2653,8 +2654,8 @@ if (erroInicial) {
   return (
   <ProtecaoModulo modulo="ocorrencias">
   <>
-    <div className="hidden md:block min-h-screen bg-[#07152E] p-6 md:p-8">
-<header className="mb-8 border-b border-[#d6a93b] pb-6">
+    <div className="formularioOcorrenciaPremium hidden min-h-screen bg-[#020817] p-6 md:block md:p-8">
+<header className="cabecalhoOcorrenciaPremium">
   <h1 className="text-4xl font-black text-white">
     Nova Ocorrência
   </h1>
@@ -2664,7 +2665,7 @@ if (erroInicial) {
   </p>
 </header>
 
-<form className="w-full max-w-full overflow-hidden rounded-2xl border border-[#C9A227] bg-[#0D1B34] p-8 space-y-8">
+<form className="formularioPrincipalOcorrencia w-full max-w-full space-y-8 overflow-hidden">
         
   <DadosOcorrencia>
 
@@ -4081,7 +4082,7 @@ let valor = formatarTelefone(e.target.value);
 </form>
     </div>
 
-    <div className="block md:hidden">
+    <div className="formularioOcorrenciaPremium block md:hidden">
   <main className="min-h-screen bg-[#02060f] text-white p-4 pb-28">
     <header className="mb-5">
       <h1 className="text-3xl font-black">

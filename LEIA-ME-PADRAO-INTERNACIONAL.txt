@@ -1,0 +1,23 @@
+SIG-GCM BRASIL — EDIÇÃO INTERNACIONAL
+
+APLICAÇÃO
+1. Extraia o ZIP.
+2. Copie o conteúdo para a raiz do projeto atual.
+3. Confirme a substituição dos arquivos.
+4. Não é necessário executar novo SQL para esta atualização visual e organizacional.
+5. Execute: npm run build
+
+PRINCIPAIS EVOLUÇÕES
+- Central de Módulos com visão executiva e organização institucional.
+- SIG Trânsito apresentado como suíte completa de mobilidade urbana.
+- Componente estratégico redesenhado em padrão premium.
+- Indicadores, breadcrumbs, categorias, selos e maturidade operacional.
+- Nova área de Governança Internacional.
+- Segurança, LGPD, riscos, continuidade, interoperabilidade e qualidade de dados.
+- Preparação conceitual para português, espanhol e inglês.
+- Estrutura existente preservada.
+
+ROTAS PRINCIPAIS
+/sistema/central-modulos
+/sistema/transito
+/sistema/governanca-internacional

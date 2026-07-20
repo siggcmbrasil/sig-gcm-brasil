@@ -55,7 +55,7 @@ const cards = [
   },
   {
     titulo: "Nova Operação",
-    href: "/sistema/operacoes-especiais/nova",
+    href: "/sistema/operacoes",
     descricao:
       "Cadastrar uma nova operação especial com objetivo, efetivo e viaturas.",
     icone: PlusCircle,
@@ -256,7 +256,7 @@ export default function CentralOperacoesPage() {
             icone={ShieldCheck}
             acoes={
               <>
-                <Link href="/sistema/operacoes-especiais/nova">
+                <Link href="/sistema/operacoes">
                   <SigButton
                     type="primary"
                     icon={PlusCircle}

@@ -284,7 +284,7 @@ export default function CentralFrotaPage() {
             icone={Truck}
             acoes={
               <>
-                <Link href="/sistema/viaturas">
+                <Link href="/sistema/central-frota/viaturas">
                   <SigButton
                     type="primary"
                     icon={CarFront}
@@ -451,7 +451,7 @@ export default function CentralFrotaPage() {
 
                   {viaturas.length > 12 ? (
                     <Link
-                      href="/sistema/viaturas"
+                      href="/sistema/central-frota/viaturas"
                       className="mt-5 block rounded-xl border border-cyan-400/20 bg-cyan-400/[0.06] py-3 text-center text-sm font-black text-cyan-200 transition hover:bg-cyan-400/10"
                     >
                       Ver toda a frota
@@ -481,7 +481,7 @@ export default function CentralFrotaPage() {
                       viaturasPrioritarias.map((viatura) => (
                         <Link
                           key={viatura.id}
-                          href="/sistema/viaturas"
+                          href="/sistema/central-frota/viaturas"
                           className="block rounded-2xl border border-amber-400/15 bg-amber-400/[0.05] p-4 transition hover:border-amber-400/30"
                         >
                           <div className="flex items-start gap-3">

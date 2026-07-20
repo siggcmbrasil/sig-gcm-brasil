@@ -64,7 +64,7 @@ export default function EscalasMobilePage() {
 
       <div className="grid grid-cols-2 gap-4">
         <Link
-          href="/sistema/escalas-menu"
+          href="/sistema/escalas"
           className="rounded-3xl bg-yellow-500 text-black p-5 min-h-36 flex flex-col items-center justify-center text-center active:scale-95"
         >
           <CalendarDays className="w-12 h-12 mb-3" />

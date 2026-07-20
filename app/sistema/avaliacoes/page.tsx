@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import {
   ClipboardCheck,
   Lock,
@@ -152,7 +153,16 @@ export default function AvaliacoesPage() {
   if (bloqueado) {
     return (
       <div className="p-4 md:p-6 pb-24 space-y-6">
-        <SigPageHeader
+        <div className="mb-4 flex justify-end">
+        <Link
+          href="/sistema/saude-mental"
+          className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300"
+        >
+          Saúde mental e apoio psicossocial
+        </Link>
+      </div>
+
+      <SigPageHeader
           titulo="Acesso Restrito"
           subtitulo="Você não possui permissão para acessar Avaliações."
           icone={Lock}
@@ -177,6 +187,12 @@ export default function AvaliacoesPage() {
 
   return (
     <div className="p-4 md:p-6 pb-24 space-y-6">
+      <div className="flex justify-end">
+        <Link href="/sistema/estagio-probatorio" className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300">
+          Estágio probatório
+        </Link>
+      </div>
+
       <SigPageHeader
         titulo="Avaliações"
         subtitulo="Gestão de avaliações de desempenho e acompanhamento profissional."

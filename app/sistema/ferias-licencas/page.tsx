@@ -469,7 +469,14 @@ export default function FeriasLicencasPage() {
   return (
     <ProtecaoModulo modulo="ferias_licencas">
       <div className="space-y-6 p-4 pb-24 md:p-6">
-        <SigPageHeader
+  
+      <div className="mb-4 flex justify-end">
+        <Link href="/sistema/saude-ocupacional" className="rounded-xl border border-cyan-400/25 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300">
+          Saúde ocupacional
+        </Link>
+      </div>
+
+      <SigPageHeader
           titulo="Férias e Licenças"
           subtitulo="Controle integrado de férias, licenças, afastamentos, cursos e indisponibilidades funcionais."
           icone={CalendarDays}

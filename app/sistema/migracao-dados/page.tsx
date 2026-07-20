@@ -113,7 +113,7 @@ export default function MigracaoDadosPage() {
 </Link>
 
 <Link
-  href="/sistema/migracao-dados/inconsistencias"
+  href="/sistema/migracao-dados/inconsistencia"
   className="rounded-2xl border border-slate-800 bg-slate-950/70 p-6 hover:border-red-500/60 transition"
 >
   <ShieldCheck className="w-10 h-10 text-red-400 mb-4" />

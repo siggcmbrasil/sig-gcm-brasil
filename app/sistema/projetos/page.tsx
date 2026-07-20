@@ -111,7 +111,7 @@ export default function ProjetosPage() {
           </div>
 
           <Link
-            href="/sistema/portal-cidadao/programas/nova"
+            href="/sistema/portal-cidadao/programas"
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-yellow-500 px-5 py-3 text-sm font-black text-slate-950 hover:bg-yellow-400 transition"
           >
             <FileText className="w-5 h-5" />

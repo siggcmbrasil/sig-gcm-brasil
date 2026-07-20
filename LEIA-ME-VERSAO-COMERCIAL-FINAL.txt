@@ -1,0 +1,25 @@
+SIG-GCM BRASIL — VERSÃO COMERCIAL FINAL
+
+MÓDULOS DE APRESENTAÇÃO:
+1. Ocorrências Premium
+2. Central de Comando
+3. Escalas, Plantões e Permutas
+
+SEGURANÇA VALIDADA:
+- RLS comercial: falhas=0 em 871 verificações
+- Views com security_invoker
+- Storage privado por município
+- Auditoria imutável
+- Supabase Realtime
+- PDF e QR Code de validação
+
+IMPORTANTE:
+Os SQLs já foram executados e validados no banco informado pelo proprietário.
+A pasta supabase preserva todos os scripts para histórico, implantação em novos ambientes e auditoria.
+
+ANTES DO DEPLOY:
+- restaurar o arquivo .env.local somente no computador do proprietário;
+- executar npm install;
+- executar npm run build;
+- testar logins de municípios e perfis diferentes;
+- publicar na Vercel sem expor SUPABASE_SERVICE_ROLE_KEY no cliente.

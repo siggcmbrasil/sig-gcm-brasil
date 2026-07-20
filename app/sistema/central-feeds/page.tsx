@@ -1,5 +1,7 @@
 "use client";
 
+import "../feeds-premium.css";
+
 import Link from "next/link";
 import {
   BarChart3,
@@ -366,8 +368,8 @@ export default function CentralFeedsPage() {
 
   return (
     <ProtecaoModulo modulo="feed_sig">
-      <main className="sig-page">
-        <div className="sig-page-content">
+      <main className="sig-page feedsPremium centralFeedsPremium">
+        <div className="sig-page-content mx-auto w-full max-w-[1700px]">
           <SigPageHeader
             titulo="Central de Feeds"
             subtitulo={`${municipioNome} • Publicações internas, rede Brasil, blog operacional e avisos.`}
@@ -400,7 +402,7 @@ export default function CentralFeedsPage() {
 
           {erro ? <div className="sig-error">{erro}</div> : null}
 
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="feedsStats grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
             <SigStatCard
               titulo="Publicações"
               valor={totalPublicacoes}
@@ -448,8 +450,8 @@ export default function CentralFeedsPage() {
             </div>
           ) : (
             <>
-              <section className="grid gap-4 xl:grid-cols-12">
-                <SigCard className="xl:col-span-8">
+              <section className="feedsMainGrid grid gap-4 xl:grid-cols-12">
+                <SigCard className="feedsActivity xl:col-span-8">
                   <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
                     <Newspaper className="h-6 w-6 text-cyan-300" />
                     <div>
@@ -511,7 +513,7 @@ export default function CentralFeedsPage() {
                   </div>
                 </SigCard>
 
-                <SigCard className="xl:col-span-4" destaque>
+                <SigCard className="feedsNetwork xl:col-span-4" destaque>
                   <h2 className="font-black text-white">
                     Rede SIG Brasil
                   </h2>

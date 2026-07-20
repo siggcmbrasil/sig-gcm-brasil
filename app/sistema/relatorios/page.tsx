@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
+
 import {
   useEffect,
   useMemo,
   useState,
 } from "react";
+
 import {
   BarChart3,
   FileDown,
@@ -1759,6 +1762,24 @@ export default function RelatoriosPage() {
             </div>
           </div>
         </section>
+
+        <Link
+          href="/sistema/relatorios/frequencia-produtividade"
+          className="flex items-center justify-between gap-4 rounded-2xl border border-cyan-400/25 bg-cyan-400/10 p-5 transition hover:border-cyan-300"
+        >
+          <div>
+            <p className="text-xs font-black uppercase tracking-wider text-cyan-300">
+              Relatório integrado
+            </p>
+            <h2 className="mt-1 text-xl font-black text-white">
+              Frequência e Produtividade do Efetivo
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Ranking, jornada, faltas, ocorrências, patrulhamentos e visitas.
+            </p>
+          </div>
+          <BarChart3 className="h-8 w-8 shrink-0 text-cyan-300" />
+        </Link>
 
         <section className="painel-premium space-y-4 p-6">
           <h2 className="text-2xl font-black text-white">

@@ -22,6 +22,7 @@ const PERFIS_VALIDOS = [
   "DIRETOR",
   "CMT_GUARNICAO",
   "PLANTONISTA",
+  "CORREGEDOR",
   "GUARDA",
   "CONSULTA",
 ] as const;

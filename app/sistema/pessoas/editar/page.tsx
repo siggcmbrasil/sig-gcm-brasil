@@ -68,7 +68,7 @@ export default function EditarPessoaPage() {
 
     if (!id || Number.isNaN(id)) {
       alert("ID inválido.");
-      router.push("/sistema/pessoas-abordadas");
+      router.push("/sistema/abordagens");
       return;
     }
 
@@ -85,7 +85,7 @@ export default function EditarPessoaPage() {
 
     if (error || !data) {
       alert("Pessoa não encontrada.");
-      router.push("/sistema/pessoas-abordadas");
+      router.push("/sistema/abordagens");
       return;
     }
 
@@ -186,7 +186,7 @@ export default function EditarPessoaPage() {
     });
 
     alert("Pessoa atualizada com sucesso.");
-    router.push("/sistema/pessoas-abordadas");
+    router.push("/sistema/abordagens");
   }
 
   return (

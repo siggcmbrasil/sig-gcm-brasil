@@ -1,0 +1,156 @@
+
+.dashboardHierarquia {
+  background:
+    radial-gradient(circle at 84% 0%, rgba(34, 211, 238, 0.065), transparent 28rem),
+    linear-gradient(180deg, #020817 0%, #031023 100%);
+}
+
+.dashboardHierarquia .sig-page-header,
+.dashboardHierarquia [data-sig-page-header] {
+  min-height: 84px !important;
+  border-radius: 22px !important;
+  padding: 14px 18px !important;
+}
+
+.dashboardHierarquia .dashboardIndicadorCompacto {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.dashboardHierarquia .dashboardIndicadorCompacto p {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
+
+.dashboardHierarquia .dashboardResumoSecundario {
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+}
+
+.dashboardHierarquia .dashboardMapaCard,
+.dashboardHierarquia .dashboardRailCard,
+.dashboardHierarquia .dashboardAtividade,
+.dashboardHierarquia .dashboardDatas,
+.dashboardHierarquia .dashboardNoticias {
+  border-radius: 20px !important;
+  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: linear-gradient(145deg, rgba(8, 24, 46, .98), rgba(3, 12, 27, .98)) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.dashboardHierarquia .dashboardOperacionalGrid > * {
+  min-height: 0;
+}
+
+.dashboardHierarquia .dashboardMapaCard {
+  height: 100%;
+}
+
+.dashboardHierarquia .dashboardRail {
+  display: grid;
+  grid-template-rows: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  height: 100%;
+}
+
+.dashboardHierarquia .dashboardRailCard {
+  min-height: 0;
+  overflow: hidden;
+  padding: 13px !important;
+}
+
+.dashboardHierarquia .dashboardRailScroll {
+  max-height: 160px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(34, 211, 238, .28) transparent;
+}
+
+.dashboardHierarquia .dashboardRailScroll::-webkit-scrollbar {
+  width: 5px;
+}
+
+.dashboardHierarquia .dashboardRailScroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(34, 211, 238, .25);
+}
+
+.dashboardHierarquia .dashboardRailCard .rounded-2xl {
+  border-radius: 12px !important;
+  padding: 9px 10px !important;
+}
+
+.dashboardHierarquia .dashboardRailCard .space-y-2 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: .4rem !important;
+}
+
+.dashboardHierarquia .dashboardRailCard p,
+.dashboardHierarquia .dashboardRailCard span {
+  font-size: .72rem;
+}
+
+.dashboardHierarquia .dashboardRailCard strong {
+  font-size: .78rem;
+}
+
+.dashboardHierarquia .dashboardComplementos > * {
+  max-height: 310px;
+  overflow: hidden;
+}
+
+.dashboardHierarquia .dashboardAtividade > div:last-child,
+.dashboardHierarquia .dashboardDatas > div:last-child {
+  max-height: 230px;
+  overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+}
+
+.dashboardHierarquia .dashboardAtividade .rounded-xl {
+  min-height: 46px;
+  padding: 8px 10px !important;
+}
+
+.dashboardHierarquia .dashboardDatas .rounded-2xl {
+  border-radius: 12px !important;
+  padding: 10px !important;
+}
+
+.dashboardHierarquia .dashboardNoticias {
+  max-height: 250px;
+}
+
+.dashboardHierarquia .dashboardMapaArea {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+}
+
+@media (max-width: 1535px) {
+  .dashboardHierarquia .dashboardResumoGrid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboardHierarquia .dashboardResumoSecundario {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .dashboardHierarquia .dashboardResumoSecundario > div:first-child {
+    grid-column: 1 / -1;
+  }
+
+  .dashboardHierarquia .dashboardResumoSecundario > a {
+    margin-top: 0 !important;
+  }
+}
+
+@media (max-width: 1279px) {
+  .dashboardHierarquia .dashboardRail {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-rows: auto;
+  }
+
+  .dashboardHierarquia .dashboardRailScroll {
+    max-height: 210px;
+  }
+}

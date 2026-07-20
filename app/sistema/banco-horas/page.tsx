@@ -1,17 +1,31 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Clock, Lock, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  ArrowDownCircle,
+  ArrowUpCircle,
+  CalendarClock,
+  CheckCircle2,
+  Clock3,
+  Filter,
+  Loader2,
+  PlusCircle,
+  RefreshCw,
+  Search,
+  Users,
+  XCircle,
+} from "lucide-react";
 
-import { supabase } from "@/lib/supabase";
-import { registrarAuditoria } from "@/lib/auditoria";
 import ProtecaoModulo from "@/components/ProtecaoModulo";
-
-type UsuarioLogado = {
-  id: number;
-  perfil?: string;
-  municipio_id: number;
-};
+import { supabase } from "@/lib/supabase";
+import {
+  formatarDataBancoHoras,
+  formatarHoras,
+  lerUsuarioBancoHoras,
+  normalizarBancoHoras,
+  podeGerenciarBancoHoras,
+} from "@/lib/bancoHoras";
 
 type Guarda = {
   id: number;
@@ -19,544 +33,383 @@ type Guarda = {
   matricula: string | null;
 };
 
-type BancoHoras = {
+type Lancamento = {
   id: number;
-  municipio_id: number;
   guarda_id: number;
-  data_movimento: string;
   tipo: string;
+  categoria: string | null;
+  data: string | null;
   horas: number;
   motivo: string | null;
-  observacao: string | null;
-  criado_em?: string | null;
+  criado_em: string | null;
+};
+
+type Solicitacao = {
+  id: number;
+  guarda_id: number;
+  guarda_nome: string;
+  matricula: string | null;
+  data_compensacao: string;
+  horas: number;
+  motivo: string;
+  status: string;
+  criado_em: string;
 };
 
 export default function BancoHorasPage() {
-  const [usuario, setUsuario] = useState<UsuarioLogado | null>(null);
+  const [usuario] = useState(() => lerUsuarioBancoHoras());
   const [guardas, setGuardas] = useState<Guarda[]>([]);
-  const [movimentos, setMovimentos] = useState<BancoHoras[]>([]);
+  const [lancamentos, setLancamentos] = useState<Lancamento[]>([]);
+  const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [salvando, setSalvando] = useState(false);
-  const [bloqueado, setBloqueado] = useState(false);
+  const [atualizando, setAtualizando] = useState(false);
+  const [erro, setErro] = useState("");
+  const [busca, setBusca] = useState("");
+  const [status, setStatus] = useState("TODOS");
 
-  const [guardaId, setGuardaId] = useState("");
-  const [dataMovimento, setDataMovimento] = useState("");
-  const [tipo, setTipo] = useState("CREDITO");
-  const [horas, setHoras] = useState("");
-  const [motivo, setMotivo] = useState("");
-  const [observacao, setObservacao] = useState("");
+  const gerencia = usuario ? podeGerenciarBancoHoras(usuario.perfil) : false;
+
+  const carregar = useCallback(async (silencioso = false) => {
+    if (!usuario?.municipio_id) {
+      setErro("Sessão ou município não identificado.");
+      setCarregando(false);
+      return;
+    }
+
+    silencioso ? setAtualizando(true) : setCarregando(true);
+    setErro("");
+
+    try {
+      const [guardasResposta, lancamentosResposta, solicitacoesResposta] =
+        await Promise.all([
+          supabase
+            .from("guardas")
+            .select("id,nome,matricula")
+            .eq("municipio_id", usuario.municipio_id)
+            .order("nome"),
+          supabase
+            .from("banco_horas_guardas")
+            .select("id,guarda_id,tipo,categoria,data,horas,motivo,criado_em")
+            .eq("municipio_id", usuario.municipio_id)
+            .order("data", { ascending: false })
+            .order("id", { ascending: false }),
+          supabase
+            .from("banco_horas_solicitacoes")
+            .select("id,guarda_id,guarda_nome,matricula,data_compensacao,horas,motivo,status,criado_em")
+            .eq("municipio_id", usuario.municipio_id)
+            .order("criado_em", { ascending: false }),
+        ]);
+
+      const primeiroErro =
+        guardasResposta.error ||
+        lancamentosResposta.error ||
+        solicitacoesResposta.error;
+
+      if (primeiroErro) {
+        if (primeiroErro.code === "42P01" || primeiroErro.code === "42703") {
+          throw new Error(
+            "Execute primeiro o arquivo supabase/BANCO_HORAS.sql."
+          );
+        }
+        throw primeiroErro;
+      }
+
+      let listaGuardas = (guardasResposta.data as Guarda[] | null) || [];
+      let listaLancamentos =
+        (lancamentosResposta.data as Lancamento[] | null) || [];
+      let listaSolicitacoes =
+        (solicitacoesResposta.data as Solicitacao[] | null) || [];
+
+      if (!gerencia) {
+        const nomeUsuario = normalizarBancoHoras(usuario.nome);
+        const meuGuarda = listaGuardas.find(
+          (guarda) =>
+            (usuario.matricula &&
+              guarda.matricula === usuario.matricula) ||
+            normalizarBancoHoras(guarda.nome) === nomeUsuario
+        );
+
+        if (!meuGuarda) {
+          listaGuardas = [];
+          listaLancamentos = [];
+          listaSolicitacoes = [];
+        } else {
+          listaGuardas = [meuGuarda];
+          listaLancamentos = listaLancamentos.filter(
+            (item) => item.guarda_id === meuGuarda.id
+          );
+          listaSolicitacoes = listaSolicitacoes.filter(
+            (item) => item.guarda_id === meuGuarda.id
+          );
+        }
+      }
+
+      setGuardas(listaGuardas);
+      setLancamentos(listaLancamentos);
+      setSolicitacoes(listaSolicitacoes);
+    } catch (error) {
+      setErro(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível carregar o banco de horas."
+      );
+    } finally {
+      setCarregando(false);
+      setAtualizando(false);
+    }
+  }, [gerencia, usuario]);
 
   useEffect(() => {
-    async function iniciar() {
-      const dados = JSON.parse(
-        localStorage.getItem("usuarioLogado") || "{}"
-      ) as UsuarioLogado;
+    void carregar();
+  }, [carregar]);
 
-      if (!dados?.id || !dados?.municipio_id) {
-        alert("Sessão inválida.");
-        setBloqueado(true);
-        setCarregando(false);
-        return;
-      }
+  const saldos = useMemo(() => {
+    const mapa = new Map<number, number>();
 
-      if (
-        ![
-          "ADMIN",
-          "COMANDANTE",
-          "DIRETOR",
-          "DESENVOLVEDOR",
-        ].includes(dados.perfil || "")
-      ) {
-        await registrarAuditoria({
-          modulo: "Banco de Horas",
-          acao: "ACESSO_NEGADO",
-          descricao: "Tentativa de acesso ao Banco de Horas sem permissão.",
-          tabela: "banco_horas",
-          detalhes: {
-            usuario_id: dados.id,
-            perfil: dados.perfil,
-            municipio_id: dados.municipio_id,
-          },
-        });
-
-        setBloqueado(true);
-        setCarregando(false);
-        return;
-      }
-
-      setUsuario(dados);
-
-      await registrarAuditoria({
-        modulo: "Banco de Horas",
-        acao: "ACESSO",
-        descricao: "Acessou o módulo Banco de Horas.",
-        tabela: "banco_horas",
-        detalhes: {
-          usuario_id: dados.id,
-          municipio_id: dados.municipio_id,
-        },
-      });
-
-      await carregarSistema(dados);
+    for (const item of lancamentos) {
+      const valor = Number(item.horas || 0);
+      const sinal =
+        normalizarBancoHoras(item.tipo) === "DEBITO" ? -1 : 1;
+      mapa.set(
+        item.guarda_id,
+        Number(mapa.get(item.guarda_id) || 0) + valor * sinal
+      );
     }
 
-    iniciar();
-  }, []);
+    return mapa;
+  }, [lancamentos]);
 
-  async function carregarSistema(usuarioAtual: UsuarioLogado) {
-    setCarregando(true);
-
-    const {
-      data: guardasData,
-      error: erroGuardas,
-    } = await supabase
-      .from("guardas")
-      .select("id, nome, matricula")
-      .eq("municipio_id", usuarioAtual.municipio_id)
-      .order("nome", { ascending: true })
-      .range(0, 499);
-
-    const {
-      data: movimentosData,
-      error: erroMovimentos,
-    } = await supabase
-      .from("banco_horas")
-      .select(
-        "id, municipio_id, guarda_id, data_movimento, tipo, horas, motivo, observacao, criado_em"
-      )
-      .eq("municipio_id", usuarioAtual.municipio_id)
-      .order("data_movimento", { ascending: false })
-      .range(0, 499);
-
-    setCarregando(false);
-
-    if (erroGuardas || erroMovimentos) {
-      await registrarAuditoria({
-        modulo: "Banco de Horas",
-        acao: "ERRO",
-        descricao: "Erro ao carregar Banco de Horas.",
-        tabela: "banco_horas",
-        detalhes: {
-          erro_guardas: erroGuardas?.message,
-          erro_movimentos: erroMovimentos?.message,
-          municipio_id: usuarioAtual.municipio_id,
-        },
-      });
-
-      alert("Erro ao carregar banco de horas.");
-      return;
-    }
-
-    setGuardas(guardasData || []);
-    setMovimentos(movimentosData || []);
-  }
-
-  function nomeGuarda(id: number) {
-    return guardas.find((guarda) => guarda.id === id)?.nome || `ID ${id}`;
-  }
-
-  function formatarData(data: string) {
-    if (!data) return "-";
-
-    const [ano, mes, dia] = data.split("-");
-    return `${dia}/${mes}/${ano}`;
-  }
-
-  const resumo = useMemo(() => {
-    const creditos = movimentos
-      .filter((item) => item.tipo === "CREDITO")
-      .reduce((total, item) => total + Number(item.horas || 0), 0);
-
-    const debitos = movimentos
-      .filter((item) => item.tipo === "DEBITO")
-      .reduce((total, item) => total + Number(item.horas || 0), 0);
+  const metricas = useMemo(() => {
+    const saldoTotal = Array.from(saldos.values()).reduce(
+      (total, valor) => total + valor,
+      0
+    );
 
     return {
-      lancamentos: movimentos.length,
-      creditos,
-      debitos,
-      saldo: creditos - debitos,
-      guardas: new Set(movimentos.map((item) => item.guarda_id)).size,
+      guardas: guardas.length,
+      saldoTotal,
+      pendentes: solicitacoes.filter(
+        (item) => normalizarBancoHoras(item.status) === "PENDENTE"
+      ).length,
+      aprovadas: solicitacoes.filter(
+        (item) => normalizarBancoHoras(item.status) === "APROVADA"
+      ).length,
     };
-  }, [movimentos]);
+  }, [guardas.length, saldos, solicitacoes]);
 
-  async function salvarMovimento() {
-    if (!usuario?.id || !usuario?.municipio_id) {
-      alert("Sessão inválida.");
-      return;
-    }
+  const listaFiltrada = useMemo(() => {
+    const termo = normalizarBancoHoras(busca);
 
-    if (!guardaId || !dataMovimento || !horas || !motivo) {
-      alert("Preencha guarda, data, horas e motivo.");
-      return;
-    }
+    return guardas.filter((guarda) => {
+      const saldo = saldos.get(guarda.id) || 0;
+      const possuiStatus =
+        status === "TODOS" ||
+        (status === "POSITIVO" && saldo > 0) ||
+        (status === "ZERADO" && saldo === 0) ||
+        (status === "NEGATIVO" && saldo < 0);
 
-    if (Number(horas) <= 0) {
-      alert("Informe uma quantidade de horas válida.");
-      return;
-    }
+      const possuiBusca =
+        !termo ||
+        normalizarBancoHoras(
+          `${guarda.nome} ${guarda.matricula || ""}`
+        ).includes(termo);
 
-    if (Number(horas) > 1000) {
-      alert("Quantidade de horas muito alta.");
-      return;
-    }
-
-    if (observacao.length > 3000) {
-      alert("Observação muito grande.");
-      return;
-    }
-
-    setSalvando(true);
-
-    const dadosMovimento = {
-      municipio_id: usuario.municipio_id,
-      guarda_id: Number(guardaId),
-      data_movimento: dataMovimento,
-      tipo,
-      horas: Number(horas),
-      motivo,
-      observacao: observacao.trim() || null,
-      criado_por: usuario.id,
-    };
-
-    const { data, error } = await supabase
-      .from("banco_horas")
-      .insert([dadosMovimento])
-      .select("id")
-      .single();
-
-    setSalvando(false);
-
-    if (error) {
-      await registrarAuditoria({
-        modulo: "Banco de Horas",
-        acao: "ERRO",
-        descricao: "Erro ao criar lançamento no banco de horas.",
-        tabela: "banco_horas",
-        detalhes: {
-          erro: error.message,
-          dados: dadosMovimento,
-        },
-      });
-
-      alert("Erro ao salvar lançamento.");
-      return;
-    }
-
-    const guarda = guardas.find(
-      (item) => String(item.id) === String(guardaId)
-    );
-
-    await registrarAuditoria({
-      modulo: "Banco de Horas",
-      acao: "CRIAR",
-      descricao: `Criou lançamento de ${horas}h no banco de horas para ${
-        guarda?.nome || "guarda não informado"
-      }.`,
-      tabela: "banco_horas",
-      registro_id: data?.id,
-      detalhes: dadosMovimento,
+      return possuiStatus && possuiBusca;
     });
-
-    alert("Lançamento salvo com sucesso.");
-
-    setGuardaId("");
-    setDataMovimento("");
-    setTipo("CREDITO");
-    setHoras("");
-    setMotivo("");
-    setObservacao("");
-
-    await carregarSistema(usuario);
-  }
-
-  async function excluirMovimento(id: number) {
-    if (!usuario?.id || !usuario?.municipio_id) {
-      alert("Sessão inválida.");
-      return;
-    }
-
-    const movimento = movimentos.find((item) => item.id === id);
-
-    const motivoExclusao = prompt("Informe o motivo da exclusão:");
-
-    if (!motivoExclusao?.trim()) {
-      alert("Informe o motivo da exclusão.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("banco_horas")
-      .delete()
-      .eq("id", id)
-      .eq("municipio_id", usuario.municipio_id);
-
-    if (error) {
-      await registrarAuditoria({
-        modulo: "Banco de Horas",
-        acao: "ERRO",
-        descricao: "Erro ao excluir lançamento do banco de horas.",
-        tabela: "banco_horas",
-        registro_id: id,
-        detalhes: {
-          erro: error.message,
-          motivo: motivoExclusao,
-          movimento,
-        },
-      });
-
-      alert("Erro ao excluir lançamento.");
-      return;
-    }
-
-    await registrarAuditoria({
-      modulo: "Banco de Horas",
-      acao: "EXCLUIR",
-      descricao: `Excluiu lançamento ID ${id} do banco de horas.`,
-      tabela: "banco_horas",
-      registro_id: id,
-      detalhes: {
-        motivo: motivoExclusao,
-        movimento,
-      },
-    });
-
-    alert("Lançamento excluído com sucesso.");
-    await carregarSistema(usuario);
-  }
-
-  if (carregando) {
-    return (
-      <ProtecaoModulo modulo="banco_horas">
-        <div className="p-4 md:p-6">
-          <div className="painel-premium p-10 text-center">
-            <p className="text-slate-400">Carregando banco de horas...</p>
-          </div>
-        </div>
-      </ProtecaoModulo>
-    );
-  }
-
-  if (bloqueado) {
-    return (
-      <ProtecaoModulo modulo="banco_horas">
-        <div className="p-4 md:p-6">
-          <div className="painel-premium p-10 text-center">
-            <Lock className="w-16 h-16 mx-auto text-red-400 mb-4" />
-
-            <h2 className="text-2xl font-black text-white">
-              Acesso Restrito
-            </h2>
-
-            <p className="text-slate-400 mt-2">
-              Você não possui permissão para acessar o Banco de Horas.
-            </p>
-          </div>
-        </div>
-      </ProtecaoModulo>
-    );
-  }
+  }, [busca, guardas, saldos, status]);
 
   return (
-    <ProtecaoModulo modulo="banco_horas">
-      <div className="p-4 md:p-6 pb-24 space-y-6">
-        <header className="painel-premium p-6">
-          <div className="flex items-center gap-3">
-            <Clock className="w-8 h-8 text-yellow-400" />
+    <ProtecaoModulo modulo="guardas">
+      <main className="min-h-screen bg-[#020b1c] px-4 py-5 text-white lg:px-7">
+        <div className="mx-auto w-full max-w-[1700px] space-y-5">
+          <header className="rounded-3xl border border-cyan-400/15 bg-gradient-to-br from-[#07182f] to-[#020b1c] p-5 lg:p-7">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.22em] text-cyan-300">
+                  Gestão de pessoal
+                </p>
+                <h1 className="mt-1 text-2xl font-black lg:text-3xl">
+                  Banco de Horas
+                </h1>
+                <p className="mt-2 text-sm text-slate-400">
+                  Créditos, débitos, compensações, solicitações e saldo
+                  individual.
+                </p>
+              </div>
 
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black text-white">
-                Banco de Horas
-              </h1>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => void carregar(true)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/50 px-4 py-3 text-sm font-black"
+                >
+                  <RefreshCw
+                    className={`h-4 w-4 ${
+                      atualizando ? "animate-spin" : ""
+                    }`}
+                  />
+                  Atualizar
+                </button>
 
-              <p className="text-slate-400 mt-1">
-                Controle manual de créditos, débitos e saldo de horas dos guardas.
-              </p>
+                <Link
+                  href="/sistema/banco-horas/solicitacoes"
+                  className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-black text-cyan-300"
+                >
+                  <CalendarClock className="h-4 w-4" />
+                  Solicitações
+                </Link>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <section className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <Card titulo="Lançamentos" valor={movimentos.length} />
-          <Card titulo="Créditos" valor={`${resumo.creditos.toFixed(2)}h`} />
-          <Card titulo="Débitos" valor={`${resumo.debitos.toFixed(2)}h`} />
-          <Card titulo="Saldo Geral" valor={`${resumo.saldo.toFixed(2)}h`} />
-          <Card titulo="Guardas" valor={resumo.guardas} />
-        </section>
-
-        <section className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-          <div className="painel-premium p-6">
-            <h2 className="text-xl font-black text-white mb-4">
-              Novo Lançamento
-            </h2>
-
-            <div className="space-y-4">
-              <div>
-                <label className="label">Guarda</label>
-                <select
-                  className="input"
-                  value={guardaId}
-                  onChange={(e) => setGuardaId(e.target.value)}
-                >
-                  <option value="">Selecione</option>
-
-                  {guardas.map((guarda) => (
-                    <option key={guarda.id} value={guarda.id}>
-                      {guarda.nome} • {guarda.matricula || "Sem matrícula"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Data</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={dataMovimento}
-                  onChange={(e) => setDataMovimento(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="label">Tipo</label>
-                <select
-                  className="input"
-                  value={tipo}
-                  onChange={(e) => setTipo(e.target.value)}
-                >
-                  <option value="CREDITO">Crédito de Horas</option>
-                  <option value="DEBITO">Débito / Compensação</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Horas</label>
-                <input
-                  type="number"
-                  step="0.5"
-                  className="input"
-                  value={horas}
-                  onChange={(e) => setHoras(e.target.value)}
-                  placeholder="Ex: 8"
-                />
-              </div>
-
-              <div>
-                <label className="label">Motivo</label>
-                <select
-                  className="input"
-                  value={motivo}
-                  onChange={(e) => setMotivo(e.target.value)}
-                >
-                  <option value="">Selecione</option>
-                  <option value="SERVICO_EXTRA">Serviço Extra</option>
-                  <option value="OPERACAO">Operação</option>
-                  <option value="EVENTO">Evento</option>
-                  <option value="COMPENSACAO">Compensação</option>
-                  <option value="FOLGA">Folga</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="label">Observação</label>
-                <textarea
-                  className="input min-h-24 resize-none"
-                  value={observacao}
-                  onChange={(e) => setObservacao(e.target.value)}
-                />
-              </div>
-
-              <button
-                type="button"
-                onClick={salvarMovimento}
-                disabled={salvando}
-                className="sig-btn-gold w-full disabled:opacity-50"
-              >
-                {salvando ? "Salvando..." : "Salvar Lançamento"}
-              </button>
+          {erro ? (
+            <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-200">
+              {erro}
             </div>
-          </div>
+          ) : null}
 
-          <div className="painel-premium p-6 xl:col-span-2">
-            <h2 className="text-xl font-black text-white mb-4">
-              Histórico
-            </h2>
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <Metrica
+              titulo="Servidores"
+              valor={String(metricas.guardas)}
+              icone={Users}
+            />
+            <Metrica
+              titulo="Saldo consolidado"
+              valor={formatarHoras(metricas.saldoTotal)}
+              icone={Clock3}
+            />
+            <Metrica
+              titulo="Solicitações pendentes"
+              valor={String(metricas.pendentes)}
+              icone={CalendarClock}
+            />
+            <Metrica
+              titulo="Solicitações aprovadas"
+              valor={String(metricas.aprovadas)}
+              icone={CheckCircle2}
+            />
+          </section>
 
-            {movimentos.length === 0 ? (
-              <p className="text-slate-400">Nenhum lançamento encontrado.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-slate-700 text-slate-400">
-                    <tr>
-                      <th className="text-left py-3 pr-4">Data</th>
-                      <th className="text-left py-3 pr-4">Guarda</th>
-                      <th className="text-left py-3 pr-4">Tipo</th>
-                      <th className="text-left py-3 pr-4">Horas</th>
-                      <th className="text-left py-3 pr-4">Motivo</th>
-                      <th className="text-right py-3 pr-4">Ações</th>
-                    </tr>
-                  </thead>
+          <section className="rounded-2xl border border-slate-800 bg-[#061326] p-4">
+            <div className="grid gap-3 lg:grid-cols-[1fr_auto]">
+              <label className="flex items-center gap-3 rounded-xl border border-slate-700 bg-slate-950/50 px-4">
+                <Search className="h-4 w-4 text-slate-500" />
+                <input
+                  value={busca}
+                  onChange={(event) => setBusca(event.target.value)}
+                  placeholder="Buscar por nome ou matrícula..."
+                  className="h-12 w-full bg-transparent text-sm outline-none placeholder:text-slate-600"
+                />
+              </label>
 
-                  <tbody>
-                    {movimentos.map((item) => (
-                      <tr
-                        key={item.id}
-                        className="border-b border-slate-800 text-slate-300"
-                      >
-                        <td className="py-4 pr-4 text-blue-400 font-semibold">
-                          {formatarData(item.data_movimento)}
-                        </td>
-
-                        <td className="pr-4">{nomeGuarda(item.guarda_id)}</td>
-
-                        <td className="pr-4">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-bold ${
-                              item.tipo === "CREDITO"
-                                ? "bg-green-900/40 text-green-400"
-                                : "bg-red-900/40 text-red-400"
-                            }`}
-                          >
-                            {item.tipo === "CREDITO" ? "+ Crédito" : "- Débito"}
-                          </span>
-                        </td>
-
-                        <td className="font-bold pr-4">
-                          {Number(item.horas).toFixed(2)}h
-                        </td>
-
-                        <td className="pr-4">{item.motivo || "-"}</td>
-
-                        <td className="text-right pr-4">
-                          <button
-                            type="button"
-                            onClick={() => excluirMovimento(item.id)}
-                            className="inline-flex items-center gap-2 rounded-xl bg-red-950/70 border border-red-900 px-3 py-2 text-xs font-bold text-red-300 hover:bg-red-900"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            Excluir
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="flex gap-2 overflow-x-auto">
+                {["TODOS", "POSITIVO", "ZERADO", "NEGATIVO"].map(
+                  (item) => (
+                    <button
+                      key={item}
+                      onClick={() => setStatus(item)}
+                      className={`whitespace-nowrap rounded-xl border px-3 py-2 text-xs font-black ${
+                        status === item
+                          ? "border-cyan-400/30 bg-cyan-400/10 text-cyan-300"
+                          : "border-slate-700 text-slate-400"
+                      }`}
+                    >
+                      {item}
+                    </button>
+                  )
+                )}
               </div>
-            )}
-          </div>
-        </section>
-      </div>
+            </div>
+          </section>
+
+          {carregando ? (
+            <div className="flex min-h-[320px] items-center justify-center">
+              <Loader2 className="h-10 w-10 animate-spin text-cyan-300" />
+            </div>
+          ) : listaFiltrada.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-slate-700 p-12 text-center text-slate-500">
+              Nenhum servidor encontrado.
+            </div>
+          ) : (
+            <section className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+              {listaFiltrada.map((guarda) => {
+                const saldo = saldos.get(guarda.id) || 0;
+                const pendentes = solicitacoes.filter(
+                  (item) =>
+                    item.guarda_id === guarda.id &&
+                    normalizarBancoHoras(item.status) === "PENDENTE"
+                ).length;
+
+                return (
+                  <Link
+                    key={guarda.id}
+                    href={`/sistema/guardas/${guarda.id}/banco-horas`}
+                    className="rounded-2xl border border-slate-800 bg-[#061326] p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/30"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h2 className="font-black">{guarda.nome}</h2>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Matrícula: {guarda.matricula || "Não informada"}
+                        </p>
+                      </div>
+                      {saldo > 0 ? (
+                        <ArrowUpCircle className="h-6 w-6 text-emerald-300" />
+                      ) : saldo < 0 ? (
+                        <ArrowDownCircle className="h-6 w-6 text-rose-300" />
+                      ) : (
+                        <Clock3 className="h-6 w-6 text-slate-500" />
+                      )}
+                    </div>
+
+                    <p className="mt-6 text-xs font-black uppercase tracking-wider text-slate-500">
+                      Saldo atual
+                    </p>
+                    <p
+                      className={`mt-1 text-3xl font-black ${
+                        saldo > 0
+                          ? "text-emerald-300"
+                          : saldo < 0
+                            ? "text-rose-300"
+                            : "text-slate-300"
+                      }`}
+                    >
+                      {formatarHoras(saldo)}
+                    </p>
+
+                    <div className="mt-4 flex items-center justify-between border-t border-slate-800 pt-4 text-xs text-slate-500">
+                      <span>{pendentes} solicitação(ões) pendente(s)</span>
+                      <span>Abrir histórico</span>
+                    </div>
+                  </Link>
+                );
+              })}
+            </section>
+          )}
+        </div>
+      </main>
     </ProtecaoModulo>
   );
 }
 
-function Card({ titulo, valor }: { titulo: string; valor: number | string }) {
+function Metrica({
+  titulo,
+  valor,
+  icone: Icone,
+}: {
+  titulo: string;
+  valor: string;
+  icone: typeof Clock3;
+}) {
   return (
-    <div className="painel-premium min-h-28 flex flex-col justify-center p-5">
-      <p className="text-slate-400">{titulo}</p>
-      <h2 className="text-3xl md:text-4xl font-black text-white">{valor}</h2>
+    <div className="rounded-2xl border border-slate-800 bg-[#061326] p-5">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300">
+        <Icone className="h-5 w-5" />
+      </div>
+      <p className="mt-4 text-xs font-black uppercase tracking-wider text-slate-500">
+        {titulo}
+      </p>
+      <p className="mt-1 text-2xl font-black">{valor}</p>
     </div>
   );
 }

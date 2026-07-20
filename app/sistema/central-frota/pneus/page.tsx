@@ -233,21 +233,21 @@ if (pneuExistente) {
 
       <div className="grid md:grid-cols-3 gap-4">
         <Atalho
-          href="/sistema/pneus/historico"
+          href="/sistema/central-frota/pneus?aba=historico"
           icone="📋"
           titulo="Histórico"
           texto="Ver movimentações, rodízios, trocas e instalações."
         />
 
         <Atalho
-          href="/sistema/pneus/rodizio"
+          href="/sistema/central-frota/pneus?aba=rodizio"
           icone="🔄"
           titulo="Rodízio"
           texto="Registrar mudança de posição dos pneus."
         />
 
         <Atalho
-          href="/sistema/pneus/trocas"
+          href="/sistema/central-frota/pneus?aba=trocas"
           icone="🔧"
           titulo="Trocas"
           texto="Registrar substituição de pneus da frota."

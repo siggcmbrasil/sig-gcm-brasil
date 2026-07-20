@@ -1,0 +1,65 @@
+
+.dashboardStatsLayout {
+  align-items: stretch;
+}
+
+.dashboardStatsMain .sig-stat-card,
+.dashboardStatsMain [data-sig-stat-card] {
+  min-height: 132px;
+}
+
+.dashboardStatsSide {
+  align-content: start;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact {
+  min-height: 92px !important;
+  padding: 12px 14px !important;
+  border-radius: 18px !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact > div {
+  gap: 10px !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact p:first-child {
+  font-size: 0.65rem !important;
+  line-height: 1.1 !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact h2 {
+  margin-top: 0.4rem !important;
+  font-size: 2rem !important;
+  line-height: 1 !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact p.mt-2 {
+  margin-top: 0.45rem !important;
+  font-size: 0.78rem !important;
+  line-height: 1.2 !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact > div > div:last-child {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 14px !important;
+}
+
+.dashboardStatsSide .dashboardStatCardCompact > div > div:last-child svg {
+  width: 20px !important;
+  height: 20px !important;
+}
+
+@media (max-width: 1535px) {
+  .dashboardStatsLayout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboardStatsSide {
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  }
+
+  .dashboardStatsSide .dashboardStatCardCompact {
+    min-height: 100px !important;
+  }
+}

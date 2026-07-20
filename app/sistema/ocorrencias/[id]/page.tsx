@@ -483,6 +483,38 @@ export default function VisualizarOcorrencia() {
       : "PNG";
   }
 
+  async function obterUrlValidacaoPDF() {
+    if (!ocorrencia) {
+      throw new Error("Ocorrência não carregada.");
+    }
+
+    const accessToken = await obterAccessToken();
+    const resposta = await fetch(
+      `/api/ocorrencias/${ocorrencia.id}/validacao`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+        cache: "no-store",
+      }
+    );
+
+    const dados = (await resposta.json()) as {
+      ok?: boolean;
+      url?: string;
+      erro?: string;
+    };
+
+    if (!resposta.ok || !dados.ok || !dados.url) {
+      throw new Error(
+        dados.erro || "Não foi possível gerar a validação do documento."
+      );
+    }
+
+    return dados.url;
+  }
+
   async function gerarPDF() {
     if (
       !ocorrencia ||
@@ -549,21 +581,22 @@ export default function VisualizarOcorrencia() {
     }
 
     try {
-      const textoQr = `
-SIG-GCM Brasil
-Protocolo: ${ocorrencia.protocolo || "-"}
-Tipo: ${ocorrencia.tipo || "-"}
-Status: ${ocorrencia.status || "-"}
-Data: ${ocorrencia.data || "-"}
-Hora: ${ocorrencia.hora || "-"}
-Local: ${ocorrencia.local || "-"}
-`;
+      const urlValidacao =
+        await obterUrlValidacaoPDF();
 
       qrCodeBase64 =
-        await QRCode.toDataURL(textoQr);
-    } catch {
+        await QRCode.toDataURL(
+          urlValidacao,
+          {
+            errorCorrectionLevel: "H",
+            margin: 1,
+            width: 320,
+          }
+        );
+    } catch (error) {
       console.warn(
-        "Não foi possível gerar QR Code."
+        "Não foi possível gerar QR Code verificável.",
+        error
       );
     }
 
@@ -632,11 +665,20 @@ Local: ${ocorrencia.local || "-"}
       pdf.addImage(
         qrCodeBase64,
         "PNG",
-        173,
-        47,
-        20,
-        20
+        171,
+        45,
+        23,
+        23
       );
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(70, 80, 95);
+      pdf.text(
+        "Escaneie para validar",
+        182.5,
+        71,
+        { align: "center" }
+      );
+      pdf.setTextColor(0, 0, 0);
     }
 
     let y = qrCodeBase64 ? 72 : 55;

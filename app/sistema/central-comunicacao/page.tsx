@@ -1,573 +1,191 @@
 "use client";
 
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Bell,
-  CalendarDays,
-  Globe,
-  MessageCircle,
+  CheckCheck,
+  ChevronRight,
+  Clock3,
+  MailOpen,
   Megaphone,
-  Newspaper,
+  MessageCircle,
+  Plus,
   RefreshCw,
-  Radio,
+  Search,
+  Send,
+  ShieldCheck,
   Users,
+  type LucideIcon,
 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
 
 import ProtecaoModulo from "@/components/ProtecaoModulo";
-import SigActionCard from "@/components/sig/SigActionCard";
-import SigButton from "@/components/sig/SigButton";
-import SigCard from "@/components/sig/SigCard";
 import SigPageHeader from "@/components/sig/SigPageHeader";
-import SigStatCard from "@/components/sig/SigStatCard";
-
-import {
-  lerMunicipioContextoLocal,
-  obterMunicipioIdEfetivo,
-} from "@/lib/contextoMunicipio";
 import { supabase } from "@/lib/supabase";
 
 type UsuarioLocal = {
+  id: string | number;
+  nome?: string;
   perfil?: string;
   municipio_id?: number;
 };
 
-type Aviso = {
-  id: number;
-  titulo: string | null;
-  descricao: string | null;
-  criado_em?: string | null;
-  created_at?: string | null;
-};
+type Registro = Record<string, unknown>;
 
-type Notificacao = {
-  id: number;
-  titulo: string | null;
-  mensagem: string | null;
-  lida: boolean | null;
-  criado_em?: string | null;
-  created_at?: string | null;
-};
-
-const cards = [
-  {
-    titulo: "Chat Interno",
-    href: "/sistema/chat",
-    descricao:
-      "Comunicação interna entre usuários, setores, equipes e comando.",
-    icone: MessageCircle,
-    detalhe: "Abrir chat",
-  },
-  {
-    titulo: "Agenda Institucional",
-    href: "/sistema/agenda-institucional",
-    descricao:
-      "Compromissos, eventos oficiais, reuniões e atividades institucionais.",
-    icone: CalendarDays,
-    detalhe: "Abrir agenda",
-  },
-  {
-    titulo: "Avisos",
-    href: "/sistema/avisos",
-    descricao:
-      "Publicação de comunicados internos e orientações da corporação.",
-    icone: Megaphone,
-    detalhe: "Gerenciar avisos",
-  },
-  {
-    titulo: "Notificações",
-    href: "/sistema/notificacoes",
-    descricao:
-      "Alertas automáticos, notificações operacionais e histórico.",
-    icone: Bell,
-    detalhe: "Abrir notificações",
-  },
-  {
-    titulo: "Feed SIG",
-    href: "/sistema/feed-sig",
-    descricao:
-      "Atualizações, notícias e comunicados oficiais do SIG-GCM Brasil.",
-    icone: Newspaper,
-    detalhe: "Abrir Feed SIG",
-  },
-  {
-    titulo: "Feed Brasil",
-    href: "/sistema/feed-brasil",
-    descricao:
-      "Integração e compartilhamento institucional entre municípios da rede.",
-    icone: Globe,
-    detalhe: "Abrir Feed Brasil",
-  },
-  {
-    titulo: "Blog Operacional",
-    href: "/sistema/blog-operacional",
-    descricao:
-      "Publicações, orientações, doutrina e conteúdos operacionais.",
-    icone: Newspaper,
-    detalhe: "Abrir blog",
-  },
-];
-
-function obterUsuarioLocal(): UsuarioLocal | null {
-  if (typeof window === "undefined") return null;
-
+function usuarioLocal(): UsuarioLocal | null {
   try {
-    return JSON.parse(
-      localStorage.getItem("usuarioLogado") || "null"
-    ) as UsuarioLocal | null;
+    return JSON.parse(localStorage.getItem("usuarioLogado") || "null") as UsuarioLocal | null;
   } catch {
     return null;
   }
 }
 
-function obterData(
-  item: Aviso | Notificacao
-): string | null {
-  return item.criado_em || item.created_at || null;
+function txt(valor: unknown, padrao = "—") {
+  if (valor === null || valor === undefined || valor === "") return padrao;
+  return String(valor);
+}
+
+function dataCurta(valor: unknown) {
+  const data = new Date(String(valor ?? ""));
+  if (Number.isNaN(data.getTime())) return "Agora";
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(data);
 }
 
 export default function CentralComunicacaoPage() {
-  const [avisos, setAvisos] = useState<Aviso[]>([]);
-  const [notificacoes, setNotificacoes] = useState<
-    Notificacao[]
-  >([]);
-  const [municipioNome, setMunicipioNome] =
-    useState("Município");
+  const [usuario, setUsuario] = useState<UsuarioLocal | null>(null);
+  const [avisos, setAvisos] = useState<Registro[]>([]);
+  const [notificacoes, setNotificacoes] = useState<Registro[]>([]);
+  const [conversas, setConversas] = useState<Registro[]>([]);
+  const [mensagens, setMensagens] = useState<Registro[]>([]);
+  const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState("");
 
-  async function carregar() {
+  const carregar = useCallback(async (atual: UsuarioLocal) => {
+    if (!atual.municipio_id) return;
     setCarregando(true);
     setErro("");
 
-    try {
-      const usuario = obterUsuarioLocal();
+    const [a, n, c, m] = await Promise.all([
+      supabase.from("avisos").select("*").eq("municipio_id", atual.municipio_id).order("fixado", { ascending: false }).order("created_at", { ascending: false }).limit(30),
+      supabase.from("notificacoes").select("*").eq("municipio_id", atual.municipio_id).order("created_at", { ascending: false }).limit(60),
+      supabase.from("comunicacao_conversas").select("*").eq("municipio_id", atual.municipio_id).eq("ativo", true).order("ultima_mensagem_em", { ascending: false }).limit(30),
+      supabase.from("comunicacao_mensagens").select("*").eq("municipio_id", atual.municipio_id).order("created_at", { ascending: false }).limit(40),
+    ]);
 
-      if (!usuario?.perfil) {
-        throw new Error("Usuário não identificado.");
-      }
-
-      const contexto = lerMunicipioContextoLocal();
-
-      const municipioId = obterMunicipioIdEfetivo({
-        perfil: usuario.perfil,
-        municipioIdUsuario: usuario.municipio_id,
-      });
-
-      if (!municipioId) {
-        throw new Error("Município não identificado.");
-      }
-
-      const [
-        municipioResposta,
-        avisosResposta,
-        notificacoesResposta,
-      ] = await Promise.all([
-        supabase
-          .from("municipios")
-          .select("nome")
-          .eq("id", municipioId)
-          .maybeSingle(),
-
-        supabase
-          .from("avisos")
-          .select(
-            "id,titulo,descricao,criado_em,created_at"
-          )
-          .eq("municipio_id", municipioId)
-          .order("id", { ascending: false })
-          .limit(30),
-
-        supabase
-          .from("notificacoes")
-          .select(
-            "id,titulo,mensagem,lida,criado_em,created_at"
-          )
-          .eq("municipio_id", municipioId)
-          .order("id", { ascending: false })
-          .limit(50),
-      ]);
-
-      if (municipioResposta.error) {
-        console.warn(
-          "Falha parcial em municipios:",
-          municipioResposta.error.message
-        );
-      }
-
-      if (avisosResposta.error) {
-        console.warn(
-          "Falha parcial em avisos:",
-          avisosResposta.error.message
-        );
-      }
-
-      if (notificacoesResposta.error) {
-        console.warn(
-          "Falha parcial em notificacoes:",
-          notificacoesResposta.error.message
-        );
-      }
-
-      setMunicipioNome(
-        String(
-          municipioResposta.data?.nome ||
-            contexto?.nome ||
-            "Município"
-        )
-      );
-
-      setAvisos(
-        (avisosResposta.data as Aviso[] | null) || []
-      );
-
-      setNotificacoes(
-        (notificacoesResposta.data as
-          | Notificacao[]
-          | null) || []
-      );
-    } catch (error) {
-      console.error(
-        "Erro ao carregar Central de Comunicação:",
-        error
-      );
-
-      setErro(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível carregar a Central de Comunicação."
-      );
-    } finally {
-      setCarregando(false);
-    }
-  }
-
-  useEffect(() => {
-    void carregar();
+    const falha = [a.error, n.error, c.error, m.error].find(Boolean);
+    if (falha) setErro(falha.message);
+    setAvisos((a.data ?? []) as Registro[]);
+    setNotificacoes((n.data ?? []) as Registro[]);
+    setConversas((c.data ?? []) as Registro[]);
+    setMensagens((m.data ?? []) as Registro[]);
+    setCarregando(false);
   }, []);
 
-  const metricas = useMemo(() => {
-    const naoLidas = notificacoes.filter(
-      (item) => item.lida !== true
-    ).length;
+  useEffect(() => {
+    const atual = usuarioLocal();
+    setUsuario(atual);
+    if (!atual?.municipio_id) {
+      setErro("Sessão ou município não identificado.");
+      setCarregando(false);
+      return;
+    }
+    void carregar(atual);
 
-    const avisosRecentes = avisos.filter((item) => {
-      const data = obterData(item);
-      if (!data) return false;
+    const canal = supabase
+      .channel(`comunicacao-${atual.municipio_id}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notificacoes", filter: `municipio_id=eq.${atual.municipio_id}` }, () => void carregar(atual))
+      .on("postgres_changes", { event: "*", schema: "public", table: "avisos", filter: `municipio_id=eq.${atual.municipio_id}` }, () => void carregar(atual))
+      .on("postgres_changes", { event: "*", schema: "public", table: "comunicacao_mensagens", filter: `municipio_id=eq.${atual.municipio_id}` }, () => void carregar(atual))
+      .subscribe();
 
-      const limite =
-        Date.now() - 7 * 24 * 60 * 60 * 1000;
+    return () => { void supabase.removeChannel(canal); };
+  }, [carregar]);
 
-      return new Date(data).getTime() >= limite;
-    }).length;
+  const naoLidas = useMemo(() => notificacoes.filter((n) => n.lida !== true).length, [notificacoes]);
+  const urgentes = useMemo(() => avisos.filter((a) => ["URGENTE", "ALTA"].includes(txt(a.prioridade).toUpperCase())).length, [avisos]);
+  const mensagensHoje = useMemo(() => mensagens.filter((m) => txt(m.created_at).startsWith(new Date().toISOString().slice(0, 10))).length, [mensagens]);
 
-    return {
-      avisos: avisos.length,
-      avisosRecentes,
-      notificacoes: notificacoes.length,
-      naoLidas,
-      canais: cards.length,
-    };
-  }, [avisos, notificacoes]);
-
-  const atividadeRecente = useMemo(() => {
+  const atividade = useMemo(() => {
     const itens = [
-      ...avisos.map((item) => ({
-        id: `aviso-${item.id}`,
-        tipo: "Aviso",
-        titulo: item.titulo || "Aviso institucional",
-        detalhe:
-          item.descricao || "Sem descrição informada.",
-        data: obterData(item),
-        href: "/sistema/avisos",
-      })),
-      ...notificacoes.map((item) => ({
-        id: `notificacao-${item.id}`,
-        tipo: "Notificação",
-        titulo:
-          item.titulo || "Notificação do sistema",
-        detalhe:
-          item.mensagem || "Sem mensagem informada.",
-        data: obterData(item),
-        href: "/sistema/notificacoes",
-      })),
+      ...mensagens.map((m) => ({ id: `m-${m.id}`, tipo: "Mensagem", titulo: txt(m.remetente_nome, "Usuário"), detalhe: txt(m.conteudo, "Mensagem"), data: m.created_at, href: "/sistema/chat" })),
+      ...notificacoes.map((n) => ({ id: `n-${n.id}`, tipo: "Notificação", titulo: txt(n.titulo, "Notificação"), detalhe: txt(n.mensagem), data: n.created_at ?? n.criado_em, href: "/sistema/notificacoes" })),
+      ...avisos.map((a) => ({ id: `a-${a.id}`, tipo: "Aviso", titulo: txt(a.titulo, "Aviso"), detalhe: txt(a.descricao ?? a.mensagem), data: a.created_at ?? a.criado_em, href: "/sistema/avisos" })),
     ];
-
+    const termo = busca.toLowerCase().trim();
     return itens
-      .sort((a, b) => {
-        const dataA = a.data
-          ? new Date(a.data).getTime()
-          : 0;
-
-        const dataB = b.data
-          ? new Date(b.data).getTime()
-          : 0;
-
-        return dataB - dataA;
-      })
-      .slice(0, 8);
-  }, [avisos, notificacoes]);
+      .filter((i) => !termo || `${i.tipo} ${i.titulo} ${i.detalhe}`.toLowerCase().includes(termo))
+      .sort((x, y) => new Date(String(y.data ?? 0)).getTime() - new Date(String(x.data ?? 0)).getTime())
+      .slice(0, 15);
+  }, [avisos, busca, mensagens, notificacoes]);
 
   return (
     <ProtecaoModulo modulo="avisos">
-      <main className="sig-page">
-        <div className="sig-page-content">
-          <SigPageHeader
-            titulo="Central de Comunicação"
-            subtitulo={`${municipioNome} • Comunicação institucional, avisos, agenda, feeds e interação entre usuários.`}
-            detalhe="Comunicação integrada"
-            icone={MessageCircle}
-            acoes={
-              <>
-                <Link href="/sistema/avisos">
-                  <SigButton
-                    type="primary"
-                    icon={Megaphone}
-                    size="sm"
-                  >
-                    Novo aviso
-                  </SigButton>
-                </Link>
+      <main className="min-h-screen bg-[#020817] p-4 pb-24 text-white md:p-6">
+        <div className="mx-auto max-w-[1800px] space-y-5">
+          <SigPageHeader titulo="Central de Comunicação" subtitulo="Mensagens, notificações e avisos em um único ambiente institucional." icone={MessageCircle} />
 
-                <SigButton
-                  type="cyan"
-                  icon={RefreshCw}
-                  size="sm"
-                  loading={carregando}
-                  onClick={() => void carregar()}
-                >
-                  Atualizar
-                </SigButton>
-              </>
-            }
-          />
-
-          {erro ? (
-            <div className="sig-error">
-              {erro}
-            </div>
-          ) : null}
-
-          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
-            <SigStatCard
-              titulo="Avisos"
-              valor={metricas.avisos}
-              subtitulo="Comunicados carregados"
-              icone={Megaphone}
-              destaque="cyan"
-            />
-
-            <SigStatCard
-              titulo="Avisos recentes"
-              valor={metricas.avisosRecentes}
-              subtitulo="Últimos 7 dias"
-              icone={Newspaper}
-              destaque="blue"
-            />
-
-            <SigStatCard
-              titulo="Notificações"
-              valor={metricas.notificacoes}
-              subtitulo="Histórico recente"
-              icone={Bell}
-              destaque="slate"
-            />
-
-            <SigStatCard
-              titulo="Não lidas"
-              valor={metricas.naoLidas}
-              subtitulo="Dependem de atenção"
-              icone={Bell}
-              destaque="red"
-            />
-
-            <SigStatCard
-              titulo="Canais integrados"
-              valor={metricas.canais}
-              subtitulo="Ferramentas disponíveis"
-              icone={Radio}
-              destaque="green"
-            />
-          </section>
-
-          {carregando ? (
-            <div className="sig-loading">
+          <header className="rounded-[30px] border border-cyan-400/20 bg-[radial-gradient(circle_at_top_right,rgba(34,211,238,.16),transparent_35%),linear-gradient(135deg,#081a34,#020817)] p-5 md:p-6">
+            <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
               <div>
-                <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-slate-700 border-t-cyan-400" />
-
-                <p className="mt-4 text-slate-400">
-                  Carregando comunicação institucional...
-                </p>
+                <p className="text-xs font-black uppercase tracking-[.2em] text-cyan-300">Comunicação integrada</p>
+                <h1 className="mt-1 text-3xl font-black tracking-tight">Tudo que precisa chegar, chega.</h1>
+                <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-300">Comunicação operacional em tempo real, avisos institucionais e notificações rastreáveis por usuário, perfil e município.</p>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Link href="/sistema/chat" className="inline-flex h-12 items-center gap-2 rounded-2xl bg-cyan-400 px-5 font-black text-slate-950"><Send className="h-5 w-5" />Nova mensagem</Link>
+                <Link href="/sistema/avisos" className="inline-flex h-12 items-center gap-2 rounded-2xl border border-white/10 bg-white/[.04] px-5 font-black"><Plus className="h-5 w-5" />Publicar aviso</Link>
+                <button onClick={() => usuario && void carregar(usuario)} className="inline-flex h-12 items-center gap-2 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 font-black text-cyan-200"><RefreshCw className={`h-5 w-5 ${carregando ? "animate-spin" : ""}`} />Atualizar</button>
               </div>
             </div>
-          ) : (
-            <>
-              <section className="grid gap-4 xl:grid-cols-12">
-                <SigCard className="xl:col-span-7">
-                  <CabecalhoSecao
-                    titulo="Atividade recente"
-                    subtitulo="Avisos e notificações mais recentes"
-                    icone={Radio}
-                  />
+          </header>
 
-                  <div className="mt-5 space-y-3">
-                    {atividadeRecente.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-700 p-10 text-center text-slate-500">
-                        Nenhuma atividade de comunicação encontrada.
-                      </div>
-                    ) : (
-                      atividadeRecente.map((item) => (
-                        <Link
-                          key={item.id}
-                          href={item.href}
-                          className="block rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:border-cyan-400/25"
-                        >
-                          <div className="flex items-start gap-3">
-                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/15 bg-cyan-400/[0.06] text-cyan-300">
-                              {item.tipo === "Aviso" ? (
-                                <Megaphone className="h-5 w-5" />
-                              ) : (
-                                <Bell className="h-5 w-5" />
-                              )}
-                            </div>
+          {erro ? <div className="rounded-2xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm font-bold text-rose-200">{erro}</div> : null}
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <p className="truncate font-black text-white">
-                                  {item.titulo}
-                                </p>
+          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <Resumo titulo="Conversas" valor={conversas.length} detalhe="Canais disponíveis" icone={MessageCircle} />
+            <Resumo titulo="Mensagens hoje" valor={mensagensHoje} detalhe="Movimentação interna" icone={Send} />
+            <Resumo titulo="Não lidas" valor={naoLidas} detalhe="Notificações pendentes" icone={Bell} />
+            <Resumo titulo="Avisos prioritários" valor={urgentes} detalhe="Alta e urgente" icone={Megaphone} />
+          </section>
 
-                                <span className="rounded-full border border-slate-700 px-2 py-0.5 text-[10px] font-black uppercase text-slate-400">
-                                  {item.tipo}
-                                </span>
-                              </div>
+          <section className="grid gap-4 lg:grid-cols-3">
+            <Canal href="/sistema/chat" titulo="Mensagens e Chat" descricao="Converse com usuários, equipes, guarnições e canais." icone={MessageCircle} valor={`${conversas.length} conversas`} />
+            <Canal href="/sistema/notificacoes" titulo="Notificações" descricao="Alertas automáticos, leitura e histórico de ações." icone={Bell} valor={`${naoLidas} não lidas`} />
+            <Canal href="/sistema/avisos" titulo="Avisos institucionais" descricao="Comunicados com prioridade, validade e público-alvo." icone={Megaphone} valor={`${avisos.length} publicados`} />
+          </section>
 
-                              <p className="mt-1 line-clamp-2 text-sm text-slate-400">
-                                {item.detalhe}
-                              </p>
-                            </div>
+          <section className="grid gap-5 xl:grid-cols-[1fr_340px]">
+            <article className="overflow-hidden rounded-3xl border border-white/10 bg-[#071225]">
+              <div className="flex flex-col gap-3 border-b border-white/10 p-5 sm:flex-row sm:items-center sm:justify-between">
+                <div><h2 className="font-black">Atividade recente</h2><p className="mt-1 text-xs text-slate-500">Mensagens, notificações e avisos em ordem cronológica.</p></div>
+                <label className="relative w-full sm:max-w-xs"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" /><input value={busca} onChange={(e) => setBusca(e.target.value)} placeholder="Pesquisar..." className="h-10 w-full rounded-xl border border-white/10 bg-[#020817] pl-10 pr-3 text-sm outline-none focus:border-cyan-400/40" /></label>
+              </div>
+              <div className="max-h-[560px] divide-y divide-white/[.07] overflow-y-auto">
+                {atividade.length === 0 ? <div className="p-14 text-center text-slate-500">Nenhuma atividade encontrada.</div> : atividade.map((item) => (
+                  <Link key={item.id} href={item.href} className="flex items-start gap-3 p-4 transition hover:bg-white/[.025]">
+                    <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/10"><MailOpen className="h-4 w-4 text-cyan-300" /></div>
+                    <div className="min-w-0 flex-1"><div className="flex items-start justify-between gap-3"><p className="truncate text-sm font-black">{item.titulo}</p><span className="shrink-0 text-[10px] text-slate-600">{dataCurta(item.data)}</span></div><p className="mt-1 line-clamp-2 text-xs leading-5 text-slate-500">{item.detalhe}</p><span className="mt-2 inline-flex rounded-full border border-white/10 px-2 py-0.5 text-[9px] font-black uppercase text-slate-500">{item.tipo}</span></div>
+                  </Link>
+                ))}
+              </div>
+            </article>
 
-                            <span className="shrink-0 text-xs text-slate-500">
-                              {item.data
-                                ? new Date(
-                                    item.data
-                                  ).toLocaleDateString(
-                                    "pt-BR"
-                                  )
-                                : "-"}
-                            </span>
-                          </div>
-                        </Link>
-                      ))
-                    )}
-                  </div>
-                </SigCard>
-
-                <SigCard
-                  className="xl:col-span-5"
-                  destaque
-                >
-                  <CabecalhoSecao
-                    titulo="Canais de comunicação"
-                    subtitulo="Integração institucional e operacional"
-                    icone={Users}
-                  />
-
-                  <div className="mt-5 space-y-3">
-                    <Canal
-                      titulo="Comunicação interna"
-                      descricao="Chat, avisos, notificações e agenda para equipes e comando."
-                    />
-
-                    <Canal
-                      titulo="Comunicação institucional"
-                      descricao="Feed SIG, blog operacional e publicações oficiais."
-                    />
-
-                    <Canal
-                      titulo="Integração nacional"
-                      descricao="Feed Brasil para compartilhamento entre municípios da rede."
-                    />
-                  </div>
-                </SigCard>
-              </section>
-
-              <section>
-                <div className="mb-4">
-                  <h2 className="text-2xl font-black text-white">
-                    Ferramentas de Comunicação
-                  </h2>
-
-                  <p className="mt-1 text-sm text-slate-400">
-                    Acesse os canais institucionais e operacionais.
-                  </p>
-                </div>
-
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {cards.map((card) => (
-                    <SigActionCard
-                      key={card.href}
-                      titulo={card.titulo}
-                      descricao={card.descricao}
-                      href={card.href}
-                      icone={card.icone}
-                      detalhe={card.detalhe}
-                    />
-                  ))}
-                </div>
-              </section>
-            </>
-          )}
+            <aside className="space-y-4">
+              <div className="rounded-3xl border border-emerald-400/20 bg-emerald-400/[.06] p-5"><ShieldCheck className="h-6 w-6 text-emerald-300" /><h3 className="mt-4 font-black text-emerald-200">Comunicação rastreável</h3><p className="mt-2 text-sm leading-6 text-emerald-100/65">Mensagens e publicações são vinculadas ao município e ao responsável.</p></div>
+              <div className="rounded-3xl border border-white/10 bg-[#071225] p-5"><div className="flex items-center gap-2"><CheckCheck className="h-5 w-5 text-cyan-300" /><h3 className="font-black">Boas práticas</h3></div><div className="mt-4 space-y-3 text-xs leading-5 text-slate-400"><p>Use prioridade urgente apenas quando houver necessidade operacional imediata.</p><p>Direcione mensagens restritas a usuários ou perfis específicos.</p><p>Evite compartilhar dados sensíveis em canais gerais.</p></div></div>
+            </aside>
+          </section>
         </div>
       </main>
     </ProtecaoModulo>
   );
 }
 
-function CabecalhoSecao({
-  titulo,
-  subtitulo,
-  icone: Icone,
-}: {
-  titulo: string;
-  subtitulo: string;
-  icone: typeof MessageCircle;
-}) {
-  return (
-    <div className="flex items-center gap-3 border-b border-slate-800 pb-4">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300">
-        <Icone className="h-5 w-5" />
-      </div>
-
-      <div>
-        <h2 className="font-black text-white">
-          {titulo}
-        </h2>
-
-        <p className="mt-0.5 text-xs text-slate-500">
-          {subtitulo}
-        </p>
-      </div>
-    </div>
-  );
+function Resumo({ titulo, valor, detalhe, icone: Icone }: { titulo: string; valor: number; detalhe: string; icone: LucideIcon }) {
+  return <div className="rounded-3xl border border-white/10 bg-[#071225] p-4"><Icone className="h-5 w-5 text-cyan-300" /><p className="mt-4 text-3xl font-black">{valor}</p><p className="mt-1 text-sm font-black">{titulo}</p><p className="mt-1 text-xs text-slate-500">{detalhe}</p></div>;
 }
 
-function Canal({
-  titulo,
-  descricao,
-}: {
-  titulo: string;
-  descricao: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.04] p-4">
-      <h3 className="font-black text-white">
-        {titulo}
-      </h3>
-
-      <p className="mt-2 text-sm leading-6 text-slate-400">
-        {descricao}
-      </p>
-    </div>
-  );
+function Canal({ href, titulo, descricao, icone: Icone, valor }: { href: string; titulo: string; descricao: string; icone: LucideIcon; valor: string }) {
+  return <Link href={href} className="group rounded-3xl border border-white/10 bg-[#071225] p-5 transition hover:-translate-y-0.5 hover:border-cyan-400/30"><div className="flex items-start justify-between"><div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-cyan-400/20 bg-cyan-400/10"><Icone className="h-6 w-6 text-cyan-300" /></div><ChevronRight className="h-5 w-5 text-slate-600 group-hover:text-cyan-300" /></div><h2 className="mt-5 font-black">{titulo}</h2><p className="mt-2 text-sm leading-6 text-slate-500">{descricao}</p><p className="mt-4 text-xs font-black text-cyan-300">{valor}</p></Link>;
 }

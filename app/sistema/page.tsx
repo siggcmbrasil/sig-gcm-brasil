@@ -1,5 +1,9 @@
 "use client";
 
+import "./dashboard-equilibrado.css";
+
+import "./dashboard-hierarquia.css";
+
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +15,7 @@ import {
   CalendarDays,
   CarFront,
   CheckCircle2,
+  ChevronRight,
   Clock3,
   MapPin,
   Megaphone,
@@ -18,6 +23,9 @@ import {
   RefreshCw,
   Shield,
   Users,
+  Radio,
+  ArrowUpRight,
+  LayoutDashboard,
 } from "lucide-react";
 
 import CardNoticiasClima from "@/components/dashboard/CardNoticiasClima";
@@ -220,20 +228,26 @@ function statusNormalizado(valor: unknown) {
 export default function Dashboard() {
   const [dados, setDados] = useState<DashboardState>(estadoInicial);
   const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
   const [agora, setAgora] = useState(new Date());
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(null);
 
   const usuario = useMemo(() => obterUsuarioLogado(), []);
   const municipioId = usuario?.municipio_id;
 
-  async function carregarDashboard() {
+  async function carregarDashboard(silencioso = false) {
     if (!municipioId || !usuario) {
       setErro("Município ou usuário não identificado.");
       setCarregando(false);
       return;
     }
 
-    setCarregando(true);
+    if (silencioso) {
+      setAtualizando(true);
+    } else {
+      setCarregando(true);
+    }
     setErro("");
 
     try {
@@ -391,6 +405,7 @@ export default function Dashboard() {
         fraseDoDia:
           (fraseResposta.data as DashboardState["fraseDoDia"]) || null,
       });
+      setUltimaAtualizacao(new Date());
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
       setErro(
@@ -400,6 +415,7 @@ export default function Dashboard() {
       );
     } finally {
       setCarregando(false);
+      setAtualizando(false);
     }
   }
 
@@ -420,11 +436,18 @@ export default function Dashboard() {
 
     void carregarDashboard();
 
-    const timer = window.setInterval(() => {
+    const relogio = window.setInterval(() => {
       setAgora(new Date());
     }, 1000);
 
-    return () => window.clearInterval(timer);
+    const atualizacaoAutomatica = window.setInterval(() => {
+      void carregarDashboard(true);
+    }, 300_000);
+
+    return () => {
+      window.clearInterval(relogio);
+      window.clearInterval(atualizacaoAutomatica);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -578,15 +601,63 @@ const ocorrenciasMapa = useMemo(
     timeZone: "America/Bahia",
   });
 
+  const ultimaAtualizacaoTexto = ultimaAtualizacao
+    ? ultimaAtualizacao.toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "--:--";
+
+  const nivelOperacional =
+    metricas.ocorrenciasAbertas > 0 || metricas.chamadosAbertos > 0
+      ? "ATENÇÃO OPERACIONAL"
+      : "OPERAÇÃO NORMAL";
+
+  const nivelOperacionalCritico =
+    metricas.ocorrenciasAbertas > 0 || metricas.chamadosAbertos > 0;
+
   return (
     <>
+
+      <style jsx global>{`
+        .sig-page {
+          height: auto !important;
+          min-height: 100vh;
+          overflow-y: visible !important;
+        }
+
+        .sig-page-content {
+          overflow: visible !important;
+        }
+
+        .sig-page-content .sig-stat-card,
+        .sig-page-content [data-sig-stat-card] {
+          min-width: 0;
+          height: 100%;
+        }
+
+        .sig-page-content .sig-stat-card h3,
+        .sig-page-content [data-sig-stat-card] h3 {
+          white-space: normal !important;
+          overflow: visible !important;
+          text-overflow: initial !important;
+          line-height: 1.2 !important;
+        }
+
+        @media (max-width: 1535px) {
+          .sig-page-content {
+            padding-left: 1rem;
+            padding-right: 1rem;
+          }
+        }
+      `}</style>
       <div className="block md:hidden">
         <TelaMobile />
       </div>
 
-      <div className="hidden md:block">
-        <main className="sig-page">
-          <div className="sig-page-content">
+      <div className="dashboardEquilibrado hidden md:block">
+        <main className="sig-page min-h-screen overflow-y-auto">
+          <div className="sig-page-content mx-auto w-full max-w-[1880px] space-y-2.5 px-3 pb-5 pt-2.5 lg:px-4 2xl:px-5">
             <SigPageHeader
               titulo="Centro de Comando"
               subtitulo={`${
@@ -594,8 +665,8 @@ const ocorrenciasMapa = useMemo(
                   ? `${dados.municipio.nome} - ${dados.municipio.estado}`
                   : "Município não identificado"
               } • ${dataExtenso} • ${horaAtual}`}
-              detalhe="SIG-GCM Brasil"
-              icone={Shield}
+              detalhe={`Atualizado às ${ultimaAtualizacaoTexto} • atualização automática a cada 5 minutos`}
+              icone={LayoutDashboard}
               acoes={
                 <>
                   <Link href="/sistema/notificacoes">
@@ -612,8 +683,8 @@ const ocorrenciasMapa = useMemo(
                     type="cyan"
                     icon={RefreshCw}
                     size="sm"
-                    loading={carregando}
-                    onClick={() => void carregarDashboard()}
+                    loading={atualizando}
+                    onClick={() => void carregarDashboard(true)}
                   >
                     Atualizar
                   </SigButton>
@@ -633,76 +704,124 @@ const ocorrenciasMapa = useMemo(
 
             {erro ? <div className="sig-error">{erro}</div> : null}
 
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-7">
-              <Link href="/sistema/escalas">
-                <SigStatCard
+            <section
+              className={`dashboardSituacaoCompacta flex flex-col gap-3 rounded-2xl border px-4 py-3 xl:flex-row xl:items-center xl:justify-between ${
+                nivelOperacionalCritico
+                  ? "border-amber-400/25 bg-amber-400/[0.06]"
+                  : "border-emerald-400/20 bg-emerald-400/[0.05]"
+              }`}
+            >
+              <div className="flex min-w-0 items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 items-center justify-center rounded-xl border ${
+                    nivelOperacionalCritico
+                      ? "border-amber-400/25 bg-amber-400/10 text-amber-300"
+                      : "border-emerald-400/25 bg-emerald-400/10 text-emerald-300"
+                  }`}
+                >
+                  <Radio className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-black uppercase tracking-[0.2em] text-slate-500">
+                    Situação do município
+                  </p>
+                  <p
+                    className={`mt-1 text-lg font-black ${
+                      nivelOperacionalCritico ? "text-amber-200" : "text-emerald-200"
+                    }`}
+                  >
+                    {nivelOperacional}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4 xl:w-auto">
+                <ResumoRapido rotulo="Ocorrências" valor={metricas.ocorrenciasAbertas} />
+                <ResumoRapido rotulo="Chamados" valor={metricas.chamadosAbertos} />
+                <ResumoRapido rotulo="Equipes" valor={metricas.equipesAtivas} />
+                <ResumoRapido rotulo="Viaturas" valor={metricas.viaturasOperacionais} />
+              </div>
+            </section>
+
+            <section className="dashboardAcoesCompactas grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
+              <AcaoRapida href="/sistema/central-ocorrencias" titulo="Central de ocorrências" detalhe="Consultar e registrar" icone={AlertTriangle} />
+              <AcaoRapida href="/sistema/chamados" titulo="Chamados" detalhe="Atendimento operacional" icone={PhoneCall} />
+              <AcaoRapida href="/sistema/mapa-operacional" titulo="Mapa operacional" detalhe="Visualização em tempo real" icone={MapPin} />
+              <AcaoRapida href="/sistema/escalas" titulo="Equipes e escalas" detalhe="Efetivo de serviço" icone={Users} />
+              <AcaoRapida href="/sistema/central-frota" titulo="Central de frota" detalhe="Viaturas e disponibilidade" icone={CarFront} />
+            </section>
+
+            <section className="dashboardResumoGrid grid gap-2 2xl:grid-cols-[minmax(0,1fr)_260px]">
+              <div className="dashboardIndicadoresPrincipais grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                <IndicadorCompacto
+                  href="/sistema/escalas"
                   titulo="Equipes em serviço"
                   valor={metricas.equipesAtivas}
-                  subtitulo={`${metricas.guardasEscalados} guardas escalados`}
+                  detalhe={`${metricas.guardasEscalados} guardas escalados`}
                   icone={Users}
                   destaque="green"
                 />
-              </Link>
 
-              <Link href="/sistema/central-ocorrencias">
-                <SigStatCard
+                <IndicadorCompacto
+                  href="/sistema/central-ocorrencias"
                   titulo="Ocorrências hoje"
                   valor={metricas.ocorrenciasHoje}
-                  subtitulo={`${metricas.ocorrenciasAbertas} pendentes`}
+                  detalhe={`${metricas.ocorrenciasAbertas} pendentes`}
                   icone={AlertTriangle}
                   destaque="red"
                 />
-              </Link>
 
-              <Link href="/sistema/chamados">
-                <SigStatCard
+                <IndicadorCompacto
+                  href="/sistema/chamados"
                   titulo="Chamados abertos"
                   valor={metricas.chamadosAbertos}
-                  subtitulo="Aguardando atendimento"
+                  detalhe="Aguardando atendimento"
                   icone={PhoneCall}
                   destaque="amber"
                 />
-              </Link>
 
-              <Link href="/sistema/central-frota">
-                <SigStatCard
+                <IndicadorCompacto
+                  href="/sistema/central-frota"
                   titulo="Viaturas operacionais"
                   valor={metricas.viaturasOperacionais}
-                  subtitulo={`${dados.viaturas.length} cadastradas`}
+                  detalhe={`${dados.viaturas.length} cadastradas`}
                   icone={CarFront}
                   destaque="blue"
                 />
-              </Link>
+              </div>
 
-              <Link href="/sistema/escalas/permutas">
-                <SigStatCard
+              <aside className="dashboardResumoSecundario rounded-2xl border border-slate-800 bg-[#07162b]/90 p-3">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.16em] text-cyan-300">
+                      Resumo administrativo
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Informações secundárias
+                    </p>
+                  </div>
+                  <BarChart3 className="h-5 w-5 text-cyan-300" />
+                </div>
+
+                <ResumoSecundario
+                  href="/sistema/escalas/permutas"
                   titulo="Permutas pendentes"
                   valor={metricas.permutasPendentes}
-                  subtitulo="Dependem de ação"
                   icone={CalendarDays}
-                  destaque="cyan"
                 />
-              </Link>
-
-              <Link href="/sistema/comunicacao">
-                <SigStatCard
+                <ResumoSecundario
+                  href="/sistema/comunicacao"
                   titulo="Avisos ativos"
                   valor={dados.avisos.length}
-                  subtitulo="Mural operacional"
                   icone={Megaphone}
-                  destaque="slate"
                 />
-              </Link>
-
-              <Link href="/sistema/estatisticas">
-                <SigStatCard
+                <ResumoSecundario
+                  href="/sistema/estatisticas"
                   titulo="Efetivo cadastrado"
                   valor={dados.guardas.length}
-                  subtitulo="Total do município"
-                  icone={BarChart3}
-                  destaque="cyan"
+                  icone={Users}
                 />
-              </Link>
+              </aside>
             </section>
 
             {carregando ? (
@@ -716,8 +835,8 @@ const ocorrenciasMapa = useMemo(
               </div>
             ) : (
               <>
-                <section className="grid gap-4 xl:grid-cols-12">
-                  <SigCard className="xl:col-span-8" padding="sm">
+                <section className="dashboardOperacionalGrid grid items-stretch gap-3 2xl:grid-cols-12">
+                  <SigCard className="dashboardMapaCard min-w-0 2xl:col-span-7" padding="sm">
                     <CabecalhoPainel
                       titulo="Mapa operacional"
                       subtitulo="Ocorrências e pontos operacionais do município"
@@ -732,20 +851,20 @@ const ocorrenciasMapa = useMemo(
                       }
                     />
 
-                    <div className="mt-4 h-[520px] overflow-hidden rounded-2xl border border-slate-800">
+                    <div className="dashboardMapaArea mt-2 h-[245px] min-h-[230px] overflow-hidden rounded-xl border border-slate-800 xl:h-[265px]">
                       <MapaOperacional ocorrencias={ocorrenciasMapa} />
                     </div>
                   </SigCard>
 
-                  <div className="space-y-4 xl:col-span-4">
-                    <SigCard>
+                  <div className="dashboardRail min-w-0 space-y-3 2xl:col-span-5">
+                    <SigCard className="dashboardRailCard">
                       <CabecalhoPainel
                         titulo="Equipes de serviço"
                         subtitulo={`${equipesHoje.length} equipe(s) identificada(s)`}
                         icone={Shield}
                       />
 
-                      <div className="mt-4 space-y-3">
+                      <div className="dashboardRailScroll mt-2 space-y-1.5">
                         {equipesHoje.length === 0 ? (
                           <p className="text-sm text-slate-500">
                             Nenhuma escala operacional cadastrada para hoje.
@@ -754,7 +873,7 @@ const ocorrenciasMapa = useMemo(
                           equipesHoje.map(([equipe, membros]) => (
                             <div
                               key={equipe}
-                              className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4"
+                              className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3.5"
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <strong className="text-cyan-300">
@@ -786,14 +905,14 @@ const ocorrenciasMapa = useMemo(
                       </div>
                     </SigCard>
 
-                    <SigCard>
+                    <SigCard className="dashboardRailCard">
                       <CabecalhoPainel
                         titulo="Últimas ocorrências"
                         subtitulo="Registros mais recentes"
                         icone={Activity}
                       />
 
-                      <div className="mt-4 space-y-3">
+                      <div className="dashboardRailScroll mt-2 space-y-1.5">
                         {dados.ocorrencias.length === 0 ? (
                           <p className="text-sm text-slate-500">
                             Nenhuma ocorrência registrada.
@@ -827,15 +946,15 @@ const ocorrenciasMapa = useMemo(
                   </div>
                 </section>
 
-                <section className="grid gap-4 xl:grid-cols-12">
-                  <SigCard className="xl:col-span-7">
+                <section className="dashboardComplementos grid items-start gap-3 xl:grid-cols-12">
+                  <SigCard className="dashboardAtividade xl:col-span-8">
                     <CabecalhoPainel
                       titulo="Atividade operacional"
                       subtitulo="Últimos eventos registrados"
                       icone={Clock3}
                     />
 
-                    <div className="mt-4 space-y-2">
+                    <div className="mt-2 space-y-1.5">
                       {atividades.length === 0 ? (
                         <p className="text-sm text-slate-500">
                           Nenhuma atividade recente.
@@ -874,14 +993,14 @@ const ocorrenciasMapa = useMemo(
                     </div>
                   </SigCard>
 
-                  <SigCard className="xl:col-span-5">
+                  <SigCard className="dashboardDatas xl:col-span-4">
                     <CabecalhoPainel
                       titulo="Datas e alertas"
                       subtitulo="Informações relevantes de hoje"
                       icone={CalendarDays}
                     />
 
-                    <div className="mt-4 space-y-3">
+                    <div className="mt-2 space-y-1.5">
                       {aniversariantesHoje.map((guarda) => (
                         <div
                           key={`aniv-${guarda.id}`}
@@ -899,7 +1018,7 @@ const ocorrenciasMapa = useMemo(
                       {dados.datasHoje.map((item) => (
                         <div
                           key={`data-${item.id}`}
-                          className="rounded-2xl border border-slate-800 bg-slate-950/45 p-4"
+                          className="rounded-2xl border border-slate-800 bg-slate-950/45 p-3.5"
                         >
                           <p className="font-black text-white">
                             {item.titulo}
@@ -935,7 +1054,7 @@ const ocorrenciasMapa = useMemo(
                   </SigCard>
                 </section>
 
-                <SigCard padding="none" className="overflow-hidden">
+                <SigCard padding="none" className="dashboardNoticias overflow-hidden">
                   <CardNoticiasClima />
                 </SigCard>
               </>
@@ -944,6 +1063,123 @@ const ocorrenciasMapa = useMemo(
         </main>
       </div>
     </>
+  );
+}
+
+function IndicadorCompacto({
+  href,
+  titulo,
+  valor,
+  detalhe,
+  icone: Icone,
+  destaque,
+}: {
+  href: string;
+  titulo: string;
+  valor: number;
+  detalhe: string;
+  icone: typeof Shield;
+  destaque: "green" | "red" | "amber" | "blue";
+}) {
+  const classes = {
+    green: "border-emerald-400/25 bg-emerald-400/10 text-emerald-300",
+    red: "border-rose-400/25 bg-rose-400/10 text-rose-300",
+    amber: "border-amber-400/25 bg-amber-400/10 text-amber-300",
+    blue: "border-blue-400/25 bg-blue-400/10 text-blue-300",
+  }[destaque];
+
+  return (
+    <Link
+      href={href}
+      className="dashboardIndicadorCompacto group flex min-h-[66px] items-center gap-2.5 rounded-xl border border-slate-800 bg-[#07162b]/90 px-3 py-2 transition hover:-translate-y-0.5 hover:border-cyan-400/25"
+    >
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border ${classes}`}>
+        <Icone className="h-5 w-5" />
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="text-[11px] font-black uppercase leading-tight tracking-[0.08em] text-slate-500">
+          {titulo}
+        </p>
+        <div className="mt-1 flex items-end gap-3">
+          <strong className="text-xl font-black leading-none text-white">
+            {valor}
+          </strong>
+          <span className="min-w-0 pb-0.5 text-xs leading-tight text-slate-400">
+            {detalhe}
+          </span>
+        </div>
+      </div>
+
+      <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-600 transition group-hover:text-cyan-300" />
+    </Link>
+  );
+}
+
+function ResumoSecundario({
+  href,
+  titulo,
+  valor,
+  icone: Icone,
+}: {
+  href: string;
+  titulo: string;
+  valor: number;
+  icone: typeof Shield;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group mt-1.5 flex min-h-[38px] items-center gap-2 rounded-lg border border-slate-800/80 bg-slate-950/40 px-2.5 py-1.5 transition hover:border-cyan-400/25"
+    >
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-400/15 bg-cyan-400/[0.06] text-cyan-300">
+        <Icone className="h-4 w-4" />
+      </div>
+      <p className="min-w-0 flex-1 text-xs font-bold text-slate-300">
+        {titulo}
+      </p>
+      <strong className="text-base font-black text-white">{valor}</strong>
+      <ChevronRight className="h-4 w-4 text-slate-600 transition group-hover:text-cyan-300" />
+    </Link>
+  );
+}
+
+function ResumoRapido({ rotulo, valor }: { rotulo: string; valor: number }) {
+  return (
+    <div className="min-w-[92px] rounded-xl border border-white/10 bg-slate-950/35 px-3 py-2 text-center">
+      <p className="text-xl font-black text-white">{valor}</p>
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+        {rotulo}
+      </p>
+    </div>
+  );
+}
+
+function AcaoRapida({
+  href,
+  titulo,
+  detalhe,
+  icone: Icone,
+}: {
+  href: string;
+  titulo: string;
+  detalhe: string;
+  icone: typeof Shield;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-3 rounded-2xl border border-slate-800 bg-slate-950/45 p-4 transition hover:-translate-y-0.5 hover:border-cyan-400/30 hover:bg-cyan-400/[0.04]"
+    >
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-cyan-400/20 bg-cyan-400/[0.07] text-cyan-300">
+        <Icone className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-black leading-tight text-white">{titulo}</p>
+        <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-500">{detalhe}</p>
+      </div>
+      <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-600 transition group-hover:text-cyan-300" />
+    </Link>
   );
 }
 
@@ -965,10 +1201,10 @@ function CabecalhoPainel({
           <Icone className="h-5 w-5" />
         </div>
 
-        <div>
-          <h2 className="font-black text-white">{titulo}</h2>
+        <div className="min-w-0">
+          <h2 className="font-black leading-tight text-white">{titulo}</h2>
           {subtitulo ? (
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
               {subtitulo}
             </p>
           ) : null}

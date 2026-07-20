@@ -1,0 +1,294 @@
+
+.feedsPremium {
+  --feed-bg: #020817;
+  --feed-surface: #071225;
+  --feed-surface-2: #09182e;
+  --feed-border: rgba(148, 163, 184, 0.12);
+  --feed-cyan: #22d3ee;
+  background:
+    radial-gradient(circle at 88% 0%, rgba(34, 211, 238, 0.10), transparent 30rem),
+    radial-gradient(circle at 0% 38%, rgba(59, 130, 246, 0.07), transparent 28rem),
+    linear-gradient(180deg, #020817 0%, #031025 100%) !important;
+}
+
+.feedsPremium .sig-page-content {
+  gap: 1rem !important;
+  padding-top: 1rem !important;
+}
+
+.feedsPremium .sig-page-header,
+.feedsPremium [data-sig-page-header] {
+  position: relative;
+  overflow: hidden;
+  min-height: 110px !important;
+  border: 1px solid rgba(34, 211, 238, 0.18) !important;
+  border-radius: 28px !important;
+  padding: 20px 22px !important;
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, .16), transparent 36%),
+    linear-gradient(135deg, rgba(10, 27, 53, .98), rgba(3, 12, 27, .98)) !important;
+  box-shadow: 0 26px 65px rgba(0,0,0,.28);
+}
+
+.feedsPremium .sig-page-header h1,
+.feedsPremium [data-sig-page-header] h1 {
+  font-size: clamp(1.9rem, 3vw, 3rem) !important;
+  letter-spacing: -0.045em !important;
+}
+
+.feedsPremium .sig-card,
+.feedsPremium [data-sig-card] {
+  border-color: var(--feed-border) !important;
+  border-radius: 24px !important;
+  background:
+    linear-gradient(145deg, rgba(9, 24, 46, .98), rgba(3, 12, 27, .98)) !important;
+  box-shadow: 0 16px 38px rgba(0,0,0,.18);
+}
+
+.feedsPremium input,
+.feedsPremium textarea,
+.feedsPremium select {
+  border-color: rgba(148,163,184,.14) !important;
+  background: rgba(2,8,23,.82) !important;
+  transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.feedsPremium input:focus,
+.feedsPremium textarea:focus,
+.feedsPremium select:focus {
+  border-color: rgba(34,211,238,.55) !important;
+  background: rgba(2,8,23,.98) !important;
+  box-shadow: 0 0 0 4px rgba(34,211,238,.08) !important;
+}
+
+.feedsPremium button,
+.feedsPremium a {
+  transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease;
+}
+
+.feedsPremium button:hover:not(:disabled),
+.feedsPremium a:hover {
+  transform: translateY(-1px);
+}
+
+/* Central de Feeds */
+.centralFeedsPremium .feedsStats .sig-stat-card,
+.centralFeedsPremium .feedsStats [data-sig-stat-card] {
+  min-height: 108px !important;
+  border-radius: 19px !important;
+  padding: 14px !important;
+}
+
+.centralFeedsPremium .feedsStats h2 {
+  font-size: 1.9rem !important;
+  line-height: 1 !important;
+}
+
+.centralFeedsPremium .feedsStats p:first-child {
+  white-space: normal !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+  font-size: .67rem !important;
+  line-height: 1.15 !important;
+}
+
+.centralFeedsPremium .feedsActivity {
+  min-height: 520px;
+}
+
+.centralFeedsPremium .feedsActivity .mt-5.space-y-3 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+
+.centralFeedsPremium .feedsActivity .mt-5.space-y-3 > * {
+  margin-top: 0 !important;
+}
+
+.centralFeedsPremium .feedsActivity a.block {
+  min-height: 150px;
+  border-radius: 18px !important;
+  padding: 15px !important;
+  background: rgba(2,8,23,.60) !important;
+}
+
+.centralFeedsPremium .feedsNetwork {
+  position: sticky;
+  top: 1rem;
+  align-self: start;
+}
+
+.centralFeedsPremium .feedsNetwork .space-y-3 > div {
+  padding: 13px !important;
+  border-radius: 16px !important;
+}
+
+.centralFeedsPremium .feedsMainGrid + section [data-sig-action-card],
+.centralFeedsPremium .feedsMainGrid + section .sig-action-card {
+  min-height: 145px !important;
+  padding: 16px !important;
+  border-radius: 20px !important;
+}
+
+/* Feed SIG */
+.feedSigPremium .sig-page-content {
+  max-width: 1320px !important;
+}
+
+.feedSigPremium .feedComposer {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(34,211,238,.20) !important;
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,.10), transparent 36%),
+    linear-gradient(145deg, rgba(10,27,53,.98), rgba(3,12,27,.98)) !important;
+}
+
+.feedSigPremium .feedComposer::before {
+  content: "CRIAR PUBLICAÇÃO";
+  display: inline-flex;
+  margin-bottom: 14px;
+  border: 1px solid rgba(34,211,238,.18);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(34,211,238,.07);
+  color: #67e8f9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .15em;
+}
+
+.feedSigPremium .feedComposer textarea {
+  min-height: 112px !important;
+  border-radius: 20px !important;
+}
+
+.feedSigPremium .feedComposer button[class*="bg-cyan"] {
+  border-radius: 15px !important;
+  background: linear-gradient(135deg,#22d3ee,#0ea5e9) !important;
+  color: #03111f !important;
+  box-shadow: 0 14px 30px rgba(14,165,233,.18);
+}
+
+.feedPostsGrid {
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.feedPostCard {
+  border-color: rgba(148,163,184,.13) !important;
+  border-radius: 26px !important;
+  background:
+    linear-gradient(145deg, rgba(8,22,43,.98), rgba(3,10,23,.98)) !important;
+  box-shadow: 0 22px 52px rgba(0,0,0,.24) !important;
+}
+
+.feedPostCard > div.p-5 {
+  padding: 20px !important;
+}
+
+.feedPostCard img {
+  max-height: 540px !important;
+  background: #010409 !important;
+}
+
+.feedPostCard .grid.grid-cols-3 {
+  background: rgba(2,8,23,.55);
+}
+
+.feedPostCard .grid.grid-cols-3 button {
+  min-height: 48px;
+}
+
+.feedPostCard [class*="coment"] {
+  scrollbar-width: thin;
+}
+
+/* Feed Brasil */
+.feedBrasilPremium .sig-page-content {
+  gap: 14px !important;
+}
+
+.feedBrasilPremium .sig-page-content > .sig-card:first-of-type,
+.feedBrasilPremium .sig-page-content > [data-sig-card]:first-of-type {
+  position: sticky;
+  top: .75rem;
+  z-index: 20;
+  padding: 12px !important;
+  background: rgba(7,18,37,.92) !important;
+  backdrop-filter: blur(18px);
+}
+
+.feedBrasilPremium .feedPostCard > div.p-5::before {
+  content: "REDE SIG BRASIL";
+  display: inline-flex;
+  margin-bottom: 14px;
+  border: 1px solid rgba(34,211,238,.16);
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: rgba(34,211,238,.06);
+  color: #67e8f9;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+@media (min-width: 1180px) {
+  .feedSigPremium .sig-page-content,
+  .feedBrasilPremium .sig-page-content {
+    padding-left: 24px !important;
+    padding-right: 24px !important;
+  }
+}
+
+@media (max-width: 1023px) {
+  .centralFeedsPremium .feedsActivity .mt-5.space-y-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .centralFeedsPremium .feedsNetwork {
+    position: static;
+  }
+}
+
+@media (max-width: 767px) {
+  .feedsPremium .sig-page-content {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+
+  .feedsPremium .sig-page-header,
+  .feedsPremium [data-sig-page-header] {
+    min-height: auto !important;
+    border-radius: 22px !important;
+    padding: 16px !important;
+  }
+
+  .centralFeedsPremium .feedsStats {
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+  }
+
+  .centralFeedsPremium .feedsStats .sig-stat-card,
+  .centralFeedsPremium .feedsStats [data-sig-stat-card] {
+    min-height: 96px !important;
+    padding: 12px !important;
+  }
+
+  .feedPostsGrid {
+    max-width: none;
+  }
+
+  .feedPostCard {
+    border-radius: 22px !important;
+  }
+
+  .feedPostCard > div.p-5 {
+    padding: 15px !important;
+  }
+
+  .feedSigPremium .feedComposer {
+    border-radius: 22px !important;
+  }
+}

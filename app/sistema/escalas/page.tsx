@@ -69,7 +69,7 @@ const atalhos = [
   {
     titulo: "Guarnição do dia",
     descricao: "Ver equipe do plantão atual",
-    href: "/sistema/escalas/guarnicao-dia",
+    href: "/sistema/escalas/escala-diaria",
     icone: Users,
   },
   {
@@ -139,7 +139,7 @@ export default function EscalasPage() {
                 </div>
 
                 <Link
-                  href="/sistema/escalas/guarnicao-dia"
+                  href="/sistema/escalas/escala-diaria"
                   className="text-sm font-bold text-blue-300 hover:text-blue-200"
                 >
                   Ver equipe

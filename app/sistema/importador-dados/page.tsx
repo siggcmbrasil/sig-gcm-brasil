@@ -126,7 +126,7 @@ export default function ImportadorDadosPage() {
         </Link>
 
         <Link
-          href="/sistema/importador-dados/json"
+          href="/sistema/importador-dados/csv"
           className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-cyan-500/60 transition"
         >
           <FileJson className="w-8 h-8 text-cyan-400 mb-3" />
@@ -156,7 +156,7 @@ export default function ImportadorDadosPage() {
         </Link>
 
         <Link
-          href="/sistema/importador-dados/historico"
+          href="/sistema/importador-dados"
           className="rounded-2xl border border-slate-800 bg-slate-950/70 p-5 hover:border-orange-500/60 transition"
         >
           <History className="w-8 h-8 text-orange-400 mb-3" />

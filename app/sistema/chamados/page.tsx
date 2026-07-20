@@ -1,5 +1,7 @@
 "use client";
 
+import "./formulario-premium.css";
+
 import {
   useEffect,
   useMemo,
@@ -803,13 +805,13 @@ export default function ChamadosPage() {
 
   return (
     <ProtecaoModulo modulo="chamados">
-      <main className="min-h-screen bg-slate-950 pb-24 text-white">
+      <main className="min-h-screen bg-slate-950 pb-32 text-white md:pb-24">
         <section className="border-b border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(14,165,233,0.17),transparent_38%),linear-gradient(180deg,#07111f_0%,#020617_100%)]">
-          <div className="mx-auto max-w-7xl px-4 py-6 md:px-6 md:py-9">
+          <div className="mx-auto max-w-7xl px-4 py-4 md:px-6 md:py-9">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-              <div className="flex items-start gap-4">
-                <div className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10 shadow-[0_0_35px_rgba(34,211,238,0.12)]">
-                  <ClipboardList className="h-7 w-7 text-cyan-300" />
+              <div className="flex items-start gap-3 md:gap-4">
+                <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl border border-cyan-400/30 bg-cyan-400/10 shadow-[0_0_35px_rgba(34,211,238,0.12)] md:h-14 md:w-14">
+                  <ClipboardList className="h-5 w-5 text-cyan-300 md:h-7 md:w-7" />
                 </div>
 
                 <div>
@@ -825,17 +827,17 @@ export default function ChamadosPage() {
                     )}
                   </div>
 
-                  <h1 className="text-2xl font-black tracking-tight md:text-4xl">
+                  <h1 className="text-xl font-black tracking-tight md:text-4xl">
                     Central de Chamados
                   </h1>
 
-                  <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-400 md:text-base">
+                  <p className="mt-1 hidden max-w-3xl text-sm leading-6 text-slate-400 sm:block md:mt-2 md:text-base">
                     Registre solicitações, acompanhe atendimentos e transforme chamados em ocorrências operacionais.
                   </p>
                 </div>
               </div>
 
-              <div className="flex flex-col gap-3 sm:flex-row">
+              <div className="hidden flex-col gap-3 sm:flex-row md:flex">
                 <button
                   type="button"
                   onClick={() => void carregarChamados()}
@@ -860,7 +862,7 @@ export default function ChamadosPage() {
           </div>
         </section>
 
-        <div className="mx-auto max-w-7xl space-y-5 px-4 py-5 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-4 px-3 py-4 sm:px-4 md:space-y-5 md:px-6 md:py-5">
           {erro && (
             <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-5">
               <div className="flex items-start gap-3">
@@ -887,7 +889,7 @@ export default function ChamadosPage() {
             </section>
           )}
 
-          <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <section className="-mx-3 flex snap-x gap-3 overflow-x-auto px-3 pb-1 sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 xl:grid-cols-5">
             <ResumoCard
               titulo="Total"
               valor={resumo.total}
@@ -920,8 +922,8 @@ export default function ChamadosPage() {
           </section>
 
           {painelFormularioAberto && (
-            <section className="overflow-hidden rounded-3xl border border-cyan-400/20 bg-slate-900/80 shadow-2xl shadow-black/20">
-              <div className="flex items-center justify-between gap-4 border-b border-white/10 px-5 py-4 md:px-6">
+            <section className="formularioChamadoPremium fixed inset-0 z-50 overflow-y-auto bg-slate-950 md:static md:overflow-hidden md:rounded-3xl md:border md:border-cyan-400/20 md:bg-slate-900/80 md:shadow-2xl md:shadow-black/20">
+              <div className="cabecalhoChamadoPremium sticky top-0 z-20 flex items-center justify-between gap-4 border-b border-white/10 bg-slate-950/95 px-4 py-4 backdrop-blur md:static md:bg-transparent md:px-6">
                 <div>
                   <h2 className="text-lg font-black">
                     {editandoId
@@ -947,7 +949,7 @@ export default function ChamadosPage() {
                 </button>
               </div>
 
-              <div className="grid gap-5 p-5 md:grid-cols-2 md:p-6 xl:grid-cols-3">
+              <div className="corpoChamadoPremium grid gap-5 p-4 pb-28 md:grid-cols-2 md:p-6 xl:grid-cols-3">
                 <Campo
                   label="Solicitante"
                   value={formulario.solicitante}
@@ -1129,7 +1131,7 @@ export default function ChamadosPage() {
                   </div>
                 )}
 
-                <div className="md:col-span-2 xl:col-span-3">
+                <div className="blocoNarrativaPremium md:col-span-2 xl:col-span-3">
                   <label className="mb-2 block text-sm font-semibold text-slate-200">
                     Observações
                   </label>
@@ -1147,13 +1149,13 @@ export default function ChamadosPage() {
                     className="input-seguro resize-y"
                   />
 
-                  <div className="mt-2 text-right text-xs text-slate-500">
+                  <div className="contadorChamadoPremium">
                     {formulario.observacao.length}/5000
                   </div>
                 </div>
               </div>
 
-              <div className="flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end md:px-6">
+              <div className="rodapeChamadoPremium flex flex-col-reverse gap-3 border-t border-white/10 px-5 py-4 sm:flex-row sm:justify-end md:px-6">
                 <button
                   type="button"
                   onClick={() => {
@@ -1170,7 +1172,7 @@ export default function ChamadosPage() {
                   type="button"
                   onClick={() => void salvarChamado()}
                   disabled={salvando}
-                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-6 py-3 font-black text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="botaoSalvarChamadoPremium inline-flex items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-6 py-3 font-black text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {salvando ? (
                     <>
@@ -1188,21 +1190,21 @@ export default function ChamadosPage() {
             </section>
           )}
 
-          <section className="rounded-3xl border border-white/10 bg-slate-900/70 p-4 shadow-2xl shadow-black/20 md:p-5">
-            <div className="mb-4 flex items-center gap-3">
+          <section className="sticky top-0 z-20 rounded-2xl border border-white/10 bg-slate-950/95 p-3 shadow-2xl shadow-black/20 backdrop-blur md:static md:rounded-3xl md:bg-slate-900/70 md:p-5">
+            <div className="mb-3 flex items-center gap-3 md:mb-4">
               <Filter className="h-5 w-5 text-cyan-300" />
 
               <div>
                 <h2 className="font-bold">Filtros</h2>
 
-                <p className="text-sm text-slate-500">
+                <p className="hidden text-sm text-slate-500 sm:block">
                   Pesquise por protocolo, solicitante, telefone, tipo ou local.
                 </p>
               </div>
             </div>
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
-              <div className="relative">
+            <div className="grid grid-cols-2 gap-2 md:gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px_auto]">
+              <div className="relative col-span-2 lg:col-span-1">
                 <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500" />
 
                 <input
@@ -1285,7 +1287,7 @@ export default function ChamadosPage() {
               )}
             </section>
           ) : (
-            <section className="grid gap-4 lg:grid-cols-2">
+            <section className="grid gap-3 md:gap-4 lg:grid-cols-2">
               {chamadosFiltrados.map((chamado) => {
                 const status = normalizarStatus(chamado.status);
                 const processando = processandoId === chamado.id;
@@ -1293,9 +1295,9 @@ export default function ChamadosPage() {
                 return (
                   <article
                     key={chamado.id}
-                    className="overflow-hidden rounded-3xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/10 transition hover:-translate-y-0.5 hover:border-cyan-400/25"
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-slate-900/70 shadow-xl shadow-black/10 transition hover:border-cyan-400/25 md:rounded-3xl md:hover:-translate-y-0.5"
                   >
-                    <div className="border-b border-white/10 p-5">
+                    <div className="border-b border-white/10 p-4 md:p-5">
                       <div className="flex items-start justify-between gap-4">
                         <div className="min-w-0">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1340,7 +1342,7 @@ export default function ChamadosPage() {
                       </div>
                     </div>
 
-                    <div className="space-y-3 p-5">
+                    <div className="space-y-3 p-4 md:p-5">
                       <LinhaResumo
                         icone={<MapPin className="h-4 w-4" />}
                         titulo="Local"
@@ -1378,7 +1380,7 @@ export default function ChamadosPage() {
                       />
                     </div>
 
-                    <div className="flex flex-wrap gap-2 border-t border-white/10 p-4">
+                    <div className="grid grid-cols-2 gap-2 border-t border-white/10 p-3 sm:flex sm:flex-wrap sm:p-4">
                       {permissoes?.pode_editar && (
                         <Acao
                           titulo="Editar"
@@ -1582,6 +1584,39 @@ export default function ChamadosPage() {
           </div>
         )}
 
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-slate-950/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur md:hidden">
+          <div className="mx-auto grid max-w-lg grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => void carregarChamados()}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/5 px-4 font-bold text-slate-200 active:scale-[0.98]"
+            >
+              <RefreshCw className="h-5 w-5" />
+              Atualizar
+            </button>
+
+            {permissoes?.pode_criar ? (
+              <button
+                type="button"
+                onClick={abrirNovoChamado}
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-4 font-black text-slate-950 active:scale-[0.98]"
+              >
+                <Plus className="h-5 w-5" />
+                Novo chamado
+              </button>
+            ) : (
+              <button
+                type="button"
+                disabled
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl bg-slate-800 px-4 font-bold text-slate-500"
+              >
+                <Plus className="h-5 w-5" />
+                Sem permissão
+              </button>
+            )}
+          </div>
+        </div>
+
         <style jsx global>{`
           .input-seguro {
             width: 100%;
@@ -1603,6 +1638,26 @@ export default function ChamadosPage() {
           .input-seguro:focus {
             border-color: rgba(34, 211, 238, 0.6);
             box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.1);
+          }
+
+          @media (max-width: 767px) {
+            .input-seguro {
+              min-height: 3.25rem;
+              font-size: 16px;
+              border-radius: 0.875rem;
+            }
+
+            select.input-seguro {
+              padding-right: 2.25rem;
+            }
+
+            button,
+            a,
+            input,
+            select,
+            textarea {
+              -webkit-tap-highlight-color: transparent;
+            }
           }
         `}</style>
       </main>
@@ -1648,7 +1703,7 @@ function ResumoCard({
   icone: ReactNode;
 }) {
   return (
-    <div className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-lg shadow-black/10">
+    <div className="min-w-[145px] snap-start rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-lg shadow-black/10 sm:min-w-0">
       <div className="flex items-center justify-between">
         <div className="grid h-10 w-10 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300">
           {icone}
@@ -1725,7 +1780,7 @@ function Acao({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${classes[destaque]}`}
+      className={`inline-flex w-full items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto sm:py-2.5 ${classes[destaque]}`}
     >
       {icone}
       {titulo}

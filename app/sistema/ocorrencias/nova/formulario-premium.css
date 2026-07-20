@@ -1,0 +1,273 @@
+
+/* Aparência Premium — formulário de ocorrência */
+.formularioOcorrenciaPremium {
+  --sig-bg: #020817;
+  --sig-surface: #071225;
+  --sig-surface-2: #0a1930;
+  --sig-border: rgba(148, 163, 184, 0.14);
+  --sig-cyan: #22d3ee;
+  --sig-text: #f8fafc;
+  --sig-muted: #94a3b8;
+  position: relative;
+  isolation: isolate;
+}
+
+.formularioOcorrenciaPremium::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 85% 0%, rgba(34, 211, 238, 0.13), transparent 26rem),
+    radial-gradient(circle at 5% 25%, rgba(14, 165, 233, 0.08), transparent 24rem);
+}
+
+.formularioOcorrenciaPremium .cabecalhoOcorrenciaPremium {
+  position: relative;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  border-radius: 1.75rem;
+  padding: 1.5rem;
+  background:
+    radial-gradient(circle at top right, rgba(34, 211, 238, 0.16), transparent 42%),
+    linear-gradient(135deg, #0a1b35 0%, #061126 55%, #020817 100%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.26);
+}
+
+.formularioOcorrenciaPremium .cabecalhoOcorrenciaPremium h1 {
+  margin: 0;
+  font-size: clamp(1.75rem, 3vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+  color: var(--sig-text);
+}
+
+.formularioOcorrenciaPremium .cabecalhoOcorrenciaPremium p {
+  max-width: 52rem;
+  color: #cbd5e1;
+}
+
+.formularioOcorrenciaPremium .formularioPrincipalOcorrencia {
+  border: 1px solid var(--sig-border) !important;
+  border-radius: 2rem !important;
+  padding: clamp(1rem, 2vw, 1.75rem) !important;
+  background:
+    linear-gradient(180deg, rgba(10, 25, 48, 0.98), rgba(5, 15, 31, 0.98)) !important;
+  box-shadow:
+    0 28px 70px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+.formularioOcorrenciaPremium .formularioPrincipalOcorrencia > * {
+  animation: sigFormFade 0.28s ease-out both;
+}
+
+.formularioOcorrenciaPremium .formularioPrincipalOcorrencia > section,
+.formularioOcorrenciaPremium .formularioPrincipalOcorrencia > div.rounded-xl,
+.formularioOcorrenciaPremium .formularioPrincipalOcorrencia > div.rounded-2xl {
+  border-color: var(--sig-border) !important;
+  border-radius: 1.5rem !important;
+  background: linear-gradient(145deg, rgba(12, 30, 56, 0.95), rgba(7, 18, 37, 0.95)) !important;
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.18);
+}
+
+.formularioOcorrenciaPremium .label {
+  display: block;
+  margin-bottom: 0.55rem;
+  color: #dbeafe !important;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.formularioOcorrenciaPremium .input,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.formularioOcorrenciaPremium select,
+.formularioOcorrenciaPremium textarea {
+  min-height: 3rem;
+  width: 100%;
+  border: 1px solid rgba(148, 163, 184, 0.17) !important;
+  border-radius: 0.95rem !important;
+  background: rgba(2, 8, 23, 0.82) !important;
+  color: #f8fafc !important;
+  outline: none !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+
+.formularioOcorrenciaPremium textarea {
+  min-height: 7rem;
+  padding-top: 0.9rem !important;
+}
+
+.formularioOcorrenciaPremium .input:hover,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):hover,
+.formularioOcorrenciaPremium select:hover,
+.formularioOcorrenciaPremium textarea:hover {
+  border-color: rgba(34, 211, 238, 0.28) !important;
+}
+
+.formularioOcorrenciaPremium .input:focus,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.formularioOcorrenciaPremium select:focus,
+.formularioOcorrenciaPremium textarea:focus {
+  border-color: rgba(34, 211, 238, 0.75) !important;
+  background: rgba(2, 8, 23, 0.98) !important;
+  box-shadow:
+    0 0 0 4px rgba(34, 211, 238, 0.1),
+    0 10px 26px rgba(0, 0, 0, 0.18) !important;
+}
+
+.formularioOcorrenciaPremium input::placeholder,
+.formularioOcorrenciaPremium textarea::placeholder {
+  color: #64748b !important;
+}
+
+.formularioOcorrenciaPremium select option {
+  background: #071225;
+  color: #f8fafc;
+}
+
+.formularioOcorrenciaPremium button {
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.formularioOcorrenciaPremium button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.formularioOcorrenciaPremium button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.formularioOcorrenciaPremium button.bg-\[\#07152e\],
+.formularioOcorrenciaPremium .btn-primary {
+  border: 1px solid rgba(34, 211, 238, 0.32) !important;
+  background: linear-gradient(135deg, #22d3ee, #0ea5e9) !important;
+  color: #03111f !important;
+  font-weight: 900 !important;
+  box-shadow: 0 12px 28px rgba(14, 165, 233, 0.18);
+}
+
+.formularioOcorrenciaPremium .text-\[\#C9A227\],
+.formularioOcorrenciaPremium .text-\[\#d6a93b\] {
+  color: #67e8f9 !important;
+}
+
+.formularioOcorrenciaPremium .border-\[\#C9A227\],
+.formularioOcorrenciaPremium .border-\[\#d6a93b\] {
+  border-color: rgba(34, 211, 238, 0.25) !important;
+}
+
+.formularioOcorrenciaPremium .bg-\[\#07152E\],
+.formularioOcorrenciaPremium .bg-\[\#0D1B34\] {
+  background-color: transparent !important;
+}
+
+.formularioOcorrenciaPremium h2,
+.formularioOcorrenciaPremium h3 {
+  letter-spacing: -0.02em;
+}
+
+.formularioOcorrenciaPremium h2 {
+  color: #f8fafc;
+}
+
+.formularioOcorrenciaPremium h3 {
+  color: #dff8ff;
+}
+
+.formularioOcorrenciaPremium .resumoFixoOcorrencia {
+  position: sticky;
+  top: 1rem;
+}
+
+@keyframes sigFormFade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 767px) {
+  .formularioOcorrenciaPremium {
+    background: #020817;
+  }
+
+  .formularioOcorrenciaPremium .cabecalhoOcorrenciaPremium {
+    margin: 0.75rem;
+    padding: 1.15rem;
+    border-radius: 1.35rem;
+  }
+
+  .formularioOcorrenciaPremium .formularioPrincipalOcorrencia {
+    border-radius: 1.35rem !important;
+    padding: 0.85rem !important;
+  }
+
+  .formularioOcorrenciaPremium .formularioPrincipalOcorrencia > section,
+  .formularioOcorrenciaPremium .formularioPrincipalOcorrencia > div.rounded-xl,
+  .formularioOcorrenciaPremium .formularioPrincipalOcorrencia > div.rounded-2xl {
+    border-radius: 1.15rem !important;
+  }
+
+  .formularioOcorrenciaPremium .input,
+  .formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+  .formularioOcorrenciaPremium select {
+    min-height: 3.15rem;
+  }
+}
+
+/* Ajuste solicitado: caixas de texto brancas */
+.formularioOcorrenciaPremium .input,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+.formularioOcorrenciaPremium select,
+.formularioOcorrenciaPremium textarea {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+  box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08) !important;
+}
+
+.formularioOcorrenciaPremium .input:hover,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):hover,
+.formularioOcorrenciaPremium select:hover,
+.formularioOcorrenciaPremium textarea:hover {
+  border-color: #67e8f9 !important;
+}
+
+.formularioOcorrenciaPremium .input:focus,
+.formularioOcorrenciaPremium input:not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus,
+.formularioOcorrenciaPremium select:focus,
+.formularioOcorrenciaPremium textarea:focus {
+  background: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #06b6d4 !important;
+  box-shadow: 0 0 0 4px rgba(6, 182, 212, 0.16), 0 10px 26px rgba(15, 23, 42, 0.12) !important;
+}
+
+.formularioOcorrenciaPremium input::placeholder,
+.formularioOcorrenciaPremium textarea::placeholder {
+  color: #64748b !important;
+  opacity: 1;
+}
+
+.formularioOcorrenciaPremium select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}

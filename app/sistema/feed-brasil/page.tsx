@@ -1,5 +1,7 @@
 "use client";
 
+import "../feeds-premium.css";
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
@@ -317,8 +319,8 @@ export default function FeedBrasilPage() {
 
   return (
     <ProtecaoModulo modulo="feed_sig">
-      <main className="sig-page">
-        <div className="sig-page-content mx-auto max-w-5xl">
+      <main className="sig-page feedsPremium feedBrasilPremium">
+        <div className="sig-page-content mx-auto w-full max-w-[1280px]">
           <SigPageHeader
             titulo="Feed Brasil"
             subtitulo="Rede institucional das Guardas Municipais que utilizam o SIG."
@@ -343,7 +345,7 @@ export default function FeedBrasilPage() {
 
           {erro ? <div className="sig-error">{erro}</div> : null}
 
-          <section className="space-y-5">
+          <section className="feedPostsGrid space-y-4">
             {carregando ? (
               <div className="sig-loading">
                 <Loader2 className="h-8 w-8 animate-spin text-cyan-300" />
@@ -377,7 +379,7 @@ export default function FeedBrasilPage() {
                 return (
                   <article
                     key={post.id}
-                    className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/80 shadow-xl"
+                    className="feedPostCard overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/80 shadow-xl"
                   >
                     <div className="p-5">
                       <div className="flex items-start gap-3">

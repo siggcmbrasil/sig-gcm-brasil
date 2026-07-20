@@ -1,5 +1,7 @@
 "use client";
 
+import "../feeds-premium.css";
+
 import Link from "next/link";
 import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -769,7 +771,7 @@ export default function FeedSIGPage() {
 
   return (
     <ProtecaoModulo modulo="feed_sig">
-      <main className="sig-page">
+      <main className="sig-page feedsPremium feedSigPremium">
         <div className="sig-page-content mx-auto max-w-5xl">
           <SigPageHeader
             titulo="Rede Interna SIG"
@@ -909,7 +911,7 @@ export default function FeedSIGPage() {
             </div>
           </SigCard>
 
-          <SigCard destaque>
+          <SigCard className="feedComposer" destaque>
             <div className="flex items-start gap-3">
               <Avatar
                 nome={usuario.nome || "GCM"}
@@ -1020,7 +1022,7 @@ export default function FeedSIGPage() {
             </div>
           </SigCard>
 
-          <section className="space-y-5">
+          <section className="feedPostsGrid space-y-4">
             {carregando ? (
               <div className="sig-loading">
                 <Loader2 className="h-8 w-8 animate-spin text-cyan-300" />
@@ -1056,7 +1058,7 @@ export default function FeedSIGPage() {
                 return (
                   <article
                     key={post.id}
-                    className="overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/80 shadow-xl"
+                    className="feedPostCard overflow-hidden rounded-3xl border border-slate-800 bg-slate-950/80 shadow-xl"
                   >
                     {post.fixado ? (
                       <div className="flex items-center gap-2 border-b border-amber-400/20 bg-amber-400/10 px-5 py-2 text-xs font-black uppercase text-amber-300">

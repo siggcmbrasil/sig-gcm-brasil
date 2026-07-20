@@ -1,0 +1,143 @@
+
+.dashboardCleanPremium {
+  background:
+    radial-gradient(circle at 82% 0%, rgba(34,211,238,.06), transparent 28rem),
+    linear-gradient(180deg, #020817 0%, #031023 100%);
+}
+
+.dashboardCleanPremium .sig-page-header,
+.dashboardCleanPremium [data-sig-page-header] {
+  min-height: 82px !important;
+  border-radius: 24px !important;
+  border-color: rgba(34,211,238,.16) !important;
+  padding: 14px 18px !important;
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,.12), transparent 34%),
+    linear-gradient(135deg, #08192f, #041026) !important;
+}
+
+.dashboardCleanPremium .sig-page-header h1,
+.dashboardCleanPremium [data-sig-page-header] h1 {
+  font-size: clamp(1.7rem, 2vw, 2.2rem) !important;
+  letter-spacing: -.04em !important;
+}
+
+.dashboardCleanStatus {
+  min-height: 54px;
+  backdrop-filter: blur(12px);
+}
+
+.dashboardCleanStats .sig-stat-card,
+.dashboardCleanStats [data-sig-stat-card] {
+  min-height: 112px !important;
+  padding: 14px !important;
+  border-radius: 20px !important;
+  background:
+    radial-gradient(circle at top right, rgba(34,211,238,.045), transparent 42%),
+    linear-gradient(145deg, rgba(8,24,46,.98), rgba(3,12,27,.98)) !important;
+  box-shadow: 0 12px 28px rgba(0,0,0,.18) !important;
+}
+
+.dashboardCleanStats .sig-stat-card h2,
+.dashboardCleanStats [data-sig-stat-card] h2 {
+  font-size: 2rem !important;
+  line-height: 1 !important;
+  margin-top: .45rem !important;
+}
+
+.dashboardCleanStats .sig-stat-card p,
+.dashboardCleanStats [data-sig-stat-card] p {
+  font-size: .72rem !important;
+}
+
+.dashboardCleanStats .sig-stat-card > div > div:last-child,
+.dashboardCleanStats [data-sig-stat-card] > div > div:last-child {
+  width: 42px !important;
+  height: 42px !important;
+  border-radius: 14px !important;
+}
+
+.dashboardCleanMapCard,
+.dashboardCleanSideCard,
+.dashboardCleanBottom > * {
+  border-radius: 22px !important;
+  border-color: rgba(148,163,184,.12) !important;
+  background:
+    linear-gradient(145deg, rgba(8,24,46,.98), rgba(3,12,27,.98)) !important;
+  box-shadow: 0 14px 34px rgba(0,0,0,.18);
+}
+
+.dashboardCleanMap {
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+}
+
+.dashboardCleanSidebar .dashboardCleanSideCard {
+  padding: 12px !important;
+}
+
+.dashboardCleanSidebar .dashboardCleanSideCard .mt-4 {
+  margin-top: .65rem !important;
+}
+
+.dashboardCleanSidebar .dashboardCleanSideCard .space-y-3 > :not([hidden]) ~ :not([hidden]) {
+  margin-top: .45rem !important;
+}
+
+.dashboardCleanSidebar .dashboardCleanSideCard p {
+  font-size: .72rem !important;
+}
+
+.dashboardCleanSidebar .dashboardCleanSideCard .rounded-2xl,
+.dashboardCleanSidebar .dashboardCleanSideCard a {
+  border-radius: 12px !important;
+  padding: 8px 9px !important;
+}
+
+.dashboardCleanBottom {
+  opacity: .88;
+}
+
+.dashboardCleanBottom .rounded-xl {
+  min-height: 40px;
+  padding: 7px 9px !important;
+}
+
+.dashboardCleanBottom .rounded-xl p:first-child {
+  font-size: .74rem !important;
+}
+
+.dashboardCleanBottom .rounded-xl p:nth-child(2) {
+  font-size: .64rem !important;
+}
+
+.dashboardCleanNews {
+  max-height: 205px;
+  border-radius: 20px !important;
+  overflow: hidden;
+}
+
+.dashboardCleanPremium footer {
+  margin-top: 8px !important;
+}
+
+@media (max-width: 1535px) {
+  .dashboardCleanMain {
+    grid-template-columns: minmax(0,1fr) 300px !important;
+  }
+
+  .dashboardCleanMap {
+    height: 430px !important;
+  }
+}
+
+@media (max-width: 1279px) {
+  .dashboardCleanMain {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dashboardCleanSidebar {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: .75rem;
+  }
+}
